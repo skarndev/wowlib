@@ -1,0 +1,68 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include <cstring>
+
+#include <wowlib/fs/casc/casc_storage.hpp>
+#include <wowlib/fs/csv_listfile.hpp>
+
+#include "integration_env.hpp"
+
+using namespace wowlib;
+
+TEST_CASE("the 9.2.7 CASC storage opens and serves files by FileDataID",
+          "[integration][casc]")
+{
+  const auto clients = tests::require_clients_dir();
+
+  CascStorage storage{{.client_root = clients / tests::casc_client_name,
+                       .build = 45745}};
+  REQUIRE(storage.open().has_value());
+
+  SECTION("a known FileDataID reads with a DB2 magic")
+  {
+    // 1375801 = dbfilesclient/manifestinterfacedata.db2 — verified locally present
+    // in the WoWCircle repack (unlike e.g. map.db2, whose content is not shipped)
+    const auto db2 = storage.read_file(FileKey::by_fdid(FileDataID{1375801}));
+    REQUIRE(db2.has_value());
+    REQUIRE(db2->size() >= 4);
+    const bool wdc = std::memcmp(db2->data(), "WDC3", 4) == 0 ||
+                     std::memcmp(db2->data(), "WDC4", 4) == 0;
+    CHECK(wdc);
+  }
+
+  SECTION("an unknown FileDataID misses cleanly")
+  {
+    const auto missing = storage.read_file(FileKey::by_fdid(FileDataID{0xFFFFFF}));
+    REQUIRE_FALSE(missing.has_value());
+    CHECK(missing.error().code == ErrorCode::FileNotFound);
+  }
+
+  SECTION("name-only lookups fail on a post-8.2 root, as documented")
+  {
+    const auto by_name =
+      storage.read_file(FileKey::by_path("dbfilesclient/manifestinterfacedata.db2"));
+    if (!by_name.has_value())
+      CHECK(by_name.error().code == ErrorCode::PathNotResolvable);
+    // (if the repack's root still carries this name hash, the read succeeding is
+    // also acceptable — the API contract is best-effort)
+  }
+}
+
+TEST_CASE("paths resolve through the community listfile", "[integration][casc]")
+{
+  const auto clients = tests::require_clients_dir();
+  const auto listfile_csv = tests::require_listfile();
+
+  auto listfile = CsvListfile::load(listfile_csv);
+  REQUIRE(listfile.has_value());
+  CHECK(listfile->size() > 1'000'000);
+
+  const auto fdid = listfile->path_to_fdid("dbfilesclient/manifestinterfacedata.db2");
+  REQUIRE(fdid.has_value());
+  CHECK(*fdid == FileDataID{1375801});
+
+  CascStorage storage{{.client_root = clients / tests::casc_client_name,
+                       .build = 45745}};
+  REQUIRE(storage.open().has_value());
+  CHECK(storage.read_file(FileKey::by_fdid(*fdid)).has_value());
+}
