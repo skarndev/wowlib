@@ -6,7 +6,7 @@
 
 #include <wowlib/core/path.hpp>
 
-namespace wowlib
+namespace wowlib::fs
 {
   namespace
   {
@@ -15,18 +15,18 @@ namespace wowlib
 
   ProjectDirectory::ProjectDirectory(ProjectDirectory&& other) noexcept
   {
-    std::unique_lock lock{other.mtx_};
-    root_ = std::move(other.root_);
-    index_ = std::move(other.index_);
+    std::unique_lock lock{other._mtx};
+    _root = std::move(other._root);
+    _index = std::move(other._index);
   }
 
   ProjectDirectory& ProjectDirectory::operator=(ProjectDirectory&& other) noexcept
   {
     if (this != &other)
     {
-      std::scoped_lock lock{mtx_, other.mtx_};
-      root_ = std::move(other.root_);
-      index_ = std::move(other.index_);
+      std::scoped_lock lock{_mtx, other._mtx};
+      _root = std::move(other._root);
+      _index = std::move(other._index);
     }
     return *this;
   }
@@ -47,48 +47,42 @@ namespace wowlib
                                     root.string(), ec.message()));
 
     ProjectDirectory result;
-    result.root_ = std::move(root);
-    result.index_tree_locked();   // no readers yet, lock not needed but harmless
+    result._root = std::move(root);
+    result.index_tree_locked();   // sole owner, no readers yet
     return result;
   }
 
   void ProjectDirectory::index_tree_locked()
   {
-    index_.clear();
+    _index.clear();
 
     std::error_code ec;
-    for (fsys::recursive_directory_iterator it{root_, ec}, end; !ec && it != end;
+    for (fsys::recursive_directory_iterator it{_root, ec}, end; !ec && it != end;
          it.increment(ec))
     {
       if (!it->is_regular_file(ec))
         continue;
 
-      auto relative = fsys::relative(it->path(), root_, ec);
+      auto relative = fsys::relative(it->path(), _root, ec);
       if (ec)
         continue;
 
-      // The .wowlib subdirectory holds wowlib's own metadata (FDID sidecar), not
-      // client-visible files.
-      const auto first = relative.begin();
-      if (first != relative.end() && first->string() == ".wowlib")
-        continue;
-
-      index_.insert_or_assign(normalize_path(relative.generic_string()), it->path());
+      _index.insert_or_assign(normalize_path(relative.generic_string()), it->path());
     }
   }
 
   void ProjectDirectory::rescan()
   {
-    std::unique_lock lock{mtx_};
+    std::unique_lock lock{_mtx};
     index_tree_locked();
   }
 
   std::optional<std::filesystem::path> ProjectDirectory::resolve(std::string_view path) const
   {
     const std::string canonical = normalize_path(path);
-    std::shared_lock lock{mtx_};
-    const auto it = index_.find(canonical);
-    return it == index_.end() ? std::nullopt : std::optional{it->second};
+    std::shared_lock lock{_mtx};
+    const auto it = _index.find(canonical);
+    return it == _index.end() ? std::nullopt : std::optional{it->second};
   }
 
   bool ProjectDirectory::exists(std::string_view path) const
@@ -127,7 +121,7 @@ namespace wowlib
     if (canonical.empty())
       return make_error(ErrorCode::InvalidPath, "cannot write an empty path");
 
-    const fsys::path on_disk = root_ / to_native_relative(canonical);
+    const fsys::path on_disk = _root / to_native_relative(canonical);
 
     std::error_code ec;
     fsys::create_directories(on_disk.parent_path(), ec);
@@ -148,14 +142,14 @@ namespace wowlib
       return make_error(ErrorCode::IoError,
                         std::format("I/O error writing '{}'", on_disk.string()));
 
-    std::unique_lock lock{mtx_};
-    index_.insert_or_assign(canonical, on_disk);
+    std::unique_lock lock{_mtx};
+    _index.insert_or_assign(canonical, on_disk);
     return {};
   }
 
   std::size_t ProjectDirectory::size() const
   {
-    std::shared_lock lock{mtx_};
-    return index_.size();
+    std::shared_lock lock{_mtx};
+    return _index.size();
   }
 }

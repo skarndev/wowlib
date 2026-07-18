@@ -7,13 +7,14 @@
 #include "integration_env.hpp"
 
 using namespace wowlib;
+using namespace wowlib::fs;
 
 TEST_CASE("the 3.3.5a client opens and serves known files", "[integration][mpq]")
 {
   const auto clients = tests::require_clients_dir();
 
   MpqStorage storage{{.data_dir = clients / tests::mpq_client_name / "Data",
-                      .version = ClientVersion::wotlk(),
+                      .version = versions::wotlk,
                       .locale = std::nullopt}};   // exercise auto-detection (enUS)
   REQUIRE(storage.open().has_value());
   CHECK(storage.locale() == Locale::enUS);

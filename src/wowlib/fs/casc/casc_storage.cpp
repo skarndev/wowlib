@@ -10,7 +10,7 @@
 
 #include <wowlib/core/path.hpp>
 
-namespace wowlib
+namespace wowlib::fs
 {
   namespace
   {
@@ -131,28 +131,28 @@ namespace wowlib
 
   Result<void> CascStorage::open()
   {
-    std::scoped_lock lock{mtx_};
-    if (storage_)
+    std::scoped_lock lock{_mtx};
+    if (_storage)
       return {};
 
-    const auto locale_mask = casc_locale_flag(options_.locale);
+    const auto locale_mask = casc_locale_flag(_options.locale);
 
     const auto try_open = [&](const fsys::path& local_path) -> HANDLE {
       CASC_OPEN_STORAGE_ARGS args{};
       args.Size = sizeof(args);
       const std::string path = local_path.string();
       args.szLocalPath = path.c_str();
-      args.szCodeName = options_.product.c_str();
+      args.szCodeName = _options.product.c_str();
       args.dwLocaleMask = locale_mask;
       HANDLE handle = nullptr;
       return CascOpenStorageEx(nullptr, &args, false, &handle) ? handle : nullptr;
     };
 
     // (a) a proper install: .build.info at the root (or discoverable from Data/)
-    for (const auto& root : {options_.client_root, options_.client_root / "Data"})
+    for (const auto& root : {_options.client_root, _options.client_root / "Data"})
       if (HANDLE handle = try_open(root))
       {
-        storage_ = handle;
+        _storage = handle;
         return {};
       }
     const auto plain_native = static_cast<std::uint32_t>(GetCascError());
@@ -161,12 +161,12 @@ namespace wowlib
     // in a shim directory and try until the storage opens. Only opening tells
     // which config the local data actually matches — repacks carry stale and
     // modified configs side by side.
-    auto candidates = scan_build_configs(options_.client_root / "Data" / "config");
+    auto candidates = scan_build_configs(_options.client_root / "Data" / "config");
     std::ranges::stable_sort(candidates, [&](const auto& a, const auto& b) {
-      if (options_.build)
+      if (_options.build)
       {
-        const bool a_match = a.build == *options_.build;
-        const bool b_match = b.build == *options_.build;
+        const bool a_match = a.build == *_options.build;
+        const bool b_match = b.build == *_options.build;
         if (a_match != b_match)
           return a_match;
       }
@@ -175,14 +175,14 @@ namespace wowlib
 
     for (const auto& candidate : candidates)
     {
-      auto shim = write_shim(options_.client_root / "Data", candidate.key,
-                             options_.product);
+      auto shim = write_shim(_options.client_root / "Data", candidate.key,
+                             _options.product);
       if (!shim)
         return std::unexpected(shim.error());
 
       if (HANDLE handle = try_open(*shim))
       {
-        storage_ = handle;
+        _storage = handle;
         return {};
       }
     }
@@ -191,32 +191,32 @@ namespace wowlib
       ErrorCode::StorageOpenFailed,
       std::format("CascOpenStorage failed for '{}' (product '{}'; no .build.info and "
                   "{} build config candidate(s) tried)",
-                  options_.client_root.string(), options_.product, candidates.size()),
+                  _options.client_root.string(), _options.product, candidates.size()),
       plain_native);
   }
 
   void CascStorage::close() noexcept
   {
-    std::scoped_lock lock{mtx_};
-    if (storage_)
+    std::scoped_lock lock{_mtx};
+    if (_storage)
     {
-      CascCloseStorage(storage_);
-      storage_ = nullptr;
+      CascCloseStorage(_storage);
+      _storage = nullptr;
     }
   }
 
   Result<FileBuffer> CascStorage::read_file(const FileKey& key)
   {
-    std::scoped_lock lock{mtx_};
-    if (!storage_)
+    std::scoped_lock lock{_mtx};
+    if (!_storage)
       return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
 
     HANDLE file = nullptr;
 
     if (key.fdid)
     {
-      if (CascOpenFile(storage_, CASC_FILE_DATA_ID(key.fdid->value),
-                       casc_locale_flag(options_.locale), CASC_OPEN_BY_FILEID, &file))
+      if (CascOpenFile(_storage, CASC_FILE_DATA_ID(key.fdid->value),
+                       casc_locale_flag(_options.locale), CASC_OPEN_BY_FILEID, &file))
         return read_open_file(file, std::format("FileDataID {}", key.fdid->value));
 
       const auto native = static_cast<std::uint32_t>(GetCascError());
@@ -229,7 +229,7 @@ namespace wowlib
     if (key.path)
     {
       const std::string name = casc_name(*key.path);
-      if (CascOpenFile(storage_, name.c_str(), casc_locale_flag(options_.locale),
+      if (CascOpenFile(_storage, name.c_str(), casc_locale_flag(_options.locale),
                        CASC_OPEN_BY_NAME, &file))
         return read_open_file(file, std::format("'{}'", name));
 
@@ -247,19 +247,19 @@ namespace wowlib
 
   bool CascStorage::exists(const FileKey& key)
   {
-    std::scoped_lock lock{mtx_};
-    if (!storage_)
+    std::scoped_lock lock{_mtx};
+    if (!_storage)
       return false;
 
     HANDLE file = nullptr;
     bool ok = false;
 
     if (key.fdid)
-      ok = CascOpenFile(storage_, CASC_FILE_DATA_ID(key.fdid->value),
-                        casc_locale_flag(options_.locale), CASC_OPEN_BY_FILEID, &file);
+      ok = CascOpenFile(_storage, CASC_FILE_DATA_ID(key.fdid->value),
+                        casc_locale_flag(_options.locale), CASC_OPEN_BY_FILEID, &file);
     else if (key.path)
-      ok = CascOpenFile(storage_, casc_name(*key.path).c_str(),
-                        casc_locale_flag(options_.locale), CASC_OPEN_BY_NAME, &file);
+      ok = CascOpenFile(_storage, casc_name(*key.path).c_str(),
+                        casc_locale_flag(_options.locale), CASC_OPEN_BY_NAME, &file);
 
     if (ok)
       CascCloseFile(file);

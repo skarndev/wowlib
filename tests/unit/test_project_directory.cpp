@@ -7,6 +7,7 @@
 #include <wowlib/fs/project_directory.hpp>
 
 using namespace wowlib;
+using wowlib::fs::ProjectDirectory;
 namespace fsys = std::filesystem;
 
 namespace
@@ -43,20 +44,16 @@ TEST_CASE("write/read round-trip with case-insensitive lookups", "[project-dir]"
   CHECK(project->read("world/maps/other.wdt").error().code == ErrorCode::FileNotFound);
 }
 
-TEST_CASE("opening an existing tree indexes it, skipping .wowlib metadata",
-          "[project-dir]")
+TEST_CASE("opening an existing tree indexes it", "[project-dir]")
 {
   const auto root = fresh_root("proj-index");
   fsys::create_directories(root / "Interface/GlueXML");
   std::ofstream{root / "Interface/GlueXML/GlueStrings.lua"} << "-- override";
-  fsys::create_directories(root / ".wowlib");
-  std::ofstream{root / ".wowlib/custom-listfile.csv"} << "1000000000;foo.blp\n";
 
   auto project = ProjectDirectory::open(root);
   REQUIRE(project.has_value());
   CHECK(project->size() == 1);
   CHECK(project->exists("interface/gluexml/gluestrings.lua"));
-  CHECK_FALSE(project->exists(".wowlib/custom-listfile.csv"));
 }
 
 TEST_CASE("rescan picks up files created behind wowlib's back", "[project-dir]")

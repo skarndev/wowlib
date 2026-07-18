@@ -12,6 +12,7 @@
 #include <wowlib/fs/storage_backend.hpp>
 
 using namespace wowlib;
+using namespace wowlib::fs;
 namespace fsys = std::filesystem;
 
 namespace
@@ -113,27 +114,35 @@ TEST_CASE("resolve fills the missing identity half from the listfile", "[client-
   CHECK(fs.read_file(FileKey{FileDataID{1349477}}).value() == bytes("WDC3..."));
 }
 
-TEST_CASE("add_file allocates a custom id on CASC and persists the sidecar",
+TEST_CASE("add_file allocates a custom id on CASC and persists it in the working "
+          "listfile",
           "[client-fs]")
 {
-  auto listfile = CsvListfile::load(fsys::path{WOWLIB_TEST_DATA_DIR} /
-                                      "sample-listfile.csv",
+  // the loaded CSV is the working database, so operate on a disposable copy
+  const auto csv = fsys::temp_directory_path() / "wowlib-tests" / "cfs-addfile.csv";
+  fsys::create_directories(csv.parent_path());
+  fsys::copy_file(fsys::path{WOWLIB_TEST_DATA_DIR} / "sample-listfile.csv", csv,
+                  fsys::copy_options::overwrite_existing);
+
+  auto listfile = CsvListfile::load(csv,
                                     {.custom_fdid_start = FileDataID{1'000'000'000}});
   REQUIRE(listfile.has_value());
 
   auto project = ProjectDirectory::open(fresh_root("cfs-addfile"));
   REQUIRE(project.has_value());
-  const auto sidecar = project->root() / ".wowlib/custom-listfile.csv";
 
   ClientFileSystem<FakeCascStorage, CsvListfile> fs{{}, std::move(*listfile),
                                                     std::move(*project)};
-  fs.set_sidecar(sidecar);
 
   const auto id = fs.add_file("world/maps/custom/custom.wdt", bytes("MVER"));
   REQUIRE(id.has_value());
   CHECK(*id == FileDataID{1'000'000'000});
   CHECK(fs.read_file(FileKey{*id}).value() == bytes("MVER"));
-  CHECK(fsys::is_regular_file(sidecar));
+
+  // the registration reached the working file
+  auto reloaded = CsvListfile::load(csv);
+  REQUIRE(reloaded.has_value());
+  CHECK(reloaded->path_to_fdid("world/maps/custom/custom.wdt") == *id);
 
   // overwriting keeps the id stable
   CHECK(fs.add_file("world/maps/custom/custom.wdt", bytes("MVER v2")).value() == *id);

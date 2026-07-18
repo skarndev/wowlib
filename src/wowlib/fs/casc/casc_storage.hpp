@@ -1,7 +1,14 @@
 #pragma once
 
+/** @file
+    The CascLib-backed storage for CASC-era clients. The header stays
+    CascLib-free — the storage handle is void* (CascLib's HANDLE). Not welded;
+    reached through the FileSystem facade or the ClientFileSystem composition. */
+
+#include <cstdint>
 #include <filesystem>
 #include <mutex>
+#include <optional>
 #include <string>
 
 #include <wowlib/core/buffer.hpp>
@@ -9,16 +16,15 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 
-namespace wowlib
+namespace wowlib::fs
 {
-  // Internal (not welded directly; reached through the FileSystem facade or the
-  // ClientFileSystem composition): the CascLib-backed storage for CASC-era clients.
-  // The header stays CascLib-free — the storage handle is void* (CascLib's HANDLE).
-
   /** Local CASC storage. FileDataID is the primary address; opening by name is a
       best-effort fallback that only works on clients whose root manifest still
       carries name hashes (pre-8.2) — on modern clients resolve paths through a
       listfile in the composition layer instead.
+
+      RAII: the destructor (and move-assignment onto an open storage) closes the
+      CascLib handle; moved-from storages are empty and safe to destroy.
 
       Thread safety: one mutex around the storage handle for the whole
       open-size-read-close sequence; CascLib handles are not documented
@@ -27,6 +33,7 @@ namespace wowlib
   class CascStorage
   {
   public:
+    /** What to open and how. */
     struct Options
     {
       std::filesystem::path client_root;   /**< Client install root (parent of Data/). */
@@ -37,8 +44,10 @@ namespace wowlib
                                                 without .build.info is opened. */
     };
 
+    /** Store the options; open() performs the work.
+        @param options what to open. */
     explicit CascStorage(Options options)
-      : options_(std::move(options))
+      : _options(std::move(options))
     {
     }
 
@@ -48,10 +57,10 @@ namespace wowlib
     CascStorage& operator=(const CascStorage&) = delete;
 
     CascStorage(CascStorage&& other) noexcept
-      : options_(std::move(other.options_))
-      , storage_(other.storage_)
+      : _options(std::move(other._options))
+      , _storage(other._storage)
     {
-      other.storage_ = nullptr;
+      other._storage = nullptr;
     }
 
     CascStorage& operator=(CascStorage&& other) noexcept
@@ -59,9 +68,9 @@ namespace wowlib
       if (this != &other)
       {
         close();
-        options_ = std::move(other.options_);
-        storage_ = other.storage_;
-        other.storage_ = nullptr;
+        _options = std::move(other._options);
+        _storage = other._storage;
+        other._storage = nullptr;
       }
       return *this;
     }
@@ -78,7 +87,8 @@ namespace wowlib
     /** Close the storage; safe to call repeatedly. */
     void close() noexcept;
 
-    bool is_open() const { return storage_ != nullptr; }
+    /** @return whether the storage handle is held. */
+    bool is_open() const { return _storage != nullptr; }
 
     /** Read a file into memory. Prefers the FileDataID; falls back to open-by-name
         for path-only keys (pre-8.2 clients only).
@@ -86,14 +96,17 @@ namespace wowlib
         @return the bytes, or FileNotFound / PathNotResolvable / EncryptedContent. */
     Result<FileBuffer> read_file(const FileKey& key);
 
-    /** Whether the file can be opened (probe open + close). */
+    /** Whether the file can be opened (probe open + close).
+        @param key the file identity.
+        @return true if a read would find it. */
     bool exists(const FileKey& key);
 
+    /** @return the storage technology tag (Casc). */
     static constexpr StorageKind kind() { return StorageKind::Casc; }
 
   private:
-    Options options_;
-    void* storage_ = nullptr;             // CascLib HANDLE
-    mutable std::mutex mtx_;
+    Options _options;
+    void* _storage = nullptr;             // CascLib HANDLE
+    mutable std::mutex _mtx;
   };
 }

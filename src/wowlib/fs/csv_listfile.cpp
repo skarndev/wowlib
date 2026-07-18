@@ -1,13 +1,15 @@
 #include <wowlib/fs/csv_listfile.hpp>
 
+#include <algorithm>
 #include <charconv>
 #include <format>
 #include <fstream>
 #include <mutex>
+#include <vector>
 
 #include <wowlib/core/path.hpp>
 
-namespace wowlib
+namespace wowlib::fs
 {
   namespace
   {
@@ -40,22 +42,22 @@ namespace wowlib
 
   CsvListfile::CsvListfile(CsvListfile&& other) noexcept
   {
-    std::unique_lock lock{other.mtx_};
-    path_to_id_ = std::move(other.path_to_id_);
-    id_to_path_ = std::move(other.id_to_path_);
-    custom_entries_ = std::move(other.custom_entries_);
-    allocator_ = other.allocator_;
+    std::unique_lock lock{other._mtx};
+    _source = std::move(other._source);
+    _path_to_id = std::move(other._path_to_id);
+    _id_to_path = std::move(other._id_to_path);
+    _allocator = other._allocator;
   }
 
   CsvListfile& CsvListfile::operator=(CsvListfile&& other) noexcept
   {
     if (this != &other)
     {
-      std::scoped_lock lock{mtx_, other.mtx_};
-      path_to_id_ = std::move(other.path_to_id_);
-      id_to_path_ = std::move(other.id_to_path_);
-      custom_entries_ = std::move(other.custom_entries_);
-      allocator_ = other.allocator_;
+      std::scoped_lock lock{_mtx, other._mtx};
+      _source = std::move(other._source);
+      _path_to_id = std::move(other._path_to_id);
+      _id_to_path = std::move(other._id_to_path);
+      _allocator = other._allocator;
     }
     return *this;
   }
@@ -68,11 +70,13 @@ namespace wowlib
                         std::format("cannot open listfile '{}'", csv.string()));
 
     CsvListfile result;
-    result.allocator_ = FdidAllocator{options.custom_fdid_start};
+    result._source = csv;
+    result._allocator = detail::FdidAllocator{options.custom_fdid_start};
 
-    // The community listfile is ~6M entries; reserving ahead avoids rehash storms.
-    result.path_to_id_.reserve(8'000'000);
-    result.id_to_path_.reserve(8'000'000);
+    // The community listfile is ~2M entries and growing; reserving ahead avoids
+    // rehash storms.
+    result._path_to_id.reserve(4'000'000);
+    result._id_to_path.reserve(4'000'000);
 
     std::string line;
     for (std::size_t line_no = 1; std::getline(file, line); ++line_no)
@@ -84,8 +88,11 @@ namespace wowlib
         continue;
 
       auto& [id, path] = **parsed;
-      result.id_to_path_.insert_or_assign(id, path);
-      result.path_to_id_.insert_or_assign(std::move(path), FileDataID{id});
+      result._id_to_path.insert_or_assign(id, path);
+      result._path_to_id.insert_or_assign(std::move(path), FileDataID{id});
+
+      // customizations from a previous session move the cursor past themselves
+      result._allocator.note_existing(FileDataID{id});
     }
 
     if (file.bad())
@@ -95,73 +102,19 @@ namespace wowlib
     return result;
   }
 
-  Result<void> CsvListfile::load_custom_entries(const std::filesystem::path& sidecar)
-  {
-    std::ifstream file{sidecar};
-    if (!file)
-      return make_error(ErrorCode::ListfileIoError,
-                        std::format("cannot open sidecar '{}'", sidecar.string()));
-
-    std::unique_lock lock{mtx_};
-
-    std::string line;
-    for (std::size_t line_no = 1; std::getline(file, line); ++line_no)
-    {
-      auto parsed = parse_line(line, line_no);
-      if (!parsed)
-        return std::unexpected(parsed.error());
-      if (!*parsed)
-        continue;
-
-      auto& [id, path] = **parsed;
-      custom_entries_.insert_or_assign(id, path);
-      id_to_path_.insert_or_assign(id, path);
-      path_to_id_.insert_or_assign(std::move(path), FileDataID{id});
-      allocator_.note_existing(FileDataID{id});
-    }
-
-    if (file.bad())
-      return make_error(ErrorCode::ListfileIoError,
-                        std::format("I/O error reading sidecar '{}'", sidecar.string()));
-
-    return {};
-  }
-
-  Result<void> CsvListfile::save_custom_entries(const std::filesystem::path& sidecar) const
-  {
-    std::shared_lock lock{mtx_};
-
-    std::error_code ec;
-    std::filesystem::create_directories(sidecar.parent_path(), ec);
-
-    std::ofstream file{sidecar, std::ios::trunc};
-    if (!file)
-      return make_error(ErrorCode::ListfileIoError,
-                        std::format("cannot write sidecar '{}'", sidecar.string()));
-
-    for (const auto& [id, path] : custom_entries_)
-      file << id << ';' << to_native_relative(path) << '\n';
-
-    if (!file.flush())
-      return make_error(ErrorCode::ListfileIoError,
-                        std::format("I/O error writing sidecar '{}'", sidecar.string()));
-
-    return {};
-  }
-
   std::optional<FileDataID> CsvListfile::path_to_fdid(std::string_view path) const
   {
     const std::string canonical = normalize_path(path);
-    std::shared_lock lock{mtx_};
-    const auto it = path_to_id_.find(canonical);
-    return it == path_to_id_.end() ? std::nullopt : std::optional{it->second};
+    std::shared_lock lock{_mtx};
+    const auto it = _path_to_id.find(canonical);
+    return it == _path_to_id.end() ? std::nullopt : std::optional{it->second};
   }
 
   std::optional<std::string> CsvListfile::fdid_to_path(FileDataID fdid) const
   {
-    std::shared_lock lock{mtx_};
-    const auto it = id_to_path_.find(fdid.value);
-    return it == id_to_path_.end() ? std::nullopt : std::optional{it->second};
+    std::shared_lock lock{_mtx};
+    const auto it = _id_to_path.find(fdid.value);
+    return it == _id_to_path.end() ? std::nullopt : std::optional{it->second};
   }
 
   Result<FileDataID> CsvListfile::register_path(std::string_view path)
@@ -170,32 +123,85 @@ namespace wowlib
     if (canonical.empty())
       return make_error(ErrorCode::InvalidPath, "cannot register an empty path");
 
-    std::unique_lock lock{mtx_};
+    std::unique_lock lock{_mtx};
 
-    if (path_to_id_.contains(canonical))
+    if (_path_to_id.contains(canonical))
       return make_error(ErrorCode::DuplicatePath,
                         std::format("path '{}' already has a FileDataID", canonical));
 
-    auto id = allocator_.next();
+    auto id = _allocator.next();
     if (!id)
       return std::unexpected(id.error());
 
-    custom_entries_.insert_or_assign(id->value, canonical);
-    id_to_path_.insert_or_assign(id->value, canonical);
-    path_to_id_.insert_or_assign(std::move(canonical), *id);
+    // persist first: on failure the in-memory maps stay untouched (the allocated
+    // id is skipped — gaps in the custom range are harmless)
+    if (!_source.empty())
+    {
+      // a user-supplied CSV may lack a trailing newline; appending must not glue
+      // onto its last line
+      bool needs_newline = false;
+      if (std::ifstream tail{_source, std::ios::binary | std::ios::ate}; tail)
+        if (const auto size = tail.tellg(); size > 0)
+        {
+          char last = '\n';
+          tail.seekg(-1, std::ios::end);
+          tail.get(last);
+          needs_newline = last != '\n';
+        }
+
+      std::ofstream file{_source, std::ios::app};
+      if (needs_newline)
+        file << '\n';
+      if (!file ||
+          !(file << id->value << ';' << to_native_relative(canonical) << '\n').flush())
+        return make_error(ErrorCode::ListfileIoError,
+                          std::format("cannot append to listfile '{}'", _source.string()));
+    }
+
+    _id_to_path.insert_or_assign(id->value, canonical);
+    _path_to_id.insert_or_assign(std::move(canonical), *id);
     return *id;
   }
 
   bool CsvListfile::contains(std::string_view path) const
   {
     const std::string canonical = normalize_path(path);
-    std::shared_lock lock{mtx_};
-    return path_to_id_.contains(canonical);
+    std::shared_lock lock{_mtx};
+    return _path_to_id.contains(canonical);
+  }
+
+  Result<void> CsvListfile::save() const
+  {
+    std::shared_lock lock{_mtx};
+
+    if (_source.empty())
+      return make_error(ErrorCode::ListfileIoError,
+                        "this listfile is in-memory only; nothing to save to");
+
+    std::vector<std::pair<std::uint32_t, const std::string*>> entries;
+    entries.reserve(_id_to_path.size());
+    for (const auto& [id, path] : _id_to_path)
+      entries.emplace_back(id, &path);
+    std::ranges::sort(entries, {}, &std::pair<std::uint32_t, const std::string*>::first);
+
+    std::ofstream file{_source, std::ios::trunc};
+    if (!file)
+      return make_error(ErrorCode::ListfileIoError,
+                        std::format("cannot write listfile '{}'", _source.string()));
+
+    for (const auto& [id, path] : entries)
+      file << id << ';' << to_native_relative(*path) << '\n';
+
+    if (!file.flush())
+      return make_error(ErrorCode::ListfileIoError,
+                        std::format("I/O error writing listfile '{}'", _source.string()));
+
+    return {};
   }
 
   std::size_t CsvListfile::size() const
   {
-    std::shared_lock lock{mtx_};
-    return path_to_id_.size();
+    std::shared_lock lock{_mtx};
+    return _path_to_id.size();
   }
 }

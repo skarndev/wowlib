@@ -4,7 +4,7 @@
 #include <format>
 #include <string>
 
-namespace wowlib
+namespace wowlib::fs::detail
 {
   namespace
   {
@@ -34,7 +34,7 @@ namespace wowlib
     };
 
     constexpr std::array chain_specs{
-      MpqChainSpec{ClientVersion::wotlk(), wotlk_entries},
+      MpqChainSpec{versions::wotlk, wotlk_entries},
     };
 
     std::string expand_locale(std::string_view pattern, std::string_view code)

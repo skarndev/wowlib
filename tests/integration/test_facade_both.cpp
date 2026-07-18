@@ -8,6 +8,7 @@
 #include "integration_env.hpp"
 
 using namespace wowlib;
+using namespace wowlib::fs;
 namespace fsys = std::filesystem;
 
 namespace
@@ -35,7 +36,7 @@ TEST_CASE("both clients work through the runtime facade alone",
   SECTION("3.3.5a")
   {
     auto fs = FileSystem::open({.client_path = clients / tests::mpq_client_name,
-                                .version = ClientVersion::wotlk(),
+                                .version = versions::wotlk,
                                 .project_directory = fresh_project("facade-mpq")});
     REQUIRE(fs.has_value());
     CHECK(fs->kind() == StorageKind::Mpq);
@@ -53,10 +54,16 @@ TEST_CASE("both clients work through the runtime facade alone",
 
   SECTION("9.2.7")
   {
-    const auto listfile_csv = tests::require_listfile();
+    // the supplied CSV is the working database registrations append to, so run
+    // against a disposable copy of the community listfile
+    const auto listfile_csv = fsys::temp_directory_path() / "wowlib-tests" /
+                              "facade-listfile.csv";
+    fsys::create_directories(listfile_csv.parent_path());
+    fsys::copy_file(tests::require_listfile(), listfile_csv,
+                    fsys::copy_options::overwrite_existing);
 
     auto fs = FileSystem::open({.client_path = clients / tests::casc_client_name,
-                                .version = ClientVersion::shadowlands(),
+                                .version = versions::shadowlands,
                                 .project_directory = fresh_project("facade-casc"),
                                 .listfile_csv = listfile_csv});
     REQUIRE(fs.has_value());
@@ -66,15 +73,15 @@ TEST_CASE("both clients work through the runtime facade alone",
     CHECK(fs->read_file("dbfilesclient/manifestinterfacedata.db2").has_value());
     CHECK(fs->read_file(FileDataID{1375801}).has_value());
 
-    // adding a new file allocates a custom id and persists the sidecar
+    // adding a new file allocates a custom id, persisted in the working listfile
     const auto id = fs->add_file("world/maps/custom/custom.wdt", bytes("MVER"));
     REQUIRE(id.has_value());
     CHECK(id->value >= 1'000'000'000);
     CHECK(fs->read_file("world/maps/custom/custom.wdt").value() == bytes("MVER"));
 
-    // a fresh open of the same project remembers the id (sidecar round-trip)
+    // a fresh open of the same project + listfile remembers the id
     auto again = FileSystem::open({.client_path = clients / tests::casc_client_name,
-                                   .version = ClientVersion::shadowlands(),
+                                   .version = versions::shadowlands,
                                    .project_directory =
                                      fsys::temp_directory_path() / "wowlib-tests" /
                                      "facade-casc",

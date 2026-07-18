@@ -3,6 +3,7 @@
 #include <wowlib/fs/fdid_allocator.hpp>
 
 using namespace wowlib;
+using wowlib::fs::detail::FdidAllocator;
 
 TEST_CASE("allocation is monotonic from the configured start", "[fdid]")
 {
@@ -12,7 +13,7 @@ TEST_CASE("allocation is monotonic from the configured start", "[fdid]")
   CHECK(alloc.peek() == FileDataID{5002});
 }
 
-TEST_CASE("note_existing bumps past sidecar ids", "[fdid]")
+TEST_CASE("note_existing bumps past previously used ids", "[fdid]")
 {
   FdidAllocator alloc{FileDataID{5000}};
   alloc.note_existing(FileDataID{7000});

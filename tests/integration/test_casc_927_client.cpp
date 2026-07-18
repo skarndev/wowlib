@@ -8,6 +8,7 @@
 #include "integration_env.hpp"
 
 using namespace wowlib;
+using namespace wowlib::fs;
 
 TEST_CASE("the 9.2.7 CASC storage opens and serves files by FileDataID",
           "[integration][casc]")

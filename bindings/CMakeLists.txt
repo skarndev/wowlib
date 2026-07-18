@@ -17,10 +17,18 @@ if(WOWLIB_BUILD_PYTHON)
                                                    # scanning breaks macro-reliant deps
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python)
 
-  # .pyi typing stub via nanobind's bundled stubgen (imports the built module).
+  # .pyi typing stubs via nanobind's bundled stubgen (imports the built module).
+  # RECURSIVE discovers the submodules (the C++ namespaces) itself and writes a
+  # package stub tree under OUTPUT_PATH; OUTPUT lists the expected files for the
+  # build graph (extend when a new namespace is added).
+  set(_wowlib_stubs ${CMAKE_CURRENT_BINARY_DIR}/python/stubs)
   nanobind_add_stub(wowlib_pyi
     MODULE wowlib
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/python/wowlib.pyi
+    RECURSIVE
+    OUTPUT_PATH ${_wowlib_stubs}
+    OUTPUT ${_wowlib_stubs}/wowlib/__init__.pyi
+           ${_wowlib_stubs}/wowlib/fs.pyi
+           ${_wowlib_stubs}/wowlib/versions.pyi
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)
 

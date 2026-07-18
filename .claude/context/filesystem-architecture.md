@@ -43,11 +43,33 @@ translate to exceptions at the welder layer.
   exclusive mutation. `FdidAllocator` is serialized by its owner's exclusive lock.
 - open()/close() are NOT thread-safe; initialize before sharing.
 
-## Documentation / annotation policy (user-set convention)
-Public bound API → welder P3394 annotations (`[[=welder::weld(py, lua)]]`,
-`=welder::doc/returns/tparam/weld_as/mark::include...`, vocabulary from
-`<welder/vocabulary.hpp>`). Internal, never-bound entities (concepts, chain
-tables, path utils, backend internals) → plain Doxygen `/** */` (autobrief, no
-`///`). Classes with lock members etc. use `policy::opt_in` + `mark::include` per
-method. `-freflection` is PUBLIC on the wowlib target (annotations need it in
-every including TU); welder checks but does not propagate the flag itself.
+## Namespaces (review decision 2026-07-18)
+- `wowlib` — core vocabulary (FileDataID, FileKey, Error, Result, ClientVersion,
+  Locale, StorageKind, path utils, enum_name).
+- `wowlib::versions` — last-minor-of-major `inline constexpr ClientVersion`
+  CONSTANTS (not factory functions): `versions::wotlk`, no `()`.
+- `wowlib::fs` — everything filesystem: storages, listfile providers, overlay,
+  ClientFileSystem, FileSystem facade, FileSystemSettings.
+- `wowlib::fs::detail` — implementation details (mpq chain tables, FdidAllocator).
+  Never welded. Python/Lua modules mirror the namespaces as submodules.
+
+## Documentation / annotation policy (user-set conventions)
+- Public bound API → welder P3394 annotations; vocabulary from
+  `<welder/vocabulary.hpp>`. Policy: default (automatic) — public members bind,
+  no `mark::include` spam; `mark::exclude` only for public members that must not
+  bind (unwelded return types, C++-only ctors).
+- Argument docs go AFTER the argument (`T name [[=welder::doc("...")]]`), each
+  annotated argument on its own line.
+- Multiline doc text uses raw string literals starting with a newline
+  (`=welder::doc(R"(\n    text...)")`); single-liners stay plain strings.
+- Do NOT use weld_as to split overloads — welder merges overloads natively.
+- Internal, never-bound entities → Doxygen `/** */` (autobrief), thorough:
+  @file block on every header, @tparam/@param/@return everywhere.
+- Members: `_` PREFIX for private/protected (`_mtx`, not `mtx_`).
+- `-freflection` is PUBLIC on the wowlib target; welder checks but does not
+  propagate the flag itself.
+
+## RAII
+Storages close in their destructors; move-assignment onto an open storage closes
+it first; moved-from storages are empty and safe to destroy. No manual close
+needed (close() stays available for early release).

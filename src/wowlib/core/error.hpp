@@ -1,5 +1,10 @@
 #pragma once
 
+/** @file
+    The error-handling vocabulary: ErrorCode, Error and the Result<T> alias every
+    fallible wowlib operation returns. Bindings translate the error branch into
+    target-language exceptions. */
+
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -13,8 +18,9 @@ namespace wowlib
   enum class
   [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("Machine-readable failure category carried by every Error; also "
-                 "names the exception category bindings raise.")
+    =welder::doc(R"(
+        Machine-readable failure category carried by every Error; also names the
+        exception category bindings raise.)")
   ]]
   ErrorCode : std::uint32_t
   {
@@ -25,7 +31,7 @@ namespace wowlib
     PathNotResolvable,   /**< No FileDataID is known for the given path (listfile miss). */
     FdidNotResolvable,   /**< No path is known for the given FileDataID. */
     ListfileParseError,  /**< Malformed listfile CSV content. */
-    ListfileIoError,     /**< Listfile or sidecar file could not be read/written. */
+    ListfileIoError,     /**< The listfile could not be read or written. */
     FdidSpaceExhausted,  /**< The custom FileDataID allocator ran out of u32 space. */
     DuplicatePath,       /**< Registering a path that already has a FileDataID. */
     InvalidPath,         /**< A path that cannot be normalized/used. */
@@ -44,9 +50,10 @@ namespace wowlib
   struct
   [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A wowlib operation failure: a machine-readable code, a human-readable "
-                 "message, and the originating native (StormLib/CascLib/OS) error value "
-                 "when one exists.")
+    =welder::doc(R"(
+        A wowlib operation failure: a machine-readable code, a human-readable
+        message, and the originating native (StormLib/CascLib/OS) error value when
+        one exists.)")
   ]]
   Error
   {
@@ -55,21 +62,23 @@ namespace wowlib
     [[=welder::doc("Human-readable description of what failed, with context.")]]
     std::string message;
 
-    [[=welder::doc("Raw GetCascError()/GetLastError() value from the native library, "
-                   "0 if not applicable.")]]
+    [[=welder::doc(R"(
+        Raw GetCascError()/GetLastError() value from the native library, 0 if not
+        applicable.)")]]
     std::uint32_t native_error = 0;
   };
 
-  /** The core error-handling vocabulary: every fallible wowlib operation returns
-      `Result<T>`; bindings translate the error branch into a target-language
-      exception. */
+  /** Every fallible wowlib operation returns `Result<T>`; bindings translate the
+      error branch into a target-language exception.
+      @tparam T the success payload (`void` for pure effects). */
   template <typename T>
   using Result = std::expected<T, Error>;
 
   /** Shorthand for constructing the error branch of a Result.
       @param code         the failure category.
       @param message      human-readable context.
-      @param native_error raw native library error value, if any. */
+      @param native_error raw native library error value, if any.
+      @return an unexpected convertible to any Result<T>. */
   inline std::unexpected<Error> make_error(ErrorCode code, std::string message,
                                            std::uint32_t native_error = 0)
   {

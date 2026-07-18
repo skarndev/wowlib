@@ -1,13 +1,14 @@
 #pragma once
 
+/** @file
+    Client-internal path canonicalization. Not welded — bound types accept plain
+    strings and normalize at the boundary. */
+
 #include <string>
 #include <string_view>
 
 namespace wowlib
 {
-  // Internal path utilities — not welded; bound types accept plain strings and
-  // normalize at the boundary.
-
   /** Canonicalize a client-internal file path.
 
       Canonical form is lowercase ASCII with backslash separators — the MPQ hashing

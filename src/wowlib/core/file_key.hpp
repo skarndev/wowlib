@@ -1,5 +1,9 @@
 #pragma once
 
+/** @file
+    File identity types: the strong FileDataID and the FileKey a read request
+    travels as. */
+
 #include <compare>
 #include <cstdint>
 #include <functional>
@@ -16,9 +20,9 @@ namespace wowlib
   struct
   [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A strongly-typed FileDataID — the numeric file identifier used by "
-                 "CASC-era clients (u32, matching the client's root manifest and DB2 "
-                 "references).")
+    =welder::doc(R"(
+        A strongly-typed FileDataID — the numeric file identifier used by CASC-era
+        clients (u32, matching the client's root manifest and DB2 references).)")
   ]]
   FileDataID
   {
@@ -31,9 +35,10 @@ namespace wowlib
   struct
   [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A file request: by client-internal path, by FileDataID, or both. "
-                 "Which part is authoritative depends on the storage backend handling "
-                 "the request; the stored path is always in canonical form.")
+    =welder::doc(R"(
+        A file request: by client-internal path, by FileDataID, or both. Which part
+        is authoritative depends on the storage backend handling the request; the
+        stored path is always in canonical form.)")
   ]]
   FileKey
   {
@@ -45,22 +50,26 @@ namespace wowlib
 
     FileKey() = default;
 
-    [[=welder::doc("A path-only key; the path is canonicalized here and may use "
-                   "any accepted spelling.")]]
-    FileKey([[=welder::doc("the client-internal file path")]] std::string_view file_path)
+    [[=welder::doc(R"(
+        A path-only key; the path is canonicalized here and may use any accepted
+        spelling.)")]]
+    FileKey(
+      std::string_view file_path [[=welder::doc("the client-internal file path")]])
       : path(normalize_path(file_path))
     {
     }
 
     [[=welder::doc("An id-only key.")]]
-    FileKey([[=welder::doc("the numeric file identifier")]] FileDataID file_id)
+    FileKey(
+      FileDataID file_id [[=welder::doc("the numeric file identifier")]])
       : fdid(file_id)
     {
     }
 
     [[=welder::doc("A key carrying both identities of one file.")]]
-    FileKey([[=welder::doc("the client-internal file path")]] std::string_view file_path,
-            [[=welder::doc("the numeric file identifier")]] FileDataID file_id)
+    FileKey(
+      std::string_view file_path [[=welder::doc("the client-internal file path")]],
+      FileDataID file_id [[=welder::doc("the numeric file identifier")]])
       : fdid(file_id)
       , path(normalize_path(file_path))
     {

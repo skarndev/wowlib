@@ -1,51 +1,45 @@
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 
 #include <format>
+#include <ranges>
 
 #define STORMLIB_NO_AUTO_LINK
 #include <StormLib.h>
 
-namespace wowlib
+namespace wowlib::fs
 {
-  namespace
-  {
-    // Canonical form already uses backslashes — StormLib's separator — so keys
-    // pass through unchanged; this is just the null-terminated copy.
-    std::string storm_name(const std::string& canonical_path) { return canonical_path; }
-  }
-
   Result<void> MpqStorage::open()
   {
     if (is_open())
       return {};
 
-    const MpqChainSpec* spec = find_chain_spec(options_.version);
+    const detail::MpqChainSpec* spec = detail::find_chain_spec(_options.version);
     if (!spec)
       return make_error(ErrorCode::StorageOpenFailed,
                         std::format("no MPQ chain table for client {}.{}.{} (build {})",
-                                    options_.version.major, options_.version.minor,
-                                    options_.version.patch, options_.version.build));
+                                    _options.version.major, _options.version.minor,
+                                    _options.version.patch, _options.version.build));
 
-    locale_ = options_.locale ? options_.locale : detect_locale(options_.data_dir);
-    if (!locale_)
+    _locale = _options.locale ? _options.locale : detail::detect_locale(_options.data_dir);
+    if (!_locale)
     {
-      const auto found = detect_locales(options_.data_dir);
+      const auto found = detail::detect_locales(_options.data_dir);
       return make_error(
         ErrorCode::StorageOpenFailed,
         found.empty()
-          ? std::format("no locale directory found under '{}'", options_.data_dir.string())
+          ? std::format("no locale directory found under '{}'", _options.data_dir.string())
           : std::format("{} locale directories found under '{}'; pass one explicitly",
-                        found.size(), options_.data_dir.string()));
+                        found.size(), _options.data_dir.string()));
     }
 
-    auto chain = expand_chain(*spec, options_.data_dir, *locale_);
+    auto chain = detail::expand_chain(*spec, _options.data_dir, *_locale);
     if (!chain)
       return std::unexpected(chain.error());
     if (chain->empty())
       return make_error(ErrorCode::StorageOpenFailed,
                         std::format("no archives of the {}.{}.{} chain exist under '{}'",
-                                    options_.version.major, options_.version.minor,
-                                    options_.version.patch, options_.data_dir.string()));
+                                    _options.version.major, _options.version.minor,
+                                    _options.version.patch, _options.data_dir.string()));
 
     for (const auto& archive_path : *chain)
     {
@@ -66,7 +60,7 @@ namespace wowlib
                                       archive_path.string()),
                           static_cast<std::uint32_t>(native));
       }
-      archives_.push_back(OpenedArchive{archive_path, handle,
+      _archives.push_back(OpenedArchive{archive_path, handle,
                                         std::make_unique<std::mutex>()});
     }
     return {};
@@ -74,10 +68,10 @@ namespace wowlib
 
   void MpqStorage::close() noexcept
   {
-    for (auto& archive : archives_)
+    for (auto& archive : _archives)
       if (archive.handle)
         SFileCloseArchive(archive.handle);
-    archives_.clear();
+    _archives.clear();
   }
 
   Result<FileBuffer> MpqStorage::read_file(const FileKey& key)
@@ -89,21 +83,22 @@ namespace wowlib
                         "MPQ storage is path-addressed; resolve the FileDataID to a "
                         "path through a listfile first");
 
-    const std::string name = storm_name(*key.path);
+    // Canonical form already uses backslashes — StormLib's separator.
+    const std::string& name = *key.path;
 
     // Reverse load order: the last archive that carries the file wins.
-    for (auto it = archives_.rbegin(); it != archives_.rend(); ++it)
+    for (const OpenedArchive& archive : _archives | std::views::reverse)
     {
-      std::scoped_lock lock{*it->mtx};
+      std::scoped_lock lock{*archive.mtx};
 
-      if (!SFileHasFile(it->handle, name.c_str()))
+      if (!SFileHasFile(archive.handle, name.c_str()))
         continue;
 
       HANDLE file = nullptr;
-      if (!SFileOpenFileEx(it->handle, name.c_str(), SFILE_OPEN_FROM_MPQ, &file))
+      if (!SFileOpenFileEx(archive.handle, name.c_str(), SFILE_OPEN_FROM_MPQ, &file))
         return make_error(ErrorCode::BackendError,
                           std::format("SFileOpenFileEx failed for '{}' in '{}'", name,
-                                      it->path.string()),
+                                      archive.path.string()),
                           static_cast<std::uint32_t>(SErrGetLastError()));
 
       DWORD size_high = 0;
@@ -143,11 +138,10 @@ namespace wowlib
     if (!is_open() || !key.path)
       return false;
 
-    const std::string name = storm_name(*key.path);
-    for (auto it = archives_.rbegin(); it != archives_.rend(); ++it)
+    for (const OpenedArchive& archive : _archives | std::views::reverse)
     {
-      std::scoped_lock lock{*it->mtx};
-      if (SFileHasFile(it->handle, name.c_str()))
+      std::scoped_lock lock{*archive.mtx};
+      if (SFileHasFile(archive.handle, key.path->c_str()))
         return true;
     }
     return false;

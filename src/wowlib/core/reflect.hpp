@@ -1,13 +1,15 @@
 #pragma once
 
+/** @file
+    Internal C++26 reflection utilities (`<meta>` based). Nothing here is welded;
+    bindings consume the results (e.g. enum spellings) indirectly. */
+
 #include <meta>
 #include <string_view>
 #include <type_traits>
 
 namespace wowlib
 {
-  // Internal reflection utilities (not welded; C++26 <meta> based).
-
   /** The enumerator name of @a value, straight from reflection — no handwritten
       stringification tables anywhere in wowlib.
       @tparam E any enum type.

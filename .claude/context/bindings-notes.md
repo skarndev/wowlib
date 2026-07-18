@@ -7,11 +7,19 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
   welder<rods::nanobind::rod<>, rods::python::pep8>)`. Module = namespace `wowlib`;
   every annotated entity in the umbrella header is welded automatically.
 - `bindings/lua/wowlib_module.cpp` — LuaBridge3 rod, snake_case naming.
+- **C++ namespaces arrive as submodules** in both languages: `wowlib.fs`,
+  `wowlib.versions` (constants, no `()`); `wowlib::fs::detail` is unannotated and
+  never surfaces.
 - Name reshaping: Python pep8 keeps CapWords types but `FileDataID -> FileDataId`;
   Lua snake_case reshapes EVERYTHING (`ClientVersion -> client_version`,
-  `StorageKind.Mpq -> storage_kind.mpq`, `Locale.enUS -> locale.en_us`).
-- Overloads merge under one name (Python `read_file(str|FileDataId)`); the
-  `weld_as("read_file_by_id")` I tried was superseded by natural overloading.
+  `wowlib.fs.file_system`, `StorageKind.Mpq -> storage_kind.mpq`,
+  `Locale.enUS -> locale.en_us`).
+- Overloads merge under one name (Python `read_file(str|FileDataId)`) — never use
+  weld_as to split them.
+- Stubs: ONE `nanobind_add_stub` with `RECURSIVE` + `OUTPUT_PATH` (submodules
+  discovered automatically) — but the expected files must still be listed in
+  `OUTPUT` for the build graph; extend the list when adding a namespace. Output:
+  `bindings/python/stubs/wowlib/{__init__,fs,versions}.pyi`.
 
 ## Result<T> / std::expected translation
 welder has no expected support; both TUs teach their framework:

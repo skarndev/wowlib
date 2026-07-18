@@ -1,5 +1,9 @@
 #pragma once
 
+/** @file
+    Client version identity, the storage-kind split it implies, locales, and the
+    `versions` namespace of last-minor-of-major release constants. */
+
 #include <compare>
 #include <cstdint>
 #include <optional>
@@ -12,8 +16,9 @@ namespace wowlib
   enum class
   [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("Which storage technology a client generation uses: Mpq for "
-                 "pre-WoD clients (StormLib), Casc for WoD+ (CascLib).")
+    =welder::doc(R"(
+        Which storage technology a client generation uses: Mpq for pre-WoD clients
+        (StormLib), Casc for WoD+ (CascLib).)")
   ]]
   StorageKind
   {
@@ -24,9 +29,10 @@ namespace wowlib
   struct
   [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A full client version tuple (major.minor.patch, build). Determines "
-                 "which storage backend and archive chain a client uses. Named "
-                 "factories cover the last-minor-of-major releases wowlib targets.")
+    =welder::doc(R"(
+        A full client version tuple (major.minor.patch, build). Determines which
+        storage backend and archive chain a client uses. The versions namespace
+        provides constants for the releases wowlib targets.)")
   ]]
   ClientVersion
   {
@@ -49,44 +55,59 @@ namespace wowlib
       return major < 6 ? StorageKind::Mpq : StorageKind::Casc;
     }
 
-    // The last-minor-of-major release of every finished expansion (Midnight 12.x
-    // is ongoing, so it has no final build yet). Builds verified against wago.tools.
-
-    [[=welder::doc("Vanilla 1.12.1 (build 5875).")]]
-    static constexpr ClientVersion vanilla() { return {1, 12, 1, 5875}; }
-
-    [[=welder::doc("The Burning Crusade 2.4.3 (build 8606).")]]
-    static constexpr ClientVersion tbc() { return {2, 4, 3, 8606}; }
-
-    [[=welder::doc("Wrath of the Lich King 3.3.5a (build 12340).")]]
-    static constexpr ClientVersion wotlk() { return {3, 3, 5, 12340}; }
-
-    [[=welder::doc("Cataclysm 4.3.4 (build 15595).")]]
-    static constexpr ClientVersion cata() { return {4, 3, 4, 15595}; }
-
-    [[=welder::doc("Mists of Pandaria 5.4.8 (build 18414).")]]
-    static constexpr ClientVersion mop() { return {5, 4, 8, 18414}; }
-
-    [[=welder::doc("Warlords of Draenor 6.2.4 (build 21742).")]]
-    static constexpr ClientVersion wod() { return {6, 2, 4, 21742}; }
-
-    [[=welder::doc("Legion 7.3.5 (build 26972).")]]
-    static constexpr ClientVersion legion() { return {7, 3, 5, 26972}; }
-
-    [[=welder::doc("Battle for Azeroth 8.3.7 (build 35662).")]]
-    static constexpr ClientVersion bfa() { return {8, 3, 7, 35662}; }
-
-    [[=welder::doc("Shadowlands 9.2.7 (build 45745).")]]
-    static constexpr ClientVersion shadowlands() { return {9, 2, 7, 45745}; }
-
-    [[=welder::doc("Dragonflight 10.2.7 (build 55664).")]]
-    static constexpr ClientVersion dragonflight() { return {10, 2, 7, 55664}; }
-
-    [[=welder::doc("The War Within 11.2.7 (build 65299).")]]
-    static constexpr ClientVersion tww() { return {11, 2, 7, 65299}; }
-
     constexpr auto operator<=>(const ClientVersion&) const = default;
   };
+
+  namespace
+  [[=welder::doc(R"(
+      The last-minor-of-major release of every finished expansion (Midnight 12.x is
+      ongoing and has no final build yet). Builds verified against wago.tools.)")]]
+  versions
+  {
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Vanilla 1.12.1 (build 5875).")]]
+    inline constexpr ClientVersion vanilla{1, 12, 1, 5875};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("The Burning Crusade 2.4.3 (build 8606).")]]
+    inline constexpr ClientVersion tbc{2, 4, 3, 8606};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Wrath of the Lich King 3.3.5a (build 12340).")]]
+    inline constexpr ClientVersion wotlk{3, 3, 5, 12340};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Cataclysm 4.3.4 (build 15595).")]]
+    inline constexpr ClientVersion cata{4, 3, 4, 15595};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Mists of Pandaria 5.4.8 (build 18414).")]]
+    inline constexpr ClientVersion mop{5, 4, 8, 18414};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Warlords of Draenor 6.2.4 (build 21742).")]]
+    inline constexpr ClientVersion wod{6, 2, 4, 21742};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Legion 7.3.5 (build 26972).")]]
+    inline constexpr ClientVersion legion{7, 3, 5, 26972};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Battle for Azeroth 8.3.7 (build 35662).")]]
+    inline constexpr ClientVersion bfa{8, 3, 7, 35662};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Shadowlands 9.2.7 (build 45745).")]]
+    inline constexpr ClientVersion shadowlands{9, 2, 7, 45745};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("Dragonflight 10.2.7 (build 55664).")]]
+    inline constexpr ClientVersion dragonflight{10, 2, 7, 55664};
+
+    [[=welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("The War Within 11.2.7 (build 65299).")]]
+    inline constexpr ClientVersion tww{11, 2, 7, 65299};
+  }
 
   enum class
   [[

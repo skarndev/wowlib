@@ -21,6 +21,19 @@ errors.
 | welder | commit cf01a75 (no tags yet) | header-only, target `welder::headers` |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
 
+## Configure-time performance (2026-07-18)
+- `FETCHCONTENT_UPDATES_DISCONNECTED ON` in Dependencies.cmake: every pin is an
+  immutable tag/commit, and without it each reconfigure ran a network `git fetch`
+  per dependency (~3 min wall-clock at 17% CPU). No-op reconfigure now ~1.4s.
+- LuaBridge3 is pre-declared with `GIT_SUBMODULES ""` BEFORE welder's declaration
+  (FetchContent first-declaration-wins): it is header-only, and its submodules
+  (googletest, luau, ravi) are hundreds of MB the build never uses.
+- **Never run two CMake configures against one build dir** (e.g. CLion's
+  auto-reload racing a terminal configure): racing FetchContent populates corrupt
+  checkouts (symptoms seen: half-cloned LuaBridge3, casc_static "No SOURCES").
+  Fix: `rm -rf build/<cfg>/_deps/<dep>-*` and reconfigure. CLion's automatic
+  reload is disabled for this project by choice.
+
 ## Quirks found (2026-07)
 - CMake 4.x refuses StormLib/CascLib's ancient `cmake_minimum_required` →
   `set(CMAKE_POLICY_VERSION_MINIMUM 3.5)` before `FetchContent_MakeAvailable`.

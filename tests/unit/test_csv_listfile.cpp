@@ -6,23 +6,31 @@
 #include <wowlib/fs/csv_listfile.hpp>
 
 using namespace wowlib;
+using wowlib::fs::CsvListfile;
 
 namespace
 {
   const std::filesystem::path sample = std::filesystem::path{WOWLIB_TEST_DATA_DIR} /
                                        "sample-listfile.csv";
 
-  std::filesystem::path temp_file(std::string_view name)
+  // The loaded CSV is the working database registrations write to, so tests
+  // always operate on a disposable copy of the committed sample.
+  std::filesystem::path working_copy(std::string_view name)
   {
-    return std::filesystem::temp_directory_path() / "wowlib-tests" / name;
+    const auto path = std::filesystem::temp_directory_path() / "wowlib-tests" / name;
+    std::filesystem::create_directories(path.parent_path());
+    std::filesystem::copy_file(sample, path,
+                               std::filesystem::copy_options::overwrite_existing);
+    return path;
   }
 }
 
-TEST_CASE("loading the sample listfile resolves both directions", "[listfile]")
+TEST_CASE("loading a listfile resolves both directions", "[listfile]")
 {
   auto listfile = CsvListfile::load(sample);
   REQUIRE(listfile.has_value());
   CHECK(listfile->size() == 6);
+  CHECK(listfile->source() == sample);
 
   // lookups canonicalize, so any input spelling works
   CHECK(listfile->path_to_fdid("DBFilesClient\\Map.db2") == FileDataID{1349477});
@@ -42,7 +50,8 @@ TEST_CASE("loading the sample listfile resolves both directions", "[listfile]")
 
 TEST_CASE("malformed lines are reported with their location", "[listfile]")
 {
-  const auto bad = temp_file("bad-listfile.csv");
+  const auto bad = std::filesystem::temp_directory_path() / "wowlib-tests" /
+                   "bad-listfile.csv";
   std::filesystem::create_directories(bad.parent_path());
   std::ofstream{bad} << "123;ok/path.blp\nnot-a-number;foo.blp\n";
 
@@ -59,9 +68,13 @@ TEST_CASE("a missing listfile is an io error", "[listfile]")
   CHECK(listfile.error().code == ErrorCode::ListfileIoError);
 }
 
-TEST_CASE("registration allocates from the configured start and persists", "[listfile]")
+TEST_CASE("registration allocates from the configured start and persists to the "
+          "working file",
+          "[listfile]")
 {
-  auto listfile = CsvListfile::load(sample, {.custom_fdid_start = FileDataID{2'000'000}});
+  const auto csv = working_copy("register.csv");
+
+  auto listfile = CsvListfile::load(csv, {.custom_fdid_start = FileDataID{2'000'000}});
   REQUIRE(listfile.has_value());
 
   const auto id = listfile->register_path("world/maps/mymap/MyMap.wdt");
@@ -75,13 +88,33 @@ TEST_CASE("registration allocates from the configured start and persists", "[lis
   CHECK(listfile->register_path("dbfilesclient/map.db2").error().code ==
         ErrorCode::DuplicatePath);
 
-  // sidecar round-trip: only the custom entry is saved; reloading bumps the allocator
-  const auto sidecar = temp_file("sidecar.csv");
-  REQUIRE(listfile->save_custom_entries(sidecar).has_value());
+  // the registration was appended to the working file: a fresh load sees it and
+  // the allocator resumes past it
+  auto reloaded = CsvListfile::load(csv, {.custom_fdid_start = FileDataID{2'000'000}});
+  REQUIRE(reloaded.has_value());
+  CHECK(reloaded->path_to_fdid("world/maps/mymap/mymap.wdt") == FileDataID{2'000'000});
+  CHECK(reloaded->register_path("another/new/file.blp").value() == FileDataID{2'000'001});
+}
 
-  auto fresh = CsvListfile::load(sample, {.custom_fdid_start = FileDataID{2'000'000}});
-  REQUIRE(fresh.has_value());
-  REQUIRE(fresh->load_custom_entries(sidecar).has_value());
-  CHECK(fresh->path_to_fdid("world/maps/mymap/mymap.wdt") == FileDataID{2'000'000});
-  CHECK(fresh->register_path("another/new/file.blp").value() == FileDataID{2'000'001});
+TEST_CASE("save rewrites the working file canonically", "[listfile]")
+{
+  const auto csv = working_copy("save.csv");
+
+  auto listfile = CsvListfile::load(csv);
+  REQUIRE(listfile.has_value());
+  REQUIRE(listfile->register_path("zz/last.blp").has_value());
+  REQUIRE(listfile->save().has_value());
+
+  auto reloaded = CsvListfile::load(csv);
+  REQUIRE(reloaded.has_value());
+  CHECK(reloaded->size() == listfile->size());
+  CHECK(reloaded->contains("zz/last.blp"));
+}
+
+TEST_CASE("an in-memory database registers without persistence", "[listfile]")
+{
+  CsvListfile listfile;   // default: no working file
+  const auto id = listfile.register_path("some/file.blp");
+  REQUIRE(id.has_value());
+  CHECK(listfile.path_to_fdid("some/file.blp") == *id);
 }

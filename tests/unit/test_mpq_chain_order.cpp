@@ -7,6 +7,7 @@
 #include <wowlib/fs/mpq/mpq_chain.hpp>
 
 using namespace wowlib;
+using namespace wowlib::fs::detail;
 namespace fsys = std::filesystem;
 
 namespace
@@ -63,7 +64,7 @@ TEST_CASE("the full 3.3.5a chain expands in client load order", "[mpq-chain]")
   data.add("enUS/base-enUS.MPQ");
   data.add("enUS/backup-enUS.MPQ");
 
-  const auto* spec = find_chain_spec(ClientVersion::wotlk());
+  const auto* spec = find_chain_spec(versions::wotlk);
   REQUIRE(spec != nullptr);
 
   const auto chain = expand_chain(*spec, data.root, Locale::enUS);
@@ -93,7 +94,7 @@ TEST_CASE("custom patches load last, numbers before letters", "[mpq-chain]")
   data.add("enUS/patch-enUS-5.MPQ");
 
   const auto chain =
-    expand_chain(*find_chain_spec(ClientVersion::wotlk()), data.root, Locale::enUS);
+    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
@@ -109,7 +110,7 @@ TEST_CASE("missing archives are skipped without error", "[mpq-chain]")
   data.add("enUS/locale-enUS.MPQ");
 
   const auto chain =
-    expand_chain(*find_chain_spec(ClientVersion::wotlk()), data.root, Locale::enUS);
+    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ"});

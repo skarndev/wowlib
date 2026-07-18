@@ -1,12 +1,16 @@
 #pragma once
 
+/** @file
+    The monotonic allocator behind custom (non-Blizzard) FileDataIDs. An
+    implementation detail of listfile providers. */
+
 #include <cstdint>
 #include <format>
 
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 
-namespace wowlib
+namespace wowlib::fs::detail
 {
   /** Monotonic allocator for custom (non-Blizzard) FileDataIDs.
 
@@ -22,8 +26,8 @@ namespace wowlib
                      u32 ceiling. */
     explicit FdidAllocator(FileDataID start = FileDataID{1'000'000'000},
                            FileDataID max = FileDataID{0xFFFFFFFE})
-      : next_(start.value)
-      , max_(max.value)
+      : _next(start.value)
+      , _max(max.value)
     {
     }
 
@@ -31,26 +35,27 @@ namespace wowlib
         @return the id, or FdidSpaceExhausted once max is passed. */
     Result<FileDataID> next()
     {
-      if (next_ > max_)
+      if (_next > _max)
         return make_error(ErrorCode::FdidSpaceExhausted,
-                          std::format("custom FileDataID space exhausted at {}", max_));
-      return FileDataID{static_cast<std::uint32_t>(next_++)};
+                          std::format("custom FileDataID space exhausted at {}", _max));
+      return FileDataID{static_cast<std::uint32_t>(_next++)};
     }
 
-    /** Bump the allocator past an id seen in a persisted sidecar, so reloading a
+    /** Bump the allocator past an id seen in a loaded listfile, so re-opening a
         project never re-hands-out an id already in use.
-        @param id an existing custom id. */
+        @param id an existing id (only ids inside the custom range move the cursor). */
     void note_existing(FileDataID id)
     {
-      if (id.value >= next_ && id.value <= max_)
-        next_ = id.value + 1;
+      if (id.value >= _next && id.value <= _max)
+        _next = id.value + 1;
     }
 
-    /** The id the next successful call to next() would return. */
-    FileDataID peek() const { return FileDataID{static_cast<std::uint32_t>(next_)}; }
+    /** The id the next successful call to next() would return.
+        @return the upcoming id. */
+    FileDataID peek() const { return FileDataID{static_cast<std::uint32_t>(_next)}; }
 
   private:
-    std::uint64_t next_;   // u64 internally so next_ can pass max_ without wrapping
-    std::uint64_t max_;
+    std::uint64_t _next;   // u64 internally so _next can pass _max without wrapping
+    std::uint64_t _max;
   };
 }

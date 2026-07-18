@@ -1,5 +1,10 @@
 #pragma once
 
+/** @file
+    Per-version MPQ archive chain tables and their expansion against a real or
+    fake Data/ directory. Implementation detail of MpqStorage — pure (no StormLib
+    types), so ordering rules are unit-testable without a client. */
+
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -9,12 +14,8 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 
-namespace wowlib
+namespace wowlib::fs::detail
 {
-  // Internal (not welded): per-version MPQ archive chain tables and their
-  // expansion against a real or fake Data/ directory. Pure — no StormLib types —
-  // so ordering rules are unit-testable without a client.
-
   /** How one chain-table entry produces archive paths. */
   enum class ChainEntryKind
   {
@@ -50,6 +51,7 @@ namespace wowlib
 
   /** The chain spec for @a version: exact build match first, then
       major.minor.patch.
+      @param version the client version to look up.
       @return the spec, or nullptr for versions without a table yet. */
   const MpqChainSpec* find_chain_spec(const ClientVersion& version);
 
@@ -59,7 +61,9 @@ namespace wowlib
       @return the locale, or nullopt if none (or several) present. */
   std::optional<Locale> detect_locale(const std::filesystem::path& data_dir);
 
-  /** All locales present in @a data_dir (a repack may carry several). */
+  /** All locales present in @a data_dir (a repack may carry several).
+      @param data_dir the client's Data/ directory.
+      @return the locales found, possibly empty. */
   std::vector<Locale> detect_locales(const std::filesystem::path& data_dir);
 
   /** Expand a chain spec against a Data directory into concrete archive paths in

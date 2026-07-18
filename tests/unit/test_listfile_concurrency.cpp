@@ -9,12 +9,21 @@
 #include <wowlib/fs/csv_listfile.hpp>
 
 using namespace wowlib;
+using wowlib::fs::CsvListfile;
 
 TEST_CASE("concurrent lookups and registrations keep the maps consistent",
           "[listfile][threads]")
 {
-  auto listfile = CsvListfile::load(std::filesystem::path{WOWLIB_TEST_DATA_DIR} /
-                                    "sample-listfile.csv");
+  // work on a disposable copy — registrations append to the working file
+  const auto sample = std::filesystem::path{WOWLIB_TEST_DATA_DIR} /
+                      "sample-listfile.csv";
+  const auto csv = std::filesystem::temp_directory_path() / "wowlib-tests" /
+                   "concurrency.csv";
+  std::filesystem::create_directories(csv.parent_path());
+  std::filesystem::copy_file(sample, csv,
+                             std::filesystem::copy_options::overwrite_existing);
+
+  auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
 
   constexpr int writers = 4;
@@ -56,4 +65,9 @@ TEST_CASE("concurrent lookups and registrations keep the maps consistent",
       CHECK(listfile->fdid_to_path(*id) ==
             std::format("custom\\writer{}\\file{}.blp", w, i));
     }
+
+  // the working file absorbed every registration
+  auto reloaded = CsvListfile::load(csv);
+  REQUIRE(reloaded.has_value());
+  CHECK(reloaded->size() == listfile->size());
 }

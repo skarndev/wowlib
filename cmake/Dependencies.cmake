@@ -1,5 +1,10 @@
 include(FetchContent)
 
+# Every pin below is an immutable tag/commit, so the per-reconfigure git update
+# step (a network fetch per dependency, minutes of idle wall-clock) is pure
+# waste — populate once, never re-check.
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+
 # StormLib/CascLib declare cmake_minimum_required versions that CMake >= 4.x refuses
 # to configure without this override.
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
@@ -53,6 +58,14 @@ endif()
 if(WOWLIB_BUILD_LUA)
   set(WELDER_BUILD_LUABRIDGE ON CACHE BOOL "" FORCE)
   set(WELDER_LUABRIDGE_FETCH ON CACHE BOOL "" FORCE)
+
+  # Pre-declare LuaBridge3 (first declaration wins over welder's): it is
+  # header-only, and its submodules (googletest, luau, ravi) are hundreds of MB
+  # of clone the build never uses.
+  FetchContent_Declare(LuaBridge3
+    GIT_REPOSITORY https://github.com/kunitoki/LuaBridge3.git
+    GIT_TAG 534a639d4857e64512e2b1ebcd7eb5dc8e728c08
+    GIT_SUBMODULES "")
   set(WELDER_LUABRIDGE_LUA_VERSION "5.4" CACHE STRING "Lua minor for the wowlib module")
   if(NOT WELDER_LUABRIDGE_LUA_DIR)
     execute_process(COMMAND brew --prefix lua@5.4

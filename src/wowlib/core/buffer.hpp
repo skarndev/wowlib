@@ -1,5 +1,8 @@
 #pragma once
 
+/** @file
+    The owning byte buffer file contents are read into. */
+
 #include <cstddef>
 #include <vector>
 

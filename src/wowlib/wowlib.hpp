@@ -7,11 +7,19 @@
 #include <welder/vocabulary.hpp>
 
 namespace
-[[=welder::doc("Reading and writing World of Warcraft client files: client "
-               "filesystem access (MPQ and CASC), listfile databases, and a "
-               "project-directory overlay for modding.")]]
+[[=welder::doc(R"(
+    Reading and writing World of Warcraft client files: client filesystem access
+    (MPQ and CASC), listfile databases, and a project-directory overlay for
+    modding.)")]]
 wowlib
 {
+  namespace
+  [[=welder::doc(R"(
+      Client filesystem access: storage backends, listfile databases, the
+      project-directory overlay and the FileSystem gateway.)")]]
+  fs
+  {
+  }
 }
 
 #include <wowlib/core/buffer.hpp>
