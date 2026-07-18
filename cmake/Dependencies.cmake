@@ -21,12 +21,59 @@ FetchContent_Declare(CascLib
   GIT_REPOSITORY https://github.com/ladislav-zezula/CascLib.git
   GIT_TAG 3.0)
 
-# --- welder (binding annotations vocabulary; header-only, no tags yet -> pin commit) ---
+# --- welder (binding annotations + rods; header-only, no tags yet -> pin commit) ---
+# Backend options must be set before welder configures. welder finds Python /
+# nanobind / Lua / LuaBridge3 itself from these knobs and then provides
+# welder::nanobind, welder::luabridge and the module helper functions.
+if(WOWLIB_BUILD_PYTHON)
+  set(WELDER_BUILD_NANOBIND ON CACHE BOOL "" FORCE)
+  # Stable ABI (abi3): one binary across Python minors AND across the GCC/MSVC
+  # boundary — required for MSVC-CPython (Blender) compatible wheels.
+  set(WELDER_NANOBIND_STABLE_ABI ON CACHE BOOL "" FORCE)
+  set(WELDER_PYTHON_VERSION "3.13" CACHE STRING "Python minor for the wowlib extension")
+
+  # Default interpreter: the project venv (uv venv .venv --python 3.13 && uv pip
+  # install nanobind). Override with -DPython_EXECUTABLE for another install.
+  if(NOT Python_EXECUTABLE AND EXISTS ${CMAKE_SOURCE_DIR}/.venv/bin/python)
+    set(Python_EXECUTABLE ${CMAKE_SOURCE_DIR}/.venv/bin/python)
+  endif()
+  if(NOT nanobind_DIR AND Python_EXECUTABLE)
+    execute_process(COMMAND ${Python_EXECUTABLE} -m nanobind --cmake_dir
+      OUTPUT_VARIABLE _wowlib_nb_dir OUTPUT_STRIP_TRAILING_WHITESPACE
+      RESULT_VARIABLE _wowlib_nb_rc ERROR_QUIET)
+    if(_wowlib_nb_rc EQUAL 0)
+      set(nanobind_DIR ${_wowlib_nb_dir})
+    else()
+      message(FATAL_ERROR "wowlib: nanobind not importable by ${Python_EXECUTABLE}. "
+        "Provision it with: uv venv .venv --python 3.13 && uv pip install -p .venv nanobind")
+    endif()
+  endif()
+endif()
+
+if(WOWLIB_BUILD_LUA)
+  set(WELDER_BUILD_LUABRIDGE ON CACHE BOOL "" FORCE)
+  set(WELDER_LUABRIDGE_FETCH ON CACHE BOOL "" FORCE)
+  set(WELDER_LUABRIDGE_LUA_VERSION "5.4" CACHE STRING "Lua minor for the wowlib module")
+  if(NOT WELDER_LUABRIDGE_LUA_DIR)
+    execute_process(COMMAND brew --prefix lua@5.4
+      OUTPUT_VARIABLE _wowlib_lua_dir OUTPUT_STRIP_TRAILING_WHITESPACE
+      RESULT_VARIABLE _wowlib_lua_rc ERROR_QUIET)
+    if(_wowlib_lua_rc EQUAL 0)
+      set(WELDER_LUABRIDGE_LUA_DIR ${_wowlib_lua_dir} CACHE PATH "" FORCE)
+    endif()
+  endif()
+endif()
+
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
   GIT_TAG cf01a75ac4c8240814f926ece3e91f10764f4d6b)
 
 FetchContent_MakeAvailable(StormLib CascLib welder)
+
+# Storage libraries are never debugged into and their table/manifest parsing is
+# hot on every storage open — keep them optimized even in Debug configurations.
+target_compile_options(storm PRIVATE -O2)
+target_compile_options(casc_static PRIVATE -O2)
 
 if(WOWLIB_BUILD_TESTS)
   FetchContent_Declare(Catch2

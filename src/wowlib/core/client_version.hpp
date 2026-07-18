@@ -9,9 +9,13 @@
 
 namespace wowlib
 {
-  /** Which storage technology a client generation uses. Not welded directly;
-      exposed through ClientVersion::storage_kind and FileSystem::kind. */
-  enum class StorageKind
+  enum class
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("Which storage technology a client generation uses: Mpq for "
+                 "pre-WoD clients (StormLib), Casc for WoD+ (CascLib).")
+  ]]
+  StorageKind
   {
     Mpq,  /**< Pre-WoD clients (< 6.0), StormLib. */
     Casc  /**< WoD+ clients (>= 6.0), CascLib. */
@@ -45,6 +49,9 @@ namespace wowlib
       return major < 6 ? StorageKind::Mpq : StorageKind::Casc;
     }
 
+    // The last-minor-of-major release of every finished expansion (Midnight 12.x
+    // is ongoing, so it has no final build yet). Builds verified against wago.tools.
+
     [[=welder::doc("Vanilla 1.12.1 (build 5875).")]]
     static constexpr ClientVersion vanilla() { return {1, 12, 1, 5875}; }
 
@@ -60,15 +67,34 @@ namespace wowlib
     [[=welder::doc("Mists of Pandaria 5.4.8 (build 18414).")]]
     static constexpr ClientVersion mop() { return {5, 4, 8, 18414}; }
 
+    [[=welder::doc("Warlords of Draenor 6.2.4 (build 21742).")]]
+    static constexpr ClientVersion wod() { return {6, 2, 4, 21742}; }
+
+    [[=welder::doc("Legion 7.3.5 (build 26972).")]]
+    static constexpr ClientVersion legion() { return {7, 3, 5, 26972}; }
+
+    [[=welder::doc("Battle for Azeroth 8.3.7 (build 35662).")]]
+    static constexpr ClientVersion bfa() { return {8, 3, 7, 35662}; }
+
     [[=welder::doc("Shadowlands 9.2.7 (build 45745).")]]
     static constexpr ClientVersion shadowlands() { return {9, 2, 7, 45745}; }
+
+    [[=welder::doc("Dragonflight 10.2.7 (build 55664).")]]
+    static constexpr ClientVersion dragonflight() { return {10, 2, 7, 55664}; }
+
+    [[=welder::doc("The War Within 11.2.7 (build 65299).")]]
+    static constexpr ClientVersion tww() { return {11, 2, 7, 65299}; }
 
     constexpr auto operator<=>(const ClientVersion&) const = default;
   };
 
-  /** Game client locale. Not welded directly; travels through FileSystemSettings.
-      Enumerators use the client's own four-letter codes. */
-  enum class Locale
+  enum class
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("Game client locale; enumerators use the client's own four-letter "
+                 "codes.")
+  ]]
+  Locale
   {
     enUS, enGB, deDE, frFR, ruRU, esES, esMX, koKR, zhCN, zhTW, ptBR, itIT
   };

@@ -124,12 +124,14 @@ namespace wowlib
     MpqFileSystem* mpq() { return std::get_if<MpqFileSystem>(&impl_); }
     CascFileSystem* casc() { return std::get_if<CascFileSystem>(&impl_); }
 
-  private:
+    /** C++-only; target languages construct through open(). */
+    [[=welder::mark::exclude]]
     explicit FileSystem(std::variant<MpqFileSystem, CascFileSystem> impl)
       : impl_(std::move(impl))
     {
     }
 
+  private:
     std::variant<MpqFileSystem, CascFileSystem> impl_;
   };
 }

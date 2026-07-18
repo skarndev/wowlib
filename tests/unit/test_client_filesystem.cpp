@@ -81,13 +81,13 @@ TEST_CASE("the project overlay wins over the backend", "[client-fs]")
 
   ClientFileSystem<FakeStorage> fs{std::move(storage), {}, std::move(*project)};
 
-  CHECK(fs.read_file(FileKey::by_path("interface/gluexml/gluestrings.lua")).value() ==
+  CHECK(fs.read_file(FileKey{"interface/gluexml/gluestrings.lua"}).value() ==
         bytes("from project"));
-  CHECK(fs.exists(FileKey::by_path("interface/gluexml/gluestrings.lua")));
+  CHECK(fs.exists(FileKey{"interface/gluexml/gluestrings.lua"}));
 
   // backend-only files still resolve
   fs.backend().files["dbfilesclient\\map.dbc"] = bytes("archive only");
-  CHECK(fs.read_file(FileKey::by_path("DBFilesClient/Map.dbc")).value() ==
+  CHECK(fs.read_file(FileKey{"DBFilesClient/Map.dbc"}).value() ==
         bytes("archive only"));
 }
 
@@ -103,14 +103,14 @@ TEST_CASE("resolve fills the missing identity half from the listfile", "[client-
   ClientFileSystem<FakeCascStorage, CsvListfile> fs{std::move(storage),
                                                     std::move(*listfile)};
 
-  const auto by_id = fs.resolve(FileKey::by_fdid(FileDataID{1349477}));
+  const auto by_id = fs.resolve(FileKey{FileDataID{1349477}});
   CHECK(by_id.path == "dbfilesclient\\map.db2");
 
-  const auto by_path = fs.resolve(FileKey::by_path("DBFilesClient/Map.db2"));
+  const auto by_path = fs.resolve(FileKey{"DBFilesClient/Map.db2"});
   CHECK(by_path.fdid == FileDataID{1349477});
 
   // an id-only request reads through the resolved path on a path-addressed backend
-  CHECK(fs.read_file(FileKey::by_fdid(FileDataID{1349477})).value() == bytes("WDC3..."));
+  CHECK(fs.read_file(FileKey{FileDataID{1349477}}).value() == bytes("WDC3..."));
 }
 
 TEST_CASE("add_file allocates a custom id on CASC and persists the sidecar",
@@ -132,7 +132,7 @@ TEST_CASE("add_file allocates a custom id on CASC and persists the sidecar",
   const auto id = fs.add_file("world/maps/custom/custom.wdt", bytes("MVER"));
   REQUIRE(id.has_value());
   CHECK(*id == FileDataID{1'000'000'000});
-  CHECK(fs.read_file(FileKey::by_fdid(*id)).value() == bytes("MVER"));
+  CHECK(fs.read_file(FileKey{*id}).value() == bytes("MVER"));
   CHECK(fsys::is_regular_file(sidecar));
 
   // overwriting keeps the id stable

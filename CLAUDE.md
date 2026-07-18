@@ -45,6 +45,7 @@ These are presented roughly in order:
 | CASC storage specifics (repack shim, error codes, test FDIDs) | .claude/context/casc-notes.md |
 | Listfile & custom FileDataID policy | .claude/context/listfile-notes.md |
 | Dependencies, pins & build quirks | .claude/context/deps-build-notes.md |
+| Python/Lua bindings (welder rods, casters, naming) | .claude/context/bindings-notes.md |
 
 # Important notes
 - We are writing this library in C++, exposing it to Python and Lua, but it also remains the C++ library itsef.

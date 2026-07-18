@@ -2,12 +2,13 @@ cmake_minimum_required(VERSION 3.28)
 project(wowlib LANGUAGES C CXX)
 
 option(WOWLIB_BUILD_TESTS "Build wowlib tests" ON)
+option(WOWLIB_BUILD_PYTHON "Build the Python 3.13 extension (nanobind, stable ABI)" OFF)
+option(WOWLIB_BUILD_LUA "Build the Lua module (LuaBridge3)" OFF)
 
 include(cmake/CompilerSettings.cmake)
 include(cmake/Dependencies.cmake)
 
 add_library(wowlib STATIC
-  src/wowlib/core/error.cpp
   src/wowlib/core/path.cpp
   src/wowlib/core/client_version.cpp
   src/wowlib/fs/csv_listfile.cpp
@@ -24,4 +25,8 @@ target_link_libraries(wowlib PUBLIC welder::headers PRIVATE storm casc_static)
 if(WOWLIB_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(WOWLIB_BUILD_PYTHON OR WOWLIB_BUILD_LUA)
+  add_subdirectory(bindings)
 endif()

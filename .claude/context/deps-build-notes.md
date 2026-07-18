@@ -33,6 +33,14 @@ errors.
   does define `GetCascError()` everywhere.
 - Both dep .cpps are warning-noisy; warnings (`-Wall -Wextra
   -Wno-missing-field-initializers`) go on wowlib targets only.
-- MPQ chain open of the full 3.3.5a client takes ~10s (16 archives; StormLib
-  listfile/attributes loading). Catch2 SECTIONs re-run the whole TEST_CASE, so
-  integration cases re-open storages per section — restructure if it grows.
+- **SFileOpenArchive MUST pass `MPQ_OPEN_NO_LISTFILE | MPQ_OPEN_NO_ATTRIBUTES |
+  MPQ_OPEN_NO_HEADER_SEARCH`**: without them StormLib parses each archive's
+  internal (listfile)/(attributes) on open — 7s for 3.3.5a common.MPQ vs 10ms
+  with the flags (measured). Exact-path reads only need the hash table. A future
+  enumeration feature must load listfiles on demand (SFileAddListFile), not at
+  open.
+- storm/casc_static get `-O2` even in Debug configs (Dependencies.cmake) — never
+  debugged into, and CascLib's 2.17M-entry manifest parse is ~2-3x slower at -O0
+  (a 9.2.7 storage open is ~2.3s optimized; that part is genuine work).
+- Catch2 SECTIONs re-run the whole TEST_CASE (storage re-opened per section) —
+  fine now that opens are fast.

@@ -2,6 +2,10 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# No C++20 modules anywhere in this project; p1689 scanning only breaks
+# macro-reliant third-party TUs (nanobind runtime, LuaBridge3, welder rods).
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16)
   message(FATAL_ERROR
     "wowlib requires gcc >= 16 (the only toolchain with C++26 reflection). "

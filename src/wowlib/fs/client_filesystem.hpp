@@ -33,6 +33,9 @@ namespace wowlib
   ClientFileSystem
   {
   public:
+    // excluded from bindings: backends/providers are C++-only types, so target
+    // languages construct through FileSystem.open instead
+    [[=welder::mark::exclude]]
     ClientFileSystem(Backend backend, Listfile listfile = {},
                      std::optional<ProjectDirectory> project = std::nullopt)
       : backend_(std::move(backend))
@@ -123,12 +126,10 @@ namespace wowlib
       =welder::returns("Mpq or Casc")]]
     static constexpr StorageKind kind() { return Backend::kind(); }
 
-    [[=welder::mark::include, =welder::doc("The storage backend."),
-      =welder::return_policy(welder::rv::reference_internal)]]
+    /** The storage backend. C++-only (backends are not welded). */
     Backend& backend() { return backend_; }
 
-    [[=welder::mark::include, =welder::doc("The listfile database."),
-      =welder::return_policy(welder::rv::reference_internal)]]
+    /** The listfile database. C++-only (providers are not welded). */
     Listfile& listfile() { return listfile_; }
 
     [[=welder::mark::include,

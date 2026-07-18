@@ -43,31 +43,27 @@ namespace wowlib
     [[=welder::doc("The canonical client-internal path, if known.")]]
     std::optional<std::string> path;
 
-    [[=welder::doc("Make a key from a path in any accepted spelling; it is "
-                   "canonicalized here."),
-      =welder::returns("a path-only key")]]
-    static FileKey by_path([[=welder::doc("the client-internal file path")]]
-                           std::string_view path)
+    FileKey() = default;
+
+    [[=welder::doc("A path-only key; the path is canonicalized here and may use "
+                   "any accepted spelling.")]]
+    FileKey([[=welder::doc("the client-internal file path")]] std::string_view file_path)
+      : path(normalize_path(file_path))
     {
-      return {.fdid = std::nullopt, .path = normalize_path(path)};
     }
 
-    [[=welder::doc("Make a key from a FileDataID alone."),
-      =welder::returns("an id-only key")]]
-    static FileKey by_fdid([[=welder::doc("the numeric file identifier")]]
-                           FileDataID fdid)
+    [[=welder::doc("An id-only key.")]]
+    FileKey([[=welder::doc("the numeric file identifier")]] FileDataID file_id)
+      : fdid(file_id)
     {
-      return {.fdid = fdid, .path = std::nullopt};
     }
 
-    [[=welder::doc("Make a key carrying both identities of one file."),
-      =welder::returns("a key with both path and id set")]]
-    static FileKey by_both([[=welder::doc("the client-internal file path")]]
-                           std::string_view path,
-                           [[=welder::doc("the numeric file identifier")]]
-                           FileDataID fdid)
+    [[=welder::doc("A key carrying both identities of one file.")]]
+    FileKey([[=welder::doc("the client-internal file path")]] std::string_view file_path,
+            [[=welder::doc("the numeric file identifier")]] FileDataID file_id)
+      : fdid(file_id)
+      , path(normalize_path(file_path))
     {
-      return {.fdid = fdid, .path = normalize_path(path)};
     }
   };
 }

@@ -22,14 +22,14 @@ TEST_CASE("the 3.3.5a client opens and serves known files", "[integration][mpq]"
   SECTION("a locale archive file reads")
   {
     const auto lua =
-      storage.read_file(FileKey::by_path("Interface/GlueXML/GlueStrings.lua"));
+      storage.read_file(FileKey{"Interface/GlueXML/GlueStrings.lua"});
     REQUIRE(lua.has_value());
     CHECK_FALSE(lua->empty());
   }
 
   SECTION("a DBC reads with its magic intact")
   {
-    const auto dbc = storage.read_file(FileKey::by_path("DBFilesClient/Map.dbc"));
+    const auto dbc = storage.read_file(FileKey{"DBFilesClient/Map.dbc"});
     REQUIRE(dbc.has_value());
     REQUIRE(dbc->size() >= 4);
     CHECK(std::memcmp(dbc->data(), "WDBC", 4) == 0);
@@ -47,14 +47,14 @@ TEST_CASE("the 3.3.5a client opens and serves known files", "[integration][mpq]"
 
   SECTION("misses are FileNotFound")
   {
-    const auto missing = storage.read_file(FileKey::by_path("no/such/file.blp"));
+    const auto missing = storage.read_file(FileKey{"no/such/file.blp"});
     REQUIRE_FALSE(missing.has_value());
     CHECK(missing.error().code == ErrorCode::FileNotFound);
   }
 
   SECTION("id-only requests are rejected on a path-addressed storage")
   {
-    const auto by_id = storage.read_file(FileKey::by_fdid(FileDataID{1349477}));
+    const auto by_id = storage.read_file(FileKey{FileDataID{1349477}});
     REQUIRE_FALSE(by_id.has_value());
     CHECK(by_id.error().code == ErrorCode::FdidNotResolvable);
   }

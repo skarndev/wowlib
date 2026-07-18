@@ -49,8 +49,15 @@ namespace wowlib
 
     for (const auto& archive_path : *chain)
     {
+      // NO_LISTFILE/NO_ATTRIBUTES: exact-path reads resolve through the hash
+      // table alone, and parsing those internal files costs seconds per large
+      // archive (7s for 3.3.5a common.MPQ vs 10ms without). Features that need
+      // enumeration must load the listfile on demand instead.
+      constexpr DWORD open_flags = MPQ_OPEN_READ_ONLY | MPQ_OPEN_NO_LISTFILE |
+                                   MPQ_OPEN_NO_ATTRIBUTES | MPQ_OPEN_NO_HEADER_SEARCH;
+
       HANDLE handle = nullptr;
-      if (!SFileOpenArchive(archive_path.c_str(), 0, MPQ_OPEN_READ_ONLY, &handle))
+      if (!SFileOpenArchive(archive_path.c_str(), 0, open_flags, &handle))
       {
         const auto native = SErrGetLastError();
         close();

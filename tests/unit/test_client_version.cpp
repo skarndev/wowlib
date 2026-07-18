@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/error.hpp>
 
 using namespace wowlib;
 
@@ -11,8 +12,18 @@ TEST_CASE("storage kind classification splits at WoD", "[version]")
   CHECK(ClientVersion::wotlk().storage_kind() == StorageKind::Mpq);
   CHECK(ClientVersion::cata().storage_kind() == StorageKind::Mpq);
   CHECK(ClientVersion::mop().storage_kind() == StorageKind::Mpq);
-  CHECK(ClientVersion{6, 2, 4, 21742}.storage_kind() == StorageKind::Casc);
+  CHECK(ClientVersion::wod().storage_kind() == StorageKind::Casc);
+  CHECK(ClientVersion::legion().storage_kind() == StorageKind::Casc);
+  CHECK(ClientVersion::bfa().storage_kind() == StorageKind::Casc);
   CHECK(ClientVersion::shadowlands().storage_kind() == StorageKind::Casc);
+  CHECK(ClientVersion::dragonflight().storage_kind() == StorageKind::Casc);
+  CHECK(ClientVersion::tww().storage_kind() == StorageKind::Casc);
+}
+
+TEST_CASE("error codes stringify via reflection", "[version][reflect]")
+{
+  STATIC_CHECK(to_string(ErrorCode::FileNotFound) == "FileNotFound");
+  CHECK(to_string(ErrorCode::EncryptedContent) == "EncryptedContent");
 }
 
 TEST_CASE("locale codes round-trip", "[version]")

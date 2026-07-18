@@ -67,24 +67,24 @@ namespace wowlib
 
   Result<FileBuffer> FileSystem::read_file(std::string_view path)
   {
-    return std::visit([&](auto& fs) { return fs.read_file(FileKey::by_path(path)); },
+    return std::visit([&](auto& fs) { return fs.read_file(FileKey{path}); },
                       impl_);
   }
 
   Result<FileBuffer> FileSystem::read_file(FileDataID fdid)
   {
-    return std::visit([&](auto& fs) { return fs.read_file(FileKey::by_fdid(fdid)); },
+    return std::visit([&](auto& fs) { return fs.read_file(FileKey{fdid}); },
                       impl_);
   }
 
   bool FileSystem::exists(std::string_view path)
   {
-    return std::visit([&](auto& fs) { return fs.exists(FileKey::by_path(path)); }, impl_);
+    return std::visit([&](auto& fs) { return fs.exists(FileKey{path}); }, impl_);
   }
 
   bool FileSystem::exists(FileDataID fdid)
   {
-    return std::visit([&](auto& fs) { return fs.exists(FileKey::by_fdid(fdid)); }, impl_);
+    return std::visit([&](auto& fs) { return fs.exists(FileKey{fdid}); }, impl_);
   }
 
   Result<FileDataID> FileSystem::add_file(std::string_view path,

@@ -22,7 +22,7 @@ TEST_CASE("the 9.2.7 CASC storage opens and serves files by FileDataID",
   {
     // 1375801 = dbfilesclient/manifestinterfacedata.db2 — verified locally present
     // in the WoWCircle repack (unlike e.g. map.db2, whose content is not shipped)
-    const auto db2 = storage.read_file(FileKey::by_fdid(FileDataID{1375801}));
+    const auto db2 = storage.read_file(FileKey{FileDataID{1375801}});
     REQUIRE(db2.has_value());
     REQUIRE(db2->size() >= 4);
     const bool wdc = std::memcmp(db2->data(), "WDC3", 4) == 0 ||
@@ -32,7 +32,7 @@ TEST_CASE("the 9.2.7 CASC storage opens and serves files by FileDataID",
 
   SECTION("an unknown FileDataID misses cleanly")
   {
-    const auto missing = storage.read_file(FileKey::by_fdid(FileDataID{0xFFFFFF}));
+    const auto missing = storage.read_file(FileKey{FileDataID{0xFFFFFF}});
     REQUIRE_FALSE(missing.has_value());
     CHECK(missing.error().code == ErrorCode::FileNotFound);
   }
@@ -40,7 +40,7 @@ TEST_CASE("the 9.2.7 CASC storage opens and serves files by FileDataID",
   SECTION("name-only lookups fail on a post-8.2 root, as documented")
   {
     const auto by_name =
-      storage.read_file(FileKey::by_path("dbfilesclient/manifestinterfacedata.db2"));
+      storage.read_file(FileKey{"dbfilesclient/manifestinterfacedata.db2"});
     if (!by_name.has_value())
       CHECK(by_name.error().code == ErrorCode::PathNotResolvable);
     // (if the repack's root still carries this name hash, the read succeeding is
@@ -64,5 +64,5 @@ TEST_CASE("paths resolve through the community listfile", "[integration][casc]")
   CascStorage storage{{.client_root = clients / tests::casc_client_name,
                        .build = 45745}};
   REQUIRE(storage.open().has_value());
-  CHECK(storage.read_file(FileKey::by_fdid(*fdid)).has_value());
+  CHECK(storage.read_file(FileKey{*fdid}).has_value());
 }

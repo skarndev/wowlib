@@ -6,11 +6,17 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/reflect.hpp>
+
 namespace wowlib
 {
-  /** Machine-readable failure category carried by every wowlib::Error. Enum is not
-      welded directly; bindings surface errors as exceptions typed by this code. */
-  enum class ErrorCode : std::uint32_t
+  enum class
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("Machine-readable failure category carried by every Error; also "
+                 "names the exception category bindings raise.")
+  ]]
+  ErrorCode : std::uint32_t
   {
     StorageOpenFailed,   /**< The client storage (MPQ chain / CASC) failed to initialize. */
     ArchiveOpenFailed,   /**< A single archive within an MPQ chain failed to open. */
@@ -30,10 +36,10 @@ namespace wowlib
     BackendError         /**< Unclassified StormLib/CascLib failure; see native_error. */
   };
 
-  /** The stable name of @a code (mirrors the enumerator spelling).
+  /** The enumerator spelling of @a code, obtained via reflection.
       @param code the error code.
       @return a static string, never dangling. */
-  std::string_view to_string(ErrorCode code);
+  constexpr std::string_view to_string(ErrorCode code) { return enum_name(code); }
 
   struct
   [[

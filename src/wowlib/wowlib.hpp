@@ -4,11 +4,22 @@
     Umbrella header: the whole public wowlib API. Include the individual headers
     instead when compile time matters. */
 
+#include <welder/vocabulary.hpp>
+
+namespace
+[[=welder::doc("Reading and writing World of Warcraft client files: client "
+               "filesystem access (MPQ and CASC), listfile databases, and a "
+               "project-directory overlay for modding.")]]
+wowlib
+{
+}
+
 #include <wowlib/core/buffer.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/core/path.hpp>
+#include <wowlib/core/reflect.hpp>
 #include <wowlib/fs/casc/casc_storage.hpp>
 #include <wowlib/fs/client_filesystem.hpp>
 #include <wowlib/fs/csv_listfile.hpp>
