@@ -28,11 +28,14 @@ errors.
 - LuaBridge3 is pre-declared with `GIT_SUBMODULES ""` BEFORE welder's declaration
   (FetchContent first-declaration-wins): it is header-only, and its submodules
   (googletest, luau, ravi) are hundreds of MB the build never uses.
-- **Never run two CMake configures against one build dir** (e.g. CLion's
-  auto-reload racing a terminal configure): racing FetchContent populates corrupt
-  checkouts (symptoms seen: half-cloned LuaBridge3, casc_static "No SOURCES").
-  Fix: `rm -rf build/<cfg>/_deps/<dep>-*` and reconfigure. CLion's automatic
-  reload is disabled for this project by choice.
+- **One CMake binary per build dir.** The FetchContent populate sub-builds are
+  mtime/stamp-based and effectively owned by whichever cmake configured last;
+  alternating binaries (CLion's bundled 4.3.1 vs Homebrew 4.3.4) re-cloned
+  CascLib/Catch2 on EVERY switch (~40-100s per configure). Resolution: CLion is
+  pointed at the system (Homebrew) CMake. Also never run two configures against
+  one build dir concurrently — racing populates corrupt checkouts (symptoms
+  seen: half-cloned LuaBridge3, casc_static "No SOURCES"); fix with
+  `rm -rf build/<cfg>/_deps/<dep>-*` and reconfigure. CLion auto-reload is off.
 
 ## Quirks found (2026-07)
 - CMake 4.x refuses StormLib/CascLib's ancient `cmake_minimum_required` →
