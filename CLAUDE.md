@@ -41,6 +41,7 @@ These are presented roughly in order:
 | Topic | File |
 |---|---|
 | Filesystem gateway architecture, thread-safety, doc/annotation policy | .claude/context/filesystem-architecture.md |
+| Formats subsystem (chunk framework, versioned entities, round-trip guarantee, bindings, new-format recipe) | .claude/context/formats-architecture.md |
 | MPQ load order & chain tables | .claude/context/mpq-load-order.md |
 | CASC storage specifics (repack shim, error codes, test FDIDs) | .claude/context/casc-notes.md |
 | Listfile & custom FileDataID policy | .claude/context/listfile-notes.md |
