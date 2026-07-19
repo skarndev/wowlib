@@ -1,0 +1,209 @@
+#pragma once
+
+/** @file
+    The wire-level math and color primitives shared across WoW file formats
+    (wowdev.wiki Common_Types), under their established client names. All are
+    trivially copyable with exact on-disk layout — chunk payloads memcpy
+    straight into arrays of them. */
+
+#include <cstdint>
+
+#include <welder/vocabulary.hpp>
+
+namespace wowlib::formats
+{
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 2D float vector: texture coordinates, UV animation speeds.")
+  ]]
+  C2Vector
+  {
+    float x = 0;
+    float y = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 2D integer vector.")
+  ]]
+  C2iVector
+  {
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 3D float vector — the workhorse: positions, normals, "
+                 "rotations-as-Euler-degrees in placements.")
+  ]]
+  C3Vector
+  {
+    float x = 0;
+    float y = 0;
+    float z = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 3D integer vector.")
+  ]]
+  C3iVector
+  {
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+    std::int32_t z = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 4D float vector.")
+  ]]
+  C4Vector
+  {
+    float x = 0;
+    float y = 0;
+    float z = 0;
+    float w = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        A quaternion with the scalar part LAST on disk (x, y, z, w) — note the
+        difference from math libraries that lead with w.)")
+  ]]
+  C4Quaternion
+  {
+    float x = 0;
+    float y = 0;
+    float z = 0;
+    float w = 1;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 3x3 matrix as three column C3Vectors.")
+  ]]
+  C33Matrix
+  {
+    C3Vector columns[3]{};
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 3x4 matrix as four column C3Vectors.")
+  ]]
+  C34Matrix
+  {
+    C3Vector columns[4]{};
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A 4x4 matrix as four column C4Vectors.")
+  ]]
+  C44Matrix
+  {
+    C4Vector columns[4]{};
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A plane as a normal and its signed distance from the origin.")
+  ]]
+  C4Plane
+  {
+    C3Vector normal{};
+    float distance = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("An axis-aligned bounding box: minimum and maximum corners.")
+  ]]
+  CAaBox
+  {
+    C3Vector min{};
+    C3Vector max{};
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("An axis-aligned sphere: position and radius.")
+  ]]
+  CAaSphere
+  {
+    C3Vector position{};
+    float radius = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A color stored as r, g, b, a bytes.")
+  ]]
+  CArgb
+  {
+    std::uint8_t r = 0;
+    std::uint8_t g = 0;
+    std::uint8_t b = 0;
+    std::uint8_t a = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A color stored as b, g, r, a bytes — the client's immediate-mode "
+                 "vertex color layout (WMO MOCV, doodad colors).")
+  ]]
+  CImVector
+  {
+    std::uint8_t b = 0;
+    std::uint8_t g = 0;
+    std::uint8_t r = 0;
+    std::uint8_t a = 0;
+  };
+
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A signed 16-bit fixed-point value with an implicit 0x7FFF scale.")
+  ]]
+  fixed16
+  {
+    std::int16_t value = 0;
+
+    [[=welder::getter,
+      =welder::doc("The value as a float in [-1, 1].")]]
+    constexpr float as_float() const { return static_cast<float>(value) / 0x7FFF; }
+  };
+
+  static_assert(sizeof(C2Vector) == 8);
+  static_assert(sizeof(C2iVector) == 8);
+  static_assert(sizeof(C3Vector) == 12);
+  static_assert(sizeof(C3iVector) == 12);
+  static_assert(sizeof(C4Vector) == 16);
+  static_assert(sizeof(C4Quaternion) == 16);
+  static_assert(sizeof(C33Matrix) == 36);
+  static_assert(sizeof(C34Matrix) == 48);
+  static_assert(sizeof(C44Matrix) == 64);
+  static_assert(sizeof(C4Plane) == 16);
+  static_assert(sizeof(CAaBox) == 24);
+  static_assert(sizeof(CAaSphere) == 16);
+  static_assert(sizeof(CArgb) == 4);
+  static_assert(sizeof(CImVector) == 4);
+  static_assert(sizeof(fixed16) == 2);
+}

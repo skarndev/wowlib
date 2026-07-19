@@ -1,0 +1,89 @@
+#pragma once
+
+/** @file
+    The Expansion enum — the coarse, enumerable version axis the scripting
+    bindings key on — and its mapping onto the ClientVersion constants wowlib
+    targets (`versions::`). */
+
+#include <array>
+#include <meta>
+#include <optional>
+
+#include <welder/vocabulary.hpp>
+
+#include <wowlib/core/client_version.hpp>
+
+namespace wowlib
+{
+  /** One enumerator per expansion wowlib targets, in release order. */
+  enum class
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        The expansion a client belongs to, in release order. The enumerable
+        counterpart of a full ClientVersion: versioned format classes and
+        factories are keyed on it (each enumerator maps to the
+        last-minor-of-major release in the versions namespace).)")
+  ]]
+  Expansion
+  {
+    Vanilla,
+    Tbc,
+    Wotlk,
+    Cata,
+    Mop,
+    Wod,
+    Legion,
+    Bfa,
+    Shadowlands,
+    Dragonflight,
+    TheWarWithin
+  };
+
+  namespace detail
+  {
+    /** The targeted ClientVersion of each Expansion, indexed by enumerator
+        value. Must stay in enumerator order. */
+    inline constexpr std::array expansion_versions{
+      versions::vanilla, versions::tbc,    versions::wotlk,       versions::cata,
+      versions::mop,     versions::wod,    versions::legion,      versions::bfa,
+      versions::shadowlands, versions::dragonflight, versions::tww};
+
+    static_assert(expansion_versions.size()
+                    == std::meta::enumerators_of(^^Expansion).size(),
+                  "expansion_versions must cover every Expansion enumerator");
+  }
+
+  /** The last-minor-of-major ClientVersion wowlib targets for @a expansion —
+      the version constant a formats instantiation for this expansion uses.
+      @param expansion the expansion.
+      @return the matching `versions::` constant. */
+  constexpr ClientVersion to_client_version(Expansion expansion)
+  {
+    return detail::expansion_versions[static_cast<std::size_t>(expansion)];
+  }
+
+  /** The Expansion whose targeted release is exactly @a version.
+      @param version a full client version tuple.
+      @return the expansion, or nullopt if @a version is not one of the
+              `versions::` constants. */
+  constexpr std::optional<Expansion> to_expansion(ClientVersion version)
+  {
+    for (std::size_t i = 0; i < detail::expansion_versions.size(); ++i)
+      if (detail::expansion_versions[i] == version)
+        return static_cast<Expansion>(i);
+    return std::nullopt;
+  }
+
+  /** The Expansion a client of @a version belongs to, by major version — usable
+      for any build, not just the targeted release constants.
+      @param version a full client version tuple.
+      @return the expansion, or nullopt for majors wowlib does not know. */
+  constexpr std::optional<Expansion> expansion_of(ClientVersion version)
+  {
+    for (std::size_t i = 0; i < detail::expansion_versions.size(); ++i)
+      if (detail::expansion_versions[i].major == version.major)
+        return static_cast<Expansion>(i);
+    return std::nullopt;
+  }
+}

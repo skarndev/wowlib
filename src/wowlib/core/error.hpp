@@ -33,7 +33,13 @@ namespace wowlib
     EncryptedContent,    /**< Content is behind an unknown TACT encryption key. */
     NotSupported,        /**< Operation not supported by this backend/provider. */
     NotImplemented,      /**< Placeholder during phased implementation. */
-    BackendError         /**< Unclassified StormLib/CascLib failure; see native_error. */
+    BackendError,        /**< Unclassified StormLib/CascLib failure; see native_error. */
+
+    ChunkTruncated,      /**< A chunk header or payload overruns the file buffer. */
+    ChunkSizeMismatch,   /**< A chunk's size disagrees with its wire struct layout. */
+    ChunkMissing,        /**< A chunk the format requires is absent from the file. */
+    FormatVersionMismatch,    /**< The file's version chunk disagrees with the requested version. */
+    UnsupportedClientVersion  /**< No format instantiation exists for the requested client version. */
   };
 
   /** The enumerator spelling of @a code, obtained via reflection.

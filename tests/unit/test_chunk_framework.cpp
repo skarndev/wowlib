@@ -1,0 +1,367 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include <cstring>
+#include <span>
+#include <vector>
+
+#include <wowlib/core/client_version.hpp>
+#include <wowlib/formats/chunk/serializer.hpp>
+
+using namespace wowlib;
+using namespace wowlib::formats;
+
+namespace
+{
+  // A version boundary for since/until members, plus one version on each side.
+  inline constexpr ClientVersion boundary{8, 1, 0, 28186};
+  inline constexpr ClientVersion old_v = versions::wotlk;
+  inline constexpr ClientVersion new_v = versions::shadowlands;
+
+  struct InnerHeader
+  {
+    std::uint32_t a = 0;
+    std::uint16_t b = 0;
+    std::uint16_t c = 0;
+  };
+  static_assert(sizeof(InnerHeader) == 8);
+
+  template <ClientVersion V>
+  struct Body : chunk_extras
+  {
+    static constexpr ClientVersion version = V;
+
+    [[=formats::header]] InnerHeader head{};
+    [[=chunk("IVEC")]] std::vector<std::uint32_t> values;
+    [[=chunk("IOPT"), =formats::optional]] std::vector<std::uint16_t> extra;
+  };
+
+  template <ClientVersion V>
+  struct TestEntity : chunk_extras
+  {
+    static constexpr ClientVersion version = V;
+
+    [[=chunk("TVER")]] std::uint32_t ver = 1;
+    [[=chunk("TSTR"), =formats::optional]] string_block names;
+    [[=chunk("TVEC")]] std::vector<std::uint64_t> data;
+    [[=chunk("TREP"), =formats::optional, =repeats(3)]] repeated<std::vector<std::uint16_t>, 3>
+      sets;
+    [[=chunk("TOLD"), =until(boundary), =formats::optional]] std::vector<std::uint32_t> old_refs;
+    [[=chunk("TNEW"), =since(boundary), =formats::optional]] std::vector<std::uint32_t> new_refs;
+    [[=chunk("TCON"), =formats::container, =formats::optional]] Body<V> body{};
+  };
+
+  static_assert(ChunkedEntity<TestEntity<old_v>>);
+  static_assert(ChunkedEntity<Body<new_v>>);
+
+  // --- synthetic buffer building ---------------------------------------------
+
+  void put_bytes(FileBuffer& b, const void* p, std::size_t n)
+  {
+    const auto* bytes = static_cast<const std::byte*>(p);
+    b.insert(b.end(), bytes, bytes + n);
+  }
+
+  void put_chunk(FileBuffer& b, const char (&cc)[5], std::span<const std::byte> payload)
+  {
+    const std::uint32_t fourcc = four_cc(cc);
+    const auto size = static_cast<std::uint32_t>(payload.size());
+    put_bytes(b, &fourcc, sizeof fourcc);
+    put_bytes(b, &size, sizeof size);
+    put_bytes(b, payload.data(), payload.size());
+  }
+
+  template <typename T>
+  void put_pod_chunk(FileBuffer& b, const char (&cc)[5], const T& v)
+  {
+    put_chunk(b, cc, std::span{reinterpret_cast<const std::byte*>(&v), sizeof v});
+  }
+
+  template <typename T>
+  void put_vec_chunk(FileBuffer& b, const char (&cc)[5], const std::vector<T>& v)
+  {
+    put_chunk(b, cc,
+              std::span{reinterpret_cast<const std::byte*>(v.data()), v.size() * sizeof(T)});
+  }
+
+  FileBuffer body_bytes(std::uint32_t a, const std::vector<std::uint32_t>& values)
+  {
+    FileBuffer b;
+    const InnerHeader head{a, 7, 9};
+    put_bytes(b, &head, sizeof head);
+    put_vec_chunk(b, "IVEC", values);
+    return b;
+  }
+
+  /** The canonical little file: every required chunk plus a few extras. */
+  FileBuffer canonical_file()
+  {
+    FileBuffer b;
+    put_pod_chunk(b, "TVER", std::uint32_t{17});
+    put_vec_chunk(b, "TVEC", std::vector<std::uint64_t>{10, 20, 30});
+    put_chunk(b, "TSTR", std::span{reinterpret_cast<const std::byte*>("abc\0de\0"), 7});
+    return b;
+  }
+}
+
+TEST_CASE("reads are chunk-order independent", "[formats][chunk]")
+{
+  FileBuffer shuffled;
+  put_chunk(shuffled, "TSTR", std::span{reinterpret_cast<const std::byte*>("abc\0de\0"), 7});
+  put_vec_chunk(shuffled, "TVEC", std::vector<std::uint64_t>{10, 20, 30});
+  put_pod_chunk(shuffled, "TVER", std::uint32_t{17});
+
+  const auto canonical = read<TestEntity<old_v>>(canonical_file());
+  const auto reordered = read<TestEntity<old_v>>(shuffled);
+  REQUIRE(canonical.has_value());
+  REQUIRE(reordered.has_value());
+
+  CHECK(canonical->ver == 17);
+  CHECK(reordered->ver == 17);
+  CHECK(canonical->data == reordered->data);
+  CHECK(canonical->names.raw() == reordered->names.raw());
+  CHECK(canonical->names.at(4) == "de");
+}
+
+TEST_CASE("journal replay reproduces the original bytes exactly", "[formats][chunk]")
+{
+  FileBuffer shuffled;
+  put_vec_chunk(shuffled, "TVEC", std::vector<std::uint64_t>{1, 2});
+  put_pod_chunk(shuffled, "TVER", std::uint32_t{3});
+
+  const auto entity = read<TestEntity<old_v>>(shuffled);
+  REQUIRE(entity.has_value());
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+  CHECK(*rewritten == shuffled);  // shuffled order preserved, not canonicalized
+}
+
+TEST_CASE("unknown chunks are preserved verbatim and replayed in position", "[formats][chunk]")
+{
+  FileBuffer file;
+  put_pod_chunk(file, "TVER", std::uint32_t{1});
+  put_vec_chunk(file, "WERD", std::vector<std::uint32_t>{0xDEAD, 0xBEEF});
+  put_vec_chunk(file, "TVEC", std::vector<std::uint64_t>{5});
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE(entity.has_value());
+  REQUIRE(entity->unknown.size() == 1);
+  CHECK(entity->unknown[0].fourcc == four_cc("WERD"));
+  CHECK(entity->unknown[0].bytes.size() == 8);
+
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+  CHECK(*rewritten == file);
+}
+
+TEST_CASE("repeated chunks fill slots in order and round-trip", "[formats][chunk]")
+{
+  FileBuffer file;
+  put_pod_chunk(file, "TVER", std::uint32_t{1});
+  put_vec_chunk(file, "TREP", std::vector<std::uint16_t>{1});
+  put_vec_chunk(file, "TVEC", std::vector<std::uint64_t>{5});  // interleaved
+  put_vec_chunk(file, "TREP", std::vector<std::uint16_t>{2, 2});
+  put_vec_chunk(file, "TREP", std::vector<std::uint16_t>{3, 3, 3});
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE(entity.has_value());
+  REQUIRE(entity->sets.size() == 3);
+  CHECK(entity->sets[0] == std::vector<std::uint16_t>{1});
+  CHECK(entity->sets[2] == std::vector<std::uint16_t>{3, 3, 3});
+
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+  CHECK(*rewritten == file);
+}
+
+TEST_CASE("a repeated chunk beyond capacity is preserved as unknown", "[formats][chunk]")
+{
+  FileBuffer file;
+  put_pod_chunk(file, "TVER", std::uint32_t{1});
+  put_vec_chunk(file, "TVEC", std::vector<std::uint64_t>{});
+  for (std::uint16_t i = 0; i < 4; ++i)
+    put_vec_chunk(file, "TREP", std::vector<std::uint16_t>{i});
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE(entity.has_value());
+  CHECK(entity->sets.size() == 3);
+  REQUIRE(entity->unknown.size() == 1);
+  CHECK(entity->unknown[0].fourcc == four_cc("TREP"));
+
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+  CHECK(*rewritten == file);
+}
+
+TEST_CASE("duplicate non-repeated chunks are preserved as unknown", "[formats][chunk]")
+{
+  FileBuffer file;
+  put_pod_chunk(file, "TVER", std::uint32_t{1});
+  put_vec_chunk(file, "TVEC", std::vector<std::uint64_t>{5});
+  put_pod_chunk(file, "TVER", std::uint32_t{99});  // duplicate
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE(entity.has_value());
+  CHECK(entity->ver == 1);  // first occurrence wins
+  REQUIRE(entity->unknown.size() == 1);
+
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+  CHECK(*rewritten == file);
+}
+
+TEST_CASE("trailing stray bytes are preserved", "[formats][chunk]")
+{
+  FileBuffer file = canonical_file();
+  const char stray[3]{'x', 'y', 'z'};
+  put_bytes(file, stray, 3);
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE(entity.has_value());
+  CHECK(entity->trailing.size() == 3);
+
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+  CHECK(*rewritten == file);
+}
+
+TEST_CASE("a chunk size overrunning the buffer is ChunkTruncated", "[formats][chunk]")
+{
+  FileBuffer file;
+  const std::uint32_t fourcc = four_cc("TVER");
+  const std::uint32_t size = 1000;  // way past the end
+  put_bytes(file, &fourcc, 4);
+  put_bytes(file, &size, 4);
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE_FALSE(entity.has_value());
+  CHECK(entity.error().code == ErrorCode::ChunkTruncated);
+}
+
+TEST_CASE("size mismatches are diagnosed", "[formats][chunk]")
+{
+  SECTION("data chunk with the wrong size")
+  {
+    FileBuffer file;
+    const std::uint16_t half = 17;
+    put_pod_chunk(file, "TVER", half);  // 2 bytes, needs 4
+    put_vec_chunk(file, "TVEC", std::vector<std::uint64_t>{});
+    const auto entity = read<TestEntity<old_v>>(file);
+    REQUIRE_FALSE(entity.has_value());
+    CHECK(entity.error().code == ErrorCode::ChunkSizeMismatch);
+  }
+  SECTION("array chunk not divisible by the element size")
+  {
+    FileBuffer file;
+    put_pod_chunk(file, "TVER", std::uint32_t{1});
+    const char odd[3]{1, 2, 3};
+    put_chunk(file, "TVEC", std::span{reinterpret_cast<const std::byte*>(odd), 3});
+    const auto entity = read<TestEntity<old_v>>(file);
+    REQUIRE_FALSE(entity.has_value());
+    CHECK(entity.error().code == ErrorCode::ChunkSizeMismatch);
+  }
+}
+
+TEST_CASE("a missing required chunk is ChunkMissing", "[formats][chunk]")
+{
+  FileBuffer file;
+  put_pod_chunk(file, "TVER", std::uint32_t{1});  // no TVEC
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE_FALSE(entity.has_value());
+  CHECK(entity.error().code == ErrorCode::ChunkMissing);
+  CHECK(entity.error().message.contains("TVEC"));
+}
+
+TEST_CASE("since/until members follow the entity version", "[formats][chunk]")
+{
+  FileBuffer file;
+  put_pod_chunk(file, "TVER", std::uint32_t{1});
+  put_vec_chunk(file, "TVEC", std::vector<std::uint64_t>{});
+  put_vec_chunk(file, "TOLD", std::vector<std::uint32_t>{111});
+  put_vec_chunk(file, "TNEW", std::vector<std::uint32_t>{222});
+
+  SECTION("pre-boundary version reads TOLD, banks TNEW as unknown")
+  {
+    const auto entity = read<TestEntity<old_v>>(file);
+    REQUIRE(entity.has_value());
+    CHECK(entity->old_refs == std::vector<std::uint32_t>{111});
+    CHECK(entity->new_refs.empty());
+    REQUIRE(entity->unknown.size() == 1);
+    CHECK(entity->unknown[0].fourcc == four_cc("TNEW"));
+    CHECK(*write(*entity) == file);  // still byte-perfect
+  }
+  SECTION("post-boundary version reads TNEW, banks TOLD as unknown")
+  {
+    const auto entity = read<TestEntity<new_v>>(file);
+    REQUIRE(entity.has_value());
+    CHECK(entity->new_refs == std::vector<std::uint32_t>{222});
+    CHECK(entity->old_refs.empty());
+    REQUIRE(entity->unknown.size() == 1);
+    CHECK(entity->unknown[0].fourcc == four_cc("TOLD"));
+    CHECK(*write(*entity) == file);
+  }
+}
+
+TEST_CASE("container chunks nest with a header prelude", "[formats][chunk]")
+{
+  FileBuffer file = canonical_file();
+  put_chunk(file, "TCON", body_bytes(42, {7, 8}));
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE(entity.has_value());
+  CHECK(entity->body.head.a == 42);
+  CHECK(entity->body.head.b == 7);
+  CHECK(entity->body.values == std::vector<std::uint32_t>{7, 8});
+
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+  CHECK(*rewritten == file);
+}
+
+TEST_CASE("container inner errors surface", "[formats][chunk]")
+{
+  FileBuffer inner;  // header prelude only, missing required IVEC
+  const InnerHeader head{1, 2, 3};
+  put_bytes(inner, &head, sizeof head);
+
+  FileBuffer file = canonical_file();
+  put_chunk(file, "TCON", inner);
+
+  const auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE_FALSE(entity.has_value());
+  CHECK(entity.error().code == ErrorCode::ChunkMissing);
+  CHECK(entity.error().message.contains("IVEC"));
+}
+
+TEST_CASE("fresh entities write active members in declaration order", "[formats][chunk]")
+{
+  TestEntity<old_v> entity;
+  entity.ver = 5;
+  entity.data = {1, 2, 3};
+  entity.old_refs = {9};  // active on old_v
+  entity.new_refs = {8};  // INACTIVE on old_v: must not be written
+
+  const auto out = write(entity);
+  REQUIRE(out.has_value());
+
+  FileBuffer expected;
+  put_pod_chunk(expected, "TVER", std::uint32_t{5});
+  put_vec_chunk(expected, "TVEC", std::vector<std::uint64_t>{1, 2, 3});
+  put_vec_chunk(expected, "TOLD", std::vector<std::uint32_t>{9});
+  CHECK(*out == expected);
+}
+
+TEST_CASE("members engaged after reading append after the journal", "[formats][chunk]")
+{
+  const FileBuffer file = canonical_file();
+  auto entity = read<TestEntity<old_v>>(file);
+  REQUIRE(entity.has_value());
+
+  entity->old_refs = {4, 5};  // newly engaged, was not in the file
+  const auto rewritten = write(*entity);
+  REQUIRE(rewritten.has_value());
+
+  FileBuffer expected = file;
+  put_vec_chunk(expected, "TOLD", std::vector<std::uint32_t>{4, 5});
+  CHECK(*rewritten == expected);
+}

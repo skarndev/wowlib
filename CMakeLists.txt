@@ -17,6 +17,7 @@ add_library(wowlib STATIC
   src/wowlib/fs/mpq/mpq_chain.cpp
   src/wowlib/fs/mpq/mpq_storage.cpp
   src/wowlib/fs/casc/casc_storage.cpp
+  src/wowlib/formats/wmo/wmo.cpp
 )
 target_include_directories(wowlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_options(wowlib PRIVATE ${WOWLIB_CXX_FLAGS} PUBLIC ${WOWLIB_REFLECTION_FLAGS})
