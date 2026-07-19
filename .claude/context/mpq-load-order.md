@@ -19,19 +19,43 @@ chain in load order:
   round-2 note) but low-impact since patches override all base.
 - **Patch tier** (`PatchScheme::ClassicWildcard`): globs `Data/` for
   `patch.MPQ` + single-char `patch-?.MPQ`, and `Data/{locale}/` for the
-  `patch-{locale}[-?]` equivalents. Sort key = extension-stripped bare filename;
-  comparator = **case-insensitive** (`ci_less`, matching the client's
-  `__strnicmp`). Base and locale patches are sorted as **separate groups, base
-  first**, so locale patches stay strictly last. NOTE: this is a deliberate
-  deviation from a literal "one merged sort" — a merged case-insensitive sort
-  would rank an uppercase base `patch-Z` (→ `z`, 0x7A) *after* the lowercase
-  locale infix (`enus`, 0x65), interleaving custom base letter-patches past the
-  locale patches, which contradicts the known locale-last behavior. If the real
-  client is ever shown to interleave here, revisit `append_patches`.
+  `patch-{locale}[-?]` equivalents. Base and locale matches go into **ONE list**
+  sorted by the client's key: extension-stripped bare filename, comparator
+  **case-insensitive** (`ci_less` ↔ `__strnicmp`). Base and locale patches
+  **interleave** — because the comparator is case-insensitive, an uppercase base
+  `patch-Z` (→ `z`, 0x7A) sorts *after* the locale infix (`enus`, first char `e`
+  0x65), so custom base letter-patches above the locale code outrank the locale
+  patches (`patch-Z` overrides `patch-enUS`). This matches `FUN_00405ab0`'s sorted
+  pass, which globs both wildcards into one list. (Superseded the earlier
+  "separate groups, locale strictly last" model — that rested on round-1's
+  case-*sensitive* reasoning, invalidated by the round-2 `__strnicmp` finding.)
 - **Directory members**: any base or patch slot may be a folder of loose files
   (`ChainMember::is_directory`); a real archive file of the same name wins.
   `MpqStorage` indexes each loose dir by canonical in-game path at open, so reads
   are case-insensitive. Missing archives are skipped silently.
+
+## Open follow-up — secondary patch pass (not yet modeled)
+
+`FUN_00405ab0` runs TWO passes over its 12-entry template table. Pass 0 (the only
+one that gets sorted) globs the single-char wildcards `patch-?.MPQ` +
+`patch-{loc}-?.MPQ` in `Data/` — this is what `expand_chain` models. Pass 1 is
+UNsorted and appended after: the fixed `patch.MPQ` / `patch-2/3/4` (+ locale
+forms) re-adds, plus a second `..\Data\` (parent-of-cwd) root for all of them.
+
+We do NOT model pass 1. Impact is limited and does not touch the verified
+letter-patch interleaving (letters come only from the sorted pass 0):
+- The bare `patch.MPQ` and `patch-2/3/4` are also matched by the pass-0 wildcard
+  (except bare `patch.MPQ`, no `-` suffix), so they already appear; the exact
+  final priority of these low/bare patches vs. their re-add depends on the
+  archive-open dedup, which we didn't decode.
+- The `..\Data\` root only matters when the client runs from a subdirectory —
+  irrelevant to a normal `Data/` layout.
+
+To get bit-exact parity (only if a real repack ever depends on it): run a client
+under a debugger, dump the final per-archive priority list, and reconcile the
+pass-1 dedup/append against `expand_chain`. Until then, treat pass 1 as a known,
+low-impact gap. GhidraMCP here has no memory-read tool, so this needs a dynamic
+check, not more static tracing.
 
 ## ✅ Ghidra verification round 2 (2026-07-19, live GhidraMCP)
 
@@ -149,9 +173,10 @@ sorts identically to the archive). Implications for us:
    numbers before letters — ASCII '9' < 'A')
 6. `{loc}/patch-{loc}-{4..9,A..Z}.MPQ`
 
-`{loc}` auto-detected by scanning for `{code}/locale-{code}.MPQ`; ambiguous
-(multi-locale repack) → caller must pass one. Distractors to skip: `base-{loc}`,
-`backup-{loc}` archives.
+`{loc}` is supplied by the caller (`FileSystemSettings.locale`, default enUS); we
+no longer scan/auto-detect it. `MpqStorage::open` only asserts the `Data/{code}/`
+directory exists, failing with `StorageOpenFailed` otherwise. Distractors that
+would have confused a scan: `base-{loc}`, `backup-{loc}` archives.
 
 Note: pywowlib sorted ALL `Data/*.MPQ` alphabetically — approximately right for
 3.3.5a, wrong in general; don't copy that.

@@ -30,8 +30,7 @@ namespace wowlib::fs
   /** The concrete composition for CASC-era clients (listfile-resolved FileDataIDs). */
   using CascFileSystem = ClientFileSystem<CascStorage, CsvListfile>;
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
         Everything needed to open a client filesystem: where the client is, which
@@ -41,8 +40,7 @@ namespace wowlib::fs
         C++ it stays an aggregate (designated initializers; const members); the
         scripting languages construct through the synthesized field constructor,
         where everything after the version is optional.)")
-  ]]
-  FileSystemSettings
+  ]] FileSystemSettings
   {
     [[=welder::doc("The client installation root (the directory containing Data/).")]]
     const std::filesystem::path client_path;
@@ -51,9 +49,9 @@ namespace wowlib::fs
     const ClientVersion version;
 
     [[=welder::doc(R"(
-        Client locale. For MPQ clients nullopt means auto-detect from the Data
-        directory.)")]]
-    const std::optional<Locale> locale{};
+        Client locale. For MPQ clients its Data/{code}/ directory must exist; for
+        CASC clients it is the locale mask for content selection.)")]]
+    const Locale locale = Locale::enUS;
 
     [[=welder::doc(R"(
         The project-directory overlay: the ultimate patch, where new files are

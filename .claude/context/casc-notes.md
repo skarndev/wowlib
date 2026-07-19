@@ -30,11 +30,14 @@ Read when: touching `fs/casc/casc_storage.*` or debugging CASC-era client access
   CASC_OPEN_BY_FILEID)` → `CascGetFileSize64` → one `CascReadFile`.
 - Name lookups (`CASC_OPEN_BY_NAME`) only work when the root manifest carries
   name hashes (pre-8.2); on 9.2.7 → resolve through the listfile.
-- **Repacks ship partial data**: a file can OPEN but have size 0 and fail reads
-  with err 1007 — its content simply isn't local (e.g. `map.db2` fdid 1349477 in
-  WoWCircle). Locally-verified test target: fdid 1375801
-  (`dbfilesclient/manifestinterfacedata.db2`, WDC3). ~1.27M of 2.17M enumerated
-  files are locally present in this repack.
+- **Repacks may ship partial data**: a file can OPEN but have size 0 and fail
+  reads with err 1007 — its content isn't local yet (WoWCircle streams from CDN,
+  so the on-disk set grows over time). Historical note: `map.db2` (fdid 1349477)
+  read size-0 in 2026-07; **re-verified 2026-07-19 it now reads (120937 B, WDC3)**
+  — that repack's local content had filled in. So don't hardcode a specific fdid
+  as "not shipped"; the mechanism is real but which files are missing drifts.
+  Stable test target that has always been local: fdid 1375801
+  (`dbfilesclient/manifestinterfacedata.db2`, WDC3).
 - `ERROR_FILE_ENCRYPTED` (1005) → wowlib `ErrorCode::EncryptedContent` (unknown
   TACT key).
 

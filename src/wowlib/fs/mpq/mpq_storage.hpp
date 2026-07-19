@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -44,7 +43,8 @@ namespace wowlib::fs
     {
       std::filesystem::path data_dir;      /**< The client's Data/ directory. */
       ClientVersion version;               /**< Selects the chain table. */
-      std::optional<Locale> locale;        /**< nullopt => auto-detect from disk. */
+      Locale locale = Locale::enUS;        /**< The locale to open; its Data/{code}/
+                                                directory must exist on disk. */
     };
 
     /** Expand the version's chain and open every archive present on disk.
@@ -59,7 +59,6 @@ namespace wowlib::fs
 
     MpqStorage(MpqStorage&& other) noexcept
       : _options(std::move(other._options))
-      , _locale(other._locale)
       , _archives(std::move(other._archives))
     {
     }
@@ -70,7 +69,6 @@ namespace wowlib::fs
       {
         close();
         _options = std::move(other._options);
-        _locale = other._locale;
         _archives = std::move(other._archives);
       }
       return *this;
@@ -111,8 +109,8 @@ namespace wowlib::fs
     /** @return the opened archives in load order (lowest -> highest priority). */
     std::span<const OpenedArchive> archives() const { return _archives; }
 
-    /** @return the locale the chain was expanded with (set by open()). */
-    std::optional<Locale> locale() const { return _locale; }
+    /** @return the locale the chain was expanded with. */
+    Locale locale() const { return _options.locale; }
 
   private:
     /** Store the options; open() (the factory) performs the work.
@@ -134,7 +132,6 @@ namespace wowlib::fs
     bool is_open() const { return !_archives.empty(); }
 
     Options _options;
-    std::optional<Locale> _locale;
     std::vector<OpenedArchive> _archives;
   };
 }

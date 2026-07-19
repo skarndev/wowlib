@@ -18,8 +18,24 @@ errors.
 |---|---|---|
 | StormLib | v9.40 | target `storm`; `STORM_SKIP_INSTALL`, `BUILD_SHARED_LIBS=OFF`; links SDK zlib/bzip2 |
 | CascLib | 3.0 | target `casc_static`; `CASC_BUILD_STATIC_LIB=ON`, `CASC_BUILD_SHARED_LIB=OFF`, unicode off |
-| welder | commit 57e7747 (no tags yet; aggregate NSDMI defaults) | header-only, target `welder::headers` |
+| welder | commit 19253c7 (no tags yet; method-backed properties) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
+
+## Bumping the welder pin (we own welder)
+- **Push welder before bumping the wowlib pin.** `FETCHCONTENT_UPDATES_DISCONNECTED
+  ON` means FetchContent never fetches after the first populate: if the pinned SHA
+  isn't already in `build/<cfg>/_deps/welder-src`, configure hard-fails with
+  *"Requested git ref <sha> is not present locally, and not allowed to contact
+  remote due to UPDATE_DISCONNECTED"* — and if that SHA was a local-only commit
+  that got rebased/re-pushed, even a manual `git fetch origin <sha>` fails with
+  *"upload-pack: not our ref"* (GitHub only serves ref-reachable SHAs). Symptom of
+  this exact trap: pin `57e7747` (2026-07-19), which was an unpushed welder commit
+  later re-pushed to `main` as `19253c7`.
+- Recovery when a pin points at an unfetchable SHA: find the real commit on the
+  welder remote (`git -C build/<cfg>/_deps/welder-src ls-remote origin`, then
+  `fetch origin` to bring `main` local), repin `GIT_TAG` in Dependencies.cmake to a
+  SHA that exists there, and rebuild — the disconnected update checks out the now
+  local object.
 
 ## Configure-time performance (2026-07-18)
 - `FETCHCONTENT_UPDATES_DISCONNECTED ON` in Dependencies.cmake: every pin is an

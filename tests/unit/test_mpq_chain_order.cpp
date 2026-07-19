@@ -86,8 +86,13 @@ TEST_CASE("the full 3.3.5a chain expands in client load order", "[mpq-chain]")
           "enUS/patch-enUS-2.MPQ", "enUS/patch-enUS-3.MPQ"});
 }
 
-TEST_CASE("custom patches load last, numbers before letters", "[mpq-chain]")
+TEST_CASE("base and locale patches interleave by case-insensitive filename",
+          "[mpq-chain]")
 {
+  // One merged sort over base + locale patches (the client's wildcard pass).
+  // Numbers before letters; base letters below the locale code (enUS -> 'e')
+  // sort before the locale group, base letters above it sort after. So patch-4/9
+  // and patch-A precede the enUS patches, while patch-Z outranks them.
   FakeDataDir data;
   data.add("common.MPQ");
   data.add("patch.MPQ");
@@ -106,17 +111,17 @@ TEST_CASE("custom patches load last, numbers before letters", "[mpq-chain]")
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
                                  "patch-4.MPQ", "patch-9.MPQ", "patch-A.MPQ",
-                                 "patch-Z.MPQ", "enUS/patch-enUS-5.MPQ",
-                                 "enUS/patch-enUS-B.MPQ"});
+                                 "enUS/patch-enUS-5.MPQ", "enUS/patch-enUS-B.MPQ",
+                                 "patch-Z.MPQ"});
 }
 
-TEST_CASE("every base patch precedes every locale patch, custom included",
-          "[mpq-chain]")
+TEST_CASE("a high base letter-patch outranks the locale patches", "[mpq-chain]")
 {
-  // The regression that motivated the rewrite: the old table slotted the official
-  // locale patches (patch-enUS[-N]) between the base official patches and the
-  // custom base patches. The client's single filename sort puts ALL base patches
-  // (patch-Z included) before ANY locale patch.
+  // Verified against Wow.exe 3.3.5a: base and locale patches share one
+  // case-insensitive filename sort, so a custom base patch whose infix sorts past
+  // the locale code (patch-Z vs patch-enUS) loads LAST and overrides the locale
+  // patches — the behavior custom content relies on. (This inverts the earlier
+  // "locale strictly last" assumption, which rested on case-sensitive reasoning.)
   FakeDataDir data;
   data.add("common.MPQ");
   data.add("enUS/locale-enUS.MPQ");
@@ -131,8 +136,8 @@ TEST_CASE("every base patch precedes every locale patch, custom included",
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
-                                 "patch-3.MPQ", "patch-Z.MPQ", "enUS/patch-enUS.MPQ",
-                                 "enUS/patch-enUS-2.MPQ"});
+                                 "patch-3.MPQ", "enUS/patch-enUS.MPQ",
+                                 "enUS/patch-enUS-2.MPQ", "patch-Z.MPQ"});
 }
 
 TEST_CASE("directory-backed patches join the chain and sort like archives",
@@ -169,17 +174,6 @@ TEST_CASE("missing archives are skipped without error", "[mpq-chain]")
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ"});
-}
-
-TEST_CASE("locale detection finds exactly one locale", "[mpq-chain]")
-{
-  FakeDataDir data;
-  data.add("ruRU/locale-ruRU.MPQ");
-  CHECK(detect_locale(data.root) == Locale::ruRU);
-
-  data.add("enUS/locale-enUS.MPQ");
-  CHECK(detect_locales(data.root).size() == 2);
-  CHECK_FALSE(detect_locale(data.root).has_value());   // ambiguous -> caller decides
 }
 
 TEST_CASE("unknown versions have no chain spec", "[mpq-chain]")

@@ -15,10 +15,12 @@ namespace wowlib::fs::detail
     // 3.3.5a (build 12340). Base tier: the archives the client binary hardcodes,
     // loaded below the patch range in this fixed order. Patches load above via
     // ClassicWildcard — `patch.MPQ` + single-char `patch-?.MPQ` in Data/ and the
-    // `patch-{locale}[-?]` equivalents in Data/{locale}/, all merged into one
-    // list and sorted by the client's extension-agnostic filename order. Because
-    // the lowercase locale infix sorts past every base suffix (digits, A-Z),
-    // every base patch (custom patch-4..Z included) precedes every locale patch.
+    // `patch-{locale}[-?]` equivalents in Data/{locale}/, all merged into ONE
+    // list and sorted by the client's case-insensitive, extension-stripped
+    // filename order (verified: the loader's sorted pass globs both wildcards
+    // together). Base and locale patches interleave — a base letter-patch whose
+    // infix sorts past the locale code (`patch-Z` vs `patch-enUS`) outranks the
+    // locale patches, so custom content wins as the client intends.
     constexpr std::array wotlk_base{
       ChainEntry{ChainEntryKind::Fixed, "common.MPQ"},
       ChainEntry{ChainEntryKind::Fixed, "common-2.MPQ"},
@@ -67,9 +69,9 @@ namespace wowlib::fs::detail
     }
 
     // The client's patch comparator is `-__strnicmp` — case-insensitive
-    // lexicographic order over the bare filename. `patch` precedes `patch-2`
-    // (shorter prefix first), and lowercase locale infixes still sort past the
-    // base suffixes.
+    // lexicographic order over the extension-stripped filename. `patch` precedes
+    // `patch-2` (shorter prefix first); base and locale patches interleave by this
+    // same key, since the locale code is part of the locale patch's name.
     bool ci_less(std::string_view a, std::string_view b)
     {
       return std::ranges::lexicographical_compare(
@@ -109,17 +111,16 @@ namespace wowlib::fs::detail
         out.push_back({std::move(candidate), true});
     }
 
-    // Append the patches of `dir` matching `stem`, in the client's order:
-    // case-insensitive by extension-stripped filename. Base (Data/) and locale
-    // (Data/{locale}/) patches are sorted as SEPARATE groups and this is called
-    // base-first, so every base patch precedes every locale patch — the client
-    // keeps locale patches strictly last even though a merged case-insensitive
-    // order would interleave an uppercase base `patch-Z` (-> 'z') past the
-    // lowercase locale infix.
-    void append_patches(std::vector<ChainMember>& out, const fsys::path& dir,
-                        std::string_view stem)
+    // Collect the patches of `dir` matching `stem` into `found`, keyed by the
+    // extension-stripped filename (the client's sort key). The client globs the
+    // single-char wildcard (`patch-?` / `patch-{loc}-?`) plus the bare stem,
+    // case-insensitively; a match may be a real archive or a same-named loose
+    // directory. Base and locale roots are collected into one `found` and sorted
+    // together by the caller, so the two groups interleave exactly as the
+    // client's single sorted patch list does.
+    void collect_patches(std::vector<std::pair<std::string, ChainMember>>& found,
+                         const fsys::path& dir, std::string_view stem)
     {
-      std::vector<std::pair<std::string, ChainMember>> found;
       std::error_code ec;
       for (const auto& entry : fsys::directory_iterator{dir, ec})
       {
@@ -132,10 +133,6 @@ namespace wowlib::fs::detail
           continue;
         found.emplace_back(std::string{*core}, ChainMember{entry.path(), is_dir});
       }
-      std::ranges::stable_sort(found, ci_less,
-                               &std::pair<std::string, ChainMember>::first);
-      for (auto& [key, member] : found)
-        out.push_back(std::move(member));
     }
   }
 
@@ -149,29 +146,6 @@ namespace wowlib::fs::detail
           spec.version.patch == version.patch)
         return &spec;
     return nullptr;
-  }
-
-  std::vector<Locale> detect_locales(const std::filesystem::path& data_dir)
-  {
-    constexpr std::array all{Locale::enUS, Locale::enGB, Locale::deDE, Locale::frFR,
-                             Locale::ruRU, Locale::esES, Locale::esMX, Locale::koKR,
-                             Locale::zhCN, Locale::zhTW, Locale::ptBR, Locale::itIT};
-    std::vector<Locale> found;
-    for (Locale locale : all)
-    {
-      const auto code = locale_code(locale);
-      std::error_code ec;
-      if (fsys::is_regular_file(
-            data_dir / code / std::format("locale-{}.MPQ", code), ec))
-        found.push_back(locale);
-    }
-    return found;
-  }
-
-  std::optional<Locale> detect_locale(const std::filesystem::path& data_dir)
-  {
-    const auto found = detect_locales(data_dir);
-    return found.size() == 1 ? std::optional{found.front()} : std::nullopt;
   }
 
   Result<std::vector<ChainMember>>
@@ -202,14 +176,20 @@ namespace wowlib::fs::detail
       }
     }
 
-    // Patch tier: base patches (Data/) then locale patches (Data/{locale}/),
-    // each an independent sorted group so locale patches stay strictly last.
-    // `patch` sorts before `patch-2` (shorter prefix); within a group the order
-    // is the client's case-insensitive filename order.
+    // Patch tier: base (Data/) and locale (Data/{locale}/) patches form ONE list
+    // sorted by the client's case-insensitive, extension-stripped filename order.
+    // `patch` sorts before `patch-2` (shorter prefix); base and locale patches
+    // interleave, so a high base letter-patch (`patch-F`..`patch-Z` for enUS)
+    // outranks the locale patches.
     if (spec.patch_scheme == PatchScheme::ClassicWildcard)
     {
-      append_patches(out, data_dir, "patch");
-      append_patches(out, locale_dir, std::format("patch-{}", code));
+      std::vector<std::pair<std::string, ChainMember>> patches;
+      collect_patches(patches, data_dir, "patch");
+      collect_patches(patches, locale_dir, std::format("patch-{}", code));
+      std::ranges::stable_sort(patches, ci_less,
+                               &std::pair<std::string, ChainMember>::first);
+      for (auto& [key, member] : patches)
+        out.push_back(std::move(member));
     }
 
     return out;

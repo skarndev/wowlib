@@ -22,8 +22,9 @@ TEST_CASE("the 9.2.7 CASC storage opens and serves files by FileDataID",
 
   SECTION("a known FileDataID reads with a DB2 magic")
   {
-    // 1375801 = dbfilesclient/manifestinterfacedata.db2 — verified locally present
-    // in the WoWCircle repack (unlike e.g. map.db2, whose content is not shipped)
+    // 1375801 = dbfilesclient/manifestinterfacedata.db2 — a file that has always
+    // been locally present in the WoWCircle repack (its CDN-streamed content set
+    // grows over time, so pick one that is stably local; see casc-notes.md).
     const auto db2 = storage.read_file(FileKey{FileDataID{1375801}});
     REQUIRE(db2.has_value());
     REQUIRE(db2->size() >= 4);

@@ -6,7 +6,6 @@
     types), so ordering rules are unit-testable without a client. */
 
 #include <filesystem>
-#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -67,22 +66,12 @@ namespace wowlib::fs::detail
       @return the spec, or nullptr for versions without a table yet. */
   const MpqChainSpec* find_chain_spec(const ClientVersion& version);
 
-  /** Detect the locale of a client Data directory by scanning for a
-      "{code}/locale-{code}.MPQ" pair.
-      @param data_dir the client's Data/ directory.
-      @return the locale, or nullopt if none (or several) present. */
-  std::optional<Locale> detect_locale(const std::filesystem::path& data_dir);
-
-  /** All locales present in @a data_dir (a repack may carry several).
-      @param data_dir the client's Data/ directory.
-      @return the locales found, possibly empty. */
-  std::vector<Locale> detect_locales(const std::filesystem::path& data_dir);
-
   /** Expand a chain spec against a Data directory into concrete members in load
       order (lowest -> highest priority): the base tier in table order, then the
-      patch tier sorted by the client's extension-agnostic filename order (so
-      `patch` < `patch-2` < ... < `patch-Z`, and every base patch precedes every
-      locale patch). Members whose file/dir is absent are skipped silently —
+      patch tier as ONE list sorted by the client's case-insensitive,
+      extension-stripped filename order (so `patch` < `patch-2` < ..., with base
+      and locale patches interleaved — a high base letter-patch like `patch-Z`
+      outranks the locale patches). Members whose file/dir is absent are skipped —
       clients routinely lack optional patches. A member resolves to a loose
       directory when a folder of the archive's name stands in for the archive; a
       real file of the same name would win, though a single Data root cannot hold

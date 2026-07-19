@@ -41,7 +41,7 @@ namespace wowlib::fs
 
     auto storage = CascStorage::open({.client_root = settings.client_path,
                                       .product = settings.casc_product,
-                                      .locale = settings.locale.value_or(Locale::enUS),
+                                      .locale = settings.locale,
                                       .build = settings.version.build});
     if (!storage)
       return std::unexpected(storage.error());

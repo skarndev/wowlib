@@ -57,19 +57,17 @@ namespace wowlib::fs
                                     _options.version.major, _options.version.minor,
                                     _options.version.patch, _options.version.build));
 
-    _locale = _options.locale ? _options.locale : detail::detect_locale(_options.data_dir);
-    if (!_locale)
-    {
-      const auto found = detail::detect_locales(_options.data_dir);
+    // The caller supplies the locale (via FileSystemSettings); we only verify its
+    // Data/{code}/ directory is actually present rather than scanning for one.
+    const std::string code{locale_code(_options.locale)};
+    std::error_code ec;
+    if (!std::filesystem::is_directory(_options.data_dir / code, ec))
       return make_error(
         ErrorCode::StorageOpenFailed,
-        found.empty()
-          ? std::format("no locale directory found under '{}'", _options.data_dir.string())
-          : std::format("{} locale directories found under '{}'; pass one explicitly",
-                        found.size(), _options.data_dir.string()));
-    }
+        std::format("locale directory '{}' not found under '{}'", code,
+                    _options.data_dir.string()));
 
-    auto chain = detail::expand_chain(*spec, _options.data_dir, *_locale);
+    auto chain = detail::expand_chain(*spec, _options.data_dir, _options.locale);
     if (!chain)
       return std::unexpected(chain.error());
     if (chain->empty())

@@ -15,7 +15,7 @@ TEST_CASE("the 3.3.5a client opens and serves known files", "[integration][mpq]"
 
   auto opened = MpqStorage::open({.data_dir = clients / tests::mpq_client_name / "Data",
                                   .version = versions::wotlk,
-                                  .locale = std::nullopt});   // exercise auto-detection (enUS)
+                                  .locale = Locale::enUS});
   REQUIRE(opened.has_value());
   MpqStorage& storage = *opened;
   CHECK(storage.locale() == Locale::enUS);
