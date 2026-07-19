@@ -13,10 +13,9 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
-#include <wowlib/formats/chunk/serializer.hpp>
-#include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/convert.hpp>
-#include <wowlib/formats/wmo/wmo_wire.hpp>
+#include <wowlib/formats/wmo/group.hpp>
+#include <wowlib/formats/wmo/root.hpp>
 
 namespace wowlib::fs
 {
@@ -25,220 +24,14 @@ namespace wowlib::fs
 
 namespace wowlib::formats::wmo
 {
-  /** GFID and the large-material batch layout arrived with Legion 7.0. */
-  inline constexpr ClientVersion wmo_legion = wmo_batch_large_material;
-
-  /** The versions Wmo is instantiated (and welded) for. */
-  inline constexpr std::array wmo_versions{versions::wotlk, versions::shadowlands};
-
-  /** The WMO version every supported client uses (MVER payload). */
-  inline constexpr std::uint32_t wmo_version_v17 = 17;
-
-  /** The root file: materials, group metadata, doodad placements, portals,
-      lights, fog. Members are declared in the canonical client chunk order.
-
-      Only MVER and MOHD are required — real files omit more chunks than the
-      documentation admits, and unmodeled or version-foreign chunks round-trip
-      through the unknown list untouched. */
-  template <ClientVersion V>
-  struct
-  [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc(R"(
-        A WMO root file: header, materials, group metadata, portals, lights,
-        doodad sets and placements, fog. An instance read from a client file
-        rewrites byte-for-byte until modified.)")
-  ]]
-  WmoRoot : chunk_extras
-  {
-    static constexpr ClientVersion version = V;
-
-    [[=chunk("MVER"),
-      =welder::doc("The WMO format version; 17 for every supported client.")]]
-    std::uint32_t mver = wmo_version_v17;
-
-    [[=chunk("MOHD"), =welder::doc("The root header (MOHD).")]]
-    SMOHeader header{};
-
-    [[=chunk("MOTX"), =formats::optional,
-      =welder::doc("Texture filenames (MOTX; pre-8.1, or the 8.1+ fallback mode - "
-                   "its presence means MOMT texture fields are offsets into it, "
-                   "not FileDataIDs).")]]
-    string_block textures;
-
-    [[=chunk("MOMT"), =formats::optional, =welder::doc("Materials (MOMT).")]]
-    std::vector<SMOMaterial> materials;
-
-    [[=chunk("MOGN"), =formats::optional,
-      =welder::doc("Group names (MOGN), referenced by byte offset.")]]
-    string_block group_names;
-
-    [[=chunk("MOGI"), =formats::optional, =welder::doc("Per-group info (MOGI).")]]
-    std::vector<SMOGroupInfo> group_infos;
-
-    [[=chunk("MOSB"), =formats::optional,
-      =welder::doc("Skybox filename (MOSB); raw bytes - files pad it to 4-byte "
-                   "alignment.")]]
-    chunk_blob skybox_name;
-
-    [[=chunk("MOSI"), =since(wmo_fdid_refs), =formats::optional,
-      =welder::doc("Skybox FileDataID (MOSI, 8.1+).")]]
-    std::vector<std::uint32_t> skybox_fdid;
-
-    [[=chunk("MOPV"), =formats::optional, =welder::doc("Portal vertices (MOPV).")]]
-    std::vector<C3Vector> portal_vertices;
-
-    [[=chunk("MOPT"), =formats::optional, =welder::doc("Portals (MOPT).")]]
-    std::vector<SMOPortal> portals;
-
-    [[=chunk("MOPR"), =formats::optional,
-      =welder::doc("Portal references from groups (MOPR).")]]
-    std::vector<SMOPortalRef> portal_refs;
-
-    [[=chunk("MOVV"), =formats::optional,
-      =welder::doc("Visible block vertices (MOVV).")]]
-    std::vector<C3Vector> visible_block_vertices;
-
-    [[=chunk("MOVB"), =formats::optional, =welder::doc("Visible blocks (MOVB).")]]
-    std::vector<SMOVisibleBlock> visible_blocks;
-
-    [[=chunk("MOLT"), =formats::optional, =welder::doc("Lights (MOLT).")]]
-    std::vector<SMOLight> lights;
-
-    [[=chunk("MODS"), =formats::optional, =welder::doc("Doodad sets (MODS).")]]
-    std::vector<SMODoodadSet> doodad_sets;
-
-    [[=chunk("MODN"), =formats::optional,
-      =welder::doc("Doodad (M2) filenames (MODN; pre-8.1 or fallback, see "
-                   "textures).")]]
-    string_block doodad_names;
-
-    [[=chunk("MODI"), =since(wmo_fdid_refs), =formats::optional,
-      =welder::doc("Doodad FileDataIDs (MODI, 8.1+; replaces doodad_names).")]]
-    std::vector<std::uint32_t> doodad_fdids;
-
-    [[=chunk("MODD"), =formats::optional,
-      =welder::doc("Doodad placements (MODD).")]]
-    std::vector<SMODoodadDef> doodad_defs;
-
-    [[=chunk("MFOG"), =formats::optional, =welder::doc("Fog volumes (MFOG).")]]
-    std::vector<SMOFog> fogs;
-
-    [[=chunk("MCVP"), =formats::optional,
-      =welder::doc("Convex volume planes (MCVP); transports mostly.")]]
-    std::vector<C4Plane> convex_volume_planes;
-
-    [[=chunk("GFID"), =since(wmo_legion), =formats::optional,
-      =welder::doc("Group file FileDataIDs (GFID, Legion+), in group order.")]]
-    std::vector<std::uint32_t> group_fdids;
-
-    // Later-expansion root chunks (MOUV, MDDI, MAVG, MAVD, MBVD, MFED, MGI2,
-    // MNLD, MDDL, MPVD, MOLV, MOPE, ...) are not modeled yet: they are
-    // preserved verbatim in chunk_extras::unknown and round-trip untouched.
-  };
-
-  /** The payload of the MOGP container chunk: the group header prelude
-      followed by the geometry subchunks. */
-  template <ClientVersion V>
-  struct
-  [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("The MOGP payload: the group header and the geometry subchunks "
-                 "(triangles, vertices, normals, batches, BSP, liquid).")
-  ]]
-  WmoGroupBody : chunk_extras
-  {
-    static constexpr ClientVersion version = V;
-
-    [[=formats::header, =welder::doc("The group header leading the MOGP payload.")]]
-    SMOGroupHeader<V> header{};
-
-    [[=chunk("MOPY"), =formats::optional,
-      =welder::doc("Per-triangle material info (MOPY).")]]
-    std::vector<SMOPoly> polys;
-
-    [[=chunk("MOVI"), =formats::optional,
-      =welder::doc("Triangle vertex indices (MOVI), three per triangle.")]]
-    std::vector<std::uint16_t> indices;
-
-    [[=chunk("MOVT"), =formats::optional, =welder::doc("Vertices (MOVT).")]]
-    std::vector<C3Vector> vertices;
-
-    [[=chunk("MONR"), =formats::optional, =welder::doc("Normals (MONR).")]]
-    std::vector<C3Vector> normals;
-
-    /** Up to three texture-coordinate sets; count driven by the group flags
-        (has_two_motv, has_three_motv). Excluded from bindings until repeated<>
-        grows a sequence protocol. */
-    [[=chunk("MOTV"), =formats::optional, =repeats(3), =welder::mark::exclude]]
-    repeated<std::vector<C2Vector>, 3> texcoords;
-
-    [[=chunk("MOBA"), =formats::optional, =welder::doc("Render batches (MOBA).")]]
-    std::vector<SMOBatch<V>> batches;
-
-    [[=chunk("MOLR"), =formats::optional,
-      =welder::doc("Light references into the root's MOLT (MOLR).")]]
-    std::vector<std::uint16_t> light_refs;
-
-    [[=chunk("MODR"), =formats::optional,
-      =welder::doc("Doodad references into the root's MODD (MODR).")]]
-    std::vector<std::uint16_t> doodad_refs;
-
-    [[=chunk("MOBN"), =formats::optional,
-      =welder::doc("Collision BSP nodes (MOBN).")]]
-    std::vector<CAaBspNode> bsp_nodes;
-
-    [[=chunk("MOBR"), =formats::optional,
-      =welder::doc("BSP face indices (MOBR).")]]
-    std::vector<std::uint16_t> bsp_face_indices;
-
-    /** Up to two vertex-color layers (has_vertex_colors, has_two_mocv).
-        Excluded from bindings like texcoords. */
-    [[=chunk("MOCV"), =formats::optional, =repeats(2), =welder::mark::exclude]]
-    repeated<std::vector<CImVector>, 2> vertex_colors;
-
-    [[=chunk("MLIQ"), =formats::optional,
-      =welder::doc("Liquid data (MLIQ); intra-chunk offset structure, kept "
-                   "opaque for now.")]]
-    chunk_blob liquid;
-
-    [[=chunk("MORI"), =formats::optional,
-      =welder::doc("Transition batch indices (MORI).")]]
-    std::vector<std::uint16_t> trans_batch_indices;
-
-    [[=chunk("MORB"), =formats::optional,
-      =welder::doc("Transition batch extra data (MORB), unparsed.")]]
-    chunk_blob trans_batch_extra;
-
-    [[=chunk("MOBS"), =formats::optional,
-      =welder::doc("Shadow batches (MOBS, Cataclysm+), unparsed.")]]
-    chunk_blob shadow_batches;
-
-    // MOLP/MOLS/MDAL/MOPL/MOPB/MOLM/MOLD/MPBV.../MOGX/MPY2/MOQG and other
-    // era-specific subchunks stay in chunk_extras::unknown, round-tripping
-    // verbatim.
-  };
-
-  /** One group file: MVER plus the MOGP container. */
-  template <ClientVersion V>
-  struct
-  [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("One WMO group file: the format version and the MOGP container "
-                 "holding the geometry.")
-  ]]
-  WmoGroup : chunk_extras
-  {
-    static constexpr ClientVersion version = V;
-
-    [[=chunk("MVER"),
-      =welder::doc("The WMO format version; 17 for every supported client.")]]
-    std::uint32_t mver = wmo_version_v17;
-
-    [[=chunk("MOGP"), =formats::container,
-      =welder::doc("The MOGP container: group header and geometry.")]]
-    WmoGroupBody<V> body{};
-  };
+  /** The versions WMO is instantiated (and welded) for: every targeted
+      last-minor-of-major release, in release order. Kept in sync with the
+      alias/instantiation X-macro below (checked by static_assert). */
+  inline constexpr std::array wmo_versions{
+    versions::vanilla, versions::tbc,         versions::wotlk,
+    versions::cata,    versions::mop,         versions::wod,
+    versions::legion,  versions::bfa,         versions::shadowlands,
+    versions::dragonflight, versions::tww};
 
   /** A whole WMO — the root and its group files as one entity.
 
@@ -253,15 +46,15 @@ namespace wowlib::formats::wmo
         entity. Load through a FileSystem; an unmodified entity saves back
         byte-for-byte.)")
   ]]
-  Wmo
+  WMO
   {
     static constexpr ClientVersion version = V;
 
     [[=welder::doc("The root file contents.")]]
-    WmoRoot<V> root{};
+    WMORoot<V> root{};
 
     [[=welder::doc("The group files, in group order.")]]
-    std::vector<WmoGroup<V>> groups;
+    std::vector<WMOGroup<V>> groups;
 
     /** Load a WMO and all its groups from a client filesystem.
         @param fs  the filesystem gateway.
@@ -269,7 +62,7 @@ namespace wowlib::formats::wmo
         @return the assembled entity, or the first error. */
     [[=welder::doc("Load a WMO and all its group files."),
       =welder::returns("the assembled WMO")]]
-    static Result<Wmo> load(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
+    static Result<WMO> load(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                             const FileKey& key
                             [[=welder::doc("the root file identity (path and/or FileDataID)")]]);
 
@@ -291,7 +84,7 @@ namespace wowlib::formats::wmo
         @param group_datas one buffer per group file, in group order.
         @return the assembled entity, or the first error. */
     [[=welder::mark::exclude]]
-    static Result<Wmo> parse(std::span<const std::byte> root_data,
+    static Result<WMO> parse(std::span<const std::byte> root_data,
                              std::span<const std::span<const std::byte>> group_datas);
 
     /** Serialize the root file.
@@ -308,43 +101,99 @@ namespace wowlib::formats::wmo
     Result<FileBuffer> write_group(std::size_t index
                                    [[=welder::doc("the group index")]]) const;
   };
-
 }
 
 namespace wowlib::formats
 {
   template <>
-  inline constexpr auto supported_versions<wmo::Wmo> = wmo::wmo_versions;
+  inline constexpr auto supported_versions<wmo::WMO> = wmo::wmo_versions;
+}
 
+/** Per-version expansion of the WMO template surface. X(Suffix, version) is
+    invoked once per targeted release, in release order — the single spot that
+    couples wmo::wmo_versions, the welded aliases and the explicit
+    instantiations. Extending the version list means adding one row here. */
+#define WOWLIB_WMO_FOR_EACH_VERSION(X)                                                             \
+  X(Vanilla, vanilla)                                                                              \
+  X(Tbc, tbc)                                                                                      \
+  X(Wotlk, wotlk)                                                                                  \
+  X(Cata, cata)                                                                                    \
+  X(Mop, mop)                                                                                      \
+  X(Wod, wod)                                                                                      \
+  X(Legion, legion)                                                                                \
+  X(Bfa, bfa)                                                                                      \
+  X(Shadowlands, shadowlands)                                                                      \
+  X(Dragonflight, dragonflight)                                                                    \
+  X(TheWarWithin, tww)
+
+namespace wowlib::formats
+{
   // The bindings surface for the versioned templates: welder welds a
   // class-template instantiation through a namespace-scope alias, whose
   // identifier is the target-language name (flat suffixed classes, e.g.
-  // wowlib.formats.WmoWotlk). Keep in sync with wmo::wmo_versions; declared in
-  // dependency order (referenced types before the types whose members name
-  // them). Version-invariant wire structs weld under their own names in the
-  // wmo submodule instead.
-  using WmoGroupHeaderWotlk = wmo::SMOGroupHeader<versions::wotlk>;
-  using WmoGroupHeaderShadowlands = wmo::SMOGroupHeader<versions::shadowlands>;
-  using WmoBatchWotlk = wmo::SMOBatch<versions::wotlk>;
-  using WmoBatchShadowlands = wmo::SMOBatch<versions::shadowlands>;
-  using WmoRootWotlk = wmo::WmoRoot<versions::wotlk>;
-  using WmoRootShadowlands = wmo::WmoRoot<versions::shadowlands>;
-  using WmoGroupBodyWotlk = wmo::WmoGroupBody<versions::wotlk>;
-  using WmoGroupBodyShadowlands = wmo::WmoGroupBody<versions::shadowlands>;
-  using WmoGroupWotlk = wmo::WmoGroup<versions::wotlk>;
-  using WmoGroupShadowlands = wmo::WmoGroup<versions::shadowlands>;
-  using WmoWotlk = wmo::Wmo<versions::wotlk>;
-  using WmoShadowlands = wmo::Wmo<versions::shadowlands>;
+  // wowlib.formats.WMOWotlk). Declared in dependency order within each version
+  // (referenced types before the types whose members name them);
+  // version-invariant wire structs weld under their own names in the wmo
+  // submodule instead.
+#define WOWLIB_WMO_ALIASES(Suffix, version_)                                                       \
+  using WMOGroupHeader##Suffix = wmo::SMOGroupHeader<versions::version_>;                          \
+  using WMOBatch##Suffix = wmo::SMOBatch<versions::version_>;                                      \
+  using WMORoot##Suffix = wmo::WMORoot<versions::version_>;                                        \
+  using WMOGroupBody##Suffix = wmo::WMOGroupBody<versions::version_>;                              \
+  using WMOGroup##Suffix = wmo::WMOGroup<versions::version_>;                                      \
+  using WMO##Suffix = wmo::WMO<versions::version_>;
+
+  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_ALIASES)
+#undef WOWLIB_WMO_ALIASES
+
+  namespace detail
+  {
+    /** X-macro coverage check: every alias row must be a wmo_versions entry
+        and vice versa (the row count matches and each row's version is
+        present). */
+    consteval bool wmo_macro_covers_versions()
+    {
+      std::size_t rows = 0;
+#define WOWLIB_WMO_COUNT_ROW(Suffix, version_)                                                     \
+  {                                                                                                \
+    ++rows;                                                                                        \
+    bool found = false;                                                                            \
+    for (const ClientVersion& v : wmo::wmo_versions)                                               \
+      found = found || v == versions::version_;                                                    \
+    if (!found)                                                                                    \
+      return false;                                                                                \
+  }
+      WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_COUNT_ROW)
+#undef WOWLIB_WMO_COUNT_ROW
+      return rows == wmo::wmo_versions.size();
+    }
+    static_assert(wmo_macro_covers_versions(),
+                  "WOWLIB_WMO_FOR_EACH_VERSION must list exactly the wmo_versions entries");
+  }
 }
 
 namespace wowlib::formats::wmo
 {
-  extern template struct WmoRoot<versions::wotlk>;
-  extern template struct WmoRoot<versions::shadowlands>;
-  extern template struct WmoGroupBody<versions::wotlk>;
-  extern template struct WmoGroupBody<versions::shadowlands>;
-  extern template struct WmoGroup<versions::wotlk>;
-  extern template struct WmoGroup<versions::shadowlands>;
-  extern template struct Wmo<versions::wotlk>;
-  extern template struct Wmo<versions::shadowlands>;
+#define WOWLIB_WMO_EXTERN(Suffix, version_)                                                        \
+  extern template struct WMORoot<versions::version_>;                                              \
+  extern template struct WMOGroupBody<versions::version_>;                                         \
+  extern template struct WMOGroup<versions::version_>;                                             \
+  extern template struct WMO<versions::version_>;
+
+  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_EXTERN)
+#undef WOWLIB_WMO_EXTERN
+}
+
+namespace wowlib::formats
+{
+  // The ChunkedFile bases carry the read()/write() definitions that expand the
+  // serializer; extern-ing them here (an explicit instantiation must sit in
+  // the template's enclosing namespace) confines that expansion to wmo.cpp.
+#define WOWLIB_WMO_EXTERN_SERIALIZER(Suffix, version_)                                             \
+  extern template struct ChunkedFile<wmo::WMORoot<versions::version_>>;                            \
+  extern template struct ChunkedFile<wmo::WMOGroupBody<versions::version_>>;                       \
+  extern template struct ChunkedFile<wmo::WMOGroup<versions::version_>>;
+
+  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_EXTERN_SERIALIZER)
+#undef WOWLIB_WMO_EXTERN_SERIALIZER
 }

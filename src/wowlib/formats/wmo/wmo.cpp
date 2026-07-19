@@ -10,7 +10,11 @@ namespace wowlib::formats::wmo
 {
   namespace
   {
-    /** "world\wmo\thing.wmo" -> "world\wmo\thing_007.wmo". */
+    /** Derive a group file path from its root: "world\wmo\thing.wmo" ->
+        "world\wmo\thing_007.wmo".
+        @param root_path the root file path.
+        @param index     the zero-based group index.
+        @return the derived group path. */
     std::string group_path(std::string_view root_path, std::size_t index)
     {
       std::string_view stem = root_path;
@@ -19,6 +23,11 @@ namespace wowlib::formats::wmo
       return std::format("{}_{:03}.wmo", stem, index);
     }
 
+    /** Verify an MVER payload against the v17 the supported clients share.
+        @param mver  the version value read from the file.
+        @param which which file carried it, for the diagnostic ("root",
+                     "group 3", ...).
+        @return nothing, or FormatVersionMismatch. */
     Result<void> check_mver(std::uint32_t mver, std::string_view which)
     {
       if (mver != wmo_version_v17)
@@ -29,11 +38,11 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<Wmo<V>> Wmo<V>::parse(std::span<const std::byte> root_data,
+  Result<WMO<V>> WMO<V>::parse(std::span<const std::byte> root_data,
                                std::span<const std::span<const std::byte>> group_datas)
   {
-    Wmo<V> wmo;
-    if (auto r = read_entity(wmo.root, root_data); !r)
+    WMO<V> wmo;
+    if (auto r = wmo.root.read(root_data); !r)
       return std::unexpected{r.error()};
     if (auto r = check_mver(wmo.root.mver, "root"); !r)
       return std::unexpected{r.error()};
@@ -41,8 +50,8 @@ namespace wowlib::formats::wmo
     wmo.groups.reserve(group_datas.size());
     for (std::size_t i = 0; i < group_datas.size(); ++i)
     {
-      WmoGroup<V> group;
-      if (auto r = read_entity(group, group_datas[i]); !r)
+      WMOGroup<V> group;
+      if (auto r = group.read(group_datas[i]); !r)
         return make_error(r.error().code,
                           std::format("group {}: {}", i, r.error().message),
                           r.error().native_error);
@@ -54,14 +63,14 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<Wmo<V>> Wmo<V>::load(fs::FileSystem& fs, const FileKey& key)
+  Result<WMO<V>> WMO<V>::load(fs::FileSystem& fs, const FileKey& key)
   {
     const auto root_data = fs.read_file(key);
     if (!root_data)
       return std::unexpected{root_data.error()};
 
-    Wmo<V> wmo;
-    if (auto r = read_entity(wmo.root, *root_data); !r)
+    WMO<V> wmo;
+    if (auto r = wmo.root.read(*root_data); !r)
       return std::unexpected{r.error()};
     if (auto r = check_mver(wmo.root.mver, "root"); !r)
       return std::unexpected{r.error()};
@@ -91,8 +100,8 @@ namespace wowlib::formats::wmo
                           std::format("group {}: {}", i, group_data.error().message),
                           group_data.error().native_error);
 
-      WmoGroup<V> group;
-      if (auto r = read_entity(group, *group_data); !r)
+      WMOGroup<V> group;
+      if (auto r = group.read(*group_data); !r)
         return make_error(r.error().code, std::format("group {}: {}", i, r.error().message),
                           r.error().native_error);
       if (auto r = check_mver(group.mver, std::format("group {}", i)); !r)
@@ -103,7 +112,7 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<void> Wmo<V>::save(fs::FileSystem& fs, const FileKey& key) const
+  Result<void> WMO<V>::save(fs::FileSystem& fs, const FileKey& key) const
   {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
@@ -129,27 +138,38 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<FileBuffer> Wmo<V>::write_root() const
+  Result<FileBuffer> WMO<V>::write_root() const
   {
-    return write(root);
+    return root.write();
   }
 
   template <ClientVersion V>
-  Result<FileBuffer> Wmo<V>::write_group(std::size_t index) const
+  Result<FileBuffer> WMO<V>::write_group(std::size_t index) const
   {
     if (index >= groups.size())
       return make_error(ErrorCode::FileNotFound,
                         std::format("group index {} out of range ({} groups)", index,
                                     groups.size()));
-    return write(groups[index]);
+    return groups[index].write();
   }
 
-  template struct WmoRoot<versions::wotlk>;
-  template struct WmoRoot<versions::shadowlands>;
-  template struct WmoGroupBody<versions::wotlk>;
-  template struct WmoGroupBody<versions::shadowlands>;
-  template struct WmoGroup<versions::wotlk>;
-  template struct WmoGroup<versions::shadowlands>;
-  template struct Wmo<versions::wotlk>;
-  template struct Wmo<versions::shadowlands>;
+#define WOWLIB_WMO_INSTANTIATE(Suffix, version_)                                                   \
+  template struct WMORoot<versions::version_>;                                                     \
+  template struct WMOGroupBody<versions::version_>;                                                \
+  template struct WMOGroup<versions::version_>;                                                    \
+  template struct WMO<versions::version_>;
+
+  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_INSTANTIATE)
+#undef WOWLIB_WMO_INSTANTIATE
+}
+
+namespace wowlib::formats
+{
+#define WOWLIB_WMO_INSTANTIATE_SERIALIZER(Suffix, version_)                                        \
+  template struct ChunkedFile<wmo::WMORoot<versions::version_>>;                                   \
+  template struct ChunkedFile<wmo::WMOGroupBody<versions::version_>>;                              \
+  template struct ChunkedFile<wmo::WMOGroup<versions::version_>>;
+
+  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_INSTANTIATE_SERIALIZER)
+#undef WOWLIB_WMO_INSTANTIATE_SERIALIZER
 }

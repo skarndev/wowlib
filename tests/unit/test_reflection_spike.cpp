@@ -32,7 +32,7 @@ namespace
   using wowlib::ClientVersion;
   namespace versions = wowlib::versions;
 
-  // --- miniature annotation vocabulary (mirrors formats/chunk/annotations.hpp)
+  // --- miniature annotation vocabulary (mirrors formats/common/annotations.hpp)
   struct chunk_spec
   {
     std::uint32_t magic;

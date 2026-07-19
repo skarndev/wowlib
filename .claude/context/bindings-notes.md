@@ -4,8 +4,12 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
 
 ## Shape
 - `bindings/python/wowlib_module.cpp` — nanobind rod, `WELDER_MODULE(wowlib, nanobind,
-  welder<rods::nanobind::rod<>, rods::python::pep8>)`. Module = namespace `wowlib`;
+  welder<rods::nanobind::rod<>, wowlib_python_naming>)`. Module = namespace `wowlib`;
   every annotated entity in the umbrella header is welded automatically.
+  `wowlib_python_naming` (defined in the TU) = snake_case base + VERBATIM
+  class/enum/enumerator transforms — wowlib type names are client-canonical
+  (SMOHeader, WMORoot, FileDataID) and welder's pep8 CapWords normalization
+  would corrupt the acronyms (SmoHeader, WmoRoot, FileDataId).
 - **Welded surface is deliberately minimal**: FileSystem + FileSystemSettings +
   the helper types their signatures need (FileKey, FileDataID, ClientVersion,
   StorageKind, Locale, versions constants). FileKey is the GENERIC identity for
@@ -41,10 +45,12 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
 - **C++ namespaces arrive as submodules** in both languages: `wowlib.fs`,
   `wowlib.versions` (constants, no `()`); `wowlib::fs::detail` is unannotated and
   never surfaces.
-- Name reshaping: Python pep8 keeps CapWords types but `FileDataID -> FileDataId`;
-  Lua snake_case reshapes EVERYTHING (`ClientVersion -> client_version`,
-  `wowlib.fs.file_system`, `StorageKind.Mpq -> storage_kind.mpq`,
-  `Locale.enUS -> locale.en_us`).
+- Name reshaping: Python binds classes/enums/enumerators VERBATIM
+  (`FileDataID` stays `FileDataID`, `SMOHeader` stays `SMOHeader`) and
+  snake_cases callables/data; Lua snake_case reshapes EVERYTHING
+  (`ClientVersion -> client_version`, `wowlib.fs.file_system`,
+  `StorageKind.Mpq -> storage_kind.mpq`, `Locale.enUS -> locale.en_us`,
+  `WMORoot<wotlk> alias -> wmo_root_wotlk`).
 - Overloads merge under one name (Python `read_file(str|FileDataId)`) — never use
   weld_as to split them.
 - Stubs: ONE `nanobind_add_stub` with `RECURSIVE` + `OUTPUT_PATH` (submodules

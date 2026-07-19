@@ -6,16 +6,17 @@
 using namespace wowlib;
 using namespace wowlib::formats;
 
-TEST_CASE("Wmo declares its supported version ladder", "[formats][convert]")
+TEST_CASE("WMO declares its supported version ladder", "[formats][convert]")
 {
-  STATIC_CHECK(supported_versions<wmo::Wmo>.size() == 2);
-  STATIC_CHECK(supported_versions<wmo::Wmo>[0] == versions::wotlk);
-  STATIC_CHECK(supported_versions<wmo::Wmo>[1] == versions::shadowlands);
+  STATIC_CHECK(supported_versions<wmo::WMO>.size() == 11);
+  STATIC_CHECK(supported_versions<wmo::WMO>[0] == versions::vanilla);
+  STATIC_CHECK(supported_versions<wmo::WMO>[2] == versions::wotlk);
+  STATIC_CHECK(supported_versions<wmo::WMO>[10] == versions::tww);
 }
 
 TEST_CASE("identity conversion copies the entity", "[formats][convert]")
 {
-  wmo::Wmo<versions::wotlk> source;
+  wmo::WMO<versions::wotlk> source;
   source.root.header.n_groups = 3;
   source.root.materials.resize(2);
   source.root.materials[1].blend_mode = 4;
@@ -30,5 +31,5 @@ TEST_CASE("identity conversion copies the entity", "[formats][convert]")
 // A cross-version convert<versions::shadowlands>(wotlk_wmo) is a compile-time
 // error until a convert_step for the pair is written — the static_assert names
 // the missing overload. Verified manually; not expressible as a runtime test.
-static_assert(!detail::HasConvertStep<wmo::Wmo, versions::wotlk, versions::shadowlands>,
+static_assert(!detail::HasConvertStep<wmo::WMO, versions::wotlk, versions::shadowlands>,
               "when the first real step lands, drop this assert and add tests");

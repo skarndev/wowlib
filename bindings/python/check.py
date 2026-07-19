@@ -32,15 +32,15 @@ except AttributeError:
 check(wowlib.Locale.enUS is not None, "locale enum")
 
 # FileDataID: the one identity helper the facade API needs
-check(wowlib.FileDataId(775971).value == 775971, "fdid value")
+check(wowlib.FileDataID(775971).value == 775971, "fdid value")
 
 # FileKey: the generic file identity version-independent tools operate on
 key = wowlib.FileKey("World/Maps/Azeroth/Azeroth.wdt")
 check(key.path == "world\\maps\\azeroth\\azeroth.wdt", "path canonicalized")
 check(key.fdid is None, "pre-CASC style key: fdid simply absent")
-key = wowlib.FileKey(wowlib.FileDataId(775971))
+key = wowlib.FileKey(wowlib.FileDataID(775971))
 check(key.fdid.value == 775971 and key.path is None, "id-only key")
-key = wowlib.FileKey("a/b.blp", wowlib.FileDataId(7))
+key = wowlib.FileKey("a/b.blp", wowlib.FileDataID(7))
 check(key.path == "a\\b.blp" and key.fdid.value == 7, "both-halves key")
 
 # the surface stays minimal: internals are not welded
@@ -62,7 +62,7 @@ check(issubclass(wowlib.ListfileIoError, OSError), "listfile io is an OSError")
 check(issubclass(wowlib.NotImplemented, NotImplementedError), "builtin NotImplementedError base")
 
 # docstrings carried through welder
-check("FileDataID" in (wowlib.FileDataId.__doc__ or ""), "docstring present")
+check("FileDataID" in (wowlib.FileDataID.__doc__ or ""), "docstring present")
 check("filesystem" in (wowlib.fs.__doc__ or "").lower(), "submodule docstring")
 
 # --- formats: versioned classes, expansion key, factories, chunk vocabulary --
@@ -75,24 +75,32 @@ check(wowlib.to_expansion(wowlib.versions.shadowlands) == wowlib.Expansion.Shado
       "version constant -> expansion")
 
 # flat suffixed per-version classes; shared wire structs live in formats.wmo
-for name in ("WmoWotlk", "WmoShadowlands", "WmoRootWotlk", "WmoGroupShadowlands",
-             "WmoBatchWotlk", "WmoGroupHeaderShadowlands", "StringBlock",
-             "ChunkBlob", "C3Vector", "CAaBox"):
+for name in ("WMOVanilla", "WMOWotlk", "WMOShadowlands", "WMOTheWarWithin",
+             "WMORootWotlk", "WMOGroupShadowlands", "WMOBatchWotlk",
+             "WMOGroupHeaderShadowlands", "StringBlock", "ChunkBlob",
+             "C3Vector", "CAaBox"):
     check(hasattr(wowlib.formats, name), f"formats.{name} welded")
-for name in ("SmoMaterial", "SmoHeader", "SmoDoodadDef", "CAaBspNode", "LightType"):
+for name in ("SMOMaterial", "SMOHeader", "SMODoodadDef", "CAaBspNode", "LightType",
+             "GroupFlags", "MaterialFlags", "NewLight", "AmbientVolume"):
     check(hasattr(wowlib.formats.wmo, name), f"formats.wmo.{name} welded")
 
-# a fresh entity carries its wire defaults; round-trip internals stay hidden
-wmo_fresh = wowlib.formats.WmoWotlk()
-check(wmo_fresh.root.mver == 17, "fresh root MVER 17")
-check(not hasattr(wmo_fresh.root, "journal"), "chunk_extras internals not welded")
-check(not hasattr(wowlib.formats.WmoWotlk, "parse"), "span-of-spans parse not welded")
+# flag enums are IntEnums; bit tests work against the plain integer fields
+check(wowlib.formats.wmo.GroupFlags.exterior == 0x8, "flag enum bit value")
 
-# the string_block API: offsets stay stable, entries view the blob
+# a fresh entity carries its wire defaults; round-trip internals stay hidden
+wmo_fresh = wowlib.formats.WMOWotlk()
+check(wmo_fresh.root.mver == 17, "fresh root MVER 17")
+check(not hasattr(wmo_fresh.root, "journal"), "ChunkExtras internals not welded")
+check(not hasattr(wowlib.formats.WMOWotlk, "parse"), "span-of-spans parse not welded")
+check(hasattr(wowlib.formats.WMOWotlk().root, "read"), "entity read method welded")
+check(hasattr(wowlib.formats.WMOWotlk().root, "write"), "entity write method welded")
+
+# the StringBlock API: decoded entries, offsets stay stable
 block = wowlib.formats.StringBlock()
 offset = block.add("textures/stone.blp")
-check(offset == 0 and block.at(offset) == "textures/stone.blp", "string_block add/at")
-check(block.entries()[0] == (0, "textures/stone.blp"), "string_block entries")
+check(offset == 0 and block.at(offset) == "textures/stone.blp", "StringBlock add/at")
+entry = block.entries()[0]
+check(entry.offset == 0 and entry.value == "textures/stone.blp", "StringBlock entries")
 
 # factory overloads are typed stubs; the runtime rejects unbuilt versions with
 # the generated exception class
@@ -129,9 +137,9 @@ else:
                 f.write(_probe)
             os.environ["MYPYPATH"] = _stubs
             _out, _err, _ = _mypy_api.run(["--no-error-summary", _probe_path])
-        check('Revealed type is "wowlib.formats.WmoWotlk"' in _out,
+        check('Revealed type is "wowlib.formats.WMOWotlk"' in _out,
               f"mypy narrows Wotlk overload:\n{_out}{_err}")
-        check('Revealed type is "wowlib.formats.WmoShadowlands"' in _out,
+        check('Revealed type is "wowlib.formats.WMOShadowlands"' in _out,
               f"mypy narrows Shadowlands overload:\n{_out}{_err}")
 
 # settings are an immutable value: keyword construction with NSDMI defaults,
@@ -139,7 +147,7 @@ else:
 settings = wowlib.fs.FileSystemSettings(client_path="/no/such/client",
                                         version=wowlib.versions.wotlk)
 check(settings.casc_product == "wow", "NSDMI default carried")
-check(settings.locale is None, "optional defaults to None")
+check(settings.locale == wowlib.Locale.enUS, "locale defaults to enUS")
 check(settings.custom_fdid_start.value == 1_000_000_000, "fdid start default")
 try:
     settings.client_path = "/elsewhere"
@@ -204,18 +212,17 @@ if clients:
         if fs3.exists(wmo_path):
             wmo = wowlib.formats.load_wmo(fs3, wowlib.FileKey(wmo_path),
                                           wowlib.Expansion.Wotlk)
-            check(type(wmo).__name__ == "WmoWotlk", "factory returns the exact class")
+            check(type(wmo).__name__ == "WMOWotlk", "factory returns the exact class")
             check(len(wmo.groups) == wmo.root.header.n_groups, "all groups loaded")
-            check(wmo.root.textures.at(wmo.root.materials[0].texture_1).endswith(".blp"),
+            check(wmo.root.textures.at(wmo.root.materials[0].texture_1).lower().endswith(".blp"),
                   "material texture resolves through the string block")
             check(wmo.write_root() == fs3.read_file(wmo_path),
                   "byte-perfect rewrite via Python")
-            try:
-                wowlib.formats.load_wmo(fs3, wowlib.FileKey(wmo_path),
-                                        wowlib.Expansion.Cata)
-                check(False, "unbuilt expansion should raise")
-            except wowlib.UnsupportedClientVersion:
-                pass
+            # every expansion has an instantiation; the Cata overload reads the
+            # same 3.3.5 file (layouts are wotlk-compatible at this boundary)
+            cata = wowlib.formats.load_wmo(fs3, wowlib.FileKey(wmo_path),
+                                           wowlib.Expansion.Cata)
+            check(type(cata).__name__ == "WMOCata", "per-expansion factory dispatch")
             print("formats end-to-end OK,", len(wmo.groups), "groups")
 
     print("real-client round-trip OK,", len(data), "bytes")

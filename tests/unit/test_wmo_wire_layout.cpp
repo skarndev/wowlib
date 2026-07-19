@@ -4,9 +4,9 @@
 #include <cstring>
 #include <span>
 #include <type_traits>
+#include <utility>
 
 #include <wowlib/formats/wmo/wmo.hpp>
-#include <wowlib/formats/wmo/wmo_wire.hpp>
 
 using namespace wowlib;
 using namespace wowlib::formats;
@@ -25,6 +25,11 @@ static_assert(all_trivially_copyable<SMOHeader, SMOMaterial, SMOGroupInfo, SMOPo
                                      SMOGroupHeader<versions::shadowlands>,
                                      SMOBatch<versions::wotlk>,
                                      SMOBatch<versions::shadowlands>>);
+
+static_assert(all_trivially_copyable<UVAnimation, GroupInfo2, PortalExtra, LightExtension,
+                                     NewLight, FogExtra, AmbientVolume, AmbientBoxVolume,
+                                     Poly2, RenderBatchOverride, ShadowBatch, PointLight,
+                                     LightSet, PointLightAnim>);
 
 TEST_CASE("wire offsets match the wowdev layout", "[formats][wmo]")
 {
@@ -54,6 +59,21 @@ TEST_CASE("wire offsets match the wowdev layout", "[formats][wmo]")
   STATIC_CHECK(offsetof(OldBatch, start_index) == 0x0C);
   STATIC_CHECK(offsetof(NewBatch, material_id_large) == 0x0A);
   STATIC_CHECK(offsetof(NewBatch, material_id) == 0x17);
+
+  // the later-expansion records, against the wowdev offset columns
+  STATIC_CHECK(offsetof(AmbientVolume, color_1) == 0x14);
+  STATIC_CHECK(offsetof(AmbientVolume, doodad_set_id) == 0x24);
+  STATIC_CHECK(offsetof(AmbientBoxVolume, end) == 0x60);
+  STATIC_CHECK(offsetof(AmbientBoxVolume, doodad_set_id) == 0x74);
+  STATIC_CHECK(offsetof(LightExtension, light_index) == 0x63);
+  STATIC_CHECK(offsetof(NewLight, position) == 0x14);
+  STATIC_CHECK(offsetof(NewLight, light_cookie_fdid) == 0x64);
+  STATIC_CHECK(offsetof(NewLight, falloff) == 0x7C);
+  STATIC_CHECK(offsetof(NewLight, scale_half) == 0x88);
+  STATIC_CHECK(offsetof(PointLightAnim, rotation) == 0x20);
+  STATIC_CHECK(offsetof(PointLightAnim, light_texture_fdid) == 0x48);
+  STATIC_CHECK(offsetof(ShadowBatch, start) == 0x0C);
+  STATIC_CHECK(offsetof(ShadowBatch, material_id) == 0x17);
 }
 
 TEST_CASE("doodad name/flags packing splits correctly", "[formats][wmo]")
@@ -61,7 +81,8 @@ TEST_CASE("doodad name/flags packing splits correctly", "[formats][wmo]")
   SMODoodadDef def;
   def.name_and_flags = 0x01ABCDEF;  // accept_proj_tex + offset 0xABCDEF
   CHECK(def.name_index() == 0xABCDEF);
-  CHECK((def.name_and_flags & doodad_flags::accept_proj_tex) != 0);
+  CHECK(has_flag(def.name_and_flags, DoodadFlags::accept_proj_tex));
+  CHECK_FALSE(has_flag(def.name_and_flags, DoodadFlags::interior_lighting));
 }
 
 namespace
@@ -98,7 +119,7 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
   {
     FileBuffer body;
     SMOGroupHeader<versions::wotlk> group_header;
-    group_header.flags = group_flags::exterior;
+    group_header.flags = std::to_underlying(GroupFlags::exterior);
     body.insert(body.end(), reinterpret_cast<const std::byte*>(&group_header),
                 reinterpret_cast<const std::byte*>(&group_header) + sizeof group_header);
     const C3Vector verts[3]{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
@@ -109,16 +130,16 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
   }
 
   const std::span<const std::byte> group_span{group_data};
-  const auto wmo = Wmo<versions::wotlk>::parse(root_data, std::span{&group_span, 1});
-  REQUIRE(wmo.has_value());
-  CHECK(wmo->root.header.n_groups == 1);
-  CHECK(wmo->root.materials.size() == 1);
-  CHECK(wmo->root.materials[0].blend_mode == 1);
-  REQUIRE(wmo->groups.size() == 1);
-  CHECK(wmo->groups[0].body.header.flags == group_flags::exterior);
-  CHECK(wmo->groups[0].body.vertices.size() == 3);
-  CHECK(wmo->groups[0].body.indices.size() == 3);
+  const auto assembled = WMO<versions::wotlk>::parse(root_data, std::span{&group_span, 1});
+  REQUIRE(assembled.has_value());
+  CHECK(assembled->root.header.n_groups == 1);
+  CHECK(assembled->root.materials.size() == 1);
+  CHECK(assembled->root.materials[0].blend_mode == 1);
+  REQUIRE(assembled->groups.size() == 1);
+  CHECK(has_flag(assembled->groups[0].body.header.flags, GroupFlags::exterior));
+  CHECK(assembled->groups[0].body.vertices.size() == 3);
+  CHECK(assembled->groups[0].body.indices.size() == 3);
 
-  CHECK(*wmo->write_root() == root_data);
-  CHECK(*wmo->write_group(0) == group_data);
+  CHECK(*assembled->write_root() == root_data);
+  CHECK(*assembled->write_group(0) == group_data);
 }

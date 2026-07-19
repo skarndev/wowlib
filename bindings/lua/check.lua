@@ -38,6 +38,20 @@ check(wowlib.error == nil and wowlib.error_code == nil, "error types not welded"
 check(wowlib.fs.project_directory == nil, "project_directory should not be welded")
 check(wowlib.fs.csv_listfile == nil, "csv_listfile should not be welded")
 
+-- formats: versioned classes (snake_case reshaped), wire structs, flag enums
+-- and the chunked-entity read/write methods
+check(wowlib.formats.wmo_wotlk ~= nil, "wmo_wotlk welded")
+check(wowlib.formats.wmo_the_war_within ~= nil, "wmo_the_war_within welded")
+check(wowlib.formats.wmo_root_wotlk ~= nil, "wmo_root_wotlk welded")
+check(wowlib.formats.wmo.smo_header ~= nil, "smo_header welded")
+check(wowlib.formats.wmo.group_flags.exterior == 0x8, "flag enum bit")
+local block = wowlib.formats.string_block()
+check(block:add("textures/a.blp") == 0 and block:at(0) == "textures/a.blp",
+      "string_block add/at")
+local fresh_root = wowlib.formats.wmo_root_wotlk()
+check(fresh_root.mver == 17, "fresh root MVER 17")
+check(type(fresh_root:write()) == "string", "entity write method returns bytes")
+
 -- settings are an immutable value: the synthesized field constructor exposes
 -- one arity per omissible NSDMI-suffix tail; fields are read-only
 local settings = wowlib.fs.file_system_settings("/no/such/client",

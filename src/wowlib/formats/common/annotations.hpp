@@ -8,12 +8,12 @@
     Usage (a chunked entity):
     @code
     template <ClientVersion V>
-    struct WmoRoot : chunk_extras
+    struct WMORoot : ChunkedFile<WMORoot<V>>
     {
       static constexpr ClientVersion version = V;
       [[=chunk("MVER")]]                                   std::uint32_t mver = 17;
-      [[=chunk("MOTX"), =until(wmo_fdid_refs), =optional]] string_block textures;
-      [[=chunk("MOGP"), =container]]                       WmoGroupBody<V> body;
+      [[=chunk("MOTX"), =until(wmo_fdid_refs), =optional]] StringBlock textures;
+      [[=chunk("MOGP"), =container]]                       WMOGroupBody<V> body;
     };
     @endcode
 
@@ -25,7 +25,7 @@
 #include <cstdint>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/chunk/fourcc.hpp>
+#include <wowlib/formats/common/fourcc.hpp>
 
 namespace wowlib::formats
 {
@@ -105,7 +105,7 @@ namespace wowlib::formats
   inline constexpr detail::container_spec container{};
 
   /** Allow a chunk to appear up to @a max times (e.g. MOTV texcoord sets); the
-      member must be a `repeated<T, max>`.
+      member must be a `Repeated<T, max>`.
       @param max the maximum occurrence count. */
   consteval detail::repeats_spec repeats(std::uint32_t max) { return {max}; }
 }

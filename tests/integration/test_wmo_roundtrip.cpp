@@ -55,10 +55,9 @@ namespace
 
   std::map<std::string, int> unknown_histogram;
 
-  template <ClientVersion V>
-  void tally_unknown(const chunk_extras& extras)
+  void tally_unknown(const ChunkExtras& extras)
   {
-    for (const unknown_chunk& u : extras.unknown)
+    for (const UnknownChunk& u : extras.unknown)
       ++unknown_histogram[fourcc_to_string(u.fourcc)];
   }
 
@@ -70,18 +69,18 @@ namespace
     const auto root_data = fs.read_file(root_key);
     REQUIRE(root_data.has_value());
 
-    const auto root = formats::read<WmoRoot<V>>(*root_data);
-    REQUIRE(root.has_value());
-    CHECK(root->mver == wmo_version_v17);
-    tally_unknown<V>(*root);
+    WMORoot<V> root;
+    REQUIRE(root.read(*root_data).has_value());
+    CHECK(root.mver == wmo_version_v17);
+    tally_unknown(root);
 
-    const auto rewritten_root = formats::write(*root);
+    const auto rewritten_root = root.write();
     REQUIRE(rewritten_root.has_value());
     require_identical(*root_data, *rewritten_root, label + " (root)");
 
     // group identity: GFID when present, name derivation otherwise
-    const std::size_t n_groups = root->header.n_groups;
-    const bool by_fdid = root->group_fdids.size() >= n_groups;
+    const std::size_t n_groups = root.header.n_groups;
+    const bool by_fdid = root.group_fdids.size() >= n_groups;
     std::string root_path;
     if (!by_fdid)
     {
@@ -94,24 +93,24 @@ namespace
     for (std::size_t i = 0; i < n_groups; ++i)
     {
       const FileKey group_key =
-        by_fdid ? FileKey{FileDataID{root->group_fdids[i]}}
+        by_fdid ? FileKey{FileDataID{root.group_fdids[i]}}
                 : FileKey{std::format("{}_{:03}.wmo",
                                       root_path.substr(0, root_path.size() - 4), i)};
       const auto group_data = fs.read_file(group_key);
       REQUIRE(group_data.has_value());
 
-      const auto group = formats::read<WmoGroup<V>>(*group_data);
-      REQUIRE(group.has_value());
-      tally_unknown<V>(*group);
-      tally_unknown<V>(group->body);
+      WMOGroup<V> group;
+      REQUIRE(group.read(*group_data).has_value());
+      tally_unknown(group);
+      tally_unknown(group.body);
 
-      const auto rewritten = formats::write(*group);
+      const auto rewritten = group.write();
       REQUIRE(rewritten.has_value());
       require_identical(*group_data, *rewritten, std::format("{} (group {})", label, i));
     }
 
     // the assembled-entity path agrees
-    const auto wmo = Wmo<V>::load(fs, root_key);
+    const auto wmo = WMO<V>::load(fs, root_key);
     REQUIRE(wmo.has_value());
     CHECK(wmo->groups.size() == n_groups);
   }

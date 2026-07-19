@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include <wowlib/formats/chunk/fourcc.hpp>
+#include <wowlib/formats/common/fourcc.hpp>
 
 using namespace wowlib::formats;
 

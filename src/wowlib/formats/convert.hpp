@@ -9,7 +9,7 @@
         release order), and
       - `convert_step` overloads for each adjacent pair it can translate:
         @code
-        Result<Wmo<versions::cata>> convert_step(const Wmo<versions::wotlk>&,
+        Result<WMO<versions::cata>> convert_step(const WMO<versions::wotlk>&,
                                                  version_tag<versions::cata>);
         @endcode
 
@@ -35,7 +35,7 @@ namespace wowlib::formats
   /** The ordered instantiation list of format template @a E. Specialize per
       format:
       @code
-      template <> inline constexpr auto supported_versions<wmo::Wmo> = wmo::wmo_versions;
+      template <> inline constexpr auto supported_versions<wmo::WMO> = wmo::wmo_versions;
       @endcode */
   template <template <ClientVersion> class E>
   inline constexpr auto supported_versions = nullptr;

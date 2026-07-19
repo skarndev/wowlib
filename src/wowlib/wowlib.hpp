@@ -57,8 +57,8 @@ namespace wowlib
   namespace
   [[=welder::doc(R"(
       Client file formats: chunked binary serialization with byte-perfect
-      round-trips. Versioned formats are flat suffixed classes (WmoWotlk,
-      WmoShadowlands, ...) plus load_* factories keyed on Expansion.)")]]
+      round-trips. Versioned formats are flat suffixed classes (WMOWotlk,
+      WMOShadowlands, ...) plus load_* factories keyed on Expansion.)")]]
   formats
   {
     namespace
@@ -71,7 +71,9 @@ namespace wowlib
   }
 }
 
-#include <wowlib/formats/chunk/types.hpp>
+#include <wowlib/formats/common/chunk.hpp>
+#include <wowlib/formats/common/flags.hpp>
+#include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/convert.hpp>
 #include <wowlib/formats/wmo/wmo.hpp>
