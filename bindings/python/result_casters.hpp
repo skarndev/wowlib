@@ -5,8 +5,8 @@
     convertible, which is also what satisfies welder's bindability gate:
 
     - `Result<T>` (std::expected): unwraps to T on success; on failure throws
-      wowlib::result_error, which the module's exception translator turns into a
-      wowlib.WowlibError Python exception.
+      wowlib::result_error, which the module's exception translator maps onto the
+      reflection-generated hierarchy (wowlib.Error base, one class per ErrorCode).
     - `FileBuffer` (std::vector<std::byte>): converts to/from Python `bytes`.
     - `std::span<const std::byte>`: accepts `bytes` arguments (copied for the
       call's duration).
@@ -28,7 +28,7 @@
 namespace wowlib
 {
   /** The C++ carrier a Result caster throws for the error branch; the module
-      registers a translator mapping it to the wowlib.WowlibError Python type. */
+      registers a translator mapping it onto the generated exception hierarchy. */
   struct result_error : std::runtime_error
   {
     explicit result_error(Error e)

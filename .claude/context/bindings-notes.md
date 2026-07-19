@@ -6,6 +6,37 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
 - `bindings/python/wowlib_module.cpp` — nanobind rod, `WELDER_MODULE(wowlib, nanobind,
   welder<rods::nanobind::rod<>, rods::python::pep8>)`. Module = namespace `wowlib`;
   every annotated entity in the umbrella header is welded automatically.
+- **Welded surface is deliberately minimal**: FileSystem + FileSystemSettings +
+  the helper types their signatures need (FileKey, FileDataID, ClientVersion,
+  StorageKind, Locale, versions constants). FileKey is the GENERIC identity for
+  version-independent tools: read_file/exists take str | FileDataId | FileKey
+  (merged overloads; the str/fdid forms delegate to the FileKey one in C++),
+  and resolve(FileKey) fills the missing half via the listfile. ProjectDirectory,
+  CsvListfile(+Options), Error/ErrorCode are NOT welded — the facade takes plain
+  paths in settings. check.py/check.lua assert the absences.
+- **Doc policy**: `welder::doc` ONLY on welded entities; unwelded C++ documents
+  itself with plain doxygen comments (user rule). Adding a weld mark to a class
+  means converting its doxygen docs back into welder::doc annotations.
+- **Immutable settings pattern** (FileSystemSettings): a const-member AGGREGATE
+  with NSDMIs on everything after `version` — C++ keeps designated init (no
+  user ctor!), Python gets welder's synthesized field ctor with real keyword
+  defaults (welded-type defaults spell `...` in stubs), Lua gets one ctor arity
+  per omissible tail. GOTCHA: those defaults convert eagerly at registration,
+  and the module walk is declaration-ordered — wowlib.hpp must NOT pre-open
+  `namespace fs` before the core types (FileDataID) or import dies with
+  std::bad_cast; the umbrella opens fs between the core and fs includes.
+- **Scripting-only members**: methods that must exist for Python/Lua but NOT in
+  the C++ public interface (FileSystem::close, is_open) are `protected` +
+  `=welder::policy::weld_protected` on the class. Python's context-manager
+  dunders are attached in the module glue (cpp_function + is_method; __exit__
+  must take nb::args — nb::handle parameters reject None).
+- **Properties**: `[[=welder::getter]]` / `[[=welder::setter]]` (welder 19253c7+)
+  bind accessor methods as properties in BOTH Python and Lua (nanobind
+  def_prop_ro/rw, LuaBridge3 addProperty; lone getter = read-only). In use:
+  `FileSystem::kind`, `ClientVersion::storage_kind` — attribute access, no `()`,
+  in both languages. Name derivation strips a leading get/set word after styling;
+  don't also add `weld_as` on an accessor (diagnosed — the mark's optional name
+  argument is the rename tool). No `returns()` on getters; fold it into `doc`.
 - `bindings/lua/wowlib_module.cpp` — LuaBridge3 rod, snake_case naming.
 - **C++ namespaces arrive as submodules** in both languages: `wowlib.fs`,
   `wowlib.versions` (constants, no `()`); `wowlib::fs::detail` is unannotated and
@@ -24,9 +55,17 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
 ## Result<T> / std::expected translation
 welder has no expected support; both TUs teach their framework:
 - nanobind: `type_caster<wowlib::Result<T>>` (bindings/python/result_casters.hpp)
-  unwraps success, throws `wowlib::result_error` on failure; the module glue
-  registers `nb::exception<result_error>(module, "WowlibError")`. Message =
-  `"<ErrorCode>: <message>"` (ErrorCode spelled via reflection to_string).
+  unwraps success, throws `wowlib::result_error` on failure. The module glue
+  builds a **reflection-generated exception hierarchy**: `wowlib.Error` base +
+  one class per ErrorCode enumerator (template for over enumerators_of,
+  PyErr_NewExceptionWithDoc — limited-API safe), some with curated extra builtin
+  bases (FileNotFound→FileNotFoundError, IoError/ListfileIoError→OSError,
+  NotImplemented→NotImplementedError). A register_exception_translator raises the
+  per-code class with the PLAIN message (no code prefix — the class is the code)
+  and sets `code` (str spelling) + `native_error` (int) attributes. New ErrorCode
+  enumerators grow new exception classes automatically; extend builtin_base() when
+  a new code has a natural Python builtin. nanobind's stubgen picks the classes up
+  (they land in __init__.pyi with bases and docstrings).
 - LuaBridge3: `Stack<wowlib::Result<T>>` push-by-VALUE (several payloads are
   move-only — a const& push forces a deleted copy ctor deep in Userdata.h) that
   throws std::runtime_error; LuaBridge3 converts it to a lua error at the call

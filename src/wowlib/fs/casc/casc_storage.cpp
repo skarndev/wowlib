@@ -129,11 +129,17 @@ namespace wowlib::fs
     }
   }
 
-  Result<void> CascStorage::open()
+  Result<CascStorage> CascStorage::open(Options options)
+  {
+    CascStorage storage{std::move(options)};
+    if (auto opened = storage.open_storage(); !opened)
+      return std::unexpected(opened.error());
+    return storage;
+  }
+
+  Result<void> CascStorage::open_storage()
   {
     std::scoped_lock lock{_mtx};
-    if (_storage)
-      return {};
 
     const auto locale_mask = casc_locale_flag(_options.locale);
 

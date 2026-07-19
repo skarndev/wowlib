@@ -13,10 +13,11 @@ TEST_CASE("the 3.3.5a client opens and serves known files", "[integration][mpq]"
 {
   const auto clients = tests::require_clients_dir();
 
-  MpqStorage storage{{.data_dir = clients / tests::mpq_client_name / "Data",
-                      .version = versions::wotlk,
-                      .locale = std::nullopt}};   // exercise auto-detection (enUS)
-  REQUIRE(storage.open().has_value());
+  auto opened = MpqStorage::open({.data_dir = clients / tests::mpq_client_name / "Data",
+                                  .version = versions::wotlk,
+                                  .locale = std::nullopt});   // exercise auto-detection (enUS)
+  REQUIRE(opened.has_value());
+  MpqStorage& storage = *opened;
   CHECK(storage.locale() == Locale::enUS);
   CHECK(storage.archives().size() >= 16);   // full retail chain
 

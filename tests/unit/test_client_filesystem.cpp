@@ -30,10 +30,6 @@ namespace
   {
     std::map<std::string, FileBuffer> files;
 
-    Result<void> open() { return {}; }
-    void close() noexcept {}
-    bool is_open() const { return true; }
-
     Result<FileBuffer> read_file(const FileKey& key)
     {
       if (!key.path)

@@ -36,9 +36,12 @@ namespace wowlib
   [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
-        A file request: by client-internal path, by FileDataID, or both. Which part
-        is authoritative depends on the storage backend handling the request; the
-        stored path is always in canonical form.)")
+        A file request: by client-internal path, by FileDataID, or both. The
+        generic file identity for version-independent tools — code that handles
+        any client generation operates on FileKeys without caring which half is
+        available (on pre-CASC clients the FileDataID is simply absent); the
+        storage backend uses the half it needs and FileSystem.resolve fills gaps
+        through the listfile. The stored path is always in canonical form.)")
   ]]
   FileKey
   {

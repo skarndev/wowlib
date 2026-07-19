@@ -10,6 +10,8 @@
 #include <mutex>
 #include <optional>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <wowlib/core/buffer.hpp>
@@ -20,12 +22,16 @@
 
 namespace wowlib::fs
 {
-  /** MPQ chain storage. Opens every archive of the version's chain standalone and
-      resolves reads through them in reverse load order (last loaded wins), which
+  /** MPQ chain storage. Opens every member of the version's chain — a StormLib
+      archive, or a directory of loose files standing in for one — and resolves
+      reads through them in reverse load order (last loaded wins), which
       replicates the client's patch override semantics.
 
-      RAII: the destructor (and move-assignment onto an open storage) closes every
-      archive; moved-from storages are empty and safe to destroy.
+      RAII: open() — the only way to obtain an instance — returns a fully open
+      storage, so a constructed MpqStorage is an open one. The destructor (and
+      move-assignment onto an open storage) closes every archive; the only
+      not-open state C++ can hold is a moved-from storage, which is empty and
+      safe to destroy.
 
       Thread safety: reads lock only the archive currently probed (one mutex per
       archive), so reads of different archives proceed in parallel. StormLib
@@ -41,12 +47,10 @@ namespace wowlib::fs
       std::optional<Locale> locale;        /**< nullopt => auto-detect from disk. */
     };
 
-    /** Store the options; open() performs the work.
-        @param options what to open. */
-    explicit MpqStorage(Options options)
-      : _options(std::move(options))
-    {
-    }
+    /** Expand the version's chain and open every archive present on disk.
+        @param options what to open.
+        @return the open storage, or StorageOpenFailed / ArchiveOpenFailed. */
+    static Result<MpqStorage> open(Options options);
 
     ~MpqStorage() { close(); }
 
@@ -72,16 +76,6 @@ namespace wowlib::fs
       return *this;
     }
 
-    /** Expand the chain and open every archive present on disk.
-        @return nothing, or StorageOpenFailed / ArchiveOpenFailed. */
-    Result<void> open();
-
-    /** Close all archives; safe to call repeatedly. */
-    void close() noexcept;
-
-    /** @return whether open() succeeded and archives are held. */
-    bool is_open() const { return !_archives.empty(); }
-
     /** Read a file into memory. MPQ storage is path-addressed: a key without a
         path fails with FdidNotResolvable (resolve ids through a listfile in the
         composition layer first).
@@ -97,12 +91,21 @@ namespace wowlib::fs
     /** @return the storage technology tag (Mpq). */
     static constexpr StorageKind kind() { return StorageKind::Mpq; }
 
-    /** One opened archive of the chain, for introspection and tests. */
+    /** One opened member of the chain, for introspection and tests. Exactly one
+        source is active, per @ref is_directory: a StormLib archive, or a loose
+        directory whose files are indexed by canonical in-game path. */
     struct OpenedArchive
     {
-      std::filesystem::path path;                /**< The archive on disk. */
-      void* handle = nullptr;                    /**< StormLib HANDLE. */
-      std::unique_ptr<std::mutex> mtx;           /**< Serializes StormLib calls. */
+      std::filesystem::path path;      /**< The archive file or loose-dir root on disk. */
+      bool is_directory = false;       /**< true => served from loose files below. */
+
+      void* handle = nullptr;          /**< StormLib HANDLE (archive members). */
+      std::unique_ptr<std::mutex> mtx; /**< Serializes StormLib calls (archive members). */
+
+      /** Loose members: canonical in-game path -> the file on disk. Built once at
+          open, read-only after, so reads need no lock. Case-insensitive lookup
+          falls out of both sides being in canonical (lowercased) form. */
+      std::unordered_map<std::string, std::filesystem::path> loose;
     };
 
     /** @return the opened archives in load order (lowest -> highest priority). */
@@ -112,6 +115,24 @@ namespace wowlib::fs
     std::optional<Locale> locale() const { return _locale; }
 
   private:
+    /** Store the options; open() (the factory) performs the work.
+        @param options what to open. */
+    explicit MpqStorage(Options options)
+      : _options(std::move(options))
+    {
+    }
+
+    /** Expand the chain and open every archive present on disk; called by the
+        factory on a fresh instance.
+        @return nothing, or StorageOpenFailed / ArchiveOpenFailed. */
+    Result<void> open_chain();
+
+    /** Close all archives; safe to call repeatedly. */
+    void close() noexcept;
+
+    /** @return whether archives are held (false only for moved-from storages). */
+    bool is_open() const { return !_archives.empty(); }
+
     Options _options;
     std::optional<Locale> _locale;
     std::vector<OpenedArchive> _archives;

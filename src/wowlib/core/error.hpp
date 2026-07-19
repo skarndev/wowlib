@@ -9,20 +9,14 @@
 #include <expected>
 #include <string>
 
-#include <welder/vocabulary.hpp>
-
 #include <wowlib/core/reflect.hpp>
 
 namespace wowlib
 {
-  enum class
-  [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc(R"(
-        Machine-readable failure category carried by every Error; also names the
-        exception category bindings raise.)")
-  ]]
-  ErrorCode : std::uint32_t
+  /** Machine-readable failure category carried by every Error. Not welded — the
+      Python rod instead generates one exception class per enumerator (the class
+      identity IS the code); Lua errors carry the spelling as a message prefix. */
+  enum class ErrorCode : std::uint32_t
   {
     StorageOpenFailed,   /**< The client storage (MPQ chain / CASC) failed to initialize. */
     ArchiveOpenFailed,   /**< A single archive within an MPQ chain failed to open. */
@@ -47,24 +41,17 @@ namespace wowlib
       @return a static string, never dangling. */
   constexpr std::string_view to_string(ErrorCode code) { return enum_name(code); }
 
-  struct
-  [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc(R"(
-        A wowlib operation failure: a machine-readable code, a human-readable
-        message, and the originating native (StormLib/CascLib/OS) error value when
-        one exists.)")
-  ]]
-  Error
+  /** A wowlib operation failure: a machine-readable code, a human-readable
+      message, and the originating native (StormLib/CascLib/OS) error value when
+      one exists. Not welded — bindings translate it into target-language
+      exceptions instead. */
+  struct Error
   {
-    ErrorCode code;
+    ErrorCode code;              /**< The failure category. */
+    std::string message;         /**< Human-readable description of what failed, with context. */
 
-    [[=welder::doc("Human-readable description of what failed, with context.")]]
-    std::string message;
-
-    [[=welder::doc(R"(
-        Raw GetCascError()/GetLastError() value from the native library, 0 if not
-        applicable.)")]]
+    /** Raw GetCascError()/GetLastError() value from the native library, 0 if not
+        applicable. */
     std::uint32_t native_error = 0;
   };
 

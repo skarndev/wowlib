@@ -48,8 +48,9 @@ namespace wowlib
     [[=welder::doc("Exact client build number, e.g. 12340 for 3.3.5a.")]]
     std::uint32_t build = 0;
 
-    [[=welder::doc("Which storage technology this client generation uses."),
-      =welder::returns("Mpq for pre-WoD (< 6.0) clients, Casc otherwise")]]
+    [[=welder::getter,
+      =welder::doc("Which storage technology this client generation uses: Mpq for "
+                   "pre-WoD (< 6.0) clients, Casc otherwise.")]]
     constexpr StorageKind storage_kind() const
     {
       return major < 6 ? StorageKind::Mpq : StorageKind::Casc;

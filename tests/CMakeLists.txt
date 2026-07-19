@@ -8,6 +8,7 @@ add_executable(wowlib_tests
   unit/test_fdid_allocator.cpp
   unit/test_listfile_concurrency.cpp
   unit/test_mpq_chain_order.cpp
+  unit/test_mpq_loose_dir.cpp
   unit/test_project_directory.cpp
   unit/test_client_filesystem.cpp
   integration/test_mpq_335_client.cpp

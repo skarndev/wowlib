@@ -15,9 +15,10 @@ TEST_CASE("the 9.2.7 CASC storage opens and serves files by FileDataID",
 {
   const auto clients = tests::require_clients_dir();
 
-  CascStorage storage{{.client_root = clients / tests::casc_client_name,
-                       .build = 45745}};
-  REQUIRE(storage.open().has_value());
+  auto opened = CascStorage::open({.client_root = clients / tests::casc_client_name,
+                                   .build = 45745});
+  REQUIRE(opened.has_value());
+  CascStorage& storage = *opened;
 
   SECTION("a known FileDataID reads with a DB2 magic")
   {
@@ -62,8 +63,8 @@ TEST_CASE("paths resolve through the community listfile", "[integration][casc]")
   REQUIRE(fdid.has_value());
   CHECK(*fdid == FileDataID{1375801});
 
-  CascStorage storage{{.client_root = clients / tests::casc_client_name,
-                       .build = 45745}};
-  REQUIRE(storage.open().has_value());
-  CHECK(storage.read_file(FileKey{*fdid}).has_value());
+  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+                                    .build = 45745});
+  REQUIRE(storage.has_value());
+  CHECK(storage->read_file(FileKey{*fdid}).has_value());
 }

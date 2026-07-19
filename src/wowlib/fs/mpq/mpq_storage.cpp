@@ -1,18 +1,55 @@
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 
+#include <fstream>
 #include <format>
 #include <ranges>
+
+#include <wowlib/core/path.hpp>
 
 #define STORMLIB_NO_AUTO_LINK
 #include <StormLib.h>
 
+namespace
+{
+  namespace fsys = std::filesystem;
+
+  // Read a whole loose file into a buffer. Loose members carry no StormLib state,
+  // so no lock is needed.
+  wowlib::Result<wowlib::FileBuffer> read_loose_file(const fsys::path& path)
+  {
+    std::ifstream in{path, std::ios::binary | std::ios::ate};
+    if (!in)
+      return wowlib::make_error(wowlib::ErrorCode::BackendError,
+                                std::format("failed to open loose file '{}'",
+                                            path.string()));
+    const std::streamoff size = in.tellg();
+    if (size < 0)
+      return wowlib::make_error(wowlib::ErrorCode::BackendError,
+                                std::format("failed to size loose file '{}'",
+                                            path.string()));
+    wowlib::FileBuffer buffer(static_cast<std::size_t>(size));
+    in.seekg(0);
+    if (!buffer.empty() &&
+        !in.read(reinterpret_cast<char*>(buffer.data()), size))
+      return wowlib::make_error(wowlib::ErrorCode::BackendError,
+                                std::format("failed to read loose file '{}'",
+                                            path.string()));
+    return buffer;
+  }
+}
+
 namespace wowlib::fs
 {
-  Result<void> MpqStorage::open()
+  Result<MpqStorage> MpqStorage::open(Options options)
   {
-    if (is_open())
-      return {};
+    MpqStorage storage{std::move(options)};
+    if (auto opened = storage.open_chain(); !opened)
+      return std::unexpected(opened.error());
+    return storage;
+  }
 
+  Result<void> MpqStorage::open_chain()
+  {
     const detail::MpqChainSpec* spec = detail::find_chain_spec(_options.version);
     if (!spec)
       return make_error(ErrorCode::StorageOpenFailed,
@@ -41,8 +78,29 @@ namespace wowlib::fs
                                     _options.version.major, _options.version.minor,
                                     _options.version.patch, _options.data_dir.string()));
 
-    for (const auto& archive_path : *chain)
+    for (const detail::ChainMember& member : *chain)
     {
+      if (member.is_directory)
+      {
+        // Loose directory: index every file by its canonical in-game path so
+        // reads match the client's case-insensitive lookup (both sides are
+        // lowercased/backslashed by normalize_path).
+        OpenedArchive slot{member.path, true};
+        std::error_code ec;
+        for (const auto& entry :
+             std::filesystem::recursive_directory_iterator{member.path, ec})
+        {
+          if (!entry.is_regular_file(ec))
+            continue;
+          const auto relative = std::filesystem::relative(entry.path(), member.path, ec);
+          if (ec)
+            continue;
+          slot.loose.emplace(normalize_path(relative.generic_string()), entry.path());
+        }
+        _archives.push_back(std::move(slot));
+        continue;
+      }
+
       // NO_LISTFILE/NO_ATTRIBUTES: exact-path reads resolve through the hash
       // table alone, and parsing those internal files costs seconds per large
       // archive (7s for 3.3.5a common.MPQ vs 10ms without). Features that need
@@ -51,17 +109,17 @@ namespace wowlib::fs
                                    MPQ_OPEN_NO_ATTRIBUTES | MPQ_OPEN_NO_HEADER_SEARCH;
 
       HANDLE handle = nullptr;
-      if (!SFileOpenArchive(archive_path.c_str(), 0, open_flags, &handle))
+      if (!SFileOpenArchive(member.path.c_str(), 0, open_flags, &handle))
       {
         const auto native = SErrGetLastError();
         close();
         return make_error(ErrorCode::ArchiveOpenFailed,
                           std::format("SFileOpenArchive failed for '{}'",
-                                      archive_path.string()),
+                                      member.path.string()),
                           static_cast<std::uint32_t>(native));
       }
-      _archives.push_back(OpenedArchive{archive_path, handle,
-                                        std::make_unique<std::mutex>()});
+      _archives.push_back(OpenedArchive{member.path, false, handle,
+                                        std::make_unique<std::mutex>(), {}});
     }
     return {};
   }
@@ -86,9 +144,17 @@ namespace wowlib::fs
     // Canonical form already uses backslashes — StormLib's separator.
     const std::string& name = *key.path;
 
-    // Reverse load order: the last archive that carries the file wins.
+    // Reverse load order: the last member that carries the file wins.
     for (const OpenedArchive& archive : _archives | std::views::reverse)
     {
+      if (archive.is_directory)
+      {
+        const auto it = archive.loose.find(name);
+        if (it == archive.loose.end())
+          continue;
+        return read_loose_file(it->second);
+      }
+
       std::scoped_lock lock{*archive.mtx};
 
       if (!SFileHasFile(archive.handle, name.c_str()))
@@ -140,6 +206,13 @@ namespace wowlib::fs
 
     for (const OpenedArchive& archive : _archives | std::views::reverse)
     {
+      if (archive.is_directory)
+      {
+        if (archive.loose.contains(*key.path))
+          return true;
+        continue;
+      }
+
       std::scoped_lock lock{*archive.mtx};
       if (SFileHasFile(archive.handle, key.path->c_str()))
         return true;

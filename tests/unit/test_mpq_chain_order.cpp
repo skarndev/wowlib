@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <vector>
@@ -33,16 +34,22 @@ namespace
       std::ofstream{path};
     }
 
+    // A loose-file folder standing in for an archive of that name.
+    void add_dir(std::string_view relative)
+    {
+      fsys::create_directories(root / relative);
+    }
+
     fsys::path root;
     static inline int counter = 0;
   };
 
-  std::vector<std::string> names(const std::vector<fsys::path>& paths,
+  std::vector<std::string> names(const std::vector<ChainMember>& members,
                                  const fsys::path& root)
   {
     std::vector<std::string> out;
-    for (const auto& p : paths)
-      out.push_back(fsys::relative(p, root).generic_string());
+    for (const auto& m : members)
+      out.push_back(fsys::relative(m.path, root).generic_string());
     return out;
   }
 }
@@ -101,6 +108,54 @@ TEST_CASE("custom patches load last, numbers before letters", "[mpq-chain]")
                                  "patch-4.MPQ", "patch-9.MPQ", "patch-A.MPQ",
                                  "patch-Z.MPQ", "enUS/patch-enUS-5.MPQ",
                                  "enUS/patch-enUS-B.MPQ"});
+}
+
+TEST_CASE("every base patch precedes every locale patch, custom included",
+          "[mpq-chain]")
+{
+  // The regression that motivated the rewrite: the old table slotted the official
+  // locale patches (patch-enUS[-N]) between the base official patches and the
+  // custom base patches. The client's single filename sort puts ALL base patches
+  // (patch-Z included) before ANY locale patch.
+  FakeDataDir data;
+  data.add("common.MPQ");
+  data.add("enUS/locale-enUS.MPQ");
+  data.add("patch.MPQ");
+  data.add("patch-3.MPQ");
+  data.add("patch-Z.MPQ");            // custom base patch
+  data.add("enUS/patch-enUS.MPQ");    // official locale patch
+  data.add("enUS/patch-enUS-2.MPQ");
+
+  const auto chain =
+    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
+  REQUIRE(chain.has_value());
+  CHECK(names(*chain, data.root) ==
+        std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
+                                 "patch-3.MPQ", "patch-Z.MPQ", "enUS/patch-enUS.MPQ",
+                                 "enUS/patch-enUS-2.MPQ"});
+}
+
+TEST_CASE("directory-backed patches join the chain and sort like archives",
+          "[mpq-chain]")
+{
+  FakeDataDir data;
+  data.add("common.MPQ");
+  data.add("enUS/locale-enUS.MPQ");
+  data.add("patch.MPQ");
+  data.add_dir("patch-4.MPQ");   // a loose-file folder in place of an archive
+  data.add("patch-9.MPQ");
+
+  const auto chain =
+    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
+  REQUIRE(chain.has_value());
+  CHECK(names(*chain, data.root) ==
+        std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
+                                 "patch-4.MPQ", "patch-9.MPQ"});
+
+  const auto member = std::ranges::find_if(
+    *chain, [](const ChainMember& m) { return m.path.filename() == "patch-4.MPQ"; });
+  REQUIRE(member != chain->end());
+  CHECK(member->is_directory);
 }
 
 TEST_CASE("missing archives are skipped without error", "[mpq-chain]")

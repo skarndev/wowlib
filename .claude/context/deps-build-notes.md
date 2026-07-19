@@ -18,7 +18,7 @@ errors.
 |---|---|---|
 | StormLib | v9.40 | target `storm`; `STORM_SKIP_INSTALL`, `BUILD_SHARED_LIBS=OFF`; links SDK zlib/bzip2 |
 | CascLib | 3.0 | target `casc_static`; `CASC_BUILD_STATIC_LIB=ON`, `CASC_BUILD_SHARED_LIB=OFF`, unicode off |
-| welder | commit cf01a75 (no tags yet) | header-only, target `welder::headers` |
+| welder | commit 57e7747 (no tags yet; aggregate NSDMI defaults) | header-only, target `welder::headers` |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
 
 ## Configure-time performance (2026-07-18)

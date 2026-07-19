@@ -16,37 +16,49 @@
 
 namespace wowlib::fs::detail
 {
-  /** How one chain-table entry produces archive paths. */
+  /** How one base-tier row produces its archive path. Patches are NOT table
+      rows: the client wildcard-loads them, so we discover them on disk via a
+      PatchScheme (glob + sort) rather than naming each. */
   enum class ChainEntryKind
   {
-    Fixed,                /**< One archive, e.g. "common.MPQ". */
-    LocaleFixed,          /**< One archive under the locale dir, "{locale}/locale-{locale}.MPQ". */
-    NumberedSeq,          /**< "patch-{n}.MPQ" for n in [seq_first, seq_last]. */
-    LocaleNumberedSeq,    /**< "{locale}/patch-{locale}-{n}.MPQ" for n in [seq_first, seq_last]. */
-    CustomPatchSet,       /**< Community patches "{stem}-{4..9}.MPQ" then "{stem}-{A..Z}.MPQ",
-                               numbers before letters — the client's wildcard order. */
-    LocaleCustomPatchSet, /**< As CustomPatchSet, under the locale dir with "-{locale}" infix. */
-    UpdateChain           /**< Future: "wow-update-{build}.MPQ" ascending-build chains
-                               (Cataclysm/MoP incremental patches). */
+    Fixed,       /**< One archive in Data/, e.g. "common.MPQ". */
+    LocaleFixed, /**< One archive in Data/{locale}/, "{locale}" expanded. */
   };
 
-  /** One row of a chain table. `pattern` placeholders: "{locale}" expands to the
-      locale code; for sequences the entry's stem is the pattern itself. */
+  /** One base-tier row. `pattern`'s "{locale}" placeholder expands to the code. */
   struct ChainEntry
   {
     ChainEntryKind kind;
     std::string_view pattern;
-    int seq_first = 0;
-    int seq_last = 0;
-    bool incremental_patch = false;   // true => must load via SFileOpenPatchArchive (Cata+)
   };
 
-  /** A client version's archive chain, in load order — later entries override
-      earlier ones, matching the client. */
+  /** How a version's patch tier is discovered on disk. */
+  enum class PatchScheme
+  {
+    None,            /**< No patch tier. */
+    ClassicWildcard, /**< Pre-Cata: `patch.MPQ` + single-char `patch-?.MPQ` in
+                          Data/, and `patch-{locale}[-?].MPQ` in Data/{locale}/,
+                          merged and sorted by extension-agnostic filename. */
+    UpdateChain,     /**< Cata+: `wow-update-{build}.MPQ` ascending build; not
+                          implemented yet. */
+  };
+
+  /** A client version's archive chain: the fixed base tier plus how its patch
+      tier is found. */
   struct MpqChainSpec
   {
     ClientVersion version;
-    std::span<const ChainEntry> entries;
+    std::span<const ChainEntry> base_entries;
+    PatchScheme patch_scheme = PatchScheme::None;
+  };
+
+  /** One resolved member of a chain, in load order. A member is served either by
+      StormLib (a real archive file) or as loose files under a directory of the
+      archive's name — the client accepts either. */
+  struct ChainMember
+  {
+    std::filesystem::path path; /**< The archive file or loose-dir root on disk. */
+    bool is_directory = false;  /**< true => loose files, not a StormLib archive. */
   };
 
   /** The chain spec for @a version: exact build match first, then
@@ -66,16 +78,22 @@ namespace wowlib::fs::detail
       @return the locales found, possibly empty. */
   std::vector<Locale> detect_locales(const std::filesystem::path& data_dir);
 
-  /** Expand a chain spec against a Data directory into concrete archive paths in
-      load order (lowest -> highest priority). Entries whose archives do not exist
-      on disk are skipped silently — clients routinely lack optional patches.
+  /** Expand a chain spec against a Data directory into concrete members in load
+      order (lowest -> highest priority): the base tier in table order, then the
+      patch tier sorted by the client's extension-agnostic filename order (so
+      `patch` < `patch-2` < ... < `patch-Z`, and every base patch precedes every
+      locale patch). Members whose file/dir is absent are skipped silently —
+      clients routinely lack optional patches. A member resolves to a loose
+      directory when a folder of the archive's name stands in for the archive; a
+      real file of the same name would win, though a single Data root cannot hold
+      both.
 
       @param spec     the version's chain table.
       @param data_dir the client's Data/ directory.
       @param locale   the locale used for "{locale}" expansion.
-      @return absolute archive paths, or an error for unusable specs
-              (e.g. UpdateChain entries, which are not implemented yet). */
-  Result<std::vector<std::filesystem::path>>
+      @return members in load order, or an error for unusable specs (UpdateChain,
+              not implemented yet). */
+  Result<std::vector<ChainMember>>
   expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir,
                Locale locale);
 }

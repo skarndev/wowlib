@@ -17,13 +17,13 @@ namespace wowlib::fs
 
     if (settings.version.storage_kind() == StorageKind::Mpq)
     {
-      MpqStorage storage{{.data_dir = settings.client_path / "Data",
-                          .version = settings.version,
-                          .locale = settings.locale}};
-      if (auto opened = storage.open(); !opened)
-        return std::unexpected(opened.error());
+      auto storage = MpqStorage::open({.data_dir = settings.client_path / "Data",
+                                       .version = settings.version,
+                                       .locale = settings.locale});
+      if (!storage)
+        return std::unexpected(storage.error());
 
-      return FileSystem{MpqFileSystem{std::move(storage), NullListfile{},
+      return FileSystem{MpqFileSystem{std::move(*storage), NullListfile{},
                                       std::move(project)}};
     }
 
@@ -39,47 +39,68 @@ namespace wowlib::fs
       listfile = std::move(*loaded);
     }
 
-    CascStorage storage{{.client_root = settings.client_path,
-                         .product = settings.casc_product,
-                         .locale = settings.locale.value_or(Locale::enUS),
-                         .build = settings.version.build}};
-    if (auto opened = storage.open(); !opened)
-      return std::unexpected(opened.error());
+    auto storage = CascStorage::open({.client_root = settings.client_path,
+                                      .product = settings.casc_product,
+                                      .locale = settings.locale.value_or(Locale::enUS),
+                                      .build = settings.version.build});
+    if (!storage)
+      return std::unexpected(storage.error());
 
-    return FileSystem{CascFileSystem{std::move(storage), std::move(listfile),
+    return FileSystem{CascFileSystem{std::move(*storage), std::move(listfile),
                                      std::move(project)}};
   }
 
-  Result<FileBuffer> FileSystem::read_file(std::string_view path)
+  namespace
   {
-    return std::visit([&](auto& fs) { return fs.read_file(FileKey{path}); }, _impl);
+    // The monostate alternative is the closed state; only close() (scripting
+    // languages) can reach it, and every entry point degrades to this error.
+    std::unexpected<Error> closed_error()
+    {
+      return make_error(ErrorCode::StorageNotOpen, "the filesystem is closed");
+    }
+
+    template <typename T>
+    concept IsComposition = !std::is_same_v<std::remove_cvref_t<T>, std::monostate>;
   }
 
-  Result<FileBuffer> FileSystem::read_file(FileDataID fdid)
+  Result<FileBuffer> FileSystem::read_file(const FileKey& key)
   {
-    return std::visit([&](auto& fs) { return fs.read_file(FileKey{fdid}); }, _impl);
+    return std::visit([&](auto& fs) -> Result<FileBuffer> {
+      if constexpr (IsComposition<decltype(fs)>)
+        return fs.read_file(key);
+      else
+        return closed_error();
+    }, _impl);
   }
 
-  bool FileSystem::exists(std::string_view path)
+  bool FileSystem::exists(const FileKey& key)
   {
-    return std::visit([&](auto& fs) { return fs.exists(FileKey{path}); }, _impl);
+    return std::visit([&](auto& fs) {
+      if constexpr (IsComposition<decltype(fs)>)
+        return fs.exists(key);
+      else
+        return false;
+    }, _impl);
   }
 
-  bool FileSystem::exists(FileDataID fdid)
+  FileKey FileSystem::resolve(const FileKey& key) const
   {
-    return std::visit([&](auto& fs) { return fs.exists(FileKey{fdid}); }, _impl);
+    return std::visit([&](const auto& fs) -> FileKey {
+      if constexpr (IsComposition<decltype(fs)>)
+        return fs.resolve(key);
+      else
+        return key;   // closed: nothing to consult, the key passes unchanged
+    }, _impl);
   }
 
   Result<FileDataID> FileSystem::add_file(std::string_view path,
                                           std::span<const std::byte> content)
   {
-    return std::visit([&](auto& fs) { return fs.add_file(path, content); }, _impl);
-  }
-
-  StorageKind FileSystem::kind() const
-  {
-    return std::visit([](const auto& fs) {
-      return std::remove_cvref_t<decltype(fs)>::kind();
+    return std::visit([&](auto& fs) -> Result<FileDataID> {
+      if constexpr (IsComposition<decltype(fs)>)
+        return fs.add_file(path, content);
+      else
+        return closed_error();
     }, _impl);
   }
 

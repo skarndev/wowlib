@@ -13,6 +13,21 @@ namespace
     modding.)")]]
 wowlib
 {
+}
+
+#include <wowlib/core/buffer.hpp>
+#include <wowlib/core/client_version.hpp>
+#include <wowlib/core/error.hpp>
+#include <wowlib/core/file_key.hpp>
+#include <wowlib/core/path.hpp>
+#include <wowlib/core/reflect.hpp>
+
+// The fs namespace must first open AFTER the core types: welder's module walk
+// binds namespace members in declaration order, and FileSystemSettings' NSDMI
+// defaults (a FileDataID value) convert EAGERLY at registration — the types
+// they name have to be registered before the fs submodule welds.
+namespace wowlib
+{
   namespace
   [[=welder::doc(R"(
       Client filesystem access: storage backends, listfile databases, the
@@ -22,12 +37,6 @@ wowlib
   }
 }
 
-#include <wowlib/core/buffer.hpp>
-#include <wowlib/core/client_version.hpp>
-#include <wowlib/core/error.hpp>
-#include <wowlib/core/file_key.hpp>
-#include <wowlib/core/path.hpp>
-#include <wowlib/core/reflect.hpp>
 #include <wowlib/fs/casc/casc_storage.hpp>
 #include <wowlib/fs/client_filesystem.hpp>
 #include <wowlib/fs/csv_listfile.hpp>

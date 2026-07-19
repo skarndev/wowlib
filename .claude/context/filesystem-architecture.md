@@ -41,7 +41,7 @@ translate to exceptions at the welder layer.
   (memory-heavy, measure first).
 - `CsvListfile` / `ProjectDirectory`: `std::shared_mutex` — shared lookups,
   exclusive mutation. `FdidAllocator` is serialized by its owner's exclusive lock.
-- open()/close() are NOT thread-safe; initialize before sharing.
+- Opening (the static factories) is NOT thread-safe; initialize before sharing.
 
 ## Namespaces (review decision 2026-07-18)
 - `wowlib` — core vocabulary (FileDataID, FileKey, Error, Result, ClientVersion,
@@ -69,7 +69,20 @@ translate to exceptions at the welder layer.
 - `-freflection` is PUBLIC on the wowlib target; welder checks but does not
   propagate the flag itself.
 
-## RAII
-Storages close in their destructors; move-assignment onto an open storage closes
-it first; moved-from storages are empty and safe to destroy. No manual close
-needed (close() stays available for early release).
+## RAII / lifetime (user-set design, 2026-07-19)
+Constructed ⇒ open, destroyed ⇒ closed; NO public open()/close() in C++ anywhere.
+- Backends: `static Result<MpqStorage> open(Options)` / `CascStorage::open` are
+  the only way in (private ctor); private close()/is_open(); destructor and
+  move-assignment-onto-open close. The only C++-reachable not-open state is
+  moved-from (destroy/assign only). StorageBackend concept spells just the usage
+  surface (read_file/exists/kind + movable).
+- FileSystem facade: `close()`/`is_open()` are PROTECTED, welded via
+  `policy::weld_protected` — scripting languages get deterministic release
+  (GC timing isn't control), C++ cannot misuse it. Closed state = monostate
+  variant alternative, reachable only via close(); all entry points degrade to
+  StorageNotOpen (Python: typed wowlib.StorageNotOpen). kind survives close
+  (stored StorageKind, not visited).
+- Python context manager: __enter__/__exit__ attached in module glue
+  (nanobind cpp_function + is_method; __exit__ takes nb::args — nb::handle
+  params reject None). `with FileSystem.open(s) as fs:` scopes the release.
+  Lua: fs:close() explicitly; GC (__gc) is the fallback in both languages.

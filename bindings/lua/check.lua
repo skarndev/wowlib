@@ -13,24 +13,41 @@ local function check(condition, message)
   end
 end
 
--- version constants and enums
+-- version constants and enums; storage_kind is a read-only property (dot access)
 check(wowlib.versions.wotlk.build == 12340, "wotlk build")
 check(wowlib.versions.tww.build == 65299, "tww build")
-check(wowlib.versions.wotlk:storage_kind() == wowlib.storage_kind.mpq, "kind mpq")
-check(wowlib.versions.shadowlands:storage_kind() == wowlib.storage_kind.casc,
+check(wowlib.versions.wotlk.storage_kind == wowlib.storage_kind.mpq, "kind mpq")
+check(wowlib.versions.shadowlands.storage_kind == wowlib.storage_kind.casc,
       "kind casc")
+check(not pcall(function()
+  wowlib.versions.wotlk.storage_kind = wowlib.storage_kind.casc
+end), "storage_kind should be read-only")
 check(wowlib.locale.en_us ~= nil, "locale enum")
 
--- FileKey constructor overloads + canonicalization
+-- FileDataID: the one identity helper the facade API needs
+check(wowlib.file_data_id(775971).value == 775971, "fdid value")
+
+-- FileKey: the generic file identity version-independent tools operate on
 local key = wowlib.file_key("World/Maps/Azeroth/Azeroth.wdt")
 check(key.path == "world\\maps\\azeroth\\azeroth.wdt", "path canonicalized")
 key = wowlib.file_key(wowlib.file_data_id(775971))
 check(key.fdid.value == 775971, "id-only key")
 
+-- the surface stays minimal: internals are not welded
+check(wowlib.error == nil and wowlib.error_code == nil, "error types not welded")
+check(wowlib.fs.project_directory == nil, "project_directory should not be welded")
+check(wowlib.fs.csv_listfile == nil, "csv_listfile should not be welded")
+
+-- settings are an immutable value: the synthesized field constructor exposes
+-- one arity per omissible NSDMI-suffix tail; fields are read-only
+local settings = wowlib.fs.file_system_settings("/no/such/client",
+                                                wowlib.versions.wotlk)
+check(settings.casc_product == "wow", "NSDMI default carried")
+check(settings.custom_fdid_start.value == 1000000000, "fdid start default")
+check(not pcall(function() settings.client_path = "/elsewhere" end),
+      "settings fields should be read-only")
+
 -- error translation: a failed Result raises a lua error carrying the code
-local settings = wowlib.fs.file_system_settings()
-settings.client_path = "/no/such/client"
-settings.version = wowlib.versions.wotlk
 local ok, err = pcall(function() return wowlib.fs.file_system.open(settings) end)
 check(not ok, "open should have raised")
 check(tostring(err):find("StorageOpenFailed") ~= nil,
@@ -39,13 +56,31 @@ check(tostring(err):find("StorageOpenFailed") ~= nil,
 -- real-client round-trip (opt-in via env)
 local clients = os.getenv("WOWLIB_TEST_CLIENTS_DIR")
 if clients then
-  settings = wowlib.fs.file_system_settings()
-  settings.client_path = clients .. "/World of Warcraft 3.3.5a"
-  settings.version = wowlib.versions.wotlk
+  settings = wowlib.fs.file_system_settings(
+    clients .. "/World of Warcraft 3.3.5a", wowlib.versions.wotlk)
   local fs = wowlib.fs.file_system.open(settings)
-  check(fs:kind() == wowlib.storage_kind.mpq, "facade kind")
+  check(fs.kind == wowlib.storage_kind.mpq, "facade kind property")
   local data = fs:read_file("DBFilesClient/Map.dbc")
   check(type(data) == "string" and data:sub(1, 4) == "WDBC", "Map.dbc magic via Lua")
+
+  -- the generic FileKey identity works across the facade
+  check(fs:read_file(wowlib.file_key("DBFilesClient/Map.dbc")) == data,
+        "same bytes via file_key")
+  local resolved = fs:resolve(wowlib.file_key("DBFilesClient/Map.dbc"))
+  check(resolved.path == "dbfilesclient\\map.dbc", "resolve canonicalizes")
+  check(resolved.fdid == nil, "MPQ era: resolve leaves fdid absent")
+
+  -- explicit close (welded from the protected C++ surface): deterministic
+  -- release, StorageNotOpen afterwards, idempotent
+  check(fs.is_open, "open filesystem reports is_open")
+  fs:close()
+  check(not fs.is_open, "closed filesystem reports not is_open")
+  check(fs.kind == wowlib.storage_kind.mpq, "kind survives close")
+  local read_ok, read_err = pcall(function() return fs:read_file("DBFilesClient/Map.dbc") end)
+  check(not read_ok, "read after close errors")
+  check(tostring(read_err):find("StorageNotOpen") ~= nil, "closed error carries the code")
+  fs:close() -- second close is a no-op
+
   print("real-client round-trip OK, " .. #data .. " bytes")
 end
 

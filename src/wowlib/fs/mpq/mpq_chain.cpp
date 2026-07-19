@@ -1,8 +1,10 @@
 #include <wowlib/fs/mpq/mpq_chain.hpp>
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <string>
+#include <utility>
 
 namespace wowlib::fs::detail
 {
@@ -10,11 +12,14 @@ namespace wowlib::fs::detail
   {
     namespace fsys = std::filesystem;
 
-    // 3.3.5a (build 12340). Base archives are hardcoded in the client binary;
-    // patches load after, wildcard-enumerated: official 1..3, then the community
-    // convention 4..9 and A..Z (numbers before letters). Locale patches follow
-    // their base counterparts.
-    constexpr std::array wotlk_entries{
+    // 3.3.5a (build 12340). Base tier: the archives the client binary hardcodes,
+    // loaded below the patch range in this fixed order. Patches load above via
+    // ClassicWildcard — `patch.MPQ` + single-char `patch-?.MPQ` in Data/ and the
+    // `patch-{locale}[-?]` equivalents in Data/{locale}/, all merged into one
+    // list and sorted by the client's extension-agnostic filename order. Because
+    // the lowercase locale infix sorts past every base suffix (digits, A-Z),
+    // every base patch (custom patch-4..Z included) precedes every locale patch.
+    constexpr std::array wotlk_base{
       ChainEntry{ChainEntryKind::Fixed, "common.MPQ"},
       ChainEntry{ChainEntryKind::Fixed, "common-2.MPQ"},
       ChainEntry{ChainEntryKind::Fixed, "expansion.MPQ"},
@@ -25,16 +30,10 @@ namespace wowlib::fs::detail
       ChainEntry{ChainEntryKind::LocaleFixed, "expansion-speech-{locale}.MPQ"},
       ChainEntry{ChainEntryKind::LocaleFixed, "lichking-locale-{locale}.MPQ"},
       ChainEntry{ChainEntryKind::LocaleFixed, "lichking-speech-{locale}.MPQ"},
-      ChainEntry{ChainEntryKind::Fixed, "patch.MPQ"},
-      ChainEntry{ChainEntryKind::NumberedSeq, "patch", 2, 3},
-      ChainEntry{ChainEntryKind::LocaleFixed, "patch-{locale}.MPQ"},
-      ChainEntry{ChainEntryKind::LocaleNumberedSeq, "patch", 2, 3},
-      ChainEntry{ChainEntryKind::CustomPatchSet, "patch"},
-      ChainEntry{ChainEntryKind::LocaleCustomPatchSet, "patch"},
     };
 
     constexpr std::array chain_specs{
-      MpqChainSpec{versions::wotlk, wotlk_entries},
+      MpqChainSpec{versions::wotlk, wotlk_base, PatchScheme::ClassicWildcard},
     };
 
     std::string expand_locale(std::string_view pattern, std::string_view code)
@@ -54,23 +53,89 @@ namespace wowlib::fs::detail
       return out;
     }
 
-    void push_if_exists(std::vector<fsys::path>& out, fsys::path candidate)
+    constexpr char ascii_lower(char c)
+    {
+      return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+    }
+
+    bool ci_equal(std::string_view a, std::string_view b)
+    {
+      return a.size() == b.size() &&
+             std::ranges::equal(a, b, [](char x, char y) {
+               return ascii_lower(x) == ascii_lower(y);
+             });
+    }
+
+    // The client's patch comparator is `-__strnicmp` — case-insensitive
+    // lexicographic order over the bare filename. `patch` precedes `patch-2`
+    // (shorter prefix first), and lowercase locale infixes still sort past the
+    // base suffixes.
+    bool ci_less(std::string_view a, std::string_view b)
+    {
+      return std::ranges::lexicographical_compare(
+        a, b, [](char x, char y) { return ascii_lower(x) < ascii_lower(y); });
+    }
+
+    // The name without a trailing ".MPQ" (any case), or nullopt when it is not an
+    // MPQ name — non-archive directory entries are not chain members.
+    std::optional<std::string_view> mpq_core(std::string_view name)
+    {
+      if (name.size() < 4 || !ci_equal(name.substr(name.size() - 4), ".MPQ"))
+        return std::nullopt;
+      return name.substr(0, name.size() - 4);
+    }
+
+    // Whether `core` (an extension-stripped name) names a patch for `stem`: either
+    // the bare stem ("patch") or the single-char wildcard ("patch-X"). The client
+    // matches case-insensitively.
+    bool is_patch_core(std::string_view core, std::string_view stem)
+    {
+      if (ci_equal(core, stem))
+        return true;
+      return core.size() == stem.size() + 2 && core[stem.size()] == '-' &&
+             ci_equal(core.substr(0, stem.size()), stem);
+    }
+
+    // A fixed base member: prefer a real archive file, fall back to a same-named
+    // directory of loose files. Absent -> skipped. (A single Data root cannot
+    // hold a file and a directory of one name, so the preference is only ever
+    // exercised as the file/dir discriminator.)
+    void push_base(std::vector<ChainMember>& out, fsys::path candidate)
     {
       std::error_code ec;
       if (fsys::is_regular_file(candidate, ec))
-        out.push_back(std::move(candidate));
+        out.push_back({std::move(candidate), false});
+      else if (fsys::is_directory(candidate, ec))
+        out.push_back({std::move(candidate), true});
     }
 
-    // The community wildcard order: -4..-9 first, then -A..-Z ('9' < 'A' in the
-    // client's ASCII sort). `infix` is empty for base patches, "-{code}" for
-    // locale ones.
-    void push_custom_set(std::vector<fsys::path>& out, const fsys::path& dir,
-                         std::string_view stem, std::string_view infix)
+    // Append the patches of `dir` matching `stem`, in the client's order:
+    // case-insensitive by extension-stripped filename. Base (Data/) and locale
+    // (Data/{locale}/) patches are sorted as SEPARATE groups and this is called
+    // base-first, so every base patch precedes every locale patch — the client
+    // keeps locale patches strictly last even though a merged case-insensitive
+    // order would interleave an uppercase base `patch-Z` (-> 'z') past the
+    // lowercase locale infix.
+    void append_patches(std::vector<ChainMember>& out, const fsys::path& dir,
+                        std::string_view stem)
     {
-      for (char c = '4'; c <= '9'; ++c)
-        push_if_exists(out, dir / std::format("{}{}-{}.MPQ", stem, infix, c));
-      for (char c = 'A'; c <= 'Z'; ++c)
-        push_if_exists(out, dir / std::format("{}{}-{}.MPQ", stem, infix, c));
+      std::vector<std::pair<std::string, ChainMember>> found;
+      std::error_code ec;
+      for (const auto& entry : fsys::directory_iterator{dir, ec})
+      {
+        const std::string name = entry.path().filename().string();
+        const auto core = mpq_core(name);
+        if (!core || !is_patch_core(*core, stem))
+          continue;
+        const bool is_dir = entry.is_directory(ec);
+        if (!is_dir && !entry.is_regular_file(ec))
+          continue;
+        found.emplace_back(std::string{*core}, ChainMember{entry.path(), is_dir});
+      }
+      std::ranges::stable_sort(found, ci_less,
+                               &std::pair<std::string, ChainMember>::first);
+      for (auto& [key, member] : found)
+        out.push_back(std::move(member));
     }
   }
 
@@ -109,52 +174,44 @@ namespace wowlib::fs::detail
     return found.size() == 1 ? std::optional{found.front()} : std::nullopt;
   }
 
-  Result<std::vector<std::filesystem::path>>
+  Result<std::vector<ChainMember>>
   expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir,
                Locale locale)
   {
+    if (spec.patch_scheme == PatchScheme::UpdateChain)
+      return make_error(ErrorCode::NotImplemented,
+                        "wow-update-* incremental chains (Cataclysm/MoP) are not "
+                        "implemented yet");
+
     const std::string code{locale_code(locale)};
     const fsys::path locale_dir = data_dir / code;
-    const std::string locale_infix = std::format("-{}", code);
 
-    std::vector<fsys::path> out;
-    for (const ChainEntry& entry : spec.entries)
+    std::vector<ChainMember> out;
+
+    // Base tier, in table order (lowest priority).
+    for (const ChainEntry& entry : spec.base_entries)
     {
       switch (entry.kind)
       {
         case ChainEntryKind::Fixed:
-          push_if_exists(out, data_dir / entry.pattern);
+          push_base(out, data_dir / entry.pattern);
           break;
-
         case ChainEntryKind::LocaleFixed:
-          push_if_exists(out, locale_dir / expand_locale(entry.pattern, code));
+          push_base(out, locale_dir / expand_locale(entry.pattern, code));
           break;
-
-        case ChainEntryKind::NumberedSeq:
-          for (int n = entry.seq_first; n <= entry.seq_last; ++n)
-            push_if_exists(out, data_dir / std::format("{}-{}.MPQ", entry.pattern, n));
-          break;
-
-        case ChainEntryKind::LocaleNumberedSeq:
-          for (int n = entry.seq_first; n <= entry.seq_last; ++n)
-            push_if_exists(out, locale_dir /
-                                  std::format("{}{}-{}.MPQ", entry.pattern, locale_infix, n));
-          break;
-
-        case ChainEntryKind::CustomPatchSet:
-          push_custom_set(out, data_dir, entry.pattern, "");
-          break;
-
-        case ChainEntryKind::LocaleCustomPatchSet:
-          push_custom_set(out, locale_dir, entry.pattern, locale_infix);
-          break;
-
-        case ChainEntryKind::UpdateChain:
-          return make_error(ErrorCode::NotImplemented,
-                            "wow-update-* incremental chains (Cataclysm/MoP) are not "
-                            "implemented yet");
       }
     }
+
+    // Patch tier: base patches (Data/) then locale patches (Data/{locale}/),
+    // each an independent sorted group so locale patches stay strictly last.
+    // `patch` sorts before `patch-2` (shorter prefix); within a group the order
+    // is the client's case-insensitive filename order.
+    if (spec.patch_scheme == PatchScheme::ClassicWildcard)
+    {
+      append_patches(out, data_dir, "patch");
+      append_patches(out, locale_dir, std::format("patch-{}", code));
+    }
+
     return out;
   }
 }

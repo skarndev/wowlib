@@ -29,8 +29,8 @@ namespace wowlib::fs
   class ClientFileSystem
   {
   public:
-    /** Compose from ready components (the backend is typically already open).
-        @param backend  the storage backend.
+    /** Compose from ready components (backends are open by construction).
+        @param backend  the open storage backend.
         @param listfile the listfile database.
         @param project  the overlay, if any. */
     ClientFileSystem(Backend backend, Listfile listfile = {},

@@ -6,13 +6,140 @@ client version.
 ## The model
 The client hardcodes its base archive list in the binary and wildcard-loads
 patches after it; a later-loaded archive overrides earlier ones file-by-file.
-wowlib encodes this as data-driven per-version tables (`ChainEntry` rows in
-`mpq_chain.cpp`), expanded against the real `Data/` dir by `expand_chain` (pure,
-StormLib-free, unit-tested with fake trees). Missing archives are skipped —
-clients routinely lack optional patches. `MpqStorage` then opens every archive
-standalone and searches in REVERSE chain order (last loaded wins).
+`MpqStorage` opens every chain member standalone and searches in REVERSE chain
+order (last loaded wins).
 
-## Verified 3.3.5a (build 12340) order
+## Implementation (2026-07-19) — reflects the Ghidra findings below
+`expand_chain` (pure, StormLib-free, unit-tested with fake trees) produces the
+chain in load order:
+- **Base tier**: fixed `ChainEntry` rows (`Fixed`/`LocaleFixed`) in table order,
+  lowest priority. Internal precedence among base archives is the established
+  community order (`common, common-2, expansion, lichking`, then the locale
+  base archives) — the binary's exact base ordering is still unresolved (see
+  round-2 note) but low-impact since patches override all base.
+- **Patch tier** (`PatchScheme::ClassicWildcard`): globs `Data/` for
+  `patch.MPQ` + single-char `patch-?.MPQ`, and `Data/{locale}/` for the
+  `patch-{locale}[-?]` equivalents. Sort key = extension-stripped bare filename;
+  comparator = **case-insensitive** (`ci_less`, matching the client's
+  `__strnicmp`). Base and locale patches are sorted as **separate groups, base
+  first**, so locale patches stay strictly last. NOTE: this is a deliberate
+  deviation from a literal "one merged sort" — a merged case-insensitive sort
+  would rank an uppercase base `patch-Z` (→ `z`, 0x7A) *after* the lowercase
+  locale infix (`enus`, 0x65), interleaving custom base letter-patches past the
+  locale patches, which contradicts the known locale-last behavior. If the real
+  client is ever shown to interleave here, revisit `append_patches`.
+- **Directory members**: any base or patch slot may be a folder of loose files
+  (`ChainMember::is_directory`); a real archive file of the same name wins.
+  `MpqStorage` indexes each loose dir by canonical in-game path at open, so reads
+  are case-insensitive. Missing archives are skipped silently.
+
+## ✅ Ghidra verification round 2 (2026-07-19, live GhidraMCP)
+
+Re-derived against `Wow.exe` 3.3.5a with the loader confirmed as **`FUN_00405dd0`**
+(the real top-level, called from `FUN_004067f0`; embedded build path
+`…wow-patch-3_3_5_a-bnet\…\PatchFiles.h` confirms it's genuine 3.3.5a patch code).
+Sequence inside it: `FUN_00402b90()` mounts base → `FUN_00405ab0()` assembles the
+patch list → archives opened with explicit priority numbers.
+
+CONFIRMED (was "still open"):
+- **Priority-wins direction:** base archives open at `0x3f` **decrementing**;
+  patches open at `0x40` **incrementing**; higher priority wins ⇒ **every patch
+  overrides every base archive.** (Resolves the `FUN_00421950` question.)
+- **Patch order:** list sorted by comparator `FUN_00401200` then opened in reverse.
+  Comparator is `-__strnicmp(a,b)` — **case-INSENSITIVE** (correction: the round-1
+  note below said `-strcmp`; it is `strnicmp` via `FUN_0076e780`). Descending sort +
+  reverse open ⇒ **ascending bare-filename → higher priority.**
+- **Sort key** (`FUN_00405a10`) = `sprintf("%s%s", <found-name>, ctx+8)` = the **bare
+  filename**; directory root is NOT part of the key. Confirms the round-1 reasoning.
+
+Base-archive precedence — RESOLVED by Sergey (domain fact), consistent with the
+verified `0x3f`-decrementing base priority (winner processed first / higher on the
+`0x3f` side, higher-wins):
+- **`common-2` overrides `common`** (common-2 is the newer supplemental half).
+- **`lichking` (WotLK) overrides `expansion` (TBC)** — newer expansion wins.
+So base order (highest precedence first) puts `common-2` before `common` and
+`lichking` before `expansion`. NB: this reverses round-1's asserted table order
+(`expansion, lichking, common, common-2`) for these pairs — round-1 had the
+direction backwards.
+
+Still un-byte-verified but IRRELEVANT to resolution: cross-pair ordering of
+**non-overlapping** base archives (e.g. `common*` vs `sound`/`texture`/`model`…) —
+they never share paths, so their relative priority can't change any lookup. (Name
+pointers are split across `.data` tables `0x00ab6160` stride 0x10 and `0x00ab7b14`;
+`common-2`/`lichking` have no pointer xref — contiguous-string arithmetic. GhidraMCP
+here has no memory-read tool to dump them, and we no longer need it.)
+
+## ⚠️ Ghidra verification round 1 (2026-07-19) — the "Verified" order below is WRONG
+
+Decompiled the real archive loader in `Wow.exe` 3.3.5a (build 12340) with
+Ghidra headless. The mechanism is NOT "fixed list, custom patches appended in a
+known sequence". Key functions:
+- `FUN_00405dd0` — top-level loader. Opens archives with an explicit, *incrementing*
+  priority number starting at `0x40`; iterates the hardcoded base table at
+  `.data:0x00ab6160` (stride 0x10). Base table order in the binary is
+  `expansion, lichking, common, common-2, {loc}/locale, {loc}/speech,
+  {loc}/expansion-locale, {loc}/lichking-locale, {loc}/expansion-speech,
+  {loc}/lichking-speech, development, streaming, streamingloc` (plus the split
+  `interface/model/texture/...` archives that don't ship in 3.3.5a retail).
+  Our `wotlk_entries` order `common, common-2, expansion, lichking` is NOT the
+  binary's order.
+- `FUN_00405ab0` — patch-chain builder. Enumerates patches by a **single-char
+  wildcard** `patch-?.MPQ` (base, dir `Data\`) and `patch-%s-?.MPQ` (locale, dir
+  `Data\%s\`), plus fixed `patch.MPQ / patch-2 / patch-3 / patch-4` and locale
+  equivalents, and a second `..\Data\` root. All go into ONE list. `?` is a
+  single char, so `patch-10.MPQ` would never match (our `4..9` then `A..Z` loop
+  yields the same SET for single-char names, but by a different mechanism).
+- The list is then **sorted** (`FUN_0047b800`, a quicksort) with comparator
+  `FUN_00401200 = -strcmp(a,b)` → reverse/descending string order. Sort key is
+  built in `FUN_00405a10` as `sprintf("%s%s", <found-name>, ctx+8)`. Archives are
+  then opened in list order with increasing priority. So final precedence is
+  **alphabetical**, not insertion-order. Our impl (fixed append + search in
+  reverse) does not model this.
+
+RESOLVED — base-vs-locale precedence:
+- The directory iterator (`FUN_00427660`) gets the search root (`Data\`,
+  `Data\<loc>\`) SEPARATELY from the name pattern, so the find-data name — hence
+  the sort key in `FUN_00405a10` — is the **bare filename** (`patch-enUS-2.MPQ`),
+  not path-qualified. Directory is not part of the sort key.
+- Open priority `0x40++` with higher-wins; base archives take priorities <0x40
+  (`local_c` counting down from 0x3f), so every patch outranks every base archive.
+- Ascending bare-filename order ⇒ base suffixes `2`-`9`,`A`-`Z` (≤0x5A) sort
+  BEFORE locale patches (lowercase infix `d/e/f/k/r/z…` ≥0x64) ⇒ locale patches
+  get higher priority. **Locale patches load after and override base `Data\`
+  patches.** (Matches long-standing community behavior.)
+
+RESOLVED — bare-`patch.MPQ` tie-break (confirmed by Sergey, known fact):
+`patch.MPQ` sorts BEFORE `patch-2.MPQ`, i.e. the compare is effectively
+**extension-agnostic** — it ranks `patch` < `patch-2` (shorter/prefix first),
+not `patch.` > `patch-`. So within each group the extensionless name is lowest
+priority. Final within-group order: `patch` < `patch-2` < … < `patch-9` <
+`patch-A` < … < `patch-Z`, and likewise for the locale group.
+
+## Directory-backed archives ("MPQ as a folder")  [REQUIREMENT — Sergey]
+The client also loads an archive slot when a **directory** of that name exists
+instead of a real MPQ file (e.g. `Data/patch-4.MPQ/` as a folder of loose files
+keyed by their in-game path, `Data/patch-4.MPQ/World/Maps/...`). It participates
+in the SAME chain/sort/priority as real archives (a folder named `patch-4.MPQ`
+sorts identically to the archive). Implications for us:
+- `expand_chain` currently gates on `std::filesystem::is_regular_file`
+  (`push_if_exists`) → it SKIPS directories. Must accept dirs too, and the new
+  sort must key on the extension-agnostic bare name regardless of file-vs-dir.
+- `MpqStorage::OpenedArchive` assumes every member is a StormLib `HANDLE`. A
+  chain member must become archive-OR-directory (variant): StormLib for files, a
+  loose-directory source for folders. `read_file`/`exists` dispatch per member;
+  the reverse-order (last-wins) traversal is unchanged.
+- Loose-dir resolution maps `key.path` (`\`-separated in-game path) to
+  `<dir>/<path>` on disk. Resolved semantics (Sergey):
+  - **Real archive file wins** over a same-name directory: if both
+    `patch-4.MPQ` (file) and `patch-4.MPQ/` (dir) exist, take the archive and
+    ignore the directory for that slot. (Enumeration: emit ONE slot per name;
+    prefer the regular file.)
+  - **Case-insensitive** path matching: build a lowercased filename index per
+    loose dir at open time so lookups match the client on case-sensitive
+    filesystems too. Recursion (nested subdirs mirroring the in-game path) is
+    assumed; ANY chain slot (base archives included) may be a directory.
+
+## Verified 3.3.5a (build 12340) order  [SUPERSEDED — see warning above]
 1. `common.MPQ`, `common-2.MPQ`, `expansion.MPQ`, `lichking.MPQ`
 2. `{loc}/locale-{loc}.MPQ`, `speech`, `expansion-locale`, `expansion-speech`,
    `lichking-locale`, `lichking-speech`

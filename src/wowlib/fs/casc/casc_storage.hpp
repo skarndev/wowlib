@@ -23,8 +23,11 @@ namespace wowlib::fs
       carries name hashes (pre-8.2) — on modern clients resolve paths through a
       listfile in the composition layer instead.
 
-      RAII: the destructor (and move-assignment onto an open storage) closes the
-      CascLib handle; moved-from storages are empty and safe to destroy.
+      RAII: open() — the only way to obtain an instance — returns a fully open
+      storage, so a constructed CascStorage is an open one. The destructor (and
+      move-assignment onto an open storage) closes the CascLib handle; the only
+      not-open state C++ can hold is a moved-from storage, which is empty and
+      safe to destroy.
 
       Thread safety: one mutex around the storage handle for the whole
       open-size-read-close sequence; CascLib handles are not documented
@@ -44,12 +47,15 @@ namespace wowlib::fs
                                                 without .build.info is opened. */
     };
 
-    /** Store the options; open() performs the work.
-        @param options what to open. */
-    explicit CascStorage(Options options)
-      : _options(std::move(options))
-    {
-    }
+    /** Open the local storage. Fallback ladder for repacks (e.g. WoWCircle) that
+        ship without a root .build.info: (a) plain open of the client root, then
+        Data/; (b) scan Data/config for build configurations, synthesize a
+        .build.info in a temp shim directory (with a Data symlink back to the
+        client) and try each candidate build config until one opens — candidates
+        ordered by Options::build match, then by build number descending.
+        @param options what to open.
+        @return the open storage, or StorageOpenFailed. */
+    static Result<CascStorage> open(Options options);
 
     ~CascStorage() { close(); }
 
@@ -75,21 +81,6 @@ namespace wowlib::fs
       return *this;
     }
 
-    /** Open the local storage. Fallback ladder for repacks (e.g. WoWCircle) that
-        ship without a root .build.info: (a) plain open of the client root, then
-        Data/; (b) scan Data/config for build configurations, synthesize a
-        .build.info in a temp shim directory (with a Data symlink back to the
-        client) and try each candidate build config until one opens — candidates
-        ordered by Options::build match, then by build number descending.
-        @return nothing, or StorageOpenFailed. */
-    Result<void> open();
-
-    /** Close the storage; safe to call repeatedly. */
-    void close() noexcept;
-
-    /** @return whether the storage handle is held. */
-    bool is_open() const { return _storage != nullptr; }
-
     /** Read a file into memory. Prefers the FileDataID; falls back to open-by-name
         for path-only keys (pre-8.2 clients only).
         @param key the file identity.
@@ -105,6 +96,24 @@ namespace wowlib::fs
     static constexpr StorageKind kind() { return StorageKind::Casc; }
 
   private:
+    /** Store the options; open() (the factory) performs the work.
+        @param options what to open. */
+    explicit CascStorage(Options options)
+      : _options(std::move(options))
+    {
+    }
+
+    /** The opening ladder described on open(); called by the factory on a fresh
+        instance.
+        @return nothing, or StorageOpenFailed. */
+    Result<void> open_storage();
+
+    /** Close the storage; safe to call repeatedly. */
+    void close() noexcept;
+
+    /** @return whether the handle is held (false only for moved-from storages). */
+    bool is_open() const { return _storage != nullptr; }
+
     Options _options;
     void* _storage = nullptr;             // CascLib HANDLE
     mutable std::mutex _mtx;
