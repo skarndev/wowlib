@@ -18,6 +18,7 @@ wowlib
 #include <wowlib/core/buffer.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
+#include <wowlib/core/expansion.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/core/path.hpp>
 #include <wowlib/core/reflect.hpp>
@@ -47,3 +48,30 @@ namespace wowlib
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 #include <wowlib/fs/project_directory.hpp>
 #include <wowlib/fs/storage_backend.hpp>
+
+// formats opens after fs for the same reason fs opens after core: welder binds
+// namespace members in declaration order, and format entities name fs types
+// (FileSystem, FileKey) in their signatures.
+namespace wowlib
+{
+  namespace
+  [[=welder::doc(R"(
+      Client file formats: chunked binary serialization with byte-perfect
+      round-trips. Versioned formats are flat suffixed classes (WmoWotlk,
+      WmoShadowlands, ...) plus load_* factories keyed on Expansion.)")]]
+  formats
+  {
+    namespace
+    [[=welder::doc(R"(
+        The WMO (world map object) format: wire structs shared across the
+        supported client versions.)")]]
+    wmo
+    {
+    }
+  }
+}
+
+#include <wowlib/formats/chunk/types.hpp>
+#include <wowlib/formats/common/types.hpp>
+#include <wowlib/formats/convert.hpp>
+#include <wowlib/formats/wmo/wmo.hpp>

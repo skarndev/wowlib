@@ -29,6 +29,9 @@ if(WOWLIB_BUILD_PYTHON)
     OUTPUT ${_wowlib_stubs}/wowlib/__init__.pyi
            ${_wowlib_stubs}/wowlib/fs.pyi
            ${_wowlib_stubs}/wowlib/versions.pyi
+           ${_wowlib_stubs}/wowlib/formats/__init__.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo.pyi
+    PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)
 

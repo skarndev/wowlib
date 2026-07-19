@@ -9,6 +9,7 @@ add_executable(wowlib_tests
   unit/test_fourcc.cpp
   unit/test_chunk_framework.cpp
   unit/test_wmo_wire_layout.cpp
+  unit/test_convert.cpp
   unit/test_csv_listfile.cpp
   unit/test_fdid_allocator.cpp
   unit/test_listfile_concurrency.cpp

@@ -10,16 +10,20 @@
 // (wowlib.FileNotFound, wowlib.StorageOpenFailed, ...) — the class identity IS
 // the error code, and new codes grow new classes with no binding changes.
 #include <array>
+#include <format>
 #include <string>
 #include <utility>
 
 #include <welder/vocabulary.hpp>
 
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/array.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
+#include <nanobind/stl/vector.h>
 
 #include <wowlib/wowlib.hpp>
 
@@ -84,6 +88,95 @@ namespace
     }
   }
 
+  /** The versioned-format factories: one Python name, one overload per
+      instantiated version. nanobind overloads cannot dispatch on an enum's
+      VALUE, so each overload rejects foreign expansions with next_overload();
+      each carries its own `nb::sig` naming the Literal expansion and the exact
+      return class, which stubgen renders as typed @overload blocks — mypy then
+      narrows load_wmo(fs, key, Expansion.Wotlk) to WmoWotlk. The trailing
+      catch-all raises UnsupportedClientVersion for versions with no
+      instantiation. Keep the overload set in sync with wmo_versions. */
+  void register_format_factories(nanobind::module_& module)
+  {
+    static_assert(wowlib::formats::wmo::wmo_versions.size() == 2,
+                  "a new Wmo version needs a factory overload here");
+
+    auto formats = nanobind::cast<nanobind::module_>(module.attr("formats"));
+
+    const auto expansion_is = [](wowlib::Expansion have, wowlib::Expansion want)
+    {
+      if (have != want)
+        throw nanobind::next_overload();
+    };
+
+    formats.def(
+      "load_wmo",
+      [expansion_is](wowlib::fs::FileSystem& fs, const wowlib::FileKey& key,
+                     wowlib::Expansion expansion)
+      {
+        expansion_is(expansion, wowlib::Expansion::Wotlk);
+        return wowlib::formats::WmoWotlk::load(fs, key);
+      },
+      nanobind::sig("def load_wmo(fs: wowlib.fs.FileSystem, key: wowlib.FileKey, "
+                    "expansion: Literal[wowlib.Expansion.Wotlk]) -> WmoWotlk"),
+      "Load a WMO (root plus groups) for the given expansion.");
+    formats.def(
+      "load_wmo",
+      [expansion_is](wowlib::fs::FileSystem& fs, const wowlib::FileKey& key,
+                     wowlib::Expansion expansion)
+      {
+        expansion_is(expansion, wowlib::Expansion::Shadowlands);
+        return wowlib::formats::WmoShadowlands::load(fs, key);
+      },
+      nanobind::sig("def load_wmo(fs: wowlib.fs.FileSystem, key: wowlib.FileKey, "
+                    "expansion: Literal[wowlib.Expansion.Shadowlands]) -> WmoShadowlands"));
+    formats.def(
+      "load_wmo",
+      [](wowlib::fs::FileSystem&, const wowlib::FileKey&, wowlib::Expansion expansion)
+        -> wowlib::Result<wowlib::formats::WmoWotlk>
+      {
+        return wowlib::make_error(
+          wowlib::ErrorCode::UnsupportedClientVersion,
+          std::format("no Wmo instantiation for expansion {}",
+                      wowlib::enum_name(expansion)));
+      },
+      nanobind::sig("def load_wmo(fs: wowlib.fs.FileSystem, key: wowlib.FileKey, "
+                    "expansion: wowlib.Expansion) -> WmoWotlk | WmoShadowlands"));
+
+    // conversion: identity works today, cross-version steps are a later
+    // milestone — the machinery and its typed stubs are already in place
+    formats.def(
+      "convert_wmo",
+      [expansion_is](const wowlib::formats::WmoWotlk& wmo, wowlib::Expansion target)
+      {
+        expansion_is(target, wowlib::Expansion::Wotlk);
+        return wowlib::formats::convert<wowlib::versions::wotlk>(wmo);
+      },
+      nanobind::sig("def convert_wmo(wmo: WmoWotlk, "
+                    "target: Literal[wowlib.Expansion.Wotlk]) -> WmoWotlk"),
+      "Convert a WMO to another expansion's representation.");
+    formats.def(
+      "convert_wmo",
+      [expansion_is](const wowlib::formats::WmoShadowlands& wmo, wowlib::Expansion target)
+      {
+        expansion_is(target, wowlib::Expansion::Shadowlands);
+        return wowlib::formats::convert<wowlib::versions::shadowlands>(wmo);
+      },
+      nanobind::sig("def convert_wmo(wmo: WmoShadowlands, "
+                    "target: Literal[wowlib.Expansion.Shadowlands]) -> WmoShadowlands"));
+    formats.def(
+      "convert_wmo",
+      [](nanobind::object, wowlib::Expansion target) -> wowlib::Result<wowlib::formats::WmoWotlk>
+      {
+        return wowlib::make_error(
+          wowlib::ErrorCode::NotImplemented,
+          std::format("cross-version WMO conversion (to {}) has no convert steps yet",
+                      wowlib::enum_name(target)));
+      },
+      nanobind::sig("def convert_wmo(wmo: WmoWotlk | WmoShadowlands, "
+                    "target: wowlib.Expansion) -> WmoWotlk | WmoShadowlands"));
+  }
+
   /** Map a result_error onto its generated class: instantiate with the plain
       message (the class name already spells the category), attach the
       machine-readable attributes, raise. */
@@ -109,6 +202,7 @@ WELDER_MODULE(wowlib, nanobind,
                              welder::rods::python::pep8>)
 {
   register_error_hierarchy(module);
+  register_format_factories(module);
 
   // Context-manager protocol on the facade: acquisition is FileSystem.open(),
   // the with-block scopes the release. Attached here (not in C++) because the

@@ -51,11 +51,27 @@ namespace wowlib::formats
 
   /** An opaque chunk payload preserved as raw bytes — the storage for chunks
       whose internal structure wowlib does not model yet (e.g. MLIQ). */
-  struct chunk_blob
+  struct
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("An unparsed chunk payload, preserved verbatim for round-trip.")
+  ]]
+  chunk_blob
   {
-    std::vector<std::byte> bytes;
+    [[=welder::mark::exclude]] std::vector<std::byte> bytes;
 
-    [[nodiscard]] bool empty() const { return bytes.empty(); }
+    [[nodiscard]]
+    [[=welder::getter, =welder::doc("Whether the payload holds any bytes.")]]
+    bool empty() const
+    {
+      return bytes.empty();
+    }
+
+    [[=welder::getter, =welder::doc("The payload size in bytes.")]]
+    std::size_t size() const
+    {
+      return bytes.size();
+    }
   };
 
   /** A chunk of zero-terminated strings (MOTX, MOGN, MODN, ...).
@@ -65,7 +81,16 @@ namespace wowlib::formats
       point into the blob — so reads keep it verbatim (byte-perfect round-trip)
       and offset-based lookups stay valid. The mutation API appends and
       re-terminates; it never rewrites existing offsets. */
-  class string_block
+  class
+  [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        A chunk of zero-terminated strings (texture and model filenames, group
+        names). Other chunks reference entries by byte offset; the raw blob is
+        kept verbatim so those offsets and the byte-perfect round-trip both
+        hold. Adding appends; existing offsets never move.)")
+  ]]
+  string_block
   {
   public:
     string_block() = default;
@@ -73,7 +98,8 @@ namespace wowlib::formats
     /** The string starting at @a offset (a value another chunk stored).
         @param offset byte offset into the blob.
         @return the zero-terminated string at that offset; empty if out of range. */
-    [[nodiscard]] std::string_view at(std::uint32_t offset) const
+    [[nodiscard]]
+    std::string_view at(std::uint32_t offset [[=welder::doc("byte offset into the blob")]]) const
     {
       if (offset >= blob_.size())
         return {};
@@ -104,7 +130,8 @@ namespace wowlib::formats
         @param string the string to add; embedded zero bytes are not allowed.
         @return the offset the string starts at — the value to store in
                 referencing chunks. */
-    std::uint32_t add(std::string_view string)
+    [[=welder::returns("the offset the string starts at")]]
+    std::uint32_t add(std::string_view string [[=welder::doc("the string to append")]])
     {
       const auto offset = static_cast<std::uint32_t>(blob_.size());
       blob_.insert(blob_.end(), string.begin(), string.end());
@@ -112,12 +139,25 @@ namespace wowlib::formats
       return offset;
     }
 
-    [[nodiscard]] bool empty() const { return blob_.empty(); }
-    [[nodiscard]] std::size_t size() const { return blob_.size(); }
+    [[nodiscard]]
+    [[=welder::getter, =welder::doc("Whether the blob holds any bytes.")]]
+    bool empty() const
+    {
+      return blob_.empty();
+    }
+
+    [[nodiscard]]
+    [[=welder::getter, =welder::doc("The blob size in bytes.")]]
+    std::size_t size() const
+    {
+      return blob_.size();
+    }
 
     /** The verbatim blob — what the chunk payload is on disk. */
-    [[nodiscard]] const std::vector<char>& raw() const { return blob_; }
-    [[nodiscard]] std::vector<char>& raw() { return blob_; }
+    [[nodiscard]] [[=welder::mark::exclude]]
+    const std::vector<char>& raw() const { return blob_; }
+    [[nodiscard]] [[=welder::mark::exclude]]
+    std::vector<char>& raw() { return blob_; }
 
   private:
     std::vector<char> blob_;

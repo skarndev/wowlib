@@ -58,7 +58,12 @@ namespace wowlib
       the version constant a formats instantiation for this expansion uses.
       @param expansion the expansion.
       @return the matching `versions::` constant. */
-  constexpr ClientVersion to_client_version(Expansion expansion)
+  [[=welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The last-minor-of-major client version wowlib targets for this "
+                 "expansion (the versions constant)."),
+    =welder::returns("the matching versions constant")]]
+  constexpr ClientVersion to_client_version(Expansion expansion
+                                            [[=welder::doc("the expansion")]])
   {
     return detail::expansion_versions[static_cast<std::size_t>(expansion)];
   }
@@ -67,7 +72,12 @@ namespace wowlib
       @param version a full client version tuple.
       @return the expansion, or nullopt if @a version is not one of the
               `versions::` constants. */
-  constexpr std::optional<Expansion> to_expansion(ClientVersion version)
+  [[=welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The expansion whose targeted release is exactly this version."),
+    =welder::returns("the expansion, or None if the version is not one of the "
+                     "versions constants")]]
+  constexpr std::optional<Expansion> to_expansion(ClientVersion version
+                                                  [[=welder::doc("a full client version")]])
   {
     for (std::size_t i = 0; i < detail::expansion_versions.size(); ++i)
       if (detail::expansion_versions[i] == version)
@@ -79,7 +89,12 @@ namespace wowlib
       for any build, not just the targeted release constants.
       @param version a full client version tuple.
       @return the expansion, or nullopt for majors wowlib does not know. */
-  constexpr std::optional<Expansion> expansion_of(ClientVersion version)
+  [[=welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The expansion a client version belongs to, by major version — "
+                 "works for any build, not just the targeted releases."),
+    =welder::returns("the expansion, or None for unknown majors")]]
+  constexpr std::optional<Expansion> expansion_of(ClientVersion version
+                                                  [[=welder::doc("a full client version")]])
   {
     for (std::size_t i = 0; i < detail::expansion_versions.size(); ++i)
       if (detail::expansion_versions[i].major == version.major)

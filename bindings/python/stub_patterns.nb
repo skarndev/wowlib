@@ -1,0 +1,9 @@
+# nanobind stubgen pattern file (see nanobind docs, "Stub generation").
+#
+# The versioned-format factories (load_wmo, convert_wmo) are registered with
+# explicit `nb::sig` strings whose parameter types name `Literal[...]` —
+# stubgen passes those signatures through verbatim and does not synthesize the
+# typing import for them, so it is injected at the top of the formats stub.
+
+wowlib.formats.__prefix__:
+    from typing import Literal

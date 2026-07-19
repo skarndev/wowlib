@@ -65,6 +65,75 @@ check(issubclass(wowlib.NotImplemented, NotImplementedError), "builtin NotImplem
 check("FileDataID" in (wowlib.FileDataId.__doc__ or ""), "docstring present")
 check("filesystem" in (wowlib.fs.__doc__ or "").lower(), "submodule docstring")
 
+# --- formats: versioned classes, expansion key, factories, chunk vocabulary --
+
+# the Expansion enum keys versioned format access and maps onto the constants
+check(wowlib.Expansion.Wotlk is not None, "Expansion enum welded")
+check(wowlib.to_client_version(wowlib.Expansion.Wotlk) == wowlib.versions.wotlk,
+      "expansion -> version constant")
+check(wowlib.to_expansion(wowlib.versions.shadowlands) == wowlib.Expansion.Shadowlands,
+      "version constant -> expansion")
+
+# flat suffixed per-version classes; shared wire structs live in formats.wmo
+for name in ("WmoWotlk", "WmoShadowlands", "WmoRootWotlk", "WmoGroupShadowlands",
+             "WmoBatchWotlk", "WmoGroupHeaderShadowlands", "StringBlock",
+             "ChunkBlob", "C3Vector", "CAaBox"):
+    check(hasattr(wowlib.formats, name), f"formats.{name} welded")
+for name in ("SmoMaterial", "SmoHeader", "SmoDoodadDef", "CAaBspNode", "LightType"):
+    check(hasattr(wowlib.formats.wmo, name), f"formats.wmo.{name} welded")
+
+# a fresh entity carries its wire defaults; round-trip internals stay hidden
+wmo_fresh = wowlib.formats.WmoWotlk()
+check(wmo_fresh.root.mver == 17, "fresh root MVER 17")
+check(not hasattr(wmo_fresh.root, "journal"), "chunk_extras internals not welded")
+check(not hasattr(wowlib.formats.WmoWotlk, "parse"), "span-of-spans parse not welded")
+
+# the string_block API: offsets stay stable, entries view the blob
+block = wowlib.formats.StringBlock()
+offset = block.add("textures/stone.blp")
+check(offset == 0 and block.at(offset) == "textures/stone.blp", "string_block add/at")
+check(block.entries()[0] == (0, "textures/stone.blp"), "string_block entries")
+
+# factory overloads are typed stubs; the runtime rejects unbuilt versions with
+# the generated exception class
+check(callable(wowlib.formats.load_wmo), "load_wmo factory")
+check(callable(wowlib.formats.convert_wmo), "convert_wmo factory")
+
+# mypy narrowing: Literal[Expansion.*] overloads resolve to the exact class
+# (runs when mypy is importable; the stubs ship next to the module)
+_stubs = os.path.join(os.path.dirname(os.path.dirname(wowlib.__file__)), "stubs")
+if not os.path.isdir(_stubs):
+    _stubs = os.path.join(os.path.dirname(wowlib.__file__), "stubs")
+try:
+    import mypy.api as _mypy_api
+except ImportError:
+    print("note: mypy not importable, narrowing check skipped")
+else:
+    if os.path.isdir(_stubs):
+        import tempfile
+
+        _probe = (
+            "import wowlib\n"
+            "import wowlib.formats\n"
+            "def probe(fs: wowlib.fs.FileSystem) -> None:\n"
+            "    w = wowlib.formats.load_wmo(fs, wowlib.FileKey('a.wmo'),\n"
+            "                                wowlib.Expansion.Wotlk)\n"
+            "    reveal_type(w)\n"
+            "    s = wowlib.formats.load_wmo(fs, wowlib.FileKey('a.wmo'),\n"
+            "                                wowlib.Expansion.Shadowlands)\n"
+            "    reveal_type(s)\n"
+        )
+        with tempfile.TemporaryDirectory() as _tmp:
+            _probe_path = os.path.join(_tmp, "probe.py")
+            with open(_probe_path, "w") as f:
+                f.write(_probe)
+            os.environ["MYPYPATH"] = _stubs
+            _out, _err, _ = _mypy_api.run(["--no-error-summary", _probe_path])
+        check('Revealed type is "wowlib.formats.WmoWotlk"' in _out,
+              f"mypy narrows Wotlk overload:\n{_out}{_err}")
+        check('Revealed type is "wowlib.formats.WmoShadowlands"' in _out,
+              f"mypy narrows Shadowlands overload:\n{_out}{_err}")
+
 # settings are an immutable value: keyword construction with NSDMI defaults,
 # read-only fields
 settings = wowlib.fs.FileSystemSettings(client_path="/no/such/client",
@@ -127,6 +196,27 @@ if clients:
         check(fs2.is_open, "with-block filesystem is open")
         check(fs2.read_file("DBFilesClient/Map.dbc") == data, "same bytes in with-block")
     check(not fs2.is_open, "with-block exit closed the filesystem")
+
+    # formats end-to-end: the factory loads a real WMO, the classmethod agrees,
+    # and an untouched entity rewrites byte-for-byte through Python
+    with wowlib.fs.FileSystem.open(settings) as fs3:
+        wmo_path = "World/wmo/Azeroth/Buildings/GoldshireInn/GoldshireInn.wmo"
+        if fs3.exists(wmo_path):
+            wmo = wowlib.formats.load_wmo(fs3, wowlib.FileKey(wmo_path),
+                                          wowlib.Expansion.Wotlk)
+            check(type(wmo).__name__ == "WmoWotlk", "factory returns the exact class")
+            check(len(wmo.groups) == wmo.root.header.n_groups, "all groups loaded")
+            check(wmo.root.textures.at(wmo.root.materials[0].texture_1).endswith(".blp"),
+                  "material texture resolves through the string block")
+            check(wmo.write_root() == fs3.read_file(wmo_path),
+                  "byte-perfect rewrite via Python")
+            try:
+                wowlib.formats.load_wmo(fs3, wowlib.FileKey(wmo_path),
+                                        wowlib.Expansion.Cata)
+                check(False, "unbuilt expansion should raise")
+            except wowlib.UnsupportedClientVersion:
+                pass
+            print("formats end-to-end OK,", len(wmo.groups), "groups")
 
     print("real-client round-trip OK,", len(data), "bytes")
 

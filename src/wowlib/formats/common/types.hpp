@@ -4,8 +4,10 @@
     The wire-level math and color primitives shared across WoW file formats
     (wowdev.wiki Common_Types), under their established client names. All are
     trivially copyable with exact on-disk layout — chunk payloads memcpy
-    straight into arrays of them. */
+    straight into arrays of them. Fixed-size sequences are std::array (layout
+    guarded by the size asserts) so they cross into the bindings. */
 
+#include <array>
 #include <cstdint>
 
 #include <welder/vocabulary.hpp>
@@ -94,7 +96,7 @@ namespace wowlib::formats
   ]]
   C33Matrix
   {
-    C3Vector columns[3]{};
+    std::array<C3Vector, 3> columns{};
   };
 
   struct
@@ -104,7 +106,7 @@ namespace wowlib::formats
   ]]
   C34Matrix
   {
-    C3Vector columns[4]{};
+    std::array<C3Vector, 4> columns{};
   };
 
   struct
@@ -114,7 +116,7 @@ namespace wowlib::formats
   ]]
   C44Matrix
   {
-    C4Vector columns[4]{};
+    std::array<C4Vector, 4> columns{};
   };
 
   struct
