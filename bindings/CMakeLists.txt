@@ -55,6 +55,35 @@ if(WOWLIB_BUILD_PYTHON)
   # package stub tree under OUTPUT_PATH; OUTPUT lists the expected files for the
   # build graph (extend when a new namespace is added).
   set(_wowlib_stubs ${CMAKE_CURRENT_BINARY_DIR}/python/stubs)
+
+  # stubgen imports the freshly built extension to reflect it, and nanobind's stub
+  # package-naming heuristic only strips the ".abi3" filename suffix when the import
+  # resolves via a plain ExtensionFileLoader. When wowlib is editable-installed,
+  # scikit-build's redirecting finder (registered by a .pth at interpreter startup)
+  # shadows the import with a wrapped loader, so stubgen derives the name from the
+  # .so filename and emits a `wowlib.abi3/` tree instead of `wowlib/` — breaking the
+  # build (e.g. an incremental CLion rebuild while the editable install is present).
+  # Run stubgen under `python -S` (no site processing -> no .pth -> no finder),
+  # re-adding site-packages so nanobind stays importable; stubgen's own -i
+  # (PYTHON_PATH below) keeps the build .so at sys.path[0], so it wins over any
+  # installed copy. (POSIX sh wrapper; a Windows/MSVC variant is future work.)
+  if(NOT WIN32)
+    execute_process(
+      COMMAND ${Python_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('purelib'))"
+      OUTPUT_VARIABLE _wowlib_site_packages OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(_wowlib_stub_python ${CMAKE_CURRENT_BINARY_DIR}/wowlib-stubgen-python)
+    file(GENERATE OUTPUT ${_wowlib_stub_python}
+      CONTENT "#!/bin/sh
+PYTHONPATH=\"${_wowlib_site_packages}\${PYTHONPATH:+:\$PYTHONPATH}\"
+export PYTHONPATH
+exec \"${Python_EXECUTABLE}\" -S \"\$@\"
+"
+      FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+                       WORLD_READ WORLD_EXECUTE)
+    set(_wowlib_saved_python "${Python_EXECUTABLE}")
+    set(Python_EXECUTABLE "${_wowlib_stub_python}")
+  endif()
+
   # The versioned-format facade is native — welded C++ bases give stubgen real
   # inheritance and isinstance, and nb::sig merged overloads render as typed
   # @overload blocks (with auto-imported typing/collections.abc names). The AnyX
@@ -79,6 +108,10 @@ if(WOWLIB_BUILD_PYTHON)
     PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)
+
+  if(NOT WIN32)
+    set(Python_EXECUTABLE "${_wowlib_saved_python}")  # restore the real interpreter
+  endif()
 
   # --- Install rules (Python packaging) --------------------------------------
   # Consumed by scikit-build-core to assemble the wheel; a plain `cmake --install`
