@@ -5,3 +5,11 @@ build/
 .DS_Store
 _deps/
 .venv/
+
+# Python tooling caches
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/

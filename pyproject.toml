@@ -12,7 +12,7 @@ requires-python = ">=3.13"
 dependencies = ["numpy>=2.0"]
 
 [project.optional-dependencies]
-dev = ["mypy>=1.11", "pytest>=8", "ruff>=0.6"]
+dev = ["mypy>=1.11", "pytest>=8", "pytest-mypy-plugins>=3", "ruff>=0.6"]
 
 [tool.scikit-build]
 # Reuse the same CMake tree CLion configures (build/bindings) so the C++ build and
@@ -53,7 +53,8 @@ target-version = "py313"
 extend-exclude = ["build"]
 
 [tool.pytest.ini_options]
-# No pytest suite is wired yet — bindings/python/check.py runs under ctest. Add
-# testpaths here when the smoke checks are ported to pytest against the installed
-# extension.
+# Python-side tests exercise the hand-written binding surface + type-stub resolution
+# against the installed extension (bindings/python/check.py stays the lean ctest
+# smoke test). The typing/ *.yml cases are collected by pytest-mypy-plugins.
+testpaths = ["tests/python"]
 addopts = "-ra"

@@ -1,0 +1,36 @@
+# Type-resolution cases for the versioned-format facade, run through mypy by
+# pytest-mypy-plugins against the installed wowlib-stubs. Cases with no `out:`
+# assert the snippet type-checks clean (no diagnostics).
+
+- case: for_version_narrows_to_the_concrete_class
+  main: |
+    import wowlib
+    from wowlib.formats import wmo
+    reveal_type(wmo.WMO.for_version(wowlib.Expansion.Wotlk))
+  out: |
+    main:3: note: Revealed type is "wowlib.formats.wmo.WMOWotlk"
+
+- case: convert_narrows_on_the_target_literal
+  main: |
+    import wowlib
+    from wowlib.formats import wmo
+    w = wmo.WMO.for_version(wowlib.Expansion.Wotlk)
+    reveal_type(w.convert(wowlib.Expansion.Cata))
+  out: |
+    main:4: note: Revealed type is "wowlib.formats.wmo.WMOCata"
+
+- case: anywmo_widening_type_checks_clean
+  main: |
+    import wowlib
+    from wowlib.formats import wmo
+    s: wmo.AnyWMO = wmo.WMO.for_version(wowlib.Expansion.Shadowlands)
+
+- case: read_write_buffer_overloads_type_check
+  main: |
+    import io
+    import wowlib
+    from wowlib.formats import wmo
+    w = wmo.WMO.for_version(wowlib.Expansion.Wotlk)
+    w.read(b"", [io.BytesIO(b"")])
+    w.read(io.BytesIO(b""), [])
+    w.write(io.BytesIO(), [])
