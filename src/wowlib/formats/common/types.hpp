@@ -12,61 +12,63 @@
 
 #include <welder/vocabulary.hpp>
 
+/** Empty-base optimization for a wire struct that carries a (welded, empty)
+    facade base: gcc/clang always elide it, but MSVC needs the hint once a class
+    has more than one empty base — spelled here so a memcpy'd struct's on-disk
+    layout is compiler-independent. wowlib compiles under gcc-16 only today
+    (C++26 reflection), so this is future-proofing; the size static_asserts are
+    the actual guarantee. */
+#if defined(_MSC_VER)
+#  define WOWLIB_EMPTY_BASES __declspec(empty_bases)
+#else
+#  define WOWLIB_EMPTY_BASES
+#endif
+
 namespace wowlib::formats
 {
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 2D float vector: texture coordinates, UV animation speeds.")
-  ]]
-  C2Vector
+  ]] C2Vector
   {
     float x = 0;
     float y = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 2D integer vector.")
-  ]]
-  C2iVector
+  ]] C2iVector
   {
     std::int32_t x = 0;
     std::int32_t y = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 3D float vector — the workhorse: positions, normals, "
                  "rotations-as-Euler-degrees in placements.")
-  ]]
-  C3Vector
+  ]] C3Vector
   {
     float x = 0;
     float y = 0;
     float z = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 3D integer vector.")
-  ]]
-  C3iVector
+  ]] C3iVector
   {
     std::int32_t x = 0;
     std::int32_t y = 0;
     std::int32_t z = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 4D float vector.")
-  ]]
-  C4Vector
+  ]] C4Vector
   {
     float x = 0;
     float y = 0;
@@ -74,14 +76,12 @@ namespace wowlib::formats
     float w = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
         A quaternion with the scalar part LAST on disk (x, y, z, w) — note the
         difference from math libraries that lead with w.)")
-  ]]
-  C4Quaternion
+  ]] C4Quaternion
   {
     float x = 0;
     float y = 0;
@@ -89,75 +89,61 @@ namespace wowlib::formats
     float w = 1;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 3x3 matrix as three column C3Vectors.")
-  ]]
-  C33Matrix
+  ]] C33Matrix
   {
     std::array<C3Vector, 3> columns{};
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 3x4 matrix as four column C3Vectors.")
-  ]]
-  C34Matrix
+  ]] C34Matrix
   {
     std::array<C3Vector, 4> columns{};
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 4x4 matrix as four column C4Vectors.")
-  ]]
-  C44Matrix
+  ]] C44Matrix
   {
     std::array<C4Vector, 4> columns{};
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A plane as a normal and its signed distance from the origin.")
-  ]]
-  C4Plane
+  ]] C4Plane
   {
     C3Vector normal{};
     float distance = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("An axis-aligned bounding box: minimum and maximum corners.")
-  ]]
-  CAaBox
+  ]] CAaBox
   {
     C3Vector min{};
     C3Vector max{};
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("An axis-aligned sphere: position and radius.")
-  ]]
-  CAaSphere
+  ]] CAaSphere
   {
     C3Vector position{};
     float radius = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A color stored as r, g, b, a bytes.")
-  ]]
-  CArgb
+  ]] CArgb
   {
     std::uint8_t r = 0;
     std::uint8_t g = 0;
@@ -165,13 +151,11 @@ namespace wowlib::formats
     std::uint8_t a = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A color stored as b, g, r, a bytes — the client's immediate-mode "
                  "vertex color layout (WMO MOCV, doodad colors).")
-  ]]
-  CImVector
+  ]] CImVector
   {
     std::uint8_t b = 0;
     std::uint8_t g = 0;
@@ -179,12 +163,10 @@ namespace wowlib::formats
     std::uint8_t a = 0;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A signed 16-bit fixed-point value with an implicit 0x7FFF scale.")
-  ]]
-  fixed16
+  ]] fixed16
   {
     std::int16_t value = 0;
 

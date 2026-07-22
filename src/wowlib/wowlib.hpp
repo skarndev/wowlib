@@ -61,13 +61,6 @@ namespace wowlib
       WMOShadowlands, ...) plus load_* factories keyed on Expansion.)")]]
   formats
   {
-    namespace
-    [[=welder::doc(R"(
-        The WMO (world map object) format: wire structs shared across the
-        supported client versions.)")]]
-    wmo
-    {
-    }
   }
 }
 
@@ -76,4 +69,51 @@ namespace wowlib
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/convert.hpp>
+
+// The wmo namespace must first open AFTER the common wire primitives: its
+// structs carry NSDMI defaults of common types (SMOHeader's CArgb ambient
+// color, CAaBox bounds), and those values convert EAGERLY when the aggregate
+// field constructor registers — declaring wmo inside the formats block above
+// would make it formats' FIRST member and weld it before CArgb exists.
+namespace wowlib::formats
+{
+  namespace
+  [[=welder::doc(R"(
+      The WMO (world map object) format: the WMO assembly and its per-version
+      classes, split into submodules that mirror the C++ layout (chunks,
+      group_chunks, root, group). The pre-declaration order is the submodule
+      weld order — wire structs (chunks/group_chunks) before the entities that
+      name them as NSDMI defaults.)")]]
+  wmo
+  {
+    namespace
+    [[=welder::doc("WMO root-file chunk wire structs (MOHD, MOMT, lights, "
+                   "doodads, fog, ambient volumes) and their flag enums.")]]
+    chunks
+    {
+    }
+
+    namespace
+    [[=welder::doc("WMO group-file chunk wire structs (the MOGP header, render "
+                   "batches, BSP nodes, group lights) and their flag enums.")]]
+    group_chunks
+    {
+    }
+
+    namespace
+    [[=welder::doc("The WMO root-file entity: WMORoot and its per-version "
+                   "classes.")]]
+    root
+    {
+    }
+
+    namespace
+    [[=welder::doc("The WMO group-file entities: WMOGroup, WMOGroupBody and "
+                   "their per-version classes.")]]
+    group
+    {
+    }
+  }
+}
+
 #include <wowlib/formats/wmo/wmo.hpp>

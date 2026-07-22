@@ -38,16 +38,18 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<WMO<V>> WMO<V>::parse(std::span<const std::byte> root_data,
-                               std::span<const std::span<const std::byte>> group_datas)
+  Result<void> WMO<V>::read(std::span<const std::byte> root_data,
+                            std::span<const std::span<const std::byte>> group_datas)
   {
-    WMO<V> wmo;
-    if (auto r = wmo.root.read(root_data); !r)
+    root = {};
+    groups.clear();
+
+    if (auto r = root.read(root_data); !r)
       return std::unexpected{r.error()};
-    if (auto r = check_mver(wmo.root.mver, "root"); !r)
+    if (auto r = check_mver(root.mver, "root"); !r)
       return std::unexpected{r.error()};
 
-    wmo.groups.reserve(group_datas.size());
+    groups.reserve(group_datas.size());
     for (std::size_t i = 0; i < group_datas.size(); ++i)
     {
       WMOGroup<V> group;
@@ -57,26 +59,28 @@ namespace wowlib::formats::wmo
                           r.error().native_error);
       if (auto r = check_mver(group.mver, std::format("group {}", i)); !r)
         return std::unexpected{r.error()};
-      wmo.groups.push_back(std::move(group));
+      groups.push_back(std::move(group));
     }
-    return wmo;
+    return {};
   }
 
   template <ClientVersion V>
-  Result<WMO<V>> WMO<V>::load(fs::FileSystem& fs, const FileKey& key)
+  Result<void> WMO<V>::read(fs::FileSystem& fs, const FileKey& key)
   {
     const auto root_data = fs.read_file(key);
     if (!root_data)
       return std::unexpected{root_data.error()};
 
-    WMO<V> wmo;
-    if (auto r = wmo.root.read(*root_data); !r)
+    root = {};
+    groups.clear();
+
+    if (auto r = root.read(*root_data); !r)
       return std::unexpected{r.error()};
-    if (auto r = check_mver(wmo.root.mver, "root"); !r)
+    if (auto r = check_mver(root.mver, "root"); !r)
       return std::unexpected{r.error()};
 
-    const std::size_t n_groups = wmo.root.header.n_groups;
-    const bool by_fdid = wmo.root.group_fdids.size() >= n_groups;
+    const std::size_t n_groups = root.header.n_groups;
+    const bool by_fdid = root.group_fdids.size() >= n_groups;
 
     std::string root_path;
     if (!by_fdid)
@@ -89,10 +93,10 @@ namespace wowlib::formats::wmo
       root_path = *resolved.path;
     }
 
-    wmo.groups.reserve(n_groups);
+    groups.reserve(n_groups);
     for (std::size_t i = 0; i < n_groups; ++i)
     {
-      const FileKey group_key = by_fdid ? FileKey{FileDataID{wmo.root.group_fdids[i]}}
+      const FileKey group_key = by_fdid ? FileKey{FileDataID{root.group_fdids[i]}}
                                         : FileKey{group_path(root_path, i)};
       const auto group_data = fs.read_file(group_key);
       if (!group_data)
@@ -106,20 +110,20 @@ namespace wowlib::formats::wmo
                           r.error().native_error);
       if (auto r = check_mver(group.mver, std::format("group {}", i)); !r)
         return std::unexpected{r.error()};
-      wmo.groups.push_back(std::move(group));
+      groups.push_back(std::move(group));
     }
-    return wmo;
+    return {};
   }
 
   template <ClientVersion V>
-  Result<void> WMO<V>::save(fs::FileSystem& fs, const FileKey& key) const
+  Result<void> WMO<V>::write(fs::FileSystem& fs, const FileKey& key) const
   {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
       return make_error(ErrorCode::PathNotResolvable,
                         "saving a WMO needs a path for the root key");
 
-    const auto root_data = write_root();
+    const auto root_data = root.write();
     if (!root_data)
       return std::unexpected{root_data.error()};
     if (auto r = fs.add_file(*resolved.path, *root_data); !r)
@@ -127,7 +131,7 @@ namespace wowlib::formats::wmo
 
     for (std::size_t i = 0; i < groups.size(); ++i)
     {
-      const auto group_data = write_group(i);
+      const auto group_data = groups[i].write();
       if (!group_data)
         return std::unexpected{group_data.error()};
       if (auto r = fs.add_file(group_path(*resolved.path, i), *group_data); !r)
@@ -137,26 +141,10 @@ namespace wowlib::formats::wmo
     return {};
   }
 
-  template <ClientVersion V>
-  Result<FileBuffer> WMO<V>::write_root() const
-  {
-    return root.write();
-  }
-
-  template <ClientVersion V>
-  Result<FileBuffer> WMO<V>::write_group(std::size_t index) const
-  {
-    if (index >= groups.size())
-      return make_error(ErrorCode::FileNotFound,
-                        std::format("group index {} out of range ({} groups)", index,
-                                    groups.size()));
-    return groups[index].write();
-  }
-
 #define WOWLIB_WMO_INSTANTIATE(Suffix, version_)                                                   \
-  template struct WMORoot<versions::version_>;                                                     \
-  template struct WMOGroupBody<versions::version_>;                                                \
-  template struct WMOGroup<versions::version_>;                                                    \
+  template struct root::WMORoot<versions::version_>;                                               \
+  template struct group::WMOGroupBody<versions::version_>;                                         \
+  template struct group::WMOGroup<versions::version_>;                                             \
   template struct WMO<versions::version_>;
 
   WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_INSTANTIATE)
@@ -166,9 +154,9 @@ namespace wowlib::formats::wmo
 namespace wowlib::formats
 {
 #define WOWLIB_WMO_INSTANTIATE_SERIALIZER(Suffix, version_)                                        \
-  template struct ChunkedFile<wmo::WMORoot<versions::version_>>;                                   \
-  template struct ChunkedFile<wmo::WMOGroupBody<versions::version_>>;                              \
-  template struct ChunkedFile<wmo::WMOGroup<versions::version_>>;
+  template struct ChunkedFile<wmo::root::WMORoot<versions::version_>>;                             \
+  template struct ChunkedFile<wmo::group::WMOGroupBody<versions::version_>>;                       \
+  template struct ChunkedFile<wmo::group::WMOGroup<versions::version_>>;
 
   WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_INSTANTIATE_SERIALIZER)
 #undef WOWLIB_WMO_INSTANTIATE_SERIALIZER

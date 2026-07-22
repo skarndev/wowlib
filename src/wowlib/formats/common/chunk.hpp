@@ -61,45 +61,24 @@ namespace wowlib::formats
   template <typename Derived>
   struct ChunkedFile : ChunkExtras
   {
-    /** Deserialize @a data into this entity, replacing its contents.
-
-        Header-annotated members are consumed from the payload front first; the
-        remainder scans as a fourcc+size chunk stream, order-independently.
-        Unmodeled and duplicate chunks are preserved in `unknown`; every
-        encounter is journaled for byte-perfect rewriting; up to 7 stray bytes
-        after the last chunk are kept in `trailing`.
-        @param data the file (or container-chunk payload) bytes.
-        @return nothing, or the first structural error (ChunkTruncated,
-                ChunkSizeMismatch, ChunkMissing). */
     [[=welder::doc("Deserialize file bytes into this entity, replacing its "
                    "contents. Unmodeled chunks are preserved so an unmodified "
                    "entity rewrites byte-for-byte.")]]
     Result<void> read(std::span<const std::byte> data
                       [[=welder::doc("the file bytes")]]);
 
-    /** Serialize this entity into a fresh buffer.
-
-        An entity that came from read() replays its journal — unknown chunks
-        and duplicates included — for a byte-perfect rewrite, then members
-        engaged since reading append in declaration order. A fresh entity
-        writes its active members in declaration (canonical client) order:
-        required chunks always, optional ones when non-empty.
-        @return the file bytes, or the first error. */
     [[nodiscard]]
     [[=welder::doc("Serialize this entity."),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write() const;
   };
 
-  /** An opaque chunk payload preserved as raw bytes — the storage for chunks
-      whose internal structure wowlib does not model, either because it is
-      offset-based (MLIQ, MOTA, MDDL) or undocumented (MPVD, MOMX). */
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("An unparsed chunk payload, preserved verbatim for round-trip.")
-  ]]
-  ChunkBlob
+    =welder::doc("An unparsed chunk payload, preserved verbatim for round-trip. "
+                 "Backs chunks wowlib keeps opaque — offset-based (MLIQ, MOTA, "
+                 "MDDL) or undocumented (MPVD, MOMX).")
+  ]] ChunkBlob
   {
     [[=welder::mark::exclude]] std::vector<std::byte> bytes;
 

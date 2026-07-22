@@ -11,6 +11,9 @@
 using namespace wowlib;
 using namespace wowlib::formats;
 using namespace wowlib::formats::wmo;
+using namespace wowlib::formats::wmo::chunks;
+using namespace wowlib::formats::wmo::group;
+using namespace wowlib::formats::wmo::group_chunks;
 
 // Sizes are asserted in the header itself; here we lock triviality (bulk
 // memcpy reads depend on it) and a few load-bearing offsets.
@@ -130,16 +133,16 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
   }
 
   const std::span<const std::byte> group_span{group_data};
-  const auto assembled = WMO<versions::wotlk>::parse(root_data, std::span{&group_span, 1});
-  REQUIRE(assembled.has_value());
-  CHECK(assembled->root.header.n_groups == 1);
-  CHECK(assembled->root.materials.size() == 1);
-  CHECK(assembled->root.materials[0].blend_mode == 1);
-  REQUIRE(assembled->groups.size() == 1);
-  CHECK(has_flag(assembled->groups[0].body.header.flags, GroupFlags::exterior));
-  CHECK(assembled->groups[0].body.vertices.size() == 3);
-  CHECK(assembled->groups[0].body.indices.size() == 3);
+  WMO<versions::wotlk> assembled;
+  REQUIRE(assembled.read(root_data, std::span{&group_span, 1}).has_value());
+  CHECK(assembled.root.header.n_groups == 1);
+  CHECK(assembled.root.materials.size() == 1);
+  CHECK(assembled.root.materials[0].blend_mode == 1);
+  REQUIRE(assembled.groups.size() == 1);
+  CHECK(has_flag(assembled.groups[0].body.header.flags, GroupFlags::exterior));
+  CHECK(assembled.groups[0].body.vertices.size() == 3);
+  CHECK(assembled.groups[0].body.indices.size() == 3);
 
-  CHECK(*assembled->write_root() == root_data);
-  CHECK(*assembled->write_group(0) == group_data);
+  CHECK(*assembled.root.write() == root_data);
+  CHECK(*assembled.groups[0].write() == group_data);
 }

@@ -13,28 +13,24 @@
 
 namespace wowlib
 {
-  enum class
-  [[
+  enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
         Which storage technology a client generation uses: Mpq for pre-WoD clients
         (StormLib), Casc for WoD+ (CascLib).)")
-  ]]
-  StorageKind
+  ]] StorageKind
   {
     Mpq,  /**< Pre-WoD clients (< 6.0), StormLib. */
     Casc  /**< WoD+ clients (>= 6.0), CascLib. */
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
         A full client version tuple (major.minor.patch, build). Determines which
         storage backend and archive chain a client uses. The versions namespace
         provides constants for the releases wowlib targets.)")
-  ]]
-  ClientVersion
+  ]] ClientVersion
   {
     [[=welder::doc("Expansion number, e.g. 3 for Wrath of the Lich King.")]]
     std::uint16_t major = 0;
@@ -110,13 +106,11 @@ namespace wowlib
     inline constexpr ClientVersion tww{11, 2, 7, 65299};
   }
 
-  enum class
-  [[
+  enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("Game client locale; enumerators use the client's own four-letter "
                  "codes.")
-  ]]
-  Locale
+  ]] Locale
   {
     enUS, enGB, deDE, frFR, ruRU, esES, esMX, koKR, zhCN, zhTW, ptBR, itIT
   };

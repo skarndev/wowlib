@@ -1,5 +1,7 @@
 # Language bindings: welder reflects the annotated wowlib headers and lays the
-# registrations down; these targets just compile one module TU per language.
+# registrations down; the binding TUs here just add the hand-written glue on top.
+# Python is the only backend built for now — the Lua module is deferred (see the
+# note after the Python block), though its lang::lua welds stay in the sources.
 
 if(WOWLIB_BUILD_PYTHON)
   # find_package(Python) results are directory-scoped; welder found it in its own
@@ -7,9 +9,40 @@ if(WOWLIB_BUILD_PYTHON)
   find_package(Python ${WELDER_PYTHON_VERSION} REQUIRED
     COMPONENTS Interpreter Development.Module Development.SABIModule)
 
+  # Opaque containers (by reference: live mutation, append, zero-copy NumPy):
+  # welder's opaque-container generator reflects namespace wowlib, finds every STL
+  # container its welded types use, and emits wowlib.opaque.hpp — the WELDER_OPAQUE
+  # declarations + welded aliases — which wowlib_module.cpp includes before the
+  # module walk. welder ships the helper on its own CMake module path (added in its
+  # FetchContent subdir, so directory-scoped); re-add it here to see it.
+  list(APPEND CMAKE_MODULE_PATH ${welder_SOURCE_DIR}/cmake)
+  include(WelderOpaqueContainers)
+  welder_generate_opaque_containers(wowlib_opaque
+    SOURCES python/opaque_gen.cpp
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wowlib.opaque.hpp)
+  # The generator TU reflects <wowlib/wowlib.hpp>, so it needs wowlib's public
+  # include dirs + PUBLIC -freflection; linking wowlib inherits both (storm/casc are
+  # PRIVATE, so the header-only reflect exe doesn't pull them).
+  target_link_libraries(wowlib_opaque_gen PRIVATE wowlib)
+
   # Stable ABI (abi3): loads across Python >= 3.13 minors and across the GCC/MSVC
   # boundary (Blender's MSVC CPython included).
-  nanobind_add_module(wowlib_py STABLE_ABI python/wowlib_module.cpp)
+  # One nanobind module split into concern-scoped TUs that mirror the library's
+  # own layout (errors, buffers, the fs context-manager protocol, and the
+  # formats/ facade). wowlib_module.cpp owns the WELDER_MODULE walk; the rest add
+  # their surface from the module body. Quoted includes ("formats/wmo.hpp",
+  # "result_casters.hpp") resolve against the python/ root added below.
+  nanobind_add_module(wowlib_py STABLE_ABI
+    python/wowlib_module.cpp
+    python/errors.cpp
+    python/buffers.cpp
+    python/fs.cpp
+    python/formats/wmo.cpp)
+  # python/ for the quoted glue includes; the binary dir for the generated
+  # wowlib.opaque.hpp, and a dependency so it is emitted before the module compiles.
+  target_include_directories(wowlib_py PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/python ${CMAKE_CURRENT_BINARY_DIR})
+  add_dependencies(wowlib_py wowlib_opaque)
   target_link_libraries(wowlib_py PRIVATE wowlib welder::headers welder::nanobind)
   set_target_properties(wowlib_py PROPERTIES
     OUTPUT_NAME wowlib
@@ -22,6 +55,12 @@ if(WOWLIB_BUILD_PYTHON)
   # package stub tree under OUTPUT_PATH; OUTPUT lists the expected files for the
   # build graph (extend when a new namespace is added).
   set(_wowlib_stubs ${CMAKE_CURRENT_BINARY_DIR}/python/stubs)
+  # The versioned-format facade is native — welded C++ bases give stubgen real
+  # inheritance and isinstance, nb::sig merged overloads render as typed @overload
+  # blocks, and the only thing stubgen can't synthesize (the AnyX union aliases,
+  # plus the typing/collections.abc imports the sigs name) comes from the
+  # declarative PATTERN_FILE. No post-processing step. The wmo namespace is a
+  # package now (root/group/chunks/group_chunks submodules).
   nanobind_add_stub(wowlib_pyi
     MODULE wowlib
     RECURSIVE
@@ -30,7 +69,11 @@ if(WOWLIB_BUILD_PYTHON)
            ${_wowlib_stubs}/wowlib/fs.pyi
            ${_wowlib_stubs}/wowlib/versions.pyi
            ${_wowlib_stubs}/wowlib/formats/__init__.pyi
-           ${_wowlib_stubs}/wowlib/formats/wmo.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/__init__.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/root.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/group.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/chunks.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/group_chunks.pyi
     PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)
@@ -41,23 +84,7 @@ if(WOWLIB_BUILD_PYTHON)
     ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:wowlib_py>")
 endif()
 
-if(WOWLIB_BUILD_LUA)
-  # Loadable `require("wowlib")` module: bare wowlib.so exporting luaopen_wowlib,
-  # lua_* symbols resolved from the host interpreter (never bundles a Lua runtime).
-  welder_luabridge_add_module(wowlib_lua lua/wowlib_module.cpp)
-  target_link_libraries(wowlib_lua PRIVATE wowlib welder::headers)
-  set_target_properties(wowlib_lua PROPERTIES
-    OUTPUT_NAME wowlib
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lua)
-
-  find_program(WOWLIB_LUA_INTERPRETER NAMES lua5.4 lua
-    PATHS "${WELDER_LUABRIDGE_LUA_DIR}/bin" NO_DEFAULT_PATH)
-  if(WOWLIB_LUA_INTERPRETER)
-    add_test(NAME bindings.lua
-      COMMAND ${WOWLIB_LUA_INTERPRETER} ${CMAKE_CURRENT_SOURCE_DIR}/lua/check.lua)
-    # \; keeps Lua's path separator out of CMake's list separator; trailing ;;
-    # appends Lua's default cpath.
-    set_tests_properties(bindings.lua PROPERTIES
-      ENVIRONMENT "LUA_CPATH=$<TARGET_FILE_DIR:wowlib_lua>/?.so\;\;")
-  endif()
-endif()
+# The Lua module (LuaBridge3 rod) is deferred until the library is
+# feature-complete; the welder annotations still weld a lang::lua surface, so it
+# re-slots here (welder_luabridge_add_module lua/wowlib_module.cpp + a
+# bindings.lua ctest) when it returns.

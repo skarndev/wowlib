@@ -3,13 +3,42 @@
 Read when: touching `bindings/`, adding welded types, or debugging binding builds.
 
 ## Shape
-- `bindings/python/wowlib_module.cpp` — nanobind rod, `WELDER_MODULE(wowlib, nanobind,
-  welder<rods::nanobind::rod<>, wowlib_python_naming>)`. Module = namespace `wowlib`;
-  every annotated entity in the umbrella header is welded automatically.
-  `wowlib_python_naming` (defined in the TU) = snake_case base + VERBATIM
-  class/enum/enumerator transforms — wowlib type names are client-canonical
-  (SMOHeader, WMORoot, FileDataID) and welder's pep8 CapWords normalization
-  would corrupt the acronyms (SmoHeader, WmoRoot, FileDataId).
+- **Python bindings are split into concern-scoped TUs** (2026-07-20; was one giant
+  wowlib_module.cpp) that mirror the library layout. All glue lives in a top-level
+  `namespace wowlib_py` — deliberately NOT nested in `wowlib`, or welder's module
+  walk (which enumerates `members_of(^^wowlib)`) would try to bind it as a
+  submodule. Files under `bindings/python/`:
+  - `wowlib_module.cpp` — the skeleton: includes the casters (satisfies welder's
+    bindability gate), runs `WELDER_MODULE(wowlib, nanobind, welder<rods::nanobind::
+    rod<>, wowlib_py::wowlib_python_naming>)`, then calls `register_errors` /
+    `formats::wmo::register_facade` / `fs::register_filesystem_protocol` from the
+    body. Keeps ALL the `<nanobind/stl/*.h>` casters (array/filesystem/optional/
+    pair/string/string_view/vector) — the walk needs them for welded members.
+  - `naming.hpp` — `wowlib_python_naming` = snake_case base + VERBATIM
+    class/enum/enumerator transforms (client-canonical acronyms: SMOHeader,
+    WMORoot, FileDataID; pep8 CapWords would corrupt them → SmoHeader/FileDataId).
+  - `errors.hpp/.cpp` — `register_errors`: the reflection-generated exception
+    hierarchy + the Result-error translator.
+  - `buffers.hpp/.cpp` — `to_buffer`/`to_pybytes` (Python byte source/sink ↔
+    FileBuffer).
+  - `facade.hpp` — **generic** versioned-facade machinery (header-only templates):
+    `expansion_enumerators`, `persist`, `concrete_name`, `make_one`,
+    `def_for_version`. Format-agnostic — templated on the family template `F`, so
+    ADT/M2 reuse it verbatim; only the per-format read/write/convert lives in a
+    format TU.
+  - `formats/wmo.hpp/.cpp` — `register_facade`: `for_version` on every WMO family
+    base + the read/write/convert surface on WMOBase (mirrors `src/.../formats/wmo/`).
+  - `fs.hpp/.cpp` — `register_filesystem_protocol`: the `__enter__`/`__exit__`
+    dunders.
+  - `result_casters.hpp`, `stub_patterns.nb`, `check.py` unchanged in role.
+  - CMake: ONE `nanobind_add_module(wowlib_py STABLE_ABI ...)` lists all the `.cpp`s;
+    `target_include_directories(wowlib_py PRIVATE .../python)` makes quoted includes
+    (`"formats/wmo.hpp"`, `"result_casters.hpp"`) resolve against the python/ root.
+  - Glue functions are the split boundary; a new format adds `formats/<fmt>.{hpp,cpp}`
+    + one `register_facade` call in the module body + one source line in CMake.
+    **Doc policy inside the binding TUs: plain Doxygen** (these are unwelded glue, so
+    `welder::doc` does NOT apply — file `@file` docstring + `@brief`/`@param` on
+    every helper).
 - **Welded surface is deliberately minimal**: FileSystem + FileSystemSettings +
   the helper types their signatures need (FileKey, FileDataID, ClientVersion,
   StorageKind, Locale, versions constants). FileKey is the GENERIC identity for
@@ -20,7 +49,15 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
   paths in settings. check.py/check.lua assert the absences.
 - **Doc policy**: `welder::doc` ONLY on welded entities; unwelded C++ documents
   itself with plain doxygen comments (user rule). Adding a weld mark to a class
-  means converting its doxygen docs back into welder::doc annotations.
+  means converting its doxygen docs back into welder::doc annotations. A welded
+  entity carries NO leading `/** */` doxygen block AND welder annotations — that
+  is duplication: welder's Doxygen filter promotes doc/param/returns/tparam to
+  the C++ reference, so the annotation is the single source (fold any unique
+  detail from the old doxygen into the doc() text, then delete it). Enumerator
+  docs stay plain `/**< */` (welder doc() does not cover enumerators). Welded
+  class/struct/enum definitions use the compact `struct [[ …attrs… ]] Name` form
+  (attribute between keyword and name), per FileSystemSettings — not the
+  four-line struct/`[[`/`]]`/Name layout.
 - **Immutable settings pattern** (FileSystemSettings): a const-member AGGREGATE
   with NSDMIs on everything after `version` — C++ keeps designated init (no
   user ctor!), Python gets welder's synthesized field ctor with real keyword
@@ -34,6 +71,50 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
   `=welder::policy::weld_protected` on the class. Python's context-manager
   dunders are attached in the module glue (cpp_function + is_method; __exit__
   must take nb::args — nb::handle parameters reject None).
+- **Opaque containers — vectors bind by reference** (welder 04fded7+, 2026-07-22):
+  the opaque-container generator rod reflects `namespace wowlib` and emits
+  `wowlib.opaque.hpp` (`NB_MAKE_OPAQUE` decls + welded `Vector*` aliases), so every
+  WMO chunk `std::vector` binds via `nb::bind_vector` — live mutation, `append`,
+  zero-copy NumPy — not the old copy-to-`list` caster. Wiring: gen TU
+  `python/opaque_gen.cpp` (`WELDER_OPAQUE_CONTAINERS_MAIN(wowlib)`) built+run by
+  `welder_generate_opaque_containers()` (its CMake helper lives on
+  `${welder_SOURCE_DIR}/cmake` — re-add to CMAKE_MODULE_PATH + `include()` it in
+  bindings/CMakeLists; the gen exe links `wowlib` PRIVATE for its PUBLIC
+  `-freflection`+includes; storm/casc are PRIVATE so they're not pulled). The module
+  TU includes the generated header AFTER `nanobind/module.hpp` (defines
+  WELDER_OPAQUE) and BEFORE WELDER_MODULE. `<nanobind/stl/vector.h>` STAYS —
+  per-type NB_MAKE_OPAQUE suppresses the copy caster only for the opaque types.
+  Runtime: base-less POD-struct element → `__array_interface__` (numpy-free
+  structured dtype); scalar element → `__array__` (nb::ndarray, needs numpy). ALL WMO
+  vectors are opaque, including the NTTP-versioned `WMO::groups`
+  (`vector<WMOGroup<V>>`) and `WMOGroupBody::batches` (`vector<SMOBatch<V>>`). Those
+  two get reference semantics but NO `__array_interface__`: they carry an empty facade
+  base (EBO), and welder's POD-array eligibility skips based types — fine, they aren't
+  the hot geometry path.
+- **Container wrapper NAMES come from a `transform_opaque_container` style hook**
+  (welder 31b0801+, `WELDER_OPAQUE_CONTAINERS_MAIN_STYLED`), defined in
+  `opaque_gen.cpp` as `wowlib_py::wowlib_opaque_naming`: `Vector` + the element's
+  VERBATIM identifier (client acronyms intact — `VectorSMOMaterial`, `VectorC3Vector`,
+  matching how the element itself binds; welder's default would restyle/qualify to
+  `VectorWmoChunksSmoMaterial`). A versioned entity template (sole `ClientVersion` NTTP
+  arg) suffixes the Expansion spelling → `VectorWMOGroupWotlk`, `VectorSMOBatchTbc`.
+  Scalars/strings/maps fall through to welder's `derive_name` (`VectorFloat`,
+  `VectorShortUnsignedInt`). GOTCHA: an NTTP template arg's `type_of` is `const T`, so
+  detect it with `remove_cv(type_of(arg)) == ^^ClientVersion`; `extract<ClientVersion>`
+  then feeds `to_expansion`. The `Vector*` aliases weld at top-level `namespace
+  wowlib`, so they land in `wowlib/__init__.pyi` — no new stub OUTPUT entry.
+- **All WMO vectors carry `[[=welder::mark::no_reassign]]`** (welder 31b0801+): the
+  property binds read-only (getter only — no setter) so the whole attribute can't be
+  rebound (`wmo.groups = ...` raises AttributeError), but the opaque object is still a
+  live reference, so in-place mutation writes through (`body.vertices.append(...)`,
+  `body.vertices[0] = ...`). Applied to every bound `std::vector` member in
+  root.hpp/group/group.hpp/wmo.hpp; the excluded `Repeated<>` and the `ChunkBlob`
+  members are NOT marked.
+- **Enumerator docs are welder::doc now** (welder 04fded7+): the flag/enum members
+  use `Name [[=welder::doc("…")]] = value` (annotation AFTER the enumerator name, not
+  before) — welder folds documented enumerators into the enum's class docstring as an
+  `Attributes:` section (stubgen carries it). Supersedes the old plain-`/**< */`
+  policy for enumerators; struct-member `/**< */` doxygen is unchanged.
 - **Properties**: `[[=welder::getter]]` / `[[=welder::setter]]` (welder 19253c7+)
   bind accessor methods as properties in BOTH Python and Lua (nanobind
   def_prop_ro/rw, LuaBridge3 addProperty; lone getter = read-only). In use:
@@ -41,7 +122,12 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
   in both languages. Name derivation strips a leading get/set word after styling;
   don't also add `weld_as` on an accessor (diagnosed — the mark's optional name
   argument is the rename tool). No `returns()` on getters; fold it into `doc`.
-- `bindings/lua/wowlib_module.cpp` — LuaBridge3 rod, snake_case naming.
+- **Lua bindings are DEFERRED** (2026-07-20): `bindings/lua/`, the `wowlib_lua`
+  target, `WOWLIB_BUILD_LUA` and the Dependencies.cmake LuaBridge3 block are all
+  removed until the library is feature-complete (lower priority, distracting). The
+  `lang::lua` / `mark::only(lang::lua)` welds STAY in the sources — Lua is planned,
+  so keep pretending it binds; this file's Lua design notes describe the intended
+  shape for when it returns (was: LuaBridge3 rod, snake_case naming everything).
 - **C++ namespaces arrive as submodules** in both languages: `wowlib.fs`,
   `wowlib.versions` (constants, no `()`); `wowlib::fs::detail` is unannotated and
   never surfaces.
@@ -56,12 +142,23 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
 - Stubs: ONE `nanobind_add_stub` with `RECURSIVE` + `OUTPUT_PATH` (submodules
   discovered automatically) — but the expected files must still be listed in
   `OUTPUT` for the build graph; extend the list when adding a namespace. Output:
-  `bindings/python/stubs/wowlib/{__init__,fs,versions}.pyi`.
+  `stubs/wowlib/{__init__,fs,versions}.pyi` + `stubs/wowlib/formats/__init__.pyi`
+  + `stubs/wowlib/formats/wmo/{__init__,root,group,chunks,group_chunks}.pyi` (wmo
+  is a package — extend OUTPUT when a submodule is added).
+- **The versioned-format facade is native** (welded C++ bases → real
+  inheritance/isinstance; for_version/read/write/convert are nb::sig merged
+  overloads on the base; see formats-architecture.md). **There is NO stub
+  post-processor** — the earlier facade_stub.py was deleted (the user rejected it
+  as unmaintainable). The only declarative piece is `stub_patterns.nb` (nanobind
+  PATTERN_FILE), which now injects just the `AnyX = C0 | ... ` union aliases per
+  submodule (`__prefix__:`); stubgen auto-imports the typing/collections.abc/
+  wowlib.fs names the nb::sig strings use, so no import lines are needed there.
 
 ## Result<T> / std::expected translation
-welder has no expected support; both TUs teach their framework:
+welder has no expected support; each rod teaches its framework (Python live; the
+Lua notes below describe the intended shape for when that target returns):
 - nanobind: `type_caster<wowlib::Result<T>>` (bindings/python/result_casters.hpp)
-  unwraps success, throws `wowlib::result_error` on failure. The module glue
+  unwraps success, throws `wowlib::result_error` on failure. `errors.cpp`
   builds a **reflection-generated exception hierarchy**: `wowlib.Error` base +
   one class per ErrorCode enumerator (template for over enumerators_of,
   PyErr_NewExceptionWithDoc — limited-API safe), some with curated extra builtin
@@ -72,7 +169,7 @@ welder has no expected support; both TUs teach their framework:
   enumerators grow new exception classes automatically; extend builtin_base() when
   a new code has a natural Python builtin. nanobind's stubgen picks the classes up
   (they land in __init__.pyi with bases and docstrings).
-- LuaBridge3: `Stack<wowlib::Result<T>>` push-by-VALUE (several payloads are
+- LuaBridge3 (deferred): `Stack<wowlib::Result<T>>` push-by-VALUE (several payloads are
   move-only — a const& push forces a deleted copy ctor deep in Userdata.h) that
   throws std::runtime_error; LuaBridge3 converts it to a lua error at the call
   boundary. `Result<void>` pushes `true`.
@@ -97,12 +194,12 @@ welder has no expected support; both TUs teach their framework:
   wins regardless).
 
 ## Build
-- Preset `gcc16-bindings` (WOWLIB_BUILD_PYTHON + WOWLIB_BUILD_LUA).
+- Preset `gcc16-bindings` (WOWLIB_BUILD_PYTHON only; Lua deferred).
 - Python: project venv `.venv` (uv venv --python 3.13 && uv pip install -p .venv
   nanobind); stable ABI (abi3) => `wowlib.abi3.so`, loads across minors and the
   GCC/MSVC boundary (Blender). Stub: `wowlib_pyi` target -> bindings/python/wowlib.pyi
   via nanobind's stubgen.
-- Lua: brew lua@5.4 headers; LuaBridge3 FetchContent'd by welder; `wowlib.so`
-  (bare name) + `luaopen_wowlib`, lua_* resolved from host interpreter.
-- ctest names: `bindings.python`, `bindings.lua` (smoke checks; real-client parts
-  gate on WOWLIB_TEST_CLIENTS_DIR).
+- Lua (when reinstated): brew lua@5.4 headers; LuaBridge3 FetchContent'd by welder;
+  `wowlib.so` (bare name) + `luaopen_wowlib`, lua_* resolved from host interpreter.
+- ctest name: `bindings.python` (smoke check; real-client parts gate on
+  WOWLIB_TEST_CLIENTS_DIR). `bindings.lua` returns with the Lua target.

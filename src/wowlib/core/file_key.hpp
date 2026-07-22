@@ -17,14 +17,12 @@
 
 namespace wowlib
 {
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
         A strongly-typed FileDataID — the numeric file identifier used by CASC-era
         clients (u32, matching the client's root manifest and DB2 references).)")
-  ]]
-  FileDataID
+  ]] FileDataID
   {
     [[=welder::doc("The raw numeric identifier.")]]
     std::uint32_t value = 0;
@@ -32,8 +30,7 @@ namespace wowlib
     constexpr auto operator<=>(const FileDataID&) const = default;
   };
 
-  struct
-  [[
+  struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
         A file request: by client-internal path, by FileDataID, or both. The
@@ -42,8 +39,7 @@ namespace wowlib
         available (on pre-CASC clients the FileDataID is simply absent); the
         storage backend uses the half it needs and FileSystem.resolve fills gaps
         through the listfile. The stored path is always in canonical form.)")
-  ]]
-  FileKey
+  ]] FileKey
   {
     [[=welder::doc("The numeric identifier, if known.")]]
     std::optional<FileDataID> fdid;

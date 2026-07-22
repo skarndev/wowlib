@@ -6,6 +6,7 @@ when WOWLIB_TEST_CLIENTS_DIR is set — a real client round-trip through the
 FileSystem facade.
 """
 
+import io
 import os
 import sys
 
@@ -74,26 +75,81 @@ check(wowlib.to_client_version(wowlib.Expansion.Wotlk) == wowlib.versions.wotlk,
 check(wowlib.to_expansion(wowlib.versions.shadowlands) == wowlib.Expansion.Shadowlands,
       "version constant -> expansion")
 
-# flat suffixed per-version classes; shared wire structs live in formats.wmo
-for name in ("WMOVanilla", "WMOWotlk", "WMOShadowlands", "WMOTheWarWithin",
-             "WMORootWotlk", "WMOGroupShadowlands", "WMOBatchWotlk",
-             "WMOGroupHeaderShadowlands", "StringBlock", "ChunkBlob",
-             "C3Vector", "CAaBox"):
+# the module mirrors the C++ namespaces: the WMO assembly + its per-version
+# classes in wmo, WMORoot in wmo.root, groups in wmo.group, and the wire structs
+# in wmo.chunks / wmo.group_chunks; common vocabulary stays in formats
+wmo_mod = wowlib.formats.wmo
+root_mod = wmo_mod.root
+group_mod = wmo_mod.group
+chunks_mod = wmo_mod.chunks
+gchunks_mod = wmo_mod.group_chunks
+for name in ("WMOVanilla", "WMOWotlk", "WMOShadowlands", "WMOTheWarWithin"):
+    check(hasattr(wmo_mod, name), f"formats.wmo.{name} welded")
+check(hasattr(root_mod, "WMORootWotlk"), "formats.wmo.root.WMORootWotlk welded")
+check(hasattr(group_mod, "WMOGroupShadowlands") and hasattr(group_mod, "WMOGroupBodyWotlk"),
+      "formats.wmo.group.* welded")
+check(hasattr(gchunks_mod, "WMOBatchWotlk") and hasattr(gchunks_mod, "WMOGroupHeaderShadowlands"),
+      "formats.wmo.group_chunks.* welded")
+for name in ("StringBlock", "ChunkBlob", "C3Vector", "CAaBox"):
     check(hasattr(wowlib.formats, name), f"formats.{name} welded")
-for name in ("SMOMaterial", "SMOHeader", "SMODoodadDef", "CAaBspNode", "LightType",
-             "GroupFlags", "MaterialFlags", "NewLight", "AmbientVolume"):
-    check(hasattr(wowlib.formats.wmo, name), f"formats.wmo.{name} welded")
+for name in ("SMOMaterial", "SMOHeader", "SMODoodadDef", "LightType", "MaterialFlags",
+             "NewLight", "AmbientVolume"):
+    check(hasattr(chunks_mod, name), f"formats.wmo.chunks.{name} welded")
+for name in ("CAaBspNode", "GroupFlags", "SMOPoly", "PointLight"):
+    check(hasattr(gchunks_mod, name), f"formats.wmo.group_chunks.{name} welded")
 
 # flag enums are IntEnums; bit tests work against the plain integer fields
-check(wowlib.formats.wmo.GroupFlags.exterior == 0x8, "flag enum bit value")
+check(gchunks_mod.GroupFlags.exterior == 0x8, "flag enum bit value")
+
+# the facade: a welded empty C++ base per version-differing family gives REAL
+# native inheritance and isinstance (no ABC glue), plus a for_version constructor
+check(hasattr(wmo_mod, "WMO") and hasattr(root_mod, "WMORoot")
+      and hasattr(group_mod, "WMOGroup") and hasattr(group_mod, "WMOGroupBody")
+      and hasattr(gchunks_mod, "WMOGroupHeader") and hasattr(gchunks_mod, "WMOBatch"),
+      "facade bases present in their submodules")
+wmo = wmo_mod.WMO.for_version(wowlib.Expansion.Wotlk)
+check(type(wmo).__name__ == "WMOWotlk", "for_version returns the concrete class")
+check(wmo_mod.WMOWotlk.__bases__ == (wmo_mod.WMO,), "concrete natively inherits the base")
+check(isinstance(wmo, wmo_mod.WMO), "isinstance against the base is real")
+check(issubclass(wmo_mod.WMOWotlk, wmo_mod.WMO), "concrete is a real subclass")
+check(not isinstance(wmo, root_mod.WMORoot), "families do not cross-inherit")
+check(isinstance(gchunks_mod.WMOGroupHeader.for_version(wowlib.Expansion.Shadowlands),
+                 gchunks_mod.WMOGroupHeader), "wire-struct family facade too")
 
 # a fresh entity carries its wire defaults; round-trip internals stay hidden
-wmo_fresh = wowlib.formats.WMOWotlk()
-check(wmo_fresh.root.mver == 17, "fresh root MVER 17")
-check(not hasattr(wmo_fresh.root, "journal"), "ChunkExtras internals not welded")
-check(not hasattr(wowlib.formats.WMOWotlk, "parse"), "span-of-spans parse not welded")
-check(hasattr(wowlib.formats.WMOWotlk().root, "read"), "entity read method welded")
-check(hasattr(wowlib.formats.WMOWotlk().root, "write"), "entity write method welded")
+check(wmo.root.mver == 17, "fresh root MVER 17")
+check(not hasattr(wmo.root, "journal"), "ChunkExtras internals not welded")
+check(all(hasattr(wmo, verb) for verb in ("read", "write", "convert")),
+      "WMO speaks read/write/convert (inherited from the welded base)")
+check("read" not in wmo_mod.WMOWotlk.__dict__,
+      "the assembly's read/write live on the base, not re-welded on the concrete")
+check(hasattr(wmo.root, "read") and hasattr(wmo.root, "write"),
+      "sub-entity read/write methods welded on the concrete")
+
+# read/write speak whole entities and accept bytes, bytes-like and file-like:
+# round-trip an empty WMO through a BytesIO sink and back three ways
+_sink = io.BytesIO()
+wmo.write(_sink, [])
+_root_bytes = _sink.getvalue()
+check(_root_bytes[:4] == b"REVM", "write() emits the root chunk stream")
+for _src in (_root_bytes, bytearray(_root_bytes), io.BytesIO(_root_bytes)):
+    _w2 = wmo_mod.WMO.for_version(wowlib.Expansion.Wotlk)
+    _w2.read(_src, [])
+    check(_w2.root.mver == 17 and len(_w2.groups) == 0,
+          "read() accepts bytes, bytes-like and file-like")
+# write() length guard: one output per group file
+try:
+    wmo.write(io.BytesIO(), [io.BytesIO()])
+    check(False, "write() should reject a group-count mismatch")
+except ValueError:
+    pass
+# convert is a method now: identity copies, stepless cross-version raises
+check(type(wmo.convert(wowlib.Expansion.Wotlk)).__name__ == "WMOWotlk", "identity convert")
+try:
+    wmo.convert(wowlib.Expansion.Shadowlands)
+    check(False, "stepless cross-version convert should raise")
+except wowlib.NotImplemented:
+    pass
 
 # the StringBlock API: decoded entries, offsets stay stable
 block = wowlib.formats.StringBlock()
@@ -102,12 +158,9 @@ check(offset == 0 and block.at(offset) == "textures/stone.blp", "StringBlock add
 entry = block.entries()[0]
 check(entry.offset == 0 and entry.value == "textures/stone.blp", "StringBlock entries")
 
-# factory overloads are typed stubs; the runtime rejects unbuilt versions with
-# the generated exception class
-check(callable(wowlib.formats.load_wmo), "load_wmo factory")
-check(callable(wowlib.formats.convert_wmo), "convert_wmo factory")
-
-# mypy narrowing: Literal[Expansion.*] overloads resolve to the exact class
+# mypy narrowing: for_version(Literal[Expansion.*]) resolves to the exact class,
+# widening the result to the AnyWMO union is accepted with no cast, and convert()
+# narrows on the target Literal. read/write buffer overloads type-check too.
 # (runs when mypy is importable; the stubs ship next to the module)
 _stubs = os.path.join(os.path.dirname(os.path.dirname(wowlib.__file__)), "stubs")
 if not os.path.isdir(_stubs):
@@ -121,15 +174,17 @@ else:
         import tempfile
 
         _probe = (
+            "import io\n"
             "import wowlib\n"
-            "import wowlib.formats\n"
-            "def probe(fs: wowlib.fs.FileSystem) -> None:\n"
-            "    w = wowlib.formats.load_wmo(fs, wowlib.FileKey('a.wmo'),\n"
-            "                                wowlib.Expansion.Wotlk)\n"
-            "    reveal_type(w)\n"
-            "    s = wowlib.formats.load_wmo(fs, wowlib.FileKey('a.wmo'),\n"
-            "                                wowlib.Expansion.Shadowlands)\n"
-            "    reveal_type(s)\n"
+            "from wowlib.formats import wmo\n"
+            "w = wmo.WMO.for_version(wowlib.Expansion.Wotlk)\n"
+            "reveal_type(w)\n"
+            "s: wmo.AnyWMO = wmo.WMO.for_version(wowlib.Expansion.Shadowlands)\n"
+            "reveal_type(s)\n"
+            "c = w.convert(wowlib.Expansion.Cata)\n"
+            "reveal_type(c)\n"
+            "w.read(io.BytesIO(b''), [io.BytesIO(b'')])\n"
+            "w.write(io.BytesIO(), [])\n"
         )
         with tempfile.TemporaryDirectory() as _tmp:
             _probe_path = os.path.join(_tmp, "probe.py")
@@ -137,10 +192,18 @@ else:
                 f.write(_probe)
             os.environ["MYPYPATH"] = _stubs
             _out, _err, _ = _mypy_api.run(["--no-error-summary", _probe_path])
-        check('Revealed type is "wowlib.formats.WMOWotlk"' in _out,
-              f"mypy narrows Wotlk overload:\n{_out}{_err}")
-        check('Revealed type is "wowlib.formats.WMOShadowlands"' in _out,
-              f"mypy narrows Shadowlands overload:\n{_out}{_err}")
+        check('Revealed type is "wowlib.formats.wmo.WMOWotlk"' in _out,
+              f"mypy narrows for_version(Wotlk) -> WMOWotlk:\n{_out}{_err}")
+        check('Revealed type is "wowlib.formats.wmo.WMOCata"' in _out,
+              f"mypy narrows convert(Cata) -> WMOCata:\n{_out}{_err}")
+        check("WMOShadowlands" in _out,
+              f"AnyWMO assignment reveals the union:\n{_out}{_err}")
+        # the widening / buffer overloads must not raise a type error in the probe
+        # (the unrelated __eq__ LSP notes live in __init__.pyi, not probe.py)
+        _probe_errors = [ln for ln in _out.splitlines()
+                         if "probe.py" in ln and "error:" in ln]
+        _joined = "\n".join(_probe_errors)
+        check(not _probe_errors, f"the facade probe type-checks clean:\n{_joined}")
 
 # settings are an immutable value: keyword construction with NSDMI defaults,
 # read-only fields
@@ -205,25 +268,40 @@ if clients:
         check(fs2.read_file("DBFilesClient/Map.dbc") == data, "same bytes in with-block")
     check(not fs2.is_open, "with-block exit closed the filesystem")
 
-    # formats end-to-end: the factory loads a real WMO, the classmethod agrees,
-    # and an untouched entity rewrites byte-for-byte through Python
+    # formats end-to-end through the facade: for_version + read(fs, key) load a
+    # real WMO, an untouched entity rewrites byte-for-byte into buffers, and
+    # convert() dispatches on the target
     with wowlib.fs.FileSystem.open(settings) as fs3:
         wmo_path = "World/wmo/Azeroth/Buildings/GoldshireInn/GoldshireInn.wmo"
         if fs3.exists(wmo_path):
-            wmo = wowlib.formats.load_wmo(fs3, wowlib.FileKey(wmo_path),
-                                          wowlib.Expansion.Wotlk)
-            check(type(wmo).__name__ == "WMOWotlk", "factory returns the exact class")
-            check(len(wmo.groups) == wmo.root.header.n_groups, "all groups loaded")
-            check(wmo.root.textures.at(wmo.root.materials[0].texture_1).lower().endswith(".blp"),
+            loaded = wmo_mod.WMO.for_version(wowlib.Expansion.Wotlk)
+            loaded.read(fs3, wowlib.FileKey(wmo_path))
+            check(type(loaded).__name__ == "WMOWotlk", "for_version + read load the exact class")
+            check(isinstance(loaded, wmo_mod.WMO), "the loaded WMO isinstance the base")
+            check(len(loaded.groups) == loaded.root.header.n_groups, "all groups loaded")
+            check(loaded.root.textures.at(loaded.root.materials[0].texture_1)
+                  .lower().endswith(".blp"),
                   "material texture resolves through the string block")
-            check(wmo.write_root() == fs3.read_file(wmo_path),
-                  "byte-perfect rewrite via Python")
-            # every expansion has an instantiation; the Cata overload reads the
-            # same 3.3.5 file (layouts are wotlk-compatible at this boundary)
-            cata = wowlib.formats.load_wmo(fs3, wowlib.FileKey(wmo_path),
-                                           wowlib.Expansion.Cata)
-            check(type(cata).__name__ == "WMOCata", "per-expansion factory dispatch")
-            print("formats end-to-end OK,", len(wmo.groups), "groups")
+            # byte-perfect rewrite via Python: write into buffers, one per group
+            root_sink = io.BytesIO()
+            group_sinks = [io.BytesIO() for _ in loaded.groups]
+            loaded.write(root_sink, group_sinks)
+            check(root_sink.getvalue() == fs3.read_file(wmo_path),
+                  "byte-perfect root rewrite via Python")
+            # every expansion has an instantiation; Cata reads the same 3.3.5 file
+            cata = wmo_mod.WMO.for_version(wowlib.Expansion.Cata)
+            cata.read(fs3, wowlib.FileKey(wmo_path))
+            check(type(cata).__name__ == "WMOCata", "per-expansion facade dispatch")
+            # convert: identity copies, a stepless pair raises NotImplemented
+            check(type(loaded.convert(wowlib.Expansion.Wotlk)).__name__ == "WMOWotlk",
+                  "identity convert")
+            try:
+                loaded.convert(wowlib.Expansion.Shadowlands)
+                check(False, "stepless cross-version convert should raise")
+            except wowlib.NotImplemented as error:
+                check("Wotlk -> Shadowlands" in str(error),
+                      f"convert error names the pair: {error}")
+            print("formats end-to-end OK,", len(loaded.groups), "groups")
 
     print("real-client round-trip OK,", len(data), "bytes")
 

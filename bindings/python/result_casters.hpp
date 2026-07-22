@@ -118,17 +118,46 @@ namespace nanobind::detail
 
     NB_TYPE_CASTER(std::span<const std::byte>, const_name("bytes"))
 
+    // Accept anything byte-shaped so scripts can read straight from Python: a
+    // bytes-like object (bytes/bytearray/memoryview, via the buffer protocol)
+    // or a binary file-like whose .read() returns one (io.BytesIO, an open
+    // file). The stub advertises `bytes`; the wider acceptance is a runtime
+    // convenience (the facade's read() overloads spell out BinaryIO in typing).
     bool from_python(handle src, uint8_t, cleanup_list*) noexcept
     {
-      char* data = nullptr;
-      Py_ssize_t size = 0;
-      if (PyBytes_AsStringAndSize(src.ptr(), &data, &size) != 0)
+      if (copy_buffer(src.ptr()))
+        return true;
+      PyErr_Clear();
+      // file-like: something with a .read() returning a bytes-like object
+      object reader = steal(PyObject_GetAttrString(src.ptr(), "read"));
+      if (!reader.is_valid())
       {
         PyErr_Clear();
         return false;
       }
-      storage.resize(static_cast<std::size_t>(size));
-      std::memcpy(storage.data(), data, static_cast<std::size_t>(size));
+      object data = steal(PyObject_CallObject(reader.ptr(), nullptr));
+      if (!data.is_valid())
+      {
+        PyErr_Clear();
+        return false;
+      }
+      const bool ok = copy_buffer(data.ptr());
+      if (!ok)
+        PyErr_Clear();
+      return ok;
+    }
+
+    // Copy a bytes-like object's contents into `storage` via the buffer
+    // protocol; false (with the Python error set) when it is not bytes-like.
+    bool copy_buffer(PyObject* obj) noexcept
+    {
+      Py_buffer view;
+      if (PyObject_GetBuffer(obj, &view, PyBUF_SIMPLE) != 0)
+        return false;
+      storage.resize(static_cast<std::size_t>(view.len));
+      if (view.len > 0)
+        std::memcpy(storage.data(), view.buf, static_cast<std::size_t>(view.len));
+      PyBuffer_Release(&view);
       value = storage;
       return true;
     }

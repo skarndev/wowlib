@@ -21,36 +21,18 @@
 
 namespace wowlib::formats
 {
-  /** A chunk of zero-terminated strings, stored decoded.
-
-      Client files carry alignment padding and stray zero bytes between
-      strings, and offsets stored in other chunks (MOMT texture fields, MOGI
-      name offsets, MODD name indices) point into the raw blob — so each
-      parsed string is kept with the byte offset it occupied, and the original
-      blob size is remembered. Blobifying happens only at serialization:
-      write() lays the strings back down at their recorded offsets over a
-      zero-filled buffer, which reproduces any client blob exactly (every
-      non-zero byte belongs to some entry by construction, and the padding is
-      zeros by definition). The mutation API appends past the current end; it
-      never rewrites existing offsets, so stored references stay valid. */
-  class
-  [[
+  class [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
         A chunk of zero-terminated strings (texture and model filenames, group
         names), decoded into (offset, value) entries. Other chunks reference
         entries by their byte offset in the on-disk blob; adding appends, and
         existing offsets never move.)")
-  ]]
-  StringBlock
+  ]] StringBlock
   {
   public:
-    /** One decoded string and the blob offset it lives at — the value other
-        chunks store to reference it. */
-    struct
-    [[=welder::doc("One decoded string and the blob byte offset other chunks "
-                   "reference it by.")]]
-    Entry
+    struct [[=welder::doc("One decoded string and the blob byte offset other chunks "
+                   "reference it by.")]] Entry
     {
       [[=welder::doc("Byte offset of the string in the on-disk blob.")]]
       std::uint32_t offset = 0;
@@ -103,12 +85,6 @@ namespace wowlib::formats
       return {};
     }
 
-    /** The string at @a offset (a value another chunk stored). Offsets into
-        the middle of an entry yield its suffix — some client data references
-        shared filename tails that way.
-        @param offset byte offset into the on-disk blob.
-        @return the string starting at that offset; empty if the offset lands
-                on padding, a terminator, or out of range. */
     [[nodiscard]]
     [[=welder::doc("The string at a byte offset another chunk stored; empty if "
                    "the offset lands on padding or out of range."),
@@ -128,11 +104,6 @@ namespace wowlib::formats
       return std::string_view{entry.value}.substr(delta);
     }
 
-    /** Append @a string as a new entry after the current blob end.
-        @param string the string to add; must not contain zero bytes (they
-                      would terminate it early on disk).
-        @return the offset the string starts at — the value to store in
-                referencing chunks. */
     [[=welder::doc("Append a string; existing offsets never move."),
       =welder::returns("the offset the new string starts at - the value to "
                        "store in referencing chunks")]]
@@ -146,8 +117,6 @@ namespace wowlib::formats
       return offset;
     }
 
-    /** The decoded entries in blob order.
-        @return (offset, value) entries; padding runs are not represented. */
     [[nodiscard]]
     [[=welder::doc("The decoded entries, in blob order."),
       =welder::returns("the (offset, value) entries")]]

@@ -110,9 +110,9 @@ namespace
     }
 
     // the assembled-entity path agrees
-    const auto wmo = WMO<V>::load(fs, root_key);
-    REQUIRE(wmo.has_value());
-    CHECK(wmo->groups.size() == n_groups);
+    WMO<V> wmo;
+    REQUIRE(wmo.read(fs, root_key).has_value());
+    CHECK(wmo.groups.size() == n_groups);
   }
 
   void dump_histogram(const char* which)

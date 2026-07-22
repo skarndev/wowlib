@@ -3,7 +3,8 @@ project(wowlib LANGUAGES C CXX)
 
 option(WOWLIB_BUILD_TESTS "Build wowlib tests" ON)
 option(WOWLIB_BUILD_PYTHON "Build the Python 3.13 extension (nanobind, stable ABI)" OFF)
-option(WOWLIB_BUILD_LUA "Build the Lua module (LuaBridge3)" OFF)
+# The Lua module (LuaBridge3) is deferred until the library is feature-complete;
+# the welder annotations still weld a lang::lua surface for when it returns.
 
 include(cmake/CompilerSettings.cmake)
 include(cmake/Dependencies.cmake)
@@ -28,6 +29,6 @@ if(WOWLIB_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-if(WOWLIB_BUILD_PYTHON OR WOWLIB_BUILD_LUA)
+if(WOWLIB_BUILD_PYTHON)
   add_subdirectory(bindings)
 endif()

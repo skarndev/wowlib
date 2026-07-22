@@ -14,17 +14,29 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   (ChunkExtras, ChunkedFile, ChunkBlob, Repeated, UnknownChunk, JournalEntry),
   `string_block.hpp` (StringBlock), `serializer.hpp` (engine), `flags.hpp`
   (has_flag), `types.hpp` (wire math/color primitives).
-- `formats/wmo/` — `data_structs.hpp` (wire structs + flag enums + version
-  boundary constants; no "wmo_" prefix in filenames, the directory carries it),
-  `root.hpp` (WMORoot), `group.hpp` (WMOGroupBody, WMOGroup), `wmo.hpp` (WMO
-  assembly + wmo_versions + welded aliases + extern templates), `wmo.cpp`.
+- `formats/wmo/` — **the directory tree mirrors the namespace tree** (user rule,
+  2026-07-20), so each sub-namespace is a subdirectory and the four submodules
+  (`wmo.root`, `wmo.group`, `wmo.chunks`, `wmo.group_chunks`) produce small,
+  clean per-file `.pyi`s:
+  - `boundaries.hpp` (`wmo`) — version-boundary constants + wmo_version_v17.
+  - `wmo.hpp`/`wmo.cpp` (`wmo`) — the WMO assembly + WMOBase, wmo_versions, the
+    per-namespace welded aliases (X-macro) and extern/instantiations.
+  - `root/root.hpp` (`wmo::root`) — WMORoot + WMORootBase.
+  - `group/group.hpp` (`wmo::group`) — WMOGroup/WMOGroupBody + their bases.
+  - `chunks/` (`wmo::chunks`) — root wire structs split by chunk family:
+    `header.hpp material.hpp structure.hpp light.hpp doodad.hpp environment.hpp`.
+  - `group_chunks/` (`wmo::group_chunks`) — group wire structs +
+    SMOGroupHeader/SMOBatch bases: `header.hpp geometry.hpp light.hpp`.
+  (data_structs.hpp — a single 1247-line file — was split into these; "avoid
+  extremely long files, split logically" is a user rule.)
 - Type naming: PascalCase classes everywhere (StringBlock, ChunkExtras,
   Repeated); wire structs keep the client's canonical spellings (SMOHeader,
   CAaBspNode); **WMO keeps its acronym** (WMORoot, WMOWotlk — not WmoRoot).
   Flag namespaces became welded scoped enums (GroupFlags, MaterialFlags,
-  HeaderFlags, PolyFlags, DoodadFlags, GroupFlags2) with plain-Doxygen
-  enumerator comments (welder doc() does not cover enumerators — no
-  duplication); wire fields stay plain ints (combined bit values are not valid
+  HeaderFlags, PolyFlags, DoodadFlags, GroupFlags2) whose enumerators carry
+  `Name [[=welder::doc("…")]] = value` (welder 04fded7+ documents enumerators —
+  folded into the enum class docstring's `Attributes:` section; annotation goes
+  AFTER the name); wire fields stay plain ints (combined bit values are not valid
   enumerators) tested via `has_flag(value, GroupFlags::x)`.
 
 ## Core design
@@ -82,8 +94,11 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   MVER/MOHD/MOGP required). Optional plain-data chunks are unobservable and
   must not be declared — single-record optional chunks (MDAL, MOGX) are
   modeled as vectors instead (engagement = non-empty).
-- **Conversion** (convert.hpp): unchanged; supported_versions<wmo::WMO> now
-  lists all 11. No real steps yet.
+- **Conversion** (convert.hpp): supported_versions<wmo::WMO> lists all 11.
+  No real steps yet. `has_convert_path<E, From, To>()` (consteval) reports
+  whether the full step ladder for a pair exists — runtime-dispatching callers
+  (Python factories) use it to degrade a missing ladder to a NotImplemented
+  Result instead of convert()'s static_assert.
 
 ## Reflection findings (gcc 16.1, `-freflection`)
 
@@ -91,9 +106,10 @@ Canary: `tests/unit/test_reflection_spike.cpp` — keep compiling. Everything
 from milestone 1 still holds (annotations with ClientVersion payloads read
 through instantiations; `template for` + splicing; constrained partial
 specializations stay trivially copyable). New gotchas from the sweep:
-- Annotations are NOT valid in the enumerator position wowlib wanted
-  (`[[=doc]] name = 0x1` doesn't parse; the legal trailing position is
-  pointless since welder doc() ignores enumerators) → plain Doxygen comments.
+- Enumerator annotations go AFTER the name (`name [[=doc("…")]] = 0x1`), never
+  before (`[[=doc]] name = 0x1` doesn't parse). The trailing position is no longer
+  pointless: welder 04fded7+ documents enumerators (folds them into the enum class
+  docstring) — the flag enums now use `welder::doc` there, not `/**< */`.
 - A `using W = WMO<to_client_version(X)>` inside a lambda nested in a
   `template for` body fails ("incomplete type W") — hoist the body into a
   function template (`def_wmo_factories<X>`) and call it from the loop.
@@ -107,36 +123,76 @@ specializations stay trivially copyable). New gotchas from the sweep:
   transforms VERBATIM, so SMOHeader/WMORoot/FileDataID keep their acronyms
   (pep8 would produce SmoHeader/WmoRoot/FileDataId). Lua stays
   welder::naming::snake_case (wmo_wotlk, smo_header — unchanged shape).
-- Per-version classes weld through namespace-scope aliases (WMOWotlk, ...,
-  WMOTheWarWithin — 6 templates x 11 versions, X-macro-generated), flat in
-  `wowlib::formats`; version-invariant wire structs weld in `formats.wmo`
-  under their client names (SMOMaterial verbatim now, not SmoMaterial).
-- **Factories are reflection-generated**: `template for` over
-  Expansion enumerators calls `def_wmo_factories<X>` which defs the
-  load_wmo/convert_wmo overload pair with consteval-built `nb::sig` strings
-  (`define_static_string`); a new Expansion enumerator grows its overloads
-  automatically. No load catch-all anymore (every enumerator is instantiated;
-  a static_assert enforces coverage); convert_wmo keeps its cross-version
-  NotImplemented catch-all. mypy narrowing verified via stubs
-  (Literal[Expansion.X] -> WMOX).
-- Entity read()/write() methods weld into every entity (bytes in/out through
-  the span/FileBuffer casters) — byte-perfect rewrites work from Python
-  (probed) and Lua.
-- check.py: updated names (FileDataID, WMO*, SMO*), StringBlock Entry
-  attributes, flag-enum check; the "unbuilt expansion raises" check became a
-  per-expansion dispatch check (WMOCata). check.lua grew a formats block.
+- Per-version classes weld through namespace-scope aliases (WMOWotlk, ...) each
+  declared **in its family's namespace** (X-macro, wmo.hpp), so they surface
+  under the matching submodule (`wowlib.formats.wmo.root.WMORootWotlk`, etc.).
+- **The versioned-format facade is 100% NATIVE — no stub post-processor, no ABC**
+  (rewritten 2026-07-20; the user rejected the facade_stub.py post-processor as
+  unmaintainable — "does nb::sig cover it?" — and yes it does):
+  - **Welded empty C++ base struct per family** (`WMOBase` weld_as "WMO",
+    `WMORootBase`, `WMOGroupBase`, `WMOGroupBodyBase`, and — on the trivially-
+    copyable wire structs — `WMOGroupHeaderBase`/`WMOBatchBase`). The per-version
+    template *inherits* it (`WMO<V> : WMOBase`; `WMORoot<V> : ChunkedFile<...>,
+    WMORootBase` — ChunkedFile is a non-welded mixin so nanobind's single-welded-
+    base rule holds). welder registers the base natively → `class WMOWotlk(WMO)`
+    in the stub AND real `isinstance`/`issubclass`, ZERO glue. Wire-struct bases
+    are empty → EBO keeps the memcpy layout (0x44/0x18 static_asserts prove it;
+    `WOWLIB_EMPTY_BASES` = `__declspec(empty_bases)` guards MSVC — gcc-only today).
+  - **for_version / read / write / convert are nb::sig merged overloads on the
+    base**: `nb::cpp_function(fn, nb::name("for_version"), nb::scope(base),
+    nb::sig(...))` — the same nb_func merge `nb::class_::def_static` uses — so per-
+    expansion Literal overloads (+ Expansion→AnyX fallback) render as typed
+    @overload blocks and mypy narrows `for_version(Wotlk)->WMOWotlk`,
+    `convert(Cata)->WMOCata`. read/write are (FileSystem,FileKey) + (buffers)
+    overloads (buffers accept bytes / bytes-like / BinaryIO via to_buffer + the
+    span caster). GOTCHA: the merge is by `name`+`scope`, NOT attr assignment.
+  - **read/write on the assembly live on WMOBase, not the concrete.** `WMO<V>`'s
+    own read/write(fs,key) are `mark::only(welder::lang::lua)` (Lua's WMO
+    load/save); Python excludes them so the concretes inherit the richer base
+    overloads unshadowed. GOTCHA: `weld(lang::lua)` does NOT restrict — `mark::only`
+    is the "bind for these langs only" knob (annotations resolution rule).
+  - **AnyX unions are the ONE thing stubgen can't synthesize** → the declarative
+    stub **PATTERN_FILE** (`__prefix__:` per submodule) emits `AnyWMO = C0 | ...`;
+    stubgen auto-imports the typing/collections.abc/wowlib.fs names the sigs use.
+    A new expansion edits the unions there (one more coupling point with
+    wmo_versions + the X-macro).
+- **Verb unification — read()/write() everywhere** (C++ + bindings). WMO's C++
+  surface: `read(fs,key)` (load) + excluded `read(root_span, group_spans)`
+  (parse) + `write(fs,key)` (save); write_root/write_group gone (the library
+  speaks whole entities, never single groups). Sub-entities keep ChunkedFile
+  `read(span)`/`write()->bytes` on the concrete (their bases are for_version-only).
+- check.py/check.lua: rewritten for the split submodules + native facade (for_version,
+  `WMOWotlk.__bases__ == (WMO,)`, real isinstance, read-is-inherited-not-reshadowed,
+  bytes/bytearray/BytesIO round-trip, write-to-sink, convert, mypy narrowing).
+  Real-client Python round-trip byte-perfect (probed, 12 groups).
 
 ## Known issues / deferred
 
-- **Pre-existing (NOT formats)**: `bindings.python`/`bindings.lua` ctest fail
-  on `FileSystemSettings` keyword defaults — the uncommitted welder pin bump
-  (57e7747 → 19253c7) lost/changed the NSDMI-defaults synthesis. Everything
-  before that check (incl. all formats checks + mypy narrowing) passes; the
-  real-client formats path was verified with a manual full-arity probe. Fix
-  belongs in welder.
+- ~~FileSystemSettings keyword-defaults ctest failure~~ RESOLVED 2026-07-20:
+  it was never a welder regression — the pin had been dropped to the commit
+  BEFORE the NSDMI-defaults feature (see deps-build-notes, "Bumping the welder
+  pin"). Repinning to 57e7747 surfaced the real formats-side bug: welder
+  registers NSDMI default values EAGERLY, so a namespace's welded types must
+  register before any aggregate that uses them as defaults — and wowlib.hpp
+  declared the doc'd `wmo` namespace inside the block that first opens
+  `formats`, making wmo formats' FIRST member (members_of = declaration order,
+  and a doc pre-declaration fixes the position). SMOHeader then welded before
+  CArgb/CAaBox existed → `ImportError: std::bad_cast` at module init. Fix: the
+  doc'd `wmo` pre-declaration in wowlib.hpp moved below the formats/common
+  includes. Rule for new formats: pre-declare the format's doc'd namespace
+  AFTER every namespace whose types appear as NSDMI defaults in its structs.
+- **Opaque vectors SHIPPED** (2026-07-22, welder 31b0801): every WMO `std::vector`
+  binds by reference (live in-place mutation + zero-copy NumPy) via welder's
+  opaque-container generator — see bindings-notes.md. Includes the NTTP-versioned
+  `WMO::groups`/`WMOGroupBody::batches`. Wrappers are named by a
+  `transform_opaque_container` style hook (`VectorSMOMaterial`, `VectorC3Vector`,
+  `VectorWMOGroupWotlk`). Every bound WMO vector also carries
+  `[[=welder::mark::no_reassign]]` → the property is read-only (mutate in place, but no
+  whole-attribute reassignment). The excluded `Repeated<>` texcoords/vertex_colors and
+  the `ChunkBlob` members are unmarked.
 - Deferred: M2/ADT/WDT; offset-based intra-chunk data (MLIQ/MOTA/MDDL/M2Array
   — planned as an `offset_view` member kind); real convert steps; Repeated<>
-  bindings (sequence protocol); zero-copy/ndarray vector exposure for Blender;
+  bindings (sequence protocol; texcoords/vertex_colors still mark::exclude'd);
   integration coverage for the 9 versions without local clients.
 
 ## Adding a new format (the recipe)
@@ -156,5 +212,11 @@ specializations stay trivially copyable). New gotchas from the sweep:
 4. Tests: layout static_asserts; synthetic parse; integration round-trip
    (memcmp == 0) with the divergence diagnostic + unknown-chunk histogram
    pattern from test_wmo_roundtrip.cpp.
-5. Bindings: extend the factory `template for` (or add a new def_* family),
-   stub OUTPUT entry if a new submodule.
+5. Bindings: add a `def_family<F>(wmo, "Name", doc)` call per version-differing
+   family and (for entities with verbs) a `def_wmo_verbs`-style glue; a new
+   Expansion enumerator grows every facade automatically (template for). Extend
+   facade_stub.py's FAMILIES if a new family; stub OUTPUT entry if a new submodule.
+6. wowlib.hpp: pre-declare the format's doc'd namespace BELOW the
+   formats/common includes (namespace position = submodule weld order, and
+   NSDMI defaults of common types convert eagerly at registration — see Known
+   issues, 2026-07-20).

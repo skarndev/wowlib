@@ -27,12 +27,11 @@
     },
     {
       "name": "gcc16-bindings",
-      "displayName": "gcc-16 Debug + Python/Lua bindings",
+      "displayName": "gcc-16 Debug + Python bindings",
       "inherits": "gcc16-debug",
       "binaryDir": "${sourceDir}/build/bindings",
       "cacheVariables": {
-        "WOWLIB_BUILD_PYTHON": "ON",
-        "WOWLIB_BUILD_LUA": "ON"
+        "WOWLIB_BUILD_PYTHON": "ON"
       }
     }
   ],

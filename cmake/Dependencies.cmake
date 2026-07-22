@@ -28,8 +28,10 @@ FetchContent_Declare(CascLib
 
 # --- welder (binding annotations + rods; header-only, no tags yet -> pin commit) ---
 # Backend options must be set before welder configures. welder finds Python /
-# nanobind / Lua / LuaBridge3 itself from these knobs and then provides
-# welder::nanobind, welder::luabridge and the module helper functions.
+# nanobind itself from these knobs and then provides welder::nanobind and the
+# module helper functions. (The Lua/LuaBridge3 backend is deferred until the
+# library is feature-complete — the annotations already weld a lang::lua surface;
+# re-enable WELDER_BUILD_LUABRIDGE and pre-declare LuaBridge3 here when it returns.)
 if(WOWLIB_BUILD_PYTHON)
   set(WELDER_BUILD_NANOBIND ON CACHE BOOL "" FORCE)
   # Stable ABI (abi3): one binary across Python minors AND across the GCC/MSVC
@@ -55,31 +57,9 @@ if(WOWLIB_BUILD_PYTHON)
   endif()
 endif()
 
-if(WOWLIB_BUILD_LUA)
-  set(WELDER_BUILD_LUABRIDGE ON CACHE BOOL "" FORCE)
-  set(WELDER_LUABRIDGE_FETCH ON CACHE BOOL "" FORCE)
-
-  # Pre-declare LuaBridge3 (first declaration wins over welder's): it is
-  # header-only, and its submodules (googletest, luau, ravi) are hundreds of MB
-  # of clone the build never uses.
-  FetchContent_Declare(LuaBridge3
-    GIT_REPOSITORY https://github.com/kunitoki/LuaBridge3.git
-    GIT_TAG 534a639d4857e64512e2b1ebcd7eb5dc8e728c08
-    GIT_SUBMODULES "")
-  set(WELDER_LUABRIDGE_LUA_VERSION "5.4" CACHE STRING "Lua minor for the wowlib module")
-  if(NOT WELDER_LUABRIDGE_LUA_DIR)
-    execute_process(COMMAND brew --prefix lua@5.4
-      OUTPUT_VARIABLE _wowlib_lua_dir OUTPUT_STRIP_TRAILING_WHITESPACE
-      RESULT_VARIABLE _wowlib_lua_rc ERROR_QUIET)
-    if(_wowlib_lua_rc EQUAL 0)
-      set(WELDER_LUABRIDGE_LUA_DIR ${_wowlib_lua_dir} CACHE PATH "" FORCE)
-    endif()
-  endif()
-endif()
-
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG 19253c71b950c828409cc04959117714b9107f57)
+  GIT_TAG 31b0801316c892c518871346db8d46241e90c3ae)
 
 FetchContent_MakeAvailable(StormLib CascLib welder)
 

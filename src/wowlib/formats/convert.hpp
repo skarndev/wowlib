@@ -58,6 +58,34 @@ namespace wowlib::formats
     };
   }
 
+  /** Whether every adjacent convert_step along the ladder from @a From to
+      @a To exists, i.e. whether convert<To>(E<From>) would compile. Lets
+      callers that dispatch over versions at runtime (the Python factories)
+      degrade a missing ladder to a runtime error instead of tripping
+      convert()'s static_assert.
+      @tparam E    the format template.
+      @tparam From the source client version (a supported_versions entry).
+      @tparam To   the target client version (a supported_versions entry). */
+  template <template <ClientVersion> class E, ClientVersion From, ClientVersion To>
+  consteval bool has_convert_path()
+  {
+    if constexpr (From == To)
+      return true;
+    else
+    {
+      constexpr auto& versions = supported_versions<E>;
+      constexpr std::size_t from = detail::index_of(versions, From);
+      constexpr std::size_t to = detail::index_of(versions, To);
+      static_assert(from < versions.size(), "From is not a supported version of this format");
+      static_assert(to < versions.size(), "To is not a supported version of this format");
+      constexpr ClientVersion next = versions[from < to ? from + 1 : from - 1];
+      if constexpr (detail::HasConvertStep<E, From, next>)
+        return has_convert_path<E, next, To>();
+      else
+        return false;
+    }
+  }
+
   /** Convert @a src to its @a To - version representation by composing
       adjacent-version convert_step overloads along the format's ladder.
       @tparam To  the target client version (a supported_versions entry).

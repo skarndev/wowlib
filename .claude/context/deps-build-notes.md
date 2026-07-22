@@ -18,7 +18,7 @@ errors.
 |---|---|---|
 | StormLib | v9.40 | target `storm`; `STORM_SKIP_INSTALL`, `BUILD_SHARED_LIBS=OFF`; links SDK zlib/bzip2 |
 | CascLib | 3.0 | target `casc_static`; `CASC_BUILD_STATIC_LIB=ON`, `CASC_BUILD_SHARED_LIB=OFF`, unicode off |
-| welder | commit 19253c7 (no tags yet; method-backed properties) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
+| welder | commit 31b0801 (no tags yet; opaque-container generator + `transform_opaque_container` naming hook + `mark::no_reassign`) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
 
 ## Bumping the welder pin (we own welder)
@@ -28,22 +28,31 @@ errors.
   *"Requested git ref <sha> is not present locally, and not allowed to contact
   remote due to UPDATE_DISCONNECTED"* — and if that SHA was a local-only commit
   that got rebased/re-pushed, even a manual `git fetch origin <sha>` fails with
-  *"upload-pack: not our ref"* (GitHub only serves ref-reachable SHAs). Symptom of
-  this exact trap: pin `57e7747` (2026-07-19), which was an unpushed welder commit
-  later re-pushed to `main` as `19253c7`.
-- Recovery when a pin points at an unfetchable SHA: find the real commit on the
-  welder remote (`git -C build/<cfg>/_deps/welder-src ls-remote origin`, then
-  `fetch origin` to bring `main` local), repin `GIT_TAG` in Dependencies.cmake to a
-  SHA that exists there, and rebuild — the disconnected update checks out the now
-  local object.
+  *"upload-pack: not our ref"* (GitHub only serves ref-reachable SHAs).
+- Recovery when a pin points at an unfetchable SHA: **look in the local welder
+  repo first** (`~/WoWModding/Projects/welder`) — the SHA is usually an unpushed
+  commit sitting there; push it and `git -C build/<cfg>/_deps/welder-src fetch
+  origin`, then rebuild. Do NOT assume the SHA "became" some pushed commit and
+  repin downward: pin `57e7747` (2026-07-19, the NSDMI-defaults feature) was
+  misdiagnosed as "re-pushed as 19253c7" — but 19253c7 was its PARENT, and the
+  downward repin silently dropped the feature (the FileSystemSettings
+  keyword-defaults ctest failures blamed on a "welder regression" until
+  2026-07-20, when 57e7747 was finally pushed and repinned).
 
 ## Configure-time performance (2026-07-18)
 - `FETCHCONTENT_UPDATES_DISCONNECTED ON` in Dependencies.cmake: every pin is an
   immutable tag/commit, and without it each reconfigure ran a network `git fetch`
   per dependency (~3 min wall-clock at 17% CPU). No-op reconfigure now ~1.4s.
-- LuaBridge3 is pre-declared with `GIT_SUBMODULES ""` BEFORE welder's declaration
-  (FetchContent first-declaration-wins): it is header-only, and its submodules
-  (googletest, luau, ravi) are hundreds of MB the build never uses.
+- Lua/LuaBridge3 is **deferred** (2026-07-20): the target, the binding TU
+  (`bindings/lua/`) and the `WOWLIB_BUILD_LUA` knob are removed until the library
+  is feature-complete — Lua is lower priority and distracting. The `lang::lua`
+  welds STAY in the sources (Lua is planned, so we keep pretending it binds). When
+  it returns: re-add `WOWLIB_BUILD_LUA`, the `if(WOWLIB_BUILD_LUA)` block in
+  Dependencies.cmake, and the `welder_luabridge_add_module` target in
+  bindings/CMakeLists.txt. LuaBridge3 was pre-declared with `GIT_SUBMODULES ""`
+  BEFORE welder's declaration (FetchContent first-declaration-wins): it is
+  header-only, and its submodules (googletest, luau, ravi) are hundreds of MB the
+  build never uses — keep that when reinstating.
 - **One CMake binary per build dir.** The FetchContent populate sub-builds are
   mtime/stamp-based and effectively owned by whichever cmake configured last;
   alternating binaries (CLion's bundled 4.3.1 vs Homebrew 4.3.4) re-cloned
