@@ -95,10 +95,8 @@ if(WOWLIB_BUILD_PYTHON)
   install(FILES ${_wowlib_pytyped}
     DESTINATION wowlib-stubs COMPONENT wowlib_python)
 
-  add_test(NAME bindings.python
-    COMMAND Python::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/python/check.py)
-  set_tests_properties(bindings.python PROPERTIES
-    ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:wowlib_py>")
+  # Python-side testing lives in the pytest suite (tests/python), run against the
+  # installed editable extension — see pyproject [tool.pytest]. No ctest wrapper.
 endif()
 
 # The Lua module (LuaBridge3 rod) is deferred until the library is

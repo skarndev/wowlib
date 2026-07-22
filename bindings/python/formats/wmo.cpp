@@ -159,8 +159,8 @@ namespace wowlib_py::formats::wmo
         },
         nb::name("read"), nb::scope(base), nb::is_method(),
         nb::arg("source"), nb::arg("groups"),
-        nb::sig("def read(self, source: bytes | typing.BinaryIO, "
-                "groups: collections.abc.Sequence[bytes | typing.BinaryIO]) -> None"));
+        nb::sig("def read(self, source: collections.abc.Buffer | typing.BinaryIO, "
+                "groups: collections.abc.Sequence[collections.abc.Buffer | typing.BinaryIO]) -> None"));
 
       // write(FileSystem, FileKey) — save; group names inferred from the root key
       nb::cpp_function(

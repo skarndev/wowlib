@@ -31,3 +31,14 @@ wowlib.formats.wmo.group_chunks.AnyWMOGroupHeader$:
 
 wowlib.formats.wmo.group_chunks.AnyWMOBatch$:
     AnyWMOBatch = WMOBatchVanilla | WMOBatchTbc | WMOBatchWotlk | WMOBatchCata | WMOBatchMop | WMOBatchWod | WMOBatchLegion | WMOBatchBfa | WMOBatchShadowlands | WMOBatchDragonflight | WMOBatchTheWarWithin
+
+# Every wowlib exception carries `code` (the ErrorCode spelling) and `native_error`
+# (the raw StormLib/CascLib/OS error). errors.cpp attaches these per-instance at raise
+# time (raise_wowlib_error), so stubgen — which reflects classes — cannot see them.
+# Spell them on the wowlib.Error base here; every ErrorCode subclass inherits the
+# typing. Keep in sync with raise_wowlib_error if either attribute changes.
+wowlib.Error$:
+    class Error(Exception):
+        code: str
+        native_error: int
+
