@@ -45,11 +45,11 @@ def test_struct_vector_append_lands_on_the_owner_and_preserves_state(fresh_root)
     assert fresh_root.doodad_defs[0].scale == 2.5
 
 
-def test_struct_vector_getitem_returns_a_copy(fresh_root):
-    # Contrast with the scalar zero-copy path above: struct elements come back by
-    # value, so an in-place field write through __getitem__ does not persist. This
-    # pins the current semantics — flip it if the opaque generator ever returns
-    # element references for struct vectors.
+def test_struct_vector_getitem_returns_a_live_reference(fresh_root):
+    # Struct elements come back *by reference* (welder binds the opaque vector with
+    # rv_policy::reference_internal), so an in-place field write through __getitem__
+    # persists to the owning container. This mutability is the whole point of the
+    # by-reference binding — the scalar path above proves the same for numpy views.
     fresh_root.doodad_defs.append(chunks.SMODoodadDef())
     fresh_root.doodad_defs[0].scale = 9.0
-    assert fresh_root.doodad_defs[0].scale != 9.0
+    assert fresh_root.doodad_defs[0].scale == 9.0
