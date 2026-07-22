@@ -80,6 +80,21 @@ if(WOWLIB_BUILD_PYTHON)
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)
 
+  # --- Install rules (Python packaging) --------------------------------------
+  # Consumed by scikit-build-core to assemble the wheel; a plain `cmake --install`
+  # works too. Scoped to the wowlib_python component and defined only inside this
+  # WOWLIB_BUILD_PYTHON block, so the standalone C++ library build is unaffected.
+  # Layout: the abi3 extension as the top-level `wowlib` module, and the generated
+  # stub tree as a PEP 561 `wowlib-stubs` package so mypy and IDEs pick up types.
+  set(_wowlib_pytyped ${CMAKE_CURRENT_BINARY_DIR}/python/py.typed)
+  file(GENERATE OUTPUT ${_wowlib_pytyped} CONTENT "partial\n")
+  install(TARGETS wowlib_py
+    LIBRARY DESTINATION . COMPONENT wowlib_python)
+  install(DIRECTORY ${_wowlib_stubs}/wowlib/
+    DESTINATION wowlib-stubs COMPONENT wowlib_python)
+  install(FILES ${_wowlib_pytyped}
+    DESTINATION wowlib-stubs COMPONENT wowlib_python)
+
   add_test(NAME bindings.python
     COMMAND Python::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/python/check.py)
   set_tests_properties(bindings.python PROPERTIES

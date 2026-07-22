@@ -1,0 +1,59 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "wowlib"
+version = "0.0.1"
+description = "Read and write World of Warcraft client files — a C++26 core with Python bindings."
+requires-python = ">=3.13"
+# numpy is a genuine runtime dependency: the opaque vector bindings hand back
+# zero-copy numpy arrays, and the generated stubs import numpy / numpy.typing.
+dependencies = ["numpy>=2.0"]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.11", "pytest>=8", "ruff>=0.6"]
+
+[tool.scikit-build]
+# Reuse the same CMake tree CLion configures (build/bindings) so the C++ build and
+# the Python editable install share one tree instead of diverging into two. nanobind
+# is fetched by CMake (see cmake/Dependencies.cmake), so no build prerequisites
+# beyond a Python interpreter and the gcc-16 toolchain.
+build-dir = "build/bindings"
+# Stable ABI (abi3): one wheel for CPython >= 3.13, GCC- or MSVC-built.
+wheel.py-api = "cp313"
+# Build only the extension and its stub tree, and scope the install to our own
+# component so the FetchContent deps (StormLib/CascLib/nanobind/welder) — some of
+# which carry their own install() rules — are never packaged into the wheel.
+build.targets = ["wowlib_py", "wowlib_pyi"]
+install.components = ["wowlib_python"]
+
+[tool.scikit-build.cmake]
+# Match the gcc16-bindings preset (Debug) so this install reuses the shared
+# build/bindings tree in place instead of flipping its build type and forcing a
+# full rebuild every time you switch between CLion and `pip install`.
+build-type = "Debug"
+
+[tool.scikit-build.cmake.define]
+WOWLIB_BUILD_PYTHON = "ON"
+CMAKE_C_COMPILER = "gcc-16"
+CMAKE_CXX_COMPILER = "g++-16"
+
+[tool.mypy]
+# The installed wowlib-stubs package (PEP 561) is what mypy resolves once the
+# project is installed. This anchored path is a belt-and-suspenders fallback so
+# mypy still finds the stubs straight from the build tree even before an install,
+# regardless of mypy's working directory ($MYPY_CONFIG_FILE_DIR = this file's dir).
+mypy_path = "$MYPY_CONFIG_FILE_DIR/build/bindings/bindings/python/stubs"
+python_version = "3.13"
+
+[tool.ruff]
+# The Python surface is the hand-written binding glue and the smoke tests.
+target-version = "py313"
+extend-exclude = ["build"]
+
+[tool.pytest.ini_options]
+# No pytest suite is wired yet — bindings/python/check.py runs under ctest. Add
+# testpaths here when the smoke checks are ported to pytest against the installed
+# extension.
+addopts = "-ra"

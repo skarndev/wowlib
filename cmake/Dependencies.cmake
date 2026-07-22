@@ -39,21 +39,33 @@ if(WOWLIB_BUILD_PYTHON)
   set(WELDER_NANOBIND_STABLE_ABI ON CACHE BOOL "" FORCE)
   set(WELDER_PYTHON_VERSION "3.13" CACHE STRING "Python minor for the wowlib extension")
 
-  # Default interpreter: the project venv (uv venv .venv --python 3.13 && uv pip
-  # install nanobind). Override with -DPython_EXECUTABLE for another install.
+  # Default interpreter: the project venv. Override with -DPython_EXECUTABLE
+  # (scikit-build-core passes the installing interpreter through automatically).
   if(NOT Python_EXECUTABLE AND EXISTS ${CMAKE_SOURCE_DIR}/.venv/bin/python)
     set(Python_EXECUTABLE ${CMAKE_SOURCE_DIR}/.venv/bin/python)
   endif()
-  if(NOT nanobind_DIR AND Python_EXECUTABLE)
-    execute_process(COMMAND ${Python_EXECUTABLE} -m nanobind --cmake_dir
-      OUTPUT_VARIABLE _wowlib_nb_dir OUTPUT_STRIP_TRAILING_WHITESPACE
-      RESULT_VARIABLE _wowlib_nb_rc ERROR_QUIET)
-    if(_wowlib_nb_rc EQUAL 0)
-      set(nanobind_DIR ${_wowlib_nb_dir})
-    else()
-      message(FATAL_ERROR "wowlib: nanobind not importable by ${Python_EXECUTABLE}. "
-        "Provision it with: uv venv .venv --python 3.13 && uv pip install -p .venv nanobind")
+
+  # Provision nanobind ourselves — no interpreter-side `pip install nanobind`
+  # prerequisite. Fetch the pinned source and hand welder its CMake config dir
+  # (the same path `python -m nanobind --cmake_dir` would have returned, so
+  # welder's find_package(nanobind) is unchanged). An external -Dnanobind_DIR
+  # still wins if a caller wants to point at a preinstalled copy.
+  if(NOT nanobind_DIR)
+    FetchContent_Declare(nanobind
+      GIT_REPOSITORY https://github.com/wjakob/nanobind.git
+      GIT_TAG v2.13.0)
+    FetchContent_GetProperties(nanobind)
+    if(NOT nanobind_POPULATED)
+      # Source-only populate: we hand welder nanobind_DIR and let its
+      # find_package(nanobind) configure it. MakeAvailable would add_subdirectory
+      # nanobind and collide with that find_package, so keep populate-only — and
+      # pin CMP0169 OLD so its >=3.30 deprecation stays a no-op rather than erroring.
+      if(POLICY CMP0169)
+        cmake_policy(SET CMP0169 OLD)
+      endif()
+      FetchContent_Populate(nanobind)
     endif()
+    set(nanobind_DIR ${nanobind_SOURCE_DIR}/cmake)
   endif()
 endif()
 
