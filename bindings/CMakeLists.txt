@@ -56,11 +56,13 @@ if(WOWLIB_BUILD_PYTHON)
   # build graph (extend when a new namespace is added).
   set(_wowlib_stubs ${CMAKE_CURRENT_BINARY_DIR}/python/stubs)
   # The versioned-format facade is native — welded C++ bases give stubgen real
-  # inheritance and isinstance, nb::sig merged overloads render as typed @overload
-  # blocks, and the only thing stubgen can't synthesize (the AnyX union aliases,
-  # plus the typing/collections.abc imports the sigs name) comes from the
-  # declarative PATTERN_FILE. No post-processing step. The wmo namespace is a
-  # package now (root/group/chunks/group_chunks submodules).
+  # inheritance and isinstance, and nb::sig merged overloads render as typed
+  # @overload blocks (with auto-imported typing/collections.abc names). The AnyX
+  # unions are bound at import as real, importable types.UnionType objects
+  # (def_any_alias) — but nanobind 2.13's stubgen renders a UnionType as the
+  # invalid `types.UnionType[...]` subscript, so the PATTERN_FILE below spells the
+  # correct `AnyX = C0 | ...` alias (and suppresses that broken auto-emit). The wmo
+  # namespace is a package (root/group/chunks/group_chunks submodules).
   nanobind_add_stub(wowlib_pyi
     MODULE wowlib
     RECURSIVE

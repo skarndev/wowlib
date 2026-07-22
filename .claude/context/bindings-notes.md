@@ -30,7 +30,9 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
     base + the read/write/convert surface on WMOBase (mirrors `src/.../formats/wmo/`).
   - `fs.hpp/.cpp` — `register_filesystem_protocol`: the `__enter__`/`__exit__`
     dunders.
-  - `result_casters.hpp`, `stub_patterns.nb`, `check.py` unchanged in role.
+  - `result_casters.hpp`, `stub_patterns.nb`, `check.py` unchanged in role. (The
+    AnyX unions are REAL runtime aliases now — `def_any_alias`, see below — but the
+    PATTERN_FILE stays to spell them correctly in the stubs.)
   - CMake: ONE `nanobind_add_module(wowlib_py STABLE_ABI ...)` lists all the `.cpp`s;
     `target_include_directories(wowlib_py PRIVATE .../python)` makes quoted includes
     (`"formats/wmo.hpp"`, `"result_casters.hpp"`) resolve against the python/ root.
@@ -140,19 +142,24 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
 - Overloads merge under one name (Python `read_file(str|FileDataId)`) — never use
   weld_as to split them.
 - Stubs: ONE `nanobind_add_stub` with `RECURSIVE` + `OUTPUT_PATH` (submodules
-  discovered automatically) — but the expected files must still be listed in
-  `OUTPUT` for the build graph; extend the list when adding a namespace. Output:
+  discovered automatically) + a small `PATTERN_FILE` (AnyX union spellings) — but the
+  expected files must still be listed in `OUTPUT` for the build graph; extend the list
+  when adding a namespace. Output:
   `stubs/wowlib/{__init__,fs,versions}.pyi` + `stubs/wowlib/formats/__init__.pyi`
   + `stubs/wowlib/formats/wmo/{__init__,root,group,chunks,group_chunks}.pyi` (wmo
   is a package — extend OUTPUT when a submodule is added).
 - **The versioned-format facade is native** (welded C++ bases → real
   inheritance/isinstance; for_version/read/write/convert are nb::sig merged
   overloads on the base; see formats-architecture.md). **There is NO stub
-  post-processor** — the earlier facade_stub.py was deleted (the user rejected it
-  as unmaintainable). The only declarative piece is `stub_patterns.nb` (nanobind
-  PATTERN_FILE), which now injects just the `AnyX = C0 | ... ` union aliases per
-  submodule (`__prefix__:`); stubgen auto-imports the typing/collections.abc/
-  wowlib.fs names the nb::sig strings use, so no import lines are needed there.
+  post-processor** — the earlier facade_stub.py was deleted (user rejected it as
+  unmaintainable). The `AnyX` unions are now bound at import as real
+  `types.UnionType` objects (`def_any_alias`, facade.hpp) — importable at runtime
+  (`from wowlib.formats.wmo import AnyWMO`) and isinstance-capable. The only
+  declarative piece left is `stub_patterns.nb` (PATTERN_FILE): nanobind 2.13's
+  stubgen mis-renders a UnionType as the invalid `types.UnionType[...]` subscript,
+  so a per-member pattern suppresses that and writes the correct
+  `AnyX = C0 | ...`. stubgen still auto-imports the typing/collections.abc/wowlib.fs
+  names the nb::sig strings use, so no import lines are needed in the pattern file.
 
 ## Result<T> / std::expected translation
 welder has no expected support; each rod teaches its framework (Python live; the

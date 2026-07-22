@@ -119,4 +119,30 @@ namespace wowlib_py
       nb::sig(persist("def for_version(expansion: wowlib.Expansion) -> Any"
                       + std::string{base_name})));
   }
+
+  /** @brief Build the runtime @c AnyX union alias and bind it on @p module.
+
+      Folds the family's concrete classes — @c WMOVanilla @c | @c WMOTbc @c | ...
+      — into a @c types.UnionType and binds it as @c module.Any<base_name>, so the
+      alias is a REAL, importable object (@c from @c wowlib.formats.wmo @c import
+      @c AnyWMO works; usable in annotations and, on 3.10+, in @c isinstance) and
+      not merely a stub-only name. It is derived from the same expansion walk and
+      @c concrete_name every other facade piece uses, so a new @c Expansion grows
+      the union automatically. Because the bound value is a @c types.UnionType,
+      nanobind's stubgen renders it as @c "AnyX: @c TypeAlias @c = @c WMOVanilla @c
+      | @c ..." on its own — no PATTERN_FILE entry, one fewer coupling point.
+
+      @param module the submodule that owns the concrete classes and receives the
+             alias (each family lives beside its own concretes).
+      @param base_name the family base name, e.g. @c "WMO" → binds @c AnyWMO. */
+  inline void def_any_alias(nb::module_ module, std::string_view base_name)
+  {
+    nb::object alias;
+    template for (constexpr auto e : expansion_enumerators)
+    {
+      nb::object concrete = module.attr(concrete_name(base_name, [:e:]).c_str());
+      alias = alias.is_valid() ? nb::object(alias | concrete) : concrete;
+    }
+    module.attr(("Any" + std::string{base_name}).c_str()) = alias;
+  }
 }

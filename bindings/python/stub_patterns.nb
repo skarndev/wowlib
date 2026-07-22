@@ -1,20 +1,33 @@
-# nanobind stubgen PATTERN_FILE — the one part of the versioned-format facade's
-# typing that stubgen cannot synthesize: the AnyX union aliases. Everything else is
-# native — welded C++ bases give real inheritance/isinstance, nb::sig merged
-# overloads render as typed @overload blocks, and stubgen auto-imports the
-# typing/collections.abc/wowlib.fs names the sigs use. A new expansion adds one
-# member to each union (alongside wmo_versions and WOWLIB_WMO_FOR_EACH_VERSION).
+# nanobind stubgen PATTERN_FILE — spells the AnyX union aliases in the stubs.
+#
+# The AnyX aliases are REAL runtime objects now: def_any_alias (facade.hpp) binds
+# each as a types.UnionType (WMOVanilla | WMOTbc | ...) on its submodule, so
+# `from wowlib.formats.wmo import AnyWMO` works and the alias supports isinstance.
+# But nanobind 2.13's stubgen renders a types.UnionType as the INVALID subscript
+# `types.UnionType[...]` (type_str: origin+args), which mypy rejects — so each entry
+# below (a) suppresses that broken auto-emit by matching the attribute's full path
+# and (b) writes the correct `AnyX = C0 | C1 | ...` alias instead.
+#
+# The `$` anchors the key so AnyWMOGroup does not also match AnyWMOGroupBody. This
+# stub spelling is the one hand-maintained coupling point with wmo_versions + the
+# X-macro: a new Expansion grows the runtime unions automatically (def_any_alias
+# walks expansion_enumerators) but must be added to the matching line here too.
+# check.py guards both halves — a runtime isinstance test and a mypy narrowing test.
 
-wowlib.formats.wmo.__prefix__:
+wowlib.formats.wmo.AnyWMO$:
     AnyWMO = WMOVanilla | WMOTbc | WMOWotlk | WMOCata | WMOMop | WMOWod | WMOLegion | WMOBfa | WMOShadowlands | WMODragonflight | WMOTheWarWithin
 
-wowlib.formats.wmo.root.__prefix__:
+wowlib.formats.wmo.root.AnyWMORoot$:
     AnyWMORoot = WMORootVanilla | WMORootTbc | WMORootWotlk | WMORootCata | WMORootMop | WMORootWod | WMORootLegion | WMORootBfa | WMORootShadowlands | WMORootDragonflight | WMORootTheWarWithin
 
-wowlib.formats.wmo.group.__prefix__:
+wowlib.formats.wmo.group.AnyWMOGroup$:
     AnyWMOGroup = WMOGroupVanilla | WMOGroupTbc | WMOGroupWotlk | WMOGroupCata | WMOGroupMop | WMOGroupWod | WMOGroupLegion | WMOGroupBfa | WMOGroupShadowlands | WMOGroupDragonflight | WMOGroupTheWarWithin
+
+wowlib.formats.wmo.group.AnyWMOGroupBody$:
     AnyWMOGroupBody = WMOGroupBodyVanilla | WMOGroupBodyTbc | WMOGroupBodyWotlk | WMOGroupBodyCata | WMOGroupBodyMop | WMOGroupBodyWod | WMOGroupBodyLegion | WMOGroupBodyBfa | WMOGroupBodyShadowlands | WMOGroupBodyDragonflight | WMOGroupBodyTheWarWithin
 
-wowlib.formats.wmo.group_chunks.__prefix__:
+wowlib.formats.wmo.group_chunks.AnyWMOGroupHeader$:
     AnyWMOGroupHeader = WMOGroupHeaderVanilla | WMOGroupHeaderTbc | WMOGroupHeaderWotlk | WMOGroupHeaderCata | WMOGroupHeaderMop | WMOGroupHeaderWod | WMOGroupHeaderLegion | WMOGroupHeaderBfa | WMOGroupHeaderShadowlands | WMOGroupHeaderDragonflight | WMOGroupHeaderTheWarWithin
+
+wowlib.formats.wmo.group_chunks.AnyWMOBatch$:
     AnyWMOBatch = WMOBatchVanilla | WMOBatchTbc | WMOBatchWotlk | WMOBatchCata | WMOBatchMop | WMOBatchWod | WMOBatchLegion | WMOBatchBfa | WMOBatchShadowlands | WMOBatchDragonflight | WMOBatchTheWarWithin

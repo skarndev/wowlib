@@ -116,6 +116,19 @@ check(not isinstance(wmo, root_mod.WMORoot), "families do not cross-inherit")
 check(isinstance(gchunks_mod.WMOGroupHeader.for_version(wowlib.Expansion.Shadowlands),
                  gchunks_mod.WMOGroupHeader), "wire-struct family facade too")
 
+# the AnyX union aliases are REAL, importable runtime objects (types.UnionType),
+# not merely stub-only names: each family exposes Any<Family> on its submodule,
+# usable in annotations and — since they union the concrete classes — isinstance
+import types as _types
+from wowlib.formats import wmo as _wmo_import
+check(isinstance(_wmo_import.AnyWMO, _types.UnionType), "AnyWMO is an importable runtime TypeAlias")
+check(all(isinstance(getattr(_mod, _name), _types.UnionType) for _mod, _name in (
+    (wmo_mod, "AnyWMO"), (root_mod, "AnyWMORoot"),
+    (group_mod, "AnyWMOGroup"), (group_mod, "AnyWMOGroupBody"),
+    (gchunks_mod, "AnyWMOGroupHeader"), (gchunks_mod, "AnyWMOBatch"))),
+    "every family exposes its AnyX union on its submodule")
+check(isinstance(wmo, wmo_mod.AnyWMO), "a concrete WMO isinstance-matches the AnyWMO union")
+
 # a fresh entity carries its wire defaults; round-trip internals stay hidden
 check(wmo.root.mver == 17, "fresh root MVER 17")
 check(not hasattr(wmo.root, "journal"), "ChunkExtras internals not welded")

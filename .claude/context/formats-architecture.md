@@ -151,11 +151,19 @@ specializations stay trivially copyable). New gotchas from the sweep:
     load/save); Python excludes them so the concretes inherit the richer base
     overloads unshadowed. GOTCHA: `weld(lang::lua)` does NOT restrict — `mark::only`
     is the "bind for these langs only" knob (annotations resolution rule).
-  - **AnyX unions are the ONE thing stubgen can't synthesize** → the declarative
-    stub **PATTERN_FILE** (`__prefix__:` per submodule) emits `AnyWMO = C0 | ...`;
-    stubgen auto-imports the typing/collections.abc/wowlib.fs names the sigs use.
-    A new expansion edits the unions there (one more coupling point with
-    wmo_versions + the X-macro).
+  - **AnyX unions are REAL runtime objects, not stub-only** (2026-07-22): the
+    facade binds `AnyWMO = WMOVanilla | ... ` as an actual `types.UnionType` on
+    each submodule at import (`def_any_alias`, facade.hpp — folds the concrete
+    classes with `operator|`, derived from the same `expansion_enumerators` walk),
+    so `from wowlib.formats.wmo import AnyWMO` works and the alias is usable in
+    annotations AND `isinstance` (a UnionType supports instance checks on 3.10+).
+    The runtime side auto-grows with a new Expansion. The STUB spelling still comes
+    from `stub_patterns.nb` (PATTERN_FILE), because nanobind 2.13's stubgen
+    mis-renders a `types.UnionType` as the invalid `types.UnionType[...]` subscript
+    (`type_str`: origin+args) — so each per-member pattern both suppresses that
+    broken auto-emit and writes the correct `AnyX = C0 | ...`. The pattern list is
+    the one hand-maintained coupling point with wmo_versions + the X-macro; check.py
+    guards both halves (a runtime isinstance test + a mypy narrowing test).
 - **Verb unification — read()/write() everywhere** (C++ + bindings). WMO's C++
   surface: `read(fs,key)` (load) + excluded `read(root_span, group_spans)`
   (parse) + `write(fs,key)` (save); write_root/write_group gone (the library
