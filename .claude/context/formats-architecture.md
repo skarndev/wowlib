@@ -15,20 +15,30 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   `string_block.hpp` (StringBlock), `serializer.hpp` (engine), `flags.hpp`
   (has_flag), `types.hpp` (wire math/color primitives).
 - `formats/wmo/` — **the directory tree mirrors the namespace tree** (user rule,
-  2026-07-20), so each sub-namespace is a subdirectory and the four submodules
-  (`wmo.root`, `wmo.group`, `wmo.chunks`, `wmo.group_chunks`) produce small,
-  clean per-file `.pyi`s:
-  - `boundaries.hpp` (`wmo`) — version-boundary constants + wmo_version_v17.
+  2026-07-20), so each sub-namespace is a subdirectory. Reorganized 2026-07-23 so
+  each entity owns its chunk wire structs as a nested `chunks/` subdir/namespace
+  (user rule): the submodules are `wmo`, `wmo.root`, `wmo.root.chunks`, `wmo.group`
+  and `wmo.group.chunks`, and `root`/`group` are Python *packages*:
+  - `boundaries.hpp` (`wmo`) — wmo_version_v17 + the two *layout*-pivot constants
+    only (wmo_batch_large_material, wmo_split_groups); chunk-presence boundaries
+    are no longer named here (see below).
   - `wmo.hpp`/`wmo.cpp` (`wmo`) — the WMO assembly + WMOBase, wmo_versions, the
     per-namespace welded aliases (X-macro) and extern/instantiations.
+  - `convert.hpp` (`formats`) — WMO's `supported_versions<wmo::WMO>` specialization
+    (moved out of wmo.hpp) + future `convert_step` overloads; include this, not
+    wmo.hpp, to convert across versions.
   - `root/root.hpp` (`wmo::root`) — WMORoot + WMORootBase.
-  - `group/group.hpp` (`wmo::group`) — WMOGroup/WMOGroupBody + their bases.
-  - `chunks/` (`wmo::chunks`) — root wire structs split by chunk family:
+  - `root/chunks/` (`wmo::root::chunks`) — root wire structs split by chunk family:
     `header.hpp material.hpp structure.hpp light.hpp doodad.hpp environment.hpp`.
-  - `group_chunks/` (`wmo::group_chunks`) — group wire structs +
-    SMOGroupHeader/SMOBatch bases: `header.hpp geometry.hpp light.hpp`.
+  - `group/group.hpp` (`wmo::group`) — WMOGroup/WMOGroupBody + their bases.
+  - `group/chunks/` (`wmo::group::chunks`) — group wire structs +
+    SMOGroupHeader/SMOBatch bases: `header.hpp geometry.hpp light.hpp liquid.hpp`.
   (data_structs.hpp — a single 1247-line file — was split into these; "avoid
   extremely long files, split logically" is a user rule.)
+- **Chunk-member annotation style** (user rule, 2026-07-23): one annotation per
+  line in a vertical `[[ … ]]`, ordered `chunk()` first, then the format
+  annotations (since/until, optional/header/container, repeats), then welder's
+  (mark::*), with `welder::doc` ALWAYS last — a raw string literal when multiline.
 - Type naming: PascalCase classes everywhere (StringBlock, ChunkExtras,
   Repeated); wire structs keep the client's canonical spellings (SMOHeader,
   CAaBspNode); **WMO keeps its acronym** (WMORoot, WMOWotlk — not WmoRoot).
@@ -42,14 +52,16 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
 ## Core design
 
 - **Version axis**: `ClientVersion` as NTTP (`WMO<versions::wotlk>`). Layout
-  changes = constrained partial specializations (`requires (V < boundary)`);
-  chunk-set changes = `since()`/`until()` annotations on entity members.
-  Boundary constants live beside the wire structs in data_structs.hpp
-  (wmo_trans_batch_data 4.0, wmo_ambient_override 6.0, wmo_legion/
-  wmo_batch_large_material 7.0, wmo_uv_animation 7.3, wmo_light_sets 8.1.27826,
-  wmo_fdid_refs 8.1.28186, wmo_volumes 8.3, wmo_sl_extensions 9.0,
-  wmo_light_extensions 9.1, wmo_split_groups 9.2, wmo_query_faces 10.0,
-  wmo_m3_materials 11.0, wmo_portal_extras 11.1).
+  changes = constrained partial specializations (`requires (V < boundary)`) keyed
+  on the two named layout pivots in boundaries.hpp (wmo_batch_large_material
+  7.0.1.20740, wmo_split_groups 9.2.0.42423). **Chunk-set changes** =
+  `since()`/`until()` annotations that now carry the chunk's *own* exact client
+  version INLINE (`=since(ClientVersion{8, 1, 0, 27826})`), sourced per-chunk from
+  wowdev.wiki (user rule, 2026-07-23) — the old shared "feature set" constants
+  (wmo_fdid_refs, wmo_volumes, …) are gone: they grouped chunks under a guessed
+  common build. Notable corrections this brought: MOSI/MODI are 8.1.0.**27826**
+  (not 28186), MPVR is 8.3.0.**33775** (not 32044). Cata/WoD-era chunks that
+  wowdev leaves build-less stay expansion-level ({4,0,0,0}/{6,0,0,0}).
 - **ALL targeted versions are instantiated**: wmo_versions = the 11
   last-minor-of-major releases (vanilla → tww). The single coupling point is
   the `WOWLIB_WMO_FOR_EACH_VERSION` X-macro in wmo.hpp (aliases + externs) /
@@ -64,7 +76,7 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   Undocumented/offset-based layouts stay ChunkBlob (MOTA, MDDL, MPVD,
   MOPB, MOLS, MOMX, MOM3). MLIQ is the exception that was structured: its
   header-driven vertex/tile grid is a `SelfSerializing` leaf (MLIQData,
-  group_chunks/liquid.hpp) — the concrete precedent for the planned generic
+  group/chunks/liquid.hpp) — the concrete precedent for the planned generic
   offset_view member kind. v14-alpha-only chunks (MOLM/MOLD/MOIN/old-MOLV/
   MPB*) are deliberately unmodeled; MLSO/MOS2 are binary-only; MFOB (12.1)
   postdates the range.

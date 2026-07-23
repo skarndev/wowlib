@@ -91,7 +91,8 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
   # (def_any_alias) — but nanobind 2.13's stubgen renders a UnionType as the
   # invalid `types.UnionType[...]` subscript, so the PATTERN_FILE below spells the
   # correct `AnyX = C0 | ...` alias (and suppresses that broken auto-emit). The wmo
-  # namespace is a package (root/group/chunks/group_chunks submodules).
+  # namespace is a package whose root/ and group/ submodules are themselves
+  # packages (each with a nested chunks submodule of wire structs).
   nanobind_add_stub(wowlib_pyi
     MODULE wowlib
     RECURSIVE
@@ -101,10 +102,10 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
            ${_wowlib_stubs}/wowlib/versions.pyi
            ${_wowlib_stubs}/wowlib/formats/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/__init__.pyi
-           ${_wowlib_stubs}/wowlib/formats/wmo/root.pyi
-           ${_wowlib_stubs}/wowlib/formats/wmo/group.pyi
-           ${_wowlib_stubs}/wowlib/formats/wmo/chunks.pyi
-           ${_wowlib_stubs}/wowlib/formats/wmo/group_chunks.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/root/__init__.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/root/chunks.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/group/__init__.pyi
+           ${_wowlib_stubs}/wowlib/formats/wmo/group/chunks.pyi
     PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)

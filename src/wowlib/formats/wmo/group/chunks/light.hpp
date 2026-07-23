@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    WMO group lights and light sets (MOLP, MLSS/MLSP/MLSK, MOP2) (namespace wowlib::formats::wmo::group_chunks). */
+    WMO group lights and light sets (MOLP, MLSS/MLSP/MLSK, MOP2) (namespace wowlib::formats::wmo::group::chunks). */
 
 #include <array>
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
 
-namespace wowlib::formats::wmo::group_chunks
+namespace wowlib::formats::wmo::group::chunks
 {
   // --- MOLP / MLSS / MLSP / MLSK / MOP2 ---------------------------------------
 

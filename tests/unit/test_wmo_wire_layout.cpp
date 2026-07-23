@@ -11,9 +11,9 @@
 using namespace wowlib;
 using namespace wowlib::formats;
 using namespace wowlib::formats::wmo;
-using namespace wowlib::formats::wmo::chunks;
+using namespace wowlib::formats::wmo::root::chunks;
 using namespace wowlib::formats::wmo::group;
-using namespace wowlib::formats::wmo::group_chunks;
+using namespace wowlib::formats::wmo::group::chunks;
 
 // Sizes are asserted in the header itself; here we lock triviality (bulk
 // memcpy reads depend on it) and a few load-bearing offsets.

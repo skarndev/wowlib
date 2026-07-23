@@ -146,8 +146,10 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
   expected files must still be listed in `OUTPUT` for the build graph; extend the list
   when adding a namespace. Output:
   `stubs/wowlib/{__init__,fs,versions}.pyi` + `stubs/wowlib/formats/__init__.pyi`
-  + `stubs/wowlib/formats/wmo/{__init__,root,group,chunks,group_chunks}.pyi` (wmo
-  is a package — extend OUTPUT when a submodule is added).
+  + `stubs/wowlib/formats/wmo/__init__.pyi` + `wmo/root/{__init__,chunks}.pyi` +
+  `wmo/group/{__init__,chunks}.pyi` (wmo is a package whose root/ and group/
+  submodules are themselves packages, each with a nested `chunks` submodule —
+  extend OUTPUT when a submodule is added).
 - **The versioned-format facade is native** (welded C++ bases → real
   inheritance/isinstance; for_version/read/write/convert are nb::sig merged
   overloads on the base; see formats-architecture.md). **There is NO stub

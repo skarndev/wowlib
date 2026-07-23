@@ -234,16 +234,16 @@ namespace wowlib_py::formats::wmo
     nb::module_ wmo = nb::cast<nb::module_>(formats.attr("wmo"));
     nb::module_ root = nb::cast<nb::module_>(wmo.attr("root"));
     nb::module_ group = nb::cast<nb::module_>(wmo.attr("group"));
-    nb::module_ group_chunks = nb::cast<nb::module_>(wmo.attr("group_chunks"));
+    nb::module_ group_chunks = nb::cast<nb::module_>(group.attr("chunks"));
 
     def_for_version<wowlib::formats::wmo::WMO>(wmo.attr("WMO"), "WMO");
     def_for_version<wowlib::formats::wmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot");
     def_for_version<wowlib::formats::wmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup");
     def_for_version<wowlib::formats::wmo::group::WMOGroupBody>(group.attr("WMOGroupBody"),
                                                               "WMOGroupBody");
-    def_for_version<wowlib::formats::wmo::group_chunks::SMOGroupHeader>(
+    def_for_version<wowlib::formats::wmo::group::chunks::SMOGroupHeader>(
       group_chunks.attr("WMOGroupHeader"), "WMOGroupHeader");
-    def_for_version<wowlib::formats::wmo::group_chunks::SMOBatch>(
+    def_for_version<wowlib::formats::wmo::group::chunks::SMOBatch>(
       group_chunks.attr("WMOBatch"), "WMOBatch");
 
     def_wmo_ops(wmo.attr("WMO"));

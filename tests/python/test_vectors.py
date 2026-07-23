@@ -6,7 +6,7 @@ so it is asserted here directly."""
 
 import numpy as np
 
-from wowlib.formats.wmo import chunks
+from wowlib.formats.wmo.root import chunks
 
 
 def test_scalar_vector_append_is_by_reference(fresh_root):

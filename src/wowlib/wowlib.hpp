@@ -80,31 +80,23 @@ namespace wowlib::formats
   namespace
   [[=welder::doc(R"(
       The WMO (world map object) format: the WMO assembly and its per-version
-      classes, split into submodules that mirror the C++ layout (chunks,
-      group_chunks, root, group). The pre-declaration order is the submodule
-      weld order — wire structs (chunks/group_chunks) before the entities that
-      name them as NSDMI defaults.)")]]
+      classes, split into submodules that mirror the C++ layout (root, root.chunks,
+      group, group.chunks). The pre-declaration order is the submodule weld order —
+      within each of root/group the chunks wire structs are declared first, so they
+      weld before the entities that name them as NSDMI defaults.)")]]
   wmo
   {
-    namespace
-    [[=welder::doc("WMO root-file chunk wire structs (MOHD, MOMT, lights, "
-                   "doodads, fog, ambient volumes) and their flag enums.")]]
-    chunks
-    {
-    }
-
-    namespace
-    [[=welder::doc("WMO group-file chunk wire structs (the MOGP header, render "
-                   "batches, BSP nodes, group lights) and their flag enums.")]]
-    group_chunks
-    {
-    }
-
     namespace
     [[=welder::doc("The WMO root-file entity: WMORoot and its per-version "
                    "classes.")]]
     root
     {
+      namespace
+      [[=welder::doc("WMO root-file chunk wire structs (MOHD, MOMT, lights, "
+                     "doodads, fog, ambient volumes) and their flag enums.")]]
+      chunks
+      {
+      }
     }
 
     namespace
@@ -112,8 +104,14 @@ namespace wowlib::formats
                    "their per-version classes.")]]
     group
     {
+      namespace
+      [[=welder::doc("WMO group-file chunk wire structs (the MOGP header, render "
+                     "batches, BSP nodes, group lights) and their flag enums.")]]
+      chunks
+      {
+      }
     }
   }
 }
 
-#include <wowlib/formats/wmo/wmo.hpp>
+#include <wowlib/formats/wmo/convert.hpp>

@@ -5,20 +5,35 @@
     with. Follows welder's pattern: structural `*_spec` payloads in `detail`,
     consteval factories / inline constants as the user-facing spelling.
 
-    Usage (a chunked entity):
+    Usage (a chunked entity). The canonical order is: chunk() first; then the
+    format annotations (since/until, optional/header/container, repeats); then
+    welder's annotations, with welder::doc always last (a raw string literal when
+    it spans several lines):
     @code
     template <ClientVersion V>
     struct WMORoot : ChunkedFile<WMORoot<V>>
     {
       static constexpr ClientVersion version = V;
-      [[=chunk("MVER")]]                                   std::uint32_t mver = 17;
-      [[=chunk("MOTX"), =until(wmo_fdid_refs), =optional]] StringBlock textures;
-      [[=chunk("MOGP"), =container]]                       WMOGroupBody<V> body;
+
+      [[=chunk("MVER")]]
+      std::uint32_t mver = 17;
+
+      [[
+        =chunk("MODI"),
+        =since(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Doodad FileDataIDs (MODI, 8.1+).")]]
+      std::vector<std::uint32_t> doodad_fdids;
+
+      [[=chunk("MOGP"), =container]]
+      WMOGroupBody<V> body;
     };
     @endcode
 
     Annotations appear only on entity primary-template members, with
-    non-dependent arguments (namespace-scope ClientVersion constants) — wire
+    non-dependent arguments (a member's since()/until() carries the exact client
+    version the chunk appeared/vanished at, as wowdev.wiki documents it) — wire
     structs carry none. The serializer and the bindings read the same specs, so
     version activity has a single source of truth. */
 

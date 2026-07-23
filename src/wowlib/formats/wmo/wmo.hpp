@@ -14,7 +14,6 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
-#include <wowlib/formats/convert.hpp>
 #include <wowlib/formats/wmo/group/group.hpp>
 #include <wowlib/formats/wmo/root/root.hpp>
 
@@ -37,11 +36,17 @@ namespace wowlib::formats::wmo
     versions::legion,  versions::bfa,         versions::shadowlands,
     versions::dragonflight, versions::tww};
 
-  /** The version-agnostic base of every WMO<V>. Welded as "WMO" — the facade's
-      abstract entity: its per-version subclasses are the WMO* classes, so
-      isinstance and a `w: WMO` annotation cover them all. Empty in C++; the
-      for_version/read/write/convert surface a `w: WMO` speaks is attached to it
-      in the Python module glue (dispatching to the concrete version). */
+  /** The version-agnostic base of every WMO<V> (welded as "WMO").
+
+      This empty base exists ENTIRELY for the language bindings (Python, Lua): it
+      gives the per-version WMO* classes a common welded supertype, and the module
+      glue attaches the for_version/read/write/convert surface to it (dispatching
+      to the concrete version). Binding users therefore write version-agnostic
+      code (`isinstance(x, WMO)`, a `w: WMO` annotation,
+      `WMO.for_version(expansion)`). It has no role in the C++ API, where you use
+      the concrete WMO<V> directly.
+
+      @see https://wowdev.wiki/WMO */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::weld_as("WMO"),
@@ -49,11 +54,24 @@ namespace wowlib::formats::wmo
         A whole world map object, abstract over the client version — the root
         file and all its group files as one entity. Construct the concrete
         version with WMO.for_version(expansion), then read()/write(); the
-        per-version WMO* classes are subclasses.)")
+        per-version WMO* classes are subclasses. See https://wowdev.wiki/WMO.)")
   ]] WMOBase
   {
   };
 
+  /** A whole WMO (world map object) for one client version: the root file and all
+      its group files unified as one entity.
+
+      A WMO is a v17 world map object — a building, cave, bridge or other placed
+      structure. It is stored as a root file (shared data: materials, doodads,
+      portals, lights; see WMORoot) plus one file per group (the geometry; see
+      WMOGroup). Group files are located by GFID (Legion+ clients) or the
+      "{root}_NNN.wmo" naming convention. Reading is chunk-order independent;
+      writing replays the original chunk order, so an entity read from a client
+      and left unmodified rewrites byte-for-byte.
+
+      @tparam V the client version this assembly targets.
+      @see https://wowdev.wiki/WMO */
   template <ClientVersion V>
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
@@ -61,7 +79,8 @@ namespace wowlib::formats::wmo
         A whole world map object for one client version: the root file and all
         its group files as one entity. Group files are located by GFID (Legion+
         clients) or the "{root}_NNN.wmo" naming convention. An entity read from
-        a client and left unmodified rewrites byte-for-byte.)")
+        a client and left unmodified rewrites byte-for-byte. See
+        https://wowdev.wiki/WMO.)")
   ]] WMO : WMOBase
   {
     static constexpr ClientVersion version = V;
@@ -107,12 +126,6 @@ namespace wowlib::formats::wmo
   };
 }
 
-namespace wowlib::formats
-{
-  template <>
-  inline constexpr auto supported_versions<wmo::WMO> = wmo::wmo_versions;
-}
-
 /** Per-version expansion of the WMO template surface. X(Suffix, version) is
     invoked once per targeted release, in release order — the single spot that
     couples wmo::wmo_versions, the welded aliases and the explicit
@@ -134,7 +147,8 @@ namespace wowlib::formats
 // class-template instantiation through a namespace-scope alias, whose identifier
 // is the target-language name. Each family's aliases are declared in its own
 // namespace so the per-version classes surface under the matching submodule,
-// mirroring the C++ layout (wowlib.formats.wmo{,.root,.group,.group_chunks}).
+// mirroring the C++ layout (wowlib.formats.wmo{,.root,.root.chunks,.group,
+// .group.chunks}).
 namespace wowlib::formats::wmo::root
 {
 #define WOWLIB_WMO_ROOT_ALIAS(Suffix, version_) using WMORoot##Suffix = WMORoot<versions::version_>;
@@ -151,7 +165,7 @@ namespace wowlib::formats::wmo::group
 #undef WOWLIB_WMO_GROUP_ALIAS
 }
 
-namespace wowlib::formats::wmo::group_chunks
+namespace wowlib::formats::wmo::group::chunks
 {
 #define WOWLIB_WMO_GROUP_CHUNK_ALIAS(Suffix, version_)                                             \
   using WMOGroupHeader##Suffix = SMOGroupHeader<versions::version_>;                               \

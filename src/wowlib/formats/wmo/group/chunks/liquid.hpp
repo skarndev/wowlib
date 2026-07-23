@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    WMO group liquid (MLIQ) (namespace wowlib::formats::wmo::group_chunks). The
+    WMO group liquid (MLIQ) (namespace wowlib::formats::wmo::group::chunks). The
     MLIQ payload is an intra-chunk offset structure — a 30-byte header whose
     fields drive the lengths of two trailing arrays — so it cannot be a plain
     data/array chunk; MLIQData owns its payload encoding (SelfSerializing) the
@@ -21,7 +21,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/formats/common/types.hpp>
 
-namespace wowlib::formats::wmo::group_chunks
+namespace wowlib::formats::wmo::group::chunks
 {
   // --- MLIQ -------------------------------------------------------------------
 

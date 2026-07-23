@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The MOGP group header and group flag bits (namespace wowlib::formats::wmo::group_chunks). */
+    The MOGP group header and group flag bits (namespace wowlib::formats::wmo::group::chunks). */
 
 #include <array>
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
 
-namespace wowlib::formats::wmo::group_chunks
+namespace wowlib::formats::wmo::group::chunks
 {
   // --- MOGP header ------------------------------------------------------------
 
@@ -60,8 +60,14 @@ namespace wowlib::formats::wmo::group_chunks
   };
 
   /** The version-agnostic base of every SMOGroupHeader<V>, welded as
-      "WMOGroupHeader": the facade's abstract group header. Empty (elided base),
-      so the wire specializations stay trivially copyable and 0x44 bytes. */
+      "WMOGroupHeader".
+
+      This base exists ENTIRELY for the language bindings (Python, Lua): it gives
+      the per-version WMOGroupHeader* classes a common welded supertype so binding
+      users can write version-agnostic code (isinstance,
+      WMOGroupHeader.for_version(expansion)). It has no role in the C++ API, where
+      you use the concrete SMOGroupHeader<V> directly. It is an empty (elided)
+      base, so the wire specializations stay trivially copyable and 0x44 bytes. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::weld_as("WMOGroupHeader"),

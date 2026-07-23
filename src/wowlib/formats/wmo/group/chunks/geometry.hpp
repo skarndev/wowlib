@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    WMO group geometry: polys, batches, BSP (MOPY, MOBA, MOBN) (namespace wowlib::formats::wmo::group_chunks). */
+    WMO group geometry: polys, batches, BSP (MOPY, MOBA, MOBN) (namespace wowlib::formats::wmo::group::chunks). */
 
 #include <array>
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
 
-namespace wowlib::formats::wmo::group_chunks
+namespace wowlib::formats::wmo::group::chunks
 {
   // --- MOPY / MPY2 / MOBA / MORB / MOBS / MOBN --------------------------------
 
@@ -62,9 +62,14 @@ namespace wowlib::formats::wmo::group_chunks
   };
   static_assert(sizeof(Poly2) == 0x4);
 
-  /** The version-agnostic base of every SMOBatch<V>, welded as "WMOBatch": the
-      facade's abstract render batch. Empty (elided base), so the wire
-      specializations stay trivially copyable and 0x18 bytes. */
+  /** The version-agnostic base of every SMOBatch<V>, welded as "WMOBatch".
+
+      This base exists ENTIRELY for the language bindings (Python, Lua): it gives
+      the per-version WMOBatch* classes a common welded supertype so binding users
+      can write version-agnostic code (isinstance,
+      WMOBatch.for_version(expansion)). It has no role in the C++ API, where you
+      use the concrete SMOBatch<V> directly. It is an empty (elided) base, so the
+      wire specializations stay trivially copyable and 0x18 bytes. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::weld_as("WMOBatch"),

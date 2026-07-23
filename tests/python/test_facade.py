@@ -12,7 +12,7 @@ from wowlib.formats import wmo as wmo_mod
 
 root_mod = wmo_mod.root
 group_mod = wmo_mod.group
-gchunks_mod = wmo_mod.group_chunks
+gchunks_mod = wmo_mod.group.chunks
 
 
 def test_for_version_returns_the_concrete_class(fresh_wmo):

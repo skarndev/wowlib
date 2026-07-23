@@ -5,7 +5,7 @@ guard against accidental over-exposure when the reflection walk changes."""
 import pytest
 
 import wowlib
-from wowlib.formats.wmo import group_chunks as gchunks
+from wowlib.formats.wmo.group import chunks as gchunks
 
 
 def test_version_constants():

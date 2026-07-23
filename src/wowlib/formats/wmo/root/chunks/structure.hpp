@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    WMO group info, portals and visible blocks (namespace wowlib::formats::wmo::chunks). */
+    WMO group info, portals and visible blocks (namespace wowlib::formats::wmo::root::chunks). */
 
 #include <algorithm>
 #include <array>
@@ -14,7 +14,7 @@
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 
-namespace wowlib::formats::wmo::chunks
+namespace wowlib::formats::wmo::root::chunks
 {
   // --- MOGI / MGI2 ------------------------------------------------------------
 

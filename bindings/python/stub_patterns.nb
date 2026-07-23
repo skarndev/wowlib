@@ -26,10 +26,10 @@ wowlib.formats.wmo.group.AnyWMOGroup$:
 wowlib.formats.wmo.group.AnyWMOGroupBody$:
     AnyWMOGroupBody = WMOGroupBodyVanilla | WMOGroupBodyTbc | WMOGroupBodyWotlk | WMOGroupBodyCata | WMOGroupBodyMop | WMOGroupBodyWod | WMOGroupBodyLegion | WMOGroupBodyBfa | WMOGroupBodyShadowlands | WMOGroupBodyDragonflight | WMOGroupBodyTheWarWithin
 
-wowlib.formats.wmo.group_chunks.AnyWMOGroupHeader$:
+wowlib.formats.wmo.group.chunks.AnyWMOGroupHeader$:
     AnyWMOGroupHeader = WMOGroupHeaderVanilla | WMOGroupHeaderTbc | WMOGroupHeaderWotlk | WMOGroupHeaderCata | WMOGroupHeaderMop | WMOGroupHeaderWod | WMOGroupHeaderLegion | WMOGroupHeaderBfa | WMOGroupHeaderShadowlands | WMOGroupHeaderDragonflight | WMOGroupHeaderTheWarWithin
 
-wowlib.formats.wmo.group_chunks.AnyWMOBatch$:
+wowlib.formats.wmo.group.chunks.AnyWMOBatch$:
     AnyWMOBatch = WMOBatchVanilla | WMOBatchTbc | WMOBatchWotlk | WMOBatchCata | WMOBatchMop | WMOBatchWod | WMOBatchLegion | WMOBatchBfa | WMOBatchShadowlands | WMOBatchDragonflight | WMOBatchTheWarWithin
 
 # Every wowlib exception carries `code` (the ErrorCode spelling) and `native_error`

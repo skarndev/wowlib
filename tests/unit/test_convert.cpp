@@ -1,7 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <wowlib/formats/convert.hpp>
-#include <wowlib/formats/wmo/wmo.hpp>
+#include <wowlib/formats/wmo/convert.hpp>
 
 using namespace wowlib;
 using namespace wowlib::formats;
