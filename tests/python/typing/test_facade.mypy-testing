@@ -1,0 +1,34 @@
+"""Type-resolution cases for the versioned-format facade, checked by
+pytest-mypy-testing against the installed wowlib stubs. Functions with no `# R:`/
+`# E:` comments assert a clean type-check (no diagnostics)."""
+
+import io
+
+import pytest
+
+import wowlib
+from wowlib.formats import wmo
+
+
+@pytest.mark.mypy_testing
+def mypy_for_version_narrows_to_the_concrete_class() -> None:
+    reveal_type(wmo.WMO.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.wmo.WMOWotlk
+
+
+@pytest.mark.mypy_testing
+def mypy_convert_narrows_on_the_target_literal() -> None:
+    w = wmo.WMO.for_version(wowlib.Expansion.Wotlk)
+    reveal_type(w.convert(wowlib.Expansion.Cata))  # R: wowlib.formats.wmo.WMOCata
+
+
+@pytest.mark.mypy_testing
+def mypy_anywmo_widening_type_checks_clean() -> None:
+    s: wmo.AnyWMO = wmo.WMO.for_version(wowlib.Expansion.Shadowlands)
+
+
+@pytest.mark.mypy_testing
+def mypy_read_write_buffer_overloads_type_check() -> None:
+    w = wmo.WMO.for_version(wowlib.Expansion.Wotlk)
+    w.read(b"", [io.BytesIO(b"")])
+    w.read(io.BytesIO(b""), [])
+    w.write(io.BytesIO(), [])

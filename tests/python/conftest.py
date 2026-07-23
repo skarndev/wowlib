@@ -5,7 +5,7 @@ filesystem lifetime/context-manager protocol, the buffer (read/write) protocol,
 the versioned-format facade, the opaque zero-copy vectors, and the value types.
 Library/format correctness itself is Catch2's job on the C++ side; we only assert
 the binding contracts welder does not already guarantee, plus that the generated
-type stubs resolve correctly (see the typing/ cases and test_typing_gaps.py).
+type stubs resolve correctly (see the typing/ *.mypy-testing cases).
 """
 
 import os

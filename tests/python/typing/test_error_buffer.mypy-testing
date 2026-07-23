@@ -1,0 +1,23 @@
+"""Contracts that were previously stub<->runtime gaps and are now fixed: exceptions
+expose typed .code/.native_error, and read() accepts any bytes-like buffer, not just
+bytes. No comment on a line asserts a clean type-check there."""
+
+import pytest
+
+import wowlib
+from wowlib.formats import wmo
+
+
+@pytest.mark.mypy_testing
+def mypy_exception_code_and_native_error_are_typed() -> None:
+    def handle(e: wowlib.StorageOpenFailed) -> None:
+        code: str = e.code
+        native: int = e.native_error
+
+
+@pytest.mark.mypy_testing
+def mypy_read_accepts_any_bytes_like_buffer() -> None:
+    w = wmo.WMO.for_version(wowlib.Expansion.Wotlk)
+    w.read(bytearray(b""), [])
+    w.read(memoryview(b""), [])
+    w.read(b"", [])

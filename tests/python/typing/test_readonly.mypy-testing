@@ -1,0 +1,19 @@
+"""The immutable value surfaces must reject assignment at type-check time, not only
+at runtime (test_surface / test_identity cover the runtime AttributeError)."""
+
+from pathlib import Path
+
+import pytest
+
+import wowlib
+
+
+@pytest.mark.mypy_testing
+def mypy_version_storage_kind_is_read_only() -> None:
+    wowlib.versions.wotlk.storage_kind = wowlib.StorageKind.Casc  # E: Property "storage_kind" defined in "ClientVersion" is read-only  [misc]
+
+
+@pytest.mark.mypy_testing
+def mypy_settings_fields_are_read_only() -> None:
+    s = wowlib.fs.FileSystemSettings(client_path="/c", version=wowlib.versions.wotlk)
+    s.client_path = Path("/elsewhere")  # E: Property "client_path" defined in "FileSystemSettings" is read-only  [misc]
