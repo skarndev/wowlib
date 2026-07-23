@@ -61,8 +61,11 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   MDDI/MPVD/MAVG/MAVD/MBVD/MFED/MGI2/MNLD/MDDL/MOMX added; group: MOGX/MPY2/
   MOVX/MOQG/MOC2/MOTA/MDAL/MOPL/MOPB/MOLS/MOLP/MLSS/MLSP/MLSK/MOP2/MPVR/MAVR/
   MBVR/MFVR/MNLR added, MORB/MOBS upgraded from blobs to structured vectors).
-  Undocumented/offset-based layouts stay ChunkBlob (MLIQ, MOTA, MDDL, MPVD,
-  MOPB, MOLS, MOMX, MOM3). v14-alpha-only chunks (MOLM/MOLD/MOIN/old-MOLV/
+  Undocumented/offset-based layouts stay ChunkBlob (MOTA, MDDL, MPVD,
+  MOPB, MOLS, MOMX, MOM3). MLIQ is the exception that was structured: its
+  header-driven vertex/tile grid is a `SelfSerializing` leaf (MLIQData,
+  group_chunks/liquid.hpp) — the concrete precedent for the planned generic
+  offset_view member kind. v14-alpha-only chunks (MOLM/MOLD/MOIN/old-MOLV/
   MPB*) are deliberately unmodeled; MLSO/MOS2 are binary-only; MFOB (12.1)
   postdates the range.
 - **read()/write() are entity METHODS**: `ChunkedFile<Derived>` (CRTP mixin
@@ -198,8 +201,9 @@ specializations stay trivially copyable). New gotchas from the sweep:
   `[[=welder::mark::no_reassign]]` → the property is read-only (mutate in place, but no
   whole-attribute reassignment). The excluded `Repeated<>` texcoords/vertex_colors and
   the `ChunkBlob` members are unmarked.
-- Deferred: M2/ADT/WDT; offset-based intra-chunk data (MLIQ/MOTA/MDDL/M2Array
-  — planned as an `offset_view` member kind); real convert steps; Repeated<>
+- Deferred: M2/ADT/WDT; the remaining offset-based intra-chunk data (MOTA/MDDL/
+  M2Array — planned as an `offset_view` member kind generalizing the MLIQData
+  approach); real convert steps; Repeated<>
   bindings (sequence protocol; texcoords/vertex_colors still mark::exclude'd);
   integration coverage for the 9 versions without local clients.
 

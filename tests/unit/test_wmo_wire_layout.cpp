@@ -34,6 +34,10 @@ static_assert(all_trivially_copyable<UVAnimation, GroupInfo2, PortalExtra, Light
                                      Poly2, RenderBatchOverride, ShadowBatch, PointLight,
                                      LightSet, PointLightAnim>);
 
+// MLIQ grid records are bulk-memcpy'd like the other wire structs.
+static_assert(all_trivially_copyable<SMOLVert, SMOLTile>);
+static_assert(sizeof(SMOLVert) == 8 && sizeof(SMOLTile) == 1);
+
 TEST_CASE("wire offsets match the wowdev layout", "[formats][wmo]")
 {
   STATIC_CHECK(offsetof(SMOHeader, ambient_color) == 0x1C);
@@ -144,5 +148,73 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
   CHECK(assembled.groups[0].body.indices.size() == 3);
 
   CHECK(*assembled.root.write() == root_data);
+  CHECK(*assembled.groups[0].write() == group_data);
+}
+
+TEST_CASE("MLIQ liquid decodes its header-driven grid and round-trips",
+          "[formats][wmo]")
+{
+  const std::uint32_t mver = 17;
+
+  FileBuffer root_data;
+  put_chunk(root_data, "MVER", &mver, sizeof mver);
+  SMOHeader header;
+  header.n_groups = 1;
+  put_chunk(root_data, "MOHD", &header, sizeof header);
+
+  // A 2x2 vertex grid over a single tile: 30-byte header + 4 verts + 1 tile.
+  FileBuffer mliq;
+  const std::int32_t verts_dim[2]{2, 2};
+  const std::int32_t tiles_dim[2]{1, 1};
+  const float base_coords[3]{10.0f, 20.0f, 0.5f};
+  const std::uint16_t material_id = 7;
+  const auto put = [&mliq](const void* p, std::size_t n) {
+    const auto* b = reinterpret_cast<const std::byte*>(p);
+    mliq.insert(mliq.end(), b, b + n);
+  };
+  put(verts_dim, sizeof verts_dim);
+  put(tiles_dim, sizeof tiles_dim);
+  put(base_coords, sizeof base_coords);
+  put(&material_id, sizeof material_id);
+  REQUIRE(mliq.size() == 30);   // the unpadded on-disk header
+  struct RawVert { std::uint8_t a, b, c, d; float h; };
+  const RawVert verts[4]{{1, 2, 3, 0, 1.0f}, {4, 5, 6, 0, 2.0f},
+                         {7, 8, 9, 0, 3.0f}, {0, 0, 0, 0, 4.0f}};
+  put(verts, sizeof verts);
+  const std::uint8_t tile = 0xC1;   // shared | fishable | liquid type 1
+  put(&tile, sizeof tile);
+  REQUIRE(mliq.size() == 30 + 4 * 8 + 1);
+
+  FileBuffer group_data;
+  put_chunk(group_data, "MVER", &mver, sizeof mver);
+  {
+    FileBuffer body;
+    SMOGroupHeader<versions::wotlk> group_header;
+    group_header.flags = std::to_underlying(GroupFlags::has_liquid);
+    body.insert(body.end(), reinterpret_cast<const std::byte*>(&group_header),
+                reinterpret_cast<const std::byte*>(&group_header) + sizeof group_header);
+    put_chunk(body, "MLIQ", mliq.data(), mliq.size());
+    put_chunk(group_data, "MOGP", body.data(), body.size());
+  }
+
+  const std::span<const std::byte> group_span{group_data};
+  WMO<versions::wotlk> assembled;
+  REQUIRE(assembled.read(root_data, std::span{&group_span, 1}).has_value());
+  REQUIRE(assembled.groups.size() == 1);
+
+  const auto& liquid = assembled.groups[0].body.liquid;
+  CHECK_FALSE(liquid.empty());
+  CHECK(liquid.verts_dim.x == 2);
+  CHECK(liquid.verts_dim.y == 2);
+  CHECK(liquid.tiles_dim.x == 1);
+  CHECK(liquid.material_id == 7);
+  CHECK(liquid.base_coords.x == 10.0f);
+  REQUIRE(liquid.vertices.size() == 4);
+  CHECK(liquid.vertices[0].flow1 == 1);
+  CHECK(liquid.vertices[3].height == 4.0f);
+  REQUIRE(liquid.tiles.size() == 1);
+  CHECK(liquid.tiles[0].flags == 0xC1);
+
+  // Byte-perfect round-trip of the whole group, MLIQ included.
   CHECK(*assembled.groups[0].write() == group_data);
 }

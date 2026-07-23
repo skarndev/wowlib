@@ -18,6 +18,7 @@
 #include <wowlib/formats/wmo/group_chunks/geometry.hpp>
 #include <wowlib/formats/wmo/group_chunks/header.hpp>
 #include <wowlib/formats/wmo/group_chunks/light.hpp>
+#include <wowlib/formats/wmo/group_chunks/liquid.hpp>
 
 namespace wowlib::formats::wmo::group
 {
@@ -130,9 +131,9 @@ namespace wowlib::formats::wmo::group
     std::vector<CImVector> vertex_colors2;
 
     [[=chunk("MLIQ"), =formats::optional,
-      =welder::doc("Liquid data (MLIQ); intra-chunk offset structure, kept "
-                   "opaque for now.")]]
-    ChunkBlob liquid;
+      =welder::doc("Liquid data (MLIQ): a vertex grid and tile-flag grid with a "
+                   "base position and material id.")]]
+    MLIQData liquid;
 
     [[=chunk("MORI"), =formats::optional,
       =welder::doc("Triangle-strip indices (MORI)."), =welder::mark::no_reassign]]

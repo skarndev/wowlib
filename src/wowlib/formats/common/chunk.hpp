@@ -76,8 +76,8 @@ namespace wowlib::formats
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("An unparsed chunk payload, preserved verbatim for round-trip. "
-                 "Backs chunks wowlib keeps opaque — offset-based (MLIQ, MOTA, "
-                 "MDDL) or undocumented (MPVD, MOMX).")
+                 "Backs chunks wowlib keeps opaque — offset-based (MOTA, MDDL) "
+                 "or undocumented (MPVD, MOMX).")
   ]] ChunkBlob
   {
     [[=welder::mark::exclude]] std::vector<std::byte> bytes;
