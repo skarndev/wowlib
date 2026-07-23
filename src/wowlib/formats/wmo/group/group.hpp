@@ -145,14 +145,14 @@ namespace wowlib::formats::wmo::group
       =welder::doc("Normals (MONR).")]]
     std::vector<C3Vector> normals;
 
-    /** Up to three texture-coordinate sets; count driven by the group flags
-        (has_two_motv, has_three_motv). Excluded from bindings until Repeated<>
-        grows a sequence protocol. */
     [[
       =chunk("MOTV"),
       =formats::optional,
       =repeats(3),
-      =welder::mark::exclude]]
+      =welder::mark::only(welder::lang::py),
+      =welder::doc(R"(Texture-coordinate sets (MOTV), up to three; the active count
+                      is driven by the group flags (has_two_motv, has_three_motv).
+                      Binds as a list of the filled sets, by value.)")]]
     Repeated<std::vector<C2Vector>, 3> texcoords;
 
     [[
@@ -199,13 +199,14 @@ namespace wowlib::formats::wmo::group
       =welder::doc("BSP face indices (MOBR).")]]
     std::vector<std::uint16_t> bsp_face_indices;
 
-    /** Up to two vertex-color layers (has_vertex_colors, has_two_mocv).
-        Excluded from bindings like texcoords. */
     [[
       =chunk("MOCV"),
       =formats::optional,
       =repeats(2),
-      =welder::mark::exclude]]
+      =welder::mark::only(welder::lang::py),
+      =welder::doc(R"(Vertex-color layers (MOCV), up to two; the active count is
+                      driven by the group flags (has_vertex_colors, has_two_mocv).
+                      Binds as a list of the filled layers, by value.)")]]
     Repeated<std::vector<CImVector>, 2> vertex_colors;
 
     [[

@@ -13,6 +13,15 @@ dependencies = ["numpy>=2.0"]
 
 [project.optional-dependencies]
 dev = ["mypy>=1.11", "pytest>=8", "pytest-mypy-testing>=0.2", "ruff>=0.6"]
+# Documentation site (docs/build.py). mkdocs-material renders the guide + the
+# Python API (mkdocstrings over the .pyi stubs); `lark` is needed by welder's
+# Doxygen INPUT_FILTER, which docs/build.py invokes with this interpreter. Doxygen
+# itself (for the C++ reference) is a system tool, not a Python dependency.
+docs = [
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.26",
+  "lark>=1.2",
+]
 
 [tool.scikit-build]
 # Reuse the same CMake tree CLion configures (build/bindings) so the C++ build and

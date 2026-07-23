@@ -90,8 +90,8 @@ namespace wowlib::fs
     static constexpr StorageKind kind() { return StorageKind::Mpq; }
 
     /** One opened member of the chain, for introspection and tests. Exactly one
-        source is active, per @ref is_directory: a StormLib archive, or a loose
-        directory whose files are indexed by canonical in-game path. */
+        source is active — a StormLib archive, or a loose directory whose files
+        are indexed by canonical in-game path — as selected by @ref is_directory. */
     struct OpenedArchive
     {
       std::filesystem::path path;      /**< The archive file or loose-dir root on disk. */

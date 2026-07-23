@@ -1,0 +1,154 @@
+/* A few wowlib tweaks over mkdocs-material. The palette (blue / amber) is set in
+   mkdocs.yml; this file only smooths a couple of edges and styles the generated
+   Python API blocks. */
+
+/* mkdocstrings: give each documented symbol a little breathing room and a subtle
+   left rule so nested members read as a tree. */
+.doc-contents:not(.first) {
+  padding-left: 0.8rem;
+  border-left: 0.05rem solid var(--md-typeset-table-color);
+}
+
+/* Slightly tighter, monospaced signatures. */
+.doc-signature {
+  font-size: 0.72rem;
+}
+
+/* Left sidebar: indent nested nav items (a section's sub-pages) slightly, with a
+   faint guide line, so the hierarchy reads at a glance — e.g. the WMO format
+   section's Classes / Root chunks / Group chunks sit visibly under it. */
+.md-nav--primary .md-nav__list .md-nav__list {
+  margin-left: 0.6rem;
+  padding-left: 0.35rem;
+  border-left: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
+/* --- Generic WMO field reference (docs/wmo_reference.py) ---------------------
+   Per-field expansion-availability badges, wowdev.wiki-style. Original colored
+   pills (each expansion in a signature color), theme-aware. */
+.exp-pill {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.6rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: #fff;
+  white-space: nowrap;
+}
+.exp-vanilla      { background: #b8964a; }
+.exp-tbc          { background: #5f9a45; }
+.exp-wotlk        { background: #4f8fc0; }
+.exp-cata         { background: #c0504d; }
+.exp-mop          { background: #3fa06e; }
+.exp-wod          { background: #b06a2b; }
+.exp-legion       { background: #7b4fb5; }
+.exp-bfa          { background: #2b7a9b; }
+.exp-shadowlands  { background: #3aa2bd; }
+.exp-dragonflight { background: #d1662a; }
+.exp-tww          { background: #6157c9; }
+
+.wmo-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.6rem 0 1.2rem;
+}
+.wmo-legend-label {
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+  margin-right: 0.2rem;
+}
+
+/* Badges injected into a mkdocstrings heading (attribute or class). Only headings
+   that actually carry tags become flex, so the badges align to the right edge
+   without disturbing every other heading. */
+.doc-heading:has(.wmo-tags) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.wmo-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;            /* push the badges to the right of the heading */
+  vertical-align: middle;
+}
+.exp-label { margin-left: 0.18rem; }
+.wmo-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.wmo-bar {
+  width: 1.2rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--md-default-fg-color--lighter);
+}
+.wmo-bar--open {
+  position: relative;
+  width: 1.5rem;
+  background: linear-gradient(90deg, var(--md-default-fg-color--lighter), var(--md-default-fg-color--lightest));
+}
+.wmo-bar--open::after {           /* arrowhead: "available from here onward" */
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-left: 6px solid var(--md-default-fg-color--lighter);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+
+/* Expansion emblem icon inside a pill (when content/assets/expansions/<key>.*
+   exists); otherwise the pill shows its short text label. */
+.exp-icon {
+  height: 1.05em;
+  width: auto;
+  vertical-align: -0.15em;
+  display: inline-block;
+}
+/* Chunk page: "[field]" tag naming the entity field a wire struct belongs to,
+   linking back to the fields page. */
+.wmo-owner {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.02rem 0.34rem;
+  border-radius: 0.6rem;
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color--light);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.wmo-owner:hover { color: var(--md-primary-fg-color); }
+.wmo-cc {
+  display: inline-block;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  padding: 0.02rem 0.32rem;
+  border: 0.05rem solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+  color: var(--md-default-fg-color--light);
+}
+/* A FourCC that links to wowdev.wiki: no underline, but a clear hover affordance. */
+a.wmo-cc {
+  text-decoration: none;
+  transition: color 0.1s, border-color 0.1s;
+}
+a.wmo-cc:hover {
+  color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+
+/* Home-page cards: let long titles wrap cleanly. */
+.md-typeset .grid.cards > ul > li > hr {
+  margin: 0.6rem 0;
+}

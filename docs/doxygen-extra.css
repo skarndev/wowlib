@@ -1,0 +1,100 @@
+/* wowlib tweaks over doxygen-awesome-css (v2.4.2, which supports Doxygen's new
+   page-nav sidebar). Retune the accent to wowlib's blue palette so the C++
+   reference matches the mkdocs-material guide. Loaded last in
+   HTML_EXTRA_STYLESHEET, so these win. The theme handles the layout and dark mode
+   (nav sidebar, inline code, TOC, member boxes) itself — we only restyle a few
+   things it leaves to the browser or hardcodes off-brand. */
+
+html {
+    --primary-color:        #1976d2;   /* blue 700 */
+    --primary-dark-color:   #1565c0;
+    --primary-light-color:  #42a5f5;
+    --primary-lighter-color: #90caf9;
+    --primary-lightest-color: #e3f2fd;
+
+    --fragment-keyword:     #1565c0;
+    --page-secondary-foreground-color: #566270;
+}
+
+/* Dark accent. doxygen-awesome sets its dark accent under BOTH `html.dark-mode`
+   AND `@media (prefers-color-scheme: dark) html:not(.light-mode)` — the latter has
+   higher specificity than a bare `html`, so we must override in the same media
+   form or the OS-dark-with-no-explicit-class case falls back to awesome's blue. */
+html.dark-mode {
+    --primary-color:        #64b5f6;
+    --primary-dark-color:   #90caf9;
+    --primary-light-color:  #1976d2;
+    --primary-lighter-color: #1a3550;
+    --primary-lightest-color: #12233a;
+}
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode) {
+        --primary-color:        #64b5f6;
+        --primary-dark-color:   #90caf9;
+        --primary-light-color:  #1976d2;
+        --primary-lighter-color: #1a3550;
+        --primary-lightest-color: #12233a;
+    }
+}
+
+/* Match the guide's rounded, tactile code blocks. */
+div.fragment,
+pre.fragment {
+    border-radius: 0.5rem;
+}
+
+/* --- Header controls (injected by patch_doxygen_header.py) -------------------
+   A light/dark toggle placed inline next to the search box (Doxygen 1.17 drops
+   jQuery, so doxygen-awesome's own toggle never inserts), and the project title
+   linked back to the mkdocs guide. Clicks are handled by a delegated listener, so
+   the button works even though it sits within the search box's container. */
+#wowlib-dark-toggle {
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0 6px;
+    margin-left: var(--spacing-small);
+    height: var(--searchbar-height);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    color: var(--primary-color);
+    border-radius: var(--searchbar-border-radius);
+    line-height: 0;
+}
+#wowlib-dark-toggle:hover {
+    color: var(--primary-dark-color);
+    background-color: rgba(128, 128, 128, 0.14);
+}
+/* The project title becomes a backlink to the guide but should still look like
+   the title (doxygen-awesome styles #projectname). */
+#projectname a.wowlib-guide-link {
+    color: inherit;
+    text-decoration: none;
+}
+#projectname a.wowlib-guide-link:hover {
+    color: var(--primary-color);
+}
+
+/* Readable text selection in both themes (the theme leaves it to the browser,
+   which can render an unreadable near-white highlight in dark mode). */
+::selection {
+    background: var(--primary-color);
+    color: #ffffff;
+}
+::-moz-selection {
+    background: var(--primary-color);
+    color: #ffffff;
+}
+
+/* Tame doxygen's default *cyan* jump-to-anchor glow to the wowlib accent, with a
+   theme-aware background so text stays legible in dark mode. */
+.memitem.glow,
+.memdoc.glow,
+.memberdecls td.glow,
+.fieldtable tr.glow,
+div.line.glow {
+    background-color: var(--primary-lightest-color) !important;
+    box-shadow: 0 0 12px var(--primary-light-color) !important;
+}

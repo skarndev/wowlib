@@ -35,9 +35,10 @@ namespace wowlib::fs::detail
   enum class PatchScheme
   {
     None,            /**< No patch tier. */
-    ClassicWildcard, /**< Pre-Cata: `patch.MPQ` + single-char `patch-?.MPQ` in
-                          Data/, and `patch-{locale}[-?].MPQ` in Data/{locale}/,
-                          merged and sorted by extension-agnostic filename. */
+    ClassicWildcard, /**< Pre-Cata wildcard patch tier.
+                          `patch.MPQ` + single-char `patch-?.MPQ` in `Data/`, and
+                          `patch-{locale}[-?].MPQ` in `Data/{locale}/`, merged and
+                          sorted by extension-agnostic filename. */
     UpdateChain,     /**< Cata+: `wow-update-{build}.MPQ` ascending build; not
                           implemented yet. */
   };

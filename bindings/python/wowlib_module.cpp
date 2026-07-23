@@ -34,8 +34,10 @@
 #include <wowlib/wowlib.hpp>
 
 // Casters first: including them before the welder module expansion is what
-// satisfies welder's bindability gate (Result<T>, FileBuffer, byte spans).
+// satisfies welder's bindability gate (Result<T>, FileBuffer, byte spans, and
+// Repeated<T,N> — the WMO MOTV/MOCV slot container).
 #include "result_casters.hpp"
+#include "formats/repeated_caster.hpp"
 
 #include "errors.hpp"
 #include "formats/wmo.hpp"
@@ -53,6 +55,10 @@
 // suppresses <nanobind/stl/vector.h>'s copy caster only for these types, so the two
 // by_value-marked vectors (WMO::groups, WMOGroupBody::batches) still convert by copy.
 #include "wowlib.opaque.hpp"
+// Manual opaque registration the generator's scan misses (std::vector<C2Vector>,
+// nested inside Repeated<> so never discovered directly) — makes texcoords bind
+// zero-copy as list[VectorC2Vector]. Same slot as the generated header.
+#include "formats/opaque_extra.hpp"
 
 WELDER_MODULE(wowlib, nanobind,
               welder::welder<welder::rods::nanobind::rod<>, wowlib_py::wowlib_python_naming>)

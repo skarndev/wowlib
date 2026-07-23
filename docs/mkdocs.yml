@@ -1,0 +1,136 @@
+site_name: wowlib
+site_description: >-
+  Read and write World of Warcraft client files — a C++26 core with Python
+  bindings.
+site_author: wowlib authors
+repo_url: https://github.com/skarndev/wowlib
+repo_name: skarndev/wowlib
+copyright: >-
+  C++ reference built from the real sources by welder's own Doxygen filter.
+
+# The guide + Python API live in content/; the Doxygen C++ reference is grafted
+# into <site>/api by the inject_reference hook (from the dir named by
+# WOWLIB_DOXYGEN_API, set by docs/build.py), so it never sits inside docs_dir —
+# the worktree stays clean and serve live-reloads the guide + Python pages.
+docs_dir: content
+
+hooks:
+  - inject_reference.py
+  # Generates the generic WMO field reference (per-field expansion badges) from the
+  # C++ entity headers into python/wmo/fields.md.
+  - wmo_reference.py
+
+theme:
+  name: material
+  logo: assets/wowlib-logo-light.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - def_list
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.keys
+
+plugins:
+  - search
+  # Python API reference: mkdocstrings over the generated .pyi stub tree — no need
+  # to import the compiled extension. `paths` is resolved relative to this config
+  # file; the tree is produced by the wowlib_pyi build target.
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - ../build/bindings/bindings/python/stubs
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            members_order: source
+            merge_init_into_class: true
+            show_if_no_docstring: true
+            filters:
+              - "!^_"
+
+nav:
+  - Home: index.md
+  - Guide:
+      - guide/index.md
+      - Getting started: guide/getting-started.md
+      - Reading a WMO: guide/wmo.md
+  - Python API:
+      - python/index.md
+      - Core & versions: python/core.md
+      - Filesystem: python/fs.md
+      - WMO format:
+          - python/wmo/index.md
+          - Fields & versions: python/wmo/fields.md
+          - Root chunks: python/wmo/root-chunks.md
+          - Group chunks: python/wmo/group-chunks.md
+      - Containers: python/containers.md
+  - C++ API Reference: reference.md

@@ -212,3 +212,22 @@ Lua notes below describe the intended shape for when that target returns):
   `wowlib.so` (bare name) + `luaopen_wowlib`, lua_* resolved from host interpreter.
 - ctest name: `bindings.python` (smoke check; real-client parts gate on
   WOWLIB_TEST_CLIENTS_DIR). `bindings.lua` returns with the Lua target.
+
+## Type casters (`bindings/python/*_caster*.hpp`, included before the WELDER walk)
+A self-contained nanobind `type_caster` (built with `NB_TYPE_CASTER`, so it does
+NOT derive from the registration base) makes `has_native_caster<T>` true, which
+satisfies welder's bindability gate automatically AND names the type in the `.pyi`
+stubs — no weld/trust mark (welder "Trust & casters", option 3). Casters live in
+`result_casters.hpp` (Result<T>, FileBuffer, byte spans) and
+`formats/repeated_caster.hpp`, all `#include`d in `wowlib_module.cpp` BEFORE the
+`WELDER_MODULE` macro (that ordering is what the gate reads). Limited C API only,
+for stable-ABI validity.
+- **`Repeated<T,N>`** (chunk.hpp fixed-capacity slot container; WMO MOTV texcoords,
+  MOCV vertex_colors) → binds as a Python `list` of its filled slots, **by value**
+  (read copies out; assign fills fresh slots via `push()`, rejecting `len > N` with
+  TypeError). This is why those two members are no longer `mark::exclude`; they
+  carry `mark::only(lang::py)` since only nanobind has the caster (a future Lua
+  build needs its own, or they stay py-only). Inner `std::vector<E>` renders opaque
+  zero-copy iff `VectorE` was generated (vertex_colors → `list[VectorCImVector]`),
+  else a plain by-copy `list[E]` (texcoords → `list[list[C2Vector]]`, since nothing
+  else uses `std::vector<C2Vector>` so `VectorC2Vector` isn't generated).

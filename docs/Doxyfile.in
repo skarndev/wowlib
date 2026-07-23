@@ -1,0 +1,91 @@
+# Doxyfile for wowlib's C++ API reference (configured by docs/build.py).
+#
+# Reads the real headers under src/wowlib/ through welder's own INPUT_FILTER
+# (welder_doxygen_filter.py), so the [[=welder::doc/returns/tparam]] annotations
+# become Doxygen comments. Output is themed with doxygen-awesome-css and grafted
+# into <site>/api next to the mkdocs guide by the inject_reference hook.
+
+PROJECT_NAME           = "wowlib"
+PROJECT_NUMBER         = "@PROJECT_VERSION@"
+PROJECT_BRIEF          = "Read & write World of Warcraft client files — a C++26 core"
+PROJECT_LOGO           = @PROJECT_LOGO@
+
+OUTPUT_DIRECTORY       = @DOXYGEN_OUTPUT_DIR@
+GENERATE_HTML          = YES
+HTML_OUTPUT            = api
+GENERATE_LATEX         = NO
+GENERATE_XML           = NO
+
+# Symbol -> URL map (kept next to api/, never published). Harmless to emit now; a
+# future guide auto-linker (welder's apilink.py analogue) can consume it.
+GENERATE_TAGFILE       = @DOXYGEN_TAGFILE@
+
+# --- Inputs ------------------------------------------------------------------
+INPUT                  = @WOWLIB_SRC@ \
+                         @DOXYGEN_MAINPAGE@
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp *.cpp *.md
+USE_MDFILE_AS_MAINPAGE = @DOXYGEN_MAINPAGE@
+
+# Show file paths relative to the project root ("src/wowlib/…"), never the
+# absolute checkout path. Include names strip the include root ("wowlib/…").
+STRIP_FROM_PATH        = @STRIP_ROOT@
+STRIP_FROM_INC_PATH    = @STRIP_INC@
+
+# Read welder annotations via the INPUT_FILTER (needs a Python with `lark` — the
+# project .venv, which is what docs/build.py runs under).
+INPUT_FILTER           = "@FILTER_PYTHON@ @FILTER@"
+
+# --- What to extract ---------------------------------------------------------
+# A young library: EXTRACT_ALL so undocumented entities still appear (a complete
+# structural map), but keep private members and internal-only docs off the
+# public reference. Bump EXTRACT_PRIVATE/INTERNAL_DOCS to YES for a deep dive.
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_ANON_NSPACES   = NO
+INTERNAL_DOCS          = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+SHOW_HEADERFILE        = YES
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# --- C++ / preprocessing -----------------------------------------------------
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+BUILTIN_STL_SUPPORT    = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = "__cpp_reflection=1"
+
+# --- Diagnostics -------------------------------------------------------------
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = NO
+
+# --- Graphs (only when Graphviz is present) ----------------------------------
+HAVE_DOT               = @HAVE_DOT@
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = NO
+UML_LOOK               = YES
+
+# --- Modern theme: doxygen-awesome-css (sidebar layout) ----------------------
+# doxygen-awesome requires LIGHT here and supplies its own dark-mode toggle (which
+# we replace in patch_doxygen_header.py, since Doxygen 1.17 ships no jQuery).
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+HTML_COLORSTYLE        = LIGHT
+HTML_COPY_CLIPBOARD    = NO
+HTML_HEADER            = @HTML_HEADER@
+HTML_EXTRA_STYLESHEET  = @HTML_EXTRA_STYLESHEET@
+HTML_EXTRA_FILES       = @HTML_EXTRA_FILES@

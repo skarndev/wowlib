@@ -47,6 +47,7 @@ These are presented roughly in order:
 | Listfile & custom FileDataID policy | .claude/context/listfile-notes.md |
 | Dependencies, pins & build quirks | .claude/context/deps-build-notes.md |
 | Python/Lua bindings (welder rods, casters, naming) | .claude/context/bindings-notes.md |
+| Documentation site (mkdocs-material guide + Python API via mkdocstrings + Doxygen C++ reference) | .claude/context/docs-site.md |
 
 # Important notes
 - We are writing this library in C++, exposing it to Python and Lua, but it also remains the C++ library itsef.

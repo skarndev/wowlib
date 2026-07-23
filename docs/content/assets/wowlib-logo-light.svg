@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="wowlib">
+  <!-- White variant for Material's colored header bar. -->
+  <g fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M12 2 20.6 7 20.6 17 12 22 3.4 17 3.4 7 Z"/>
+    <path d="M3.4 7 12 12 20.6 7 M12 12 12 22"/>
+  </g>
+</svg>
