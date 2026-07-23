@@ -131,20 +131,46 @@ def _vector_elements() -> dict[str, str]:
         elem = em.group(1).split(".")[-1]
         if elem != REPR_SUFFIX and elem.endswith(REPR_SUFFIX):
             elem = elem[: -len(REPR_SUFFIX)] + _VERSION_PLACEHOLDER
-        out[m.group(1)] = f"list[{elem}]"
+        out[m.group(1)] = elem       # bare element name; list[…] built at rewrite time
     return out
 
 
 _VECTOR_ELEMS = _vector_elements()
 # In the rendered HTML a Vector type annotation is either a resolved cross-ref link
-# (documented vectors) or an unresolved autoref title-span (the rest). Rewrite both;
-# .get keeps anything unmapped verbatim.
+# (documented vectors) or an unresolved autoref title-span (the rest). Rewrite both.
 _VEC_LINK_RE = re.compile(r'<a\b[^>]*>(Vector[A-Za-z0-9_]+)</a>')
 _VEC_SPAN_RE = re.compile(r'<span title="[^"]*\b(Vector[A-Za-z0-9_]+)">\1</span>')
 
+_CHUNK_SIDE_CACHE: dict[str, str] | None = None
 
-def _coerce_vectors(html_out: str) -> str:
-    sub = lambda m: _VECTOR_ELEMS.get(m.group(1), m.group(0))
+
+def _chunk_struct_side(name: str) -> str | None:
+    """Which chunks page (root/group) documents a wire struct, or None. Lazy so it
+    runs after _chunk_names is defined; reset per build when the module reloads."""
+    global _CHUNK_SIDE_CACHE
+    if _CHUNK_SIDE_CACHE is None:
+        _CHUNK_SIDE_CACHE = {}
+        for side in ("root", "group"):
+            for n in _chunk_names(side):
+                _CHUNK_SIDE_CACHE.setdefault(n, side)
+    return _CHUNK_SIDE_CACHE.get(name)
+
+
+def _elem_html(elem: str, base: str) -> str:
+    """The element inside list[…]; linked to its chunks-page entry when it is a
+    documented wire struct (SMOPoly, SMOMaterial, WMOBatch⟨version⟩ → its base)."""
+    lookup = elem.replace(_VERSION_PLACEHOLDER, "")
+    side = _chunk_struct_side(lookup)
+    if side:
+        anchor = f"{base}python/wmo/{side}-chunks/#wowlib.formats.wmo.{side}.chunks.{lookup}"
+        return f'<a class="autorefs autorefs-internal" href="{anchor}">{elem}</a>'
+    return elem
+
+
+def _coerce_vectors(html_out: str, base: str) -> str:
+    def sub(m):
+        elem = _VECTOR_ELEMS.get(m.group(1))
+        return f"list[{_elem_html(elem, base)}]" if elem is not None else m.group(0)
     return _VEC_SPAN_RE.sub(sub, _VEC_LINK_RE.sub(sub, html_out))
 
 
@@ -399,7 +425,7 @@ def on_post_page(output, page, config, **kwargs):
     try:
         src = page.file.src_uri
         if src.startswith("python/"):
-            output = _coerce_vectors(output)
+            output = _coerce_vectors(output, _base_prefix(page))
         if src == TARGET_PAGE:
             output = _XREF_NAME_RE.sub(rf"\1\2{_VERSION_PLACEHOLDER}\3", output)
     except re.error:
