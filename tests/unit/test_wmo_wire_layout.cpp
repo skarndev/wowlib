@@ -34,9 +34,10 @@ static_assert(all_trivially_copyable<UVAnimation, GroupInfo2, PortalExtra, Light
                                      Poly2, RenderBatchOverride, ShadowBatch, PointLight,
                                      LightSet, PointLightAnim>);
 
-// MLIQ grid records are bulk-memcpy'd like the other wire structs.
-static_assert(all_trivially_copyable<SMOLVert, SMOLTile>);
-static_assert(sizeof(SMOLVert) == 8 && sizeof(SMOLTile) == 1);
+// MLIQ grid records are bulk-memcpy'd like the other wire structs; the water
+// and magma vertex readings share the same 8-byte layout (bit_cast reinterpret).
+static_assert(all_trivially_copyable<SMOLVert, SMOLTile, SMOMVert>);
+static_assert(sizeof(SMOLVert) == 8 && sizeof(SMOLTile) == 1 && sizeof(SMOMVert) == 8);
 
 TEST_CASE("wire offsets match the wowdev layout", "[formats][wmo]")
 {
@@ -214,6 +215,16 @@ TEST_CASE("MLIQ liquid decodes its header-driven grid and round-trips",
   CHECK(liquid.vertices[3].height == 4.0f);
   REQUIRE(liquid.tiles.size() == 1);
   CHECK(liquid.tiles[0].flags == 0xC1);
+
+  // The magma reading reinterprets the same bytes: vert 0 is {1, 2, 3, 0, ...},
+  // so s = int16(1, 2) little-endian = 513, t = int16(3, 0) = 3, height shared.
+  const auto magma = liquid.vertices[0].as_magma();
+  CHECK(magma.s == std::int16_t(1 | (2 << 8)));
+  CHECK(magma.t == 3);
+  CHECK(magma.height == 1.0f);
+  SMOLVert rebuilt{};
+  rebuilt.set_magma(magma);
+  CHECK(std::memcmp(&rebuilt, &liquid.vertices[0], sizeof rebuilt) == 0);
 
   // Byte-perfect round-trip of the whole group, MLIQ included.
   CHECK(*assembled.groups[0].write() == group_data);

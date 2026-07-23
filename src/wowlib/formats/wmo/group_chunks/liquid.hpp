@@ -7,6 +7,7 @@
     data/array chunk; MLIQData owns its payload encoding (SelfSerializing) the
     way ChunkBlob and StringBlock do. */
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -27,11 +28,32 @@ namespace wowlib::formats::wmo::group_chunks
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
+        The magma/slime reading of an MLIQ vertex (8 bytes): two int16 texture
+        coordinates sharing the layout with the water reading (SMOLVert). Obtain
+        one with SMOLVert.as_magma(); which reading is correct is set by the
+        group's liquid type, not stored per vertex.)")
+  ]] SMOMVert
+  {
+    [[=welder::doc("Texture coordinate s (the water flow1/flow2 bytes).")]]
+    std::int16_t s = 0;
+
+    [[=welder::doc("Texture coordinate t (the water flow1_pct/filler bytes).")]]
+    std::int16_t t = 0;
+
+    [[=welder::doc("Liquid surface height, shared with the water reading.")]]
+    float height = 0;
+  };
+  static_assert(sizeof(SMOMVert) == 0x8);
+
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
         One MLIQ liquid vertex (8 bytes). The byte layout is fixed but its
         interpretation depends on the group's liquid type: water/ocean read the
         named flow fields; magma/slime reinterpret the first four bytes as two
-        int16 texture coordinates (s, t). Both are 8 bytes, so round-trip is
-        layout-agnostic — pick the reading from the group's liquid type.)")
+        int16 texture coordinates (s, t) — use as_magma()/set_magma() for that
+        reading. Both are 8 bytes, so round-trip is layout-agnostic — pick the
+        reading from the group's liquid type.)")
   ]] SMOLVert
   {
     [[=welder::doc("Water: flow velocity 1. Magma/slime: low byte of int16 s.")]]
@@ -48,6 +70,15 @@ namespace wowlib::formats::wmo::group_chunks
 
     [[=welder::doc("Liquid surface height at this vertex.")]]
     float height = 0;
+
+    [[nodiscard]]
+    [[=welder::doc("Reinterpret this vertex under the magma/slime reading "
+                   "(int16 s, t texcoords). A pure byte reinterpretation; use "
+                   "it only when the group's liquid type is magma or slime.")]]
+    SMOMVert as_magma() const { return std::bit_cast<SMOMVert>(*this); }
+
+    [[=welder::doc("Overwrite this vertex's bytes from a magma/slime reading.")]]
+    void set_magma(const SMOMVert& magma) { *this = std::bit_cast<SMOLVert>(magma); }
   };
   static_assert(sizeof(SMOLVert) == 0x8);
 
