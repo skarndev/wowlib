@@ -107,6 +107,47 @@ def _scan_icons() -> dict[str, str]:
 _ICON_REL = _scan_icons()
 
 
+# The opaque Vector wrappers (VectorUnsignedInt, VectorC3Vector, VectorSMOMaterial,
+# VectorSMOBatchWotlk, …) mirror the list interface with the same guarantees, but
+# their generated names read poorly in the docs. Coerce every Vector type annotation
+# to list[element]. The element (its true Python name, incl. versioned ones like
+# WMOBatchWotlk) comes from the stub's append() signature; a representative-version
+# suffix is shown generically (WMOBatchWotlk -> WMOBatch⟨version⟩) to match the page.
+def _vector_elements() -> dict[str, str]:
+    p = STUBS / "wowlib/__init__.pyi"
+    out: dict[str, str] = {}
+    try:
+        txt = p.read_text(encoding="utf-8")
+    except OSError:
+        return out
+    for block in re.split(r"(?=^class )", txt, flags=re.M):
+        m = re.match(r"class (Vector[A-Za-z0-9_]+)[:(]", block)
+        if not m:
+            continue
+        em = (re.search(r"def append\(self, arg:\s*([A-Za-z0-9_.]+)", block)
+              or re.search(r"def __getitem__\(self, arg: int[^)]*\)\s*->\s*([A-Za-z0-9_.]+)", block))
+        if not em:
+            continue
+        elem = em.group(1).split(".")[-1]
+        if elem != REPR_SUFFIX and elem.endswith(REPR_SUFFIX):
+            elem = elem[: -len(REPR_SUFFIX)] + _VERSION_PLACEHOLDER
+        out[m.group(1)] = f"list[{elem}]"
+    return out
+
+
+_VECTOR_ELEMS = _vector_elements()
+# In the rendered HTML a Vector type annotation is either a resolved cross-ref link
+# (documented vectors) or an unresolved autoref title-span (the rest). Rewrite both;
+# .get keeps anything unmapped verbatim.
+_VEC_LINK_RE = re.compile(r'<a\b[^>]*>(Vector[A-Za-z0-9_]+)</a>')
+_VEC_SPAN_RE = re.compile(r'<span title="[^"]*\b(Vector[A-Za-z0-9_]+)">\1</span>')
+
+
+def _coerce_vectors(html_out: str) -> str:
+    sub = lambda m: _VECTOR_ELEMS.get(m.group(1), m.group(0))
+    return _VEC_SPAN_RE.sub(sub, _VEC_LINK_RE.sub(sub, html_out))
+
+
 # --- badge rendering ---------------------------------------------------------
 def _pill(major: int, text: str, base: str) -> str:
     key, _short, name = EXPANSIONS[major]
@@ -347,12 +388,20 @@ def on_page_content(html_out, page, config, files, **kwargs):
 
 
 def on_post_page(output, page, config, **kwargs):
-    """Cross-reference links (e.g. the `body`/`header` property types) are resolved
-    by autorefs after on_page_content, so rewrite their visible text to the generic
-    name here, once they are real <a> tags. Hrefs are untouched, so links resolve."""
+    """Post-render cleanups on the fully-rendered page (after autorefs resolves).
+
+    - All Python API pages: coerce scalar opaque-vector type annotations to
+      list[int]/list[float].
+    - Fields page: rewrite cross-reference link text (e.g. the `body`/`header`
+      property types) to the generic WMO…⟨version⟩ name — these are autorefs
+      placeholders during on_page_content, real <a> tags only now. Hrefs untouched.
+    """
     try:
-        if page.file.src_uri == TARGET_PAGE:
-            return _XREF_NAME_RE.sub(rf"\1\2{_VERSION_PLACEHOLDER}\3", output)
+        src = page.file.src_uri
+        if src.startswith("python/"):
+            output = _coerce_vectors(output)
+        if src == TARGET_PAGE:
+            output = _XREF_NAME_RE.sub(rf"\1\2{_VERSION_PLACEHOLDER}\3", output)
     except re.error:
         return output
     return output
