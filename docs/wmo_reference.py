@@ -41,3 +41,7 @@ def on_page_markdown(markdown, **kwargs):
 
 def on_page_content(html, **kwargs):
     return _impl.on_page_content(html, **kwargs)
+
+
+def on_post_page(output, **kwargs):
+    return _impl.on_post_page(output, **kwargs)

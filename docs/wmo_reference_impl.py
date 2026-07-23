@@ -47,6 +47,21 @@ CHUNK_PAGES = {"python/wmo/root-chunks.md": "root", "python/wmo/group-chunks.md"
 MARKER_LEGEND = "<!-- wmo-legend -->"
 # The concrete representative class each side's attributes/structs are documented on.
 REPR_CLASS = {"root": "WMORootWotlk", "group": "WMOGroupBodyWotlk"}
+# Its expansion suffix — stripped from the *displayed* class name on the fields page
+# so the per-version layout reads generically (WMOGroupWotlk -> WMOGroup⟨version⟩),
+# signalling the fields apply to every version. Ids/anchors keep the real name.
+REPR_SUFFIX = "Wotlk"
+_VERSION_PLACEHOLDER = "⟨version⟩"
+_CLASSNAME_RE = re.compile(
+    r'(<span class="doc doc-object-name doc-class-name">)(WMO[A-Za-z]+?)'
+    + REPR_SUFFIX + r'(</span>)')
+# The same name where mkdocstrings echoes it: the signature code block (pygments
+# name span) and cross-reference link text. Ids/hrefs (…="…Wotlk") are untouched,
+# so links still resolve; only the shown text goes generic. Hand-written prose uses
+# <code>…</code> and is deliberately left alone.
+_SIG_NAME_RE = re.compile(r'(<span class="n[cf]">)(WMO[A-Za-z]+?)' + REPR_SUFFIX + r'(</span>)')
+_XREF_NAME_RE = re.compile(r'(<a\b[^>]*>)(WMO[A-Za-z]+?)' + REPR_SUFFIX + r'(</a>)')
+_TOC_TITLE_RE = re.compile(r'\b(WMO[A-Za-z]+?)' + REPR_SUFFIX + r'\b')
 
 # major client version -> (css/icon key, short label, full name). Colours live in
 # the stylesheet (.exp-<key>); latest supported = TheWarWithin.
@@ -270,7 +285,24 @@ def _augment_fields(html_out: str, base: str) -> str:
             return m.group(0)
         return f'{m["open"]}{m["inner"]}<span class="wmo-tags">{tags}</span>{m["close"]}'
 
-    return _HEADING_RE.sub(repl, html_out)
+    html_out = _HEADING_RE.sub(repl, html_out)
+    # Show the representative concrete class generically (WMOGroupWotlk ->
+    # WMOGroup⟨version⟩) — display only; ids/anchors keep the real name. The heading
+    # name span and the signature code block are present now; cross-reference links
+    # are still autorefs placeholders here, so those are rewritten in on_post_page.
+    generic = rf"\1\2{_VERSION_PLACEHOLDER}\3"
+    for rx in (_CLASSNAME_RE, _SIG_NAME_RE):
+        html_out = rx.sub(generic, html_out)
+    return html_out
+
+
+def _rewrite_toc(items) -> None:
+    """Rename the representative classes in the right-hand TOC too, so it matches
+    the generic heading names."""
+    for item in items:
+        if item.title:
+            item.title = _TOC_TITLE_RE.sub(rf"\1{_VERSION_PLACEHOLDER}", item.title)
+        _rewrite_toc(item.children)
 
 
 def _augment_chunks(html_out: str, side: str, base: str) -> str:
@@ -305,9 +337,22 @@ def on_page_content(html_out, page, config, files, **kwargs):
         src = page.file.src_uri
         base = _base_prefix(page)
         if src == TARGET_PAGE:
+            _rewrite_toc(page.toc)
             return _augment_fields(html_out, base)
         if src in CHUNK_PAGES:
             return _augment_chunks(html_out, CHUNK_PAGES[src], base)
     except (OSError, KeyError, re.error):
         return html_out
     return html_out
+
+
+def on_post_page(output, page, config, **kwargs):
+    """Cross-reference links (e.g. the `body`/`header` property types) are resolved
+    by autorefs after on_page_content, so rewrite their visible text to the generic
+    name here, once they are real <a> tags. Hrefs are untouched, so links resolve."""
+    try:
+        if page.file.src_uri == TARGET_PAGE:
+            return _XREF_NAME_RE.sub(rf"\1\2{_VERSION_PLACEHOLDER}\3", output)
+    except re.error:
+        return output
+    return output

@@ -3,8 +3,9 @@
 A WMO is version-parametric: the layout differs by client version, which wowlib
 models as one `WMO<version>` per expansion (Python: `WMOWotlk`, `WMOShadowlands`,
 …). Rather than repeat twelve near-identical class listings, this page documents
-the **generic WMO** — the version-agnostic base plus one representative concrete
-version (**Wrath of the Lich King**), whose field set is shared by every version.
+the **generic WMO** — the version-agnostic base plus the per-version layout, shown
+generically as `WMORoot⟨version⟩` / `WMOGroup⟨version⟩`. The field set is identical
+across every expansion; only which fields are *active* varies, shown by the badges.
 
 Each field carries its chunk **FourCC** (linking to wowdev.wiki). A field whose
 availability is **version-restricted** also carries an expansion badge; a field
@@ -16,8 +17,8 @@ stand out. The badges are generated from the C++ sources, so they cannot drift.
 ## Root file
 
 The root file holds everything shared across a WMO's groups — materials, doodads,
-lights, fog, portals and the group table. `WMORoot` is the abstract base;
-`WMORootWotlk` is the concrete Wrath layout shown here.
+lights, fog, portals and the group table. `WMORoot` is the abstract base; the
+per-version layout below is shown generically as `WMORoot⟨version⟩`.
 
 ::: wowlib.formats.wmo.root.WMORoot
     options:
