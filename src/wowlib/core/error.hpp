@@ -38,6 +38,7 @@ namespace wowlib
     ChunkTruncated,      /**< A chunk header or payload overruns the file buffer. */
     ChunkSizeMismatch,   /**< A chunk's size disagrees with its wire struct layout. */
     ChunkMissing,        /**< A chunk the format requires is absent from the file. */
+    OffsetOutOfBounds,   /**< An offset array (M2Array) points outside its base buffer. */
     FormatVersionMismatch,    /**< The file's version chunk disagrees with the requested version. */
     UnsupportedClientVersion  /**< No format instantiation exists for the requested client version. */
   };

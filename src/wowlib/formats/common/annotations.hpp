@@ -87,6 +87,21 @@ namespace wowlib::formats
     {
       std::uint32_t max;
     };
+
+    /** Stored form of `sequence_data` (offset entities): the member's nested
+        per-element data may live in an external buffer (M2 .anim files) — the
+        engine resolves each outer element's base span/sink through the I/O
+        context instead of assuming the entity's own buffer. */
+    struct sequence_data_spec
+    {
+    };
+
+    /** Stored form of `gated_by` (offset entities): the member occupies wire
+        bytes only when the entity's `global_flags` has any @a mask bit set. */
+    struct gated_by_spec
+    {
+      std::uint32_t mask;
+    };
   }
 
   /** Declare the chunk a member maps to.
@@ -123,4 +138,19 @@ namespace wowlib::formats
       member must be a `Repeated<T, max>`.
       @param max the maximum occurrence count. */
   consteval detail::repeats_spec repeats(std::uint32_t max) { return {max}; }
+
+  /** Mark an offset-entity member (a nested `std::vector<std::vector<T>>`,
+      one inner array per animation sequence) whose inner data may live in an
+      external buffer — M2 low-priority sequences store their track data in
+      .anim files. The offset I/O contexts resolve each outer element's base
+      span (read) / destination buffer (write); without a context the data is
+      inline in the entity's own buffer. */
+  inline constexpr detail::sequence_data_spec sequence_data{};
+
+  /** Make an offset-entity member's wire presence conditional on the entity's
+      `global_flags`: it occupies bytes only when `global_flags & mask` is
+      non-zero (M2's textureCombinerCombos behind global flag 0x8). The flags
+      member must precede it in wire order.
+      @param mask the flag bits that engage the member. */
+  consteval detail::gated_by_spec gated_by(std::uint32_t mask) { return {mask}; }
 }

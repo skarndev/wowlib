@@ -20,7 +20,10 @@ namespace wowlib::formats
       version slots never inherits the same empty type twice (ill-formed). Empty, so
       it is elided (EBO). */
   template <class Trait>
-  struct absent {};
+  struct absent
+  {
+    bool operator==(const absent&) const = default;
+  };
 
   /** Above any supported client build — the default `Until` (never removed). */
   inline constexpr ClientVersion version_never_removed{255, 0, 0, 0};
