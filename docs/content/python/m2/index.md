@@ -20,6 +20,9 @@ exposing that version's layout. Satellite files bake into the entity on
 
 Pages:
 
+- **[Fields & versions](fields.md)** — the **generic model**: every MD20 body
+  field and every Legion+ shell chunk, each tagged with the expansion range it
+  is available in (generated from the sources, so the ranges never drift).
 - **[Entities](entities.md)** — `M2`, `M2Data`, `Skin`, `M2File`,
   `Skeleton`, `BoneFile` and their per-version classes.
 - **[Records](records.md)** — the decoded data records (sequences, bones,
@@ -33,6 +36,8 @@ Pages:
 
 !!! warning "Version-gated fields do not exist off-era"
     A version's class carries **only** the fields that client defines —
-    `M2DataVanilla` has `skin_profiles` (embedded views) where
-    `M2DataWotlk` has `num_skin_profiles`; touching the other raises
-    `AttributeError` instead of silently writing nothing.
+    `M2DataVanilla` has `skin_profiles` (embedded views), which WotLK+
+    bodies drop in favour of external `.skin` files on the assembly's
+    `skins`; touching an off-era field raises `AttributeError` instead of
+    silently writing nothing. (Derived wire counters like the body's skin
+    count are stamped on write and hidden from Python entirely.)

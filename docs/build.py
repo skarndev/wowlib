@@ -29,7 +29,7 @@ Usage::
     .venv/bin/python docs/build.py build            # -> build/docs/site/index.html
     .venv/bin/python docs/build.py serve            # live-reload the guide + Python API
     .venv/bin/python docs/build.py doxygen          # just the C++ reference (debugging)
-    .venv/bin/python docs/build.py refresh-anchors  # refresh the wowdev FourCC->anchor map
+    .venv/bin/python docs/build.py refresh-anchors  # refresh the wowdev FourCC->anchor maps
 
 All generated artifacts land under ``build/docs/`` (gitignored). Re-run to
 refresh; the Doxygen output dir is wiped each time so it can never accumulate
@@ -54,13 +54,18 @@ BUILD_DIR = REPO_ROOT / "build" / "docs"
 AWESOME_VERSION = "v2.4.2"
 STUBS_REL = "build/bindings/bindings/python/stubs"
 
-# The generic WMO page links each chunk FourCC to its section on wowdev.wiki. The
-# anchors aren't bare FourCCs (MediaWiki spells them "MOHD_chunk", "MOSI_(optional)",
-# …), so `refresh-anchors` pulls them from the API into this vendored map, keeping
-# the docs build itself offline. wowdev sits behind Cloudflare; a browser UA gets the
-# JSON API through.
-WOWDEV_WMO_API = "https://wowdev.wiki/api.php?action=parse&page=WMO&prop=sections&format=json"
-WOWDEV_ANCHORS_JSON = DOCS_DIR / "wmo_wowdev_anchors.json"
+# The generic fields pages link each chunk FourCC to its section on wowdev.wiki.
+# The anchors aren't bare FourCCs (MediaWiki spells them "MOHD_chunk",
+# "MOSI_(optional)", …), so `refresh-anchors` pulls them from the API into vendored
+# per-format maps, keeping the docs build itself offline. wowdev sits behind
+# Cloudflare; a browser UA gets the JSON API through. Format key -> (wiki page,
+# vendored map) — must stay in sync with the format configs' anchors_file.
+WOWDEV_API = ("https://wowdev.wiki/api.php?action=parse&page={page}"
+              "&prop=sections&format=json")
+WOWDEV_ANCHOR_SOURCES = {
+    "wmo": ("WMO", DOCS_DIR / "wmo_wowdev_anchors.json"),
+    "m2": ("M2", DOCS_DIR / "m2_wowdev_anchors.json"),
+}
 BROWSER_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/120 Safari/537.36")
 
@@ -225,8 +230,11 @@ def run_mkdocs(action: str, api_dir: Path) -> None:
         log(f"building mkdocs site (guide + Python API + reference) -> {site_dir}")
     else:
         # Watch the reloadable hook logic + its data so serve reflects edits live
-        # (the wmo_reference.py shim reloads wmo_reference_impl on each rebuild).
-        for extra in ("wmo_reference_impl.py", "wmo_wowdev_anchors.json"):
+        # (the format_reference.py shim reloads the engine + configs on each
+        # rebuild).
+        for extra in ("format_reference_impl.py", "wmo_reference_config.py",
+                      "m2_reference_config.py", "wmo_wowdev_anchors.json",
+                      "m2_wowdev_anchors.json"):
             cmd += ["--watch", str(DOCS_DIR / extra)]
         log("serving at http://127.0.0.1:8000/ (guide + Python API live-reload; "
             "the C++ reference is a snapshot)")
@@ -238,55 +246,66 @@ def run_mkdocs(action: str, api_dir: Path) -> None:
 
 
 def refresh_anchors() -> int:
-    """Re-fetch the wowdev.wiki WMO section anchors and rewrite the vendored
-    FourCC->anchor map (docs/wmo_wowdev_anchors.json), then report field coverage."""
+    """Re-fetch the wowdev.wiki section anchors for every format and rewrite the
+    vendored FourCC->anchor maps (docs/*_wowdev_anchors.json), then report each
+    format's field coverage against its config."""
     import json
     import re
     import sys
     import urllib.request
 
-    log("fetching WMO section anchors from wowdev.wiki (MediaWiki API)...")
-    req = urllib.request.Request(WOWDEV_WMO_API, headers={"User-Agent": BROWSER_UA})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            sections = json.load(resp)["parse"]["sections"]
-    except (OSError, KeyError, ValueError) as e:
-        die(f"could not fetch wowdev.wiki sections: {e}")
-
-    # Map each section's leading FourCC to its anchor; first occurrence wins, so a
-    # primary chunk beats a later same-code section (e.g. the v14 MOLV -> MOLV_2).
-    amap: dict[str, str] = {}
-    for s in sections:
-        line = re.sub(r"<[^>]*>", "", s.get("line", ""))       # strip heading HTML
-        m = re.match(r"\s*([A-Z][A-Z0-9]{3})\b", line)
-        if m and m.group(1) not in amap:
-            amap[m.group(1)] = s["anchor"]
-    if not amap:
-        die("no section anchors parsed — wowdev's WMO page structure may have changed")
-    WOWDEV_ANCHORS_JSON.write_text(
-        json.dumps(amap, indent=0, sort_keys=True) + "\n", encoding="utf-8")
-    log(f"wrote {WOWDEV_ANCHORS_JSON.relative_to(REPO_ROOT)} ({len(amap)} anchors)")
-
-    # Coverage: warn if any field FourCC lacks an anchor (would link to the page top).
+    # Field FourCCs per format, from the format configs (the same parse the site
+    # build uses, so coverage never drifts from what actually gets badged).
     sys.path.insert(0, str(DOCS_DIR))
     try:
-        import wmo_reference_impl as wr
-
-        def field_ccs(path, start, end):
-            members = wr._parse_members(wr._slice(path.read_text(encoding="utf-8"), start, end))
-            return {f["cc"] for f in members if re.fullmatch(r"[A-Z0-9]{4}", f["cc"] or "")}
-
-        ours = (field_ccs(wr.ROOT_HPP, "]] WMORoot :", None)
-                | field_ccs(wr.GROUP_HPP, "]] WMOGroupBody :", "]] WMOGroup :"))
+        import format_reference_impl as fri
+        fmts = {f.key: f for f in fri.formats()}
     except (OSError, ImportError) as e:
-        log(f"(coverage check skipped: {e})")
-        return 0
-    missing = sorted(c for c in ours if c not in amap)
-    if missing:
-        log(f"WARNING: {len(missing)} field FourCC(s) have no anchor (will link to the "
-            f"WMO page top): {', '.join(missing)}")
-    else:
-        log(f"all {len(ours)} field FourCCs resolve to a section anchor")
+        log(f"(coverage checks will be skipped: {e})")
+        fmts = {}
+
+    for key, (page, dest) in WOWDEV_ANCHOR_SOURCES.items():
+        log(f"fetching {page} section anchors from wowdev.wiki (MediaWiki API)...")
+        req = urllib.request.Request(WOWDEV_API.format(page=page),
+                                     headers={"User-Agent": BROWSER_UA})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                sections = json.load(resp)["parse"]["sections"]
+        except (OSError, KeyError, ValueError) as e:
+            die(f"could not fetch wowdev.wiki {page} sections: {e}")
+
+        # Map each section's leading FourCC to its anchor; first occurrence wins, so
+        # a primary chunk beats a later same-code section (e.g. the v14 MOLV -> MOLV_2).
+        amap: dict[str, str] = {}
+        for s in sections:
+            line = re.sub(r"<[^>]*>", "", s.get("line", ""))   # strip heading HTML
+            m = re.match(r"\s*([A-Z][A-Z0-9]{3})\b", line)
+            if m and m.group(1) not in amap:
+                amap[m.group(1)] = s["anchor"]
+        if not amap:
+            die(f"no section anchors parsed — wowdev's {page} page structure may "
+                "have changed")
+        dest.write_text(json.dumps(amap, indent=0, sort_keys=True) + "\n",
+                        encoding="utf-8")
+        log(f"wrote {dest.relative_to(REPO_ROOT)} ({len(amap)} anchors)")
+
+        # Coverage: warn if any badged field FourCC lacks an anchor (would link to
+        # the page top).
+        fmt = fmts.get(key)
+        if fmt is None:
+            continue
+        try:
+            ours = {f["cc"] for side in fmt.sides for f in side.fields().values()
+                    if re.fullmatch(r"[A-Z0-9]{4}", f["cc"] or "")}
+        except OSError as e:
+            log(f"(coverage check skipped for {key}: {e})")
+            continue
+        missing = sorted(c for c in ours if c not in amap)
+        if missing:
+            log(f"WARNING: {len(missing)} {key} field FourCC(s) have no anchor "
+                f"(will link to the {page} page top): {', '.join(missing)}")
+        else:
+            log(f"all {len(ours)} {key} field FourCCs resolve to a section anchor")
     return 0
 
 
@@ -295,7 +314,7 @@ def main() -> int:
     ap.add_argument("action", nargs="?", default="build",
                     choices=["build", "serve", "doxygen", "refresh-anchors"],
                     help="build the full site (default), serve it, just Doxygen, or "
-                         "refresh the wowdev.wiki FourCC->anchor map")
+                         "refresh the per-format wowdev.wiki FourCC->anchor maps")
     args = ap.parse_args()
 
     if args.action == "refresh-anchors":

@@ -1,6 +1,6 @@
 # Expansion icons (optional)
 
-The generic WMO fields page (`docs/wmo_reference.py`) renders each expansion as a
+The generic fields pages (`docs/format_reference.py`) render each expansion as a
 small badge. If an icon file is present here, the badge shows the icon (plus the
 version number for mid-expansion fields); otherwise it falls back to a colored text
 pill. Drop-in only — no code change needed.

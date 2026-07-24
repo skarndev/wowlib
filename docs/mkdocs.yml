@@ -16,9 +16,11 @@ docs_dir: content
 
 hooks:
   - inject_reference.py
-  # Generates the generic WMO field reference (per-field expansion badges) from the
-  # C++ entity headers into python/wmo/fields.md.
-  - wmo_reference.py
+  # Generates the generic versioned-format field references (per-field expansion
+  # badges, FourCC badges) from the C++ entity headers into the per-format
+  # fields pages (python/wmo/fields.md, python/m2/fields.md). Engine in
+  # format_reference_impl.py; per-format config in {wmo,m2}_reference_config.py.
+  - format_reference.py
 
 theme:
   name: material
@@ -135,6 +137,7 @@ nav:
           - Group chunks: python/wmo/group-chunks.md
       - M2 format:
           - python/m2/index.md
+          - Fields & versions: python/m2/fields.md
           - Entities: python/m2/entities.md
           - Records: python/m2/records.md
       - Containers: python/containers.md

@@ -23,9 +23,11 @@
   border-left: 0.05rem solid var(--md-default-fg-color--lightest);
 }
 
-/* --- Generic WMO field reference (docs/wmo_reference.py) ---------------------
+/* --- Generic format field references (docs/format_reference.py) --------------
    Per-field expansion-availability badges, wowdev.wiki-style. Original colored
-   pills (each expansion in a signature color), theme-aware. */
+   pills (each expansion in a signature color), theme-aware. The wmo-/exp- class
+   prefixes are historical; the badges are shared by every format's generated
+   pages (WMO, M2, …). */
 .exp-pill {
   display: inline-block;
   padding: 0.05rem 0.4rem;
