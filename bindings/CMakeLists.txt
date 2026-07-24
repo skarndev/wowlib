@@ -32,13 +32,18 @@ if(WOWLIB_BUILD_PYTHON)
   # formats/ facade). wowlib_module.cpp owns the WELDER_MODULE walk; the rest add
   # their surface from the module body. Quoted includes ("formats/wmo.hpp",
   # "result_casters.hpp") resolve against the python/ root added below.
+  # instantiations/*.cpp expand the FULL per-version entity+serializer matrix
+  # (the library ships none) — one TU per format so they compile in parallel
+  # with the welder walk; the other TUs include instantiations/*.hpp externs.
   nanobind_add_module(wowlib_py STABLE_ABI
     python/wowlib_module.cpp
     python/errors.cpp
     python/buffers.cpp
     python/fs.cpp
     python/formats/wmo.cpp
-    python/formats/m2.cpp)
+    python/formats/m2.cpp
+    python/instantiations/wmo.cpp
+    python/instantiations/m2.cpp)
   # python/ for the quoted glue includes; the binary dir for the generated
   # wowlib.opaque.hpp, and a dependency so it is emitted before the module compiles.
   target_include_directories(wowlib_py PRIVATE

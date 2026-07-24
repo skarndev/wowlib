@@ -9,6 +9,8 @@
 
 #include "formats/wmo.hpp"
 
+#include "instantiations/wmo.hpp"
+
 #include <cstddef>
 #include <format>
 #include <span>

@@ -205,39 +205,8 @@ namespace wowlib::formats::wmo
   }
 }
 
-namespace wowlib::formats::wmo::root
-{
-#define WOWLIB_WMO_ROOT_EXTERN(Suffix, version_) extern template struct WMORoot<versions::version_>;
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_ROOT_EXTERN)
-#undef WOWLIB_WMO_ROOT_EXTERN
-}
-
-namespace wowlib::formats::wmo::group
-{
-#define WOWLIB_WMO_GROUP_EXTERN(Suffix, version_)                                                  \
-  extern template struct WMOGroupBody<versions::version_>;                                         \
-  extern template struct WMOGroup<versions::version_>;
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_GROUP_EXTERN)
-#undef WOWLIB_WMO_GROUP_EXTERN
-}
-
-namespace wowlib::formats::wmo
-{
-#define WOWLIB_WMO_EXTERN(Suffix, version_) extern template struct WMO<versions::version_>;
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_EXTERN)
-#undef WOWLIB_WMO_EXTERN
-}
-
-namespace wowlib::formats
-{
-  // The ChunkedFile bases carry the read()/write() definitions that expand the
-  // serializer; extern-ing them here (an explicit instantiation must sit in the
-  // template's enclosing namespace) confines that expansion to wmo.cpp.
-#define WOWLIB_WMO_EXTERN_SERIALIZER(Suffix, version_)                                             \
-  extern template struct ChunkedFile<wmo::root::WMORoot<versions::version_>>;                      \
-  extern template struct ChunkedFile<wmo::group::WMOGroupBody<versions::version_>>;                \
-  extern template struct ChunkedFile<wmo::group::WMOGroup<versions::version_>>;
-
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_EXTERN_SERIALIZER)
-#undef WOWLIB_WMO_EXTERN_SERIALIZER
-}
+// There are NO extern-template declarations or explicit instantiations here:
+// consumer TUs implicitly instantiate exactly the versions they use (the
+// read/write definitions live in serializer.hpp and io.hpp). The language
+// bindings, which need the FULL version matrix, declare and expand it in
+// their own translation units — see bindings/python/instantiations/wmo.hpp.

@@ -1,42 +1,54 @@
-#include <wowlib/formats/wmo/wmo.hpp>
+#pragma once
+
+/** @file
+    The WMO assembly's filesystem I/O — the out-of-line definitions of
+    WMO<V>::read/write. A separate header (rather than wmo.hpp itself) so
+    parse-only consumers do not pull the fs::FileSystem dependency, and so the
+    definitions are visible for implicit instantiation: the library ships NO
+    explicit instantiations — every consumer TU instantiates exactly the
+    versions it uses (the language bindings instantiate the full version
+    matrix in their own translation units, see bindings/python/
+    instantiations/). Include this header (or the wowlib.hpp umbrella)
+    wherever WMO<V>::read/write(fs, key) is called. */
 
 #include <format>
 #include <string>
 #include <string_view>
 
+#include <wowlib/formats/wmo/wmo.hpp>
 #include <wowlib/fs/filesystem.hpp>
+
+namespace wowlib::formats::wmo::detail
+{
+  /** Derive a group file path from its root: "world\\wmo\\thing.wmo" ->
+      "world\\wmo\\thing_007.wmo".
+      @param root_path the root file path.
+      @param index     the zero-based group index.
+      @return the derived group path. */
+  inline std::string group_path(std::string_view root_path, std::size_t index)
+  {
+    std::string_view stem = root_path;
+    if (stem.ends_with(".wmo"))
+      stem.remove_suffix(4);
+    return std::format("{}_{:03}.wmo", stem, index);
+  }
+
+  /** Verify an MVER payload against the v17 the supported clients share.
+      @param mver  the version value read from the file.
+      @param which which file carried it, for the diagnostic ("root",
+                   "group 3", ...).
+      @return nothing, or FormatVersionMismatch. */
+  inline Result<void> check_mver(std::uint32_t mver, std::string_view which)
+  {
+    if (mver != wmo_version_v17)
+      return make_error(ErrorCode::FormatVersionMismatch,
+                        std::format("{} MVER is {}, expected {}", which, mver, wmo_version_v17));
+    return {};
+  }
+}
 
 namespace wowlib::formats::wmo
 {
-  namespace
-  {
-    /** Derive a group file path from its root: "world\wmo\thing.wmo" ->
-        "world\wmo\thing_007.wmo".
-        @param root_path the root file path.
-        @param index     the zero-based group index.
-        @return the derived group path. */
-    std::string group_path(std::string_view root_path, std::size_t index)
-    {
-      std::string_view stem = root_path;
-      if (stem.ends_with(".wmo"))
-        stem.remove_suffix(4);
-      return std::format("{}_{:03}.wmo", stem, index);
-    }
-
-    /** Verify an MVER payload against the v17 the supported clients share.
-        @param mver  the version value read from the file.
-        @param which which file carried it, for the diagnostic ("root",
-                     "group 3", ...).
-        @return nothing, or FormatVersionMismatch. */
-    Result<void> check_mver(std::uint32_t mver, std::string_view which)
-    {
-      if (mver != wmo_version_v17)
-        return make_error(ErrorCode::FormatVersionMismatch,
-                          std::format("{} MVER is {}, expected {}", which, mver, wmo_version_v17));
-      return {};
-    }
-  }
-
   template <ClientVersion V>
   Result<void> WMO<V>::read(std::span<const std::byte> root_data,
                             std::span<const std::span<const std::byte>> group_datas)
@@ -46,7 +58,7 @@ namespace wowlib::formats::wmo
 
     if (auto r = root.read(root_data); !r)
       return std::unexpected{r.error()};
-    if (auto r = check_mver(root.mver, "root"); !r)
+    if (auto r = detail::check_mver(root.mver, "root"); !r)
       return std::unexpected{r.error()};
 
     groups.reserve(group_datas.size());
@@ -57,7 +69,7 @@ namespace wowlib::formats::wmo
         return make_error(r.error().code,
                           std::format("group {}: {}", i, r.error().message),
                           r.error().native_error);
-      if (auto r = check_mver(group.mver, std::format("group {}", i)); !r)
+      if (auto r = detail::check_mver(group.mver, std::format("group {}", i)); !r)
         return std::unexpected{r.error()};
       groups.push_back(std::move(group));
     }
@@ -76,7 +88,7 @@ namespace wowlib::formats::wmo
 
     if (auto r = root.read(*root_data); !r)
       return std::unexpected{r.error()};
-    if (auto r = check_mver(root.mver, "root"); !r)
+    if (auto r = detail::check_mver(root.mver, "root"); !r)
       return std::unexpected{r.error()};
 
     const std::size_t n_groups = root.header.n_groups;
@@ -105,7 +117,7 @@ namespace wowlib::formats::wmo
         if constexpr (requires { root.group_fdids; })
           if (by_fdid)
             return FileKey{FileDataID{root.group_fdids[i]}};
-        return FileKey{group_path(root_path, i)};
+        return FileKey{detail::group_path(root_path, i)};
       }();
       const auto group_data = fs.read_file(group_key);
       if (!group_data)
@@ -117,7 +129,7 @@ namespace wowlib::formats::wmo
       if (auto r = group.read(*group_data); !r)
         return make_error(r.error().code, std::format("group {}: {}", i, r.error().message),
                           r.error().native_error);
-      if (auto r = check_mver(group.mver, std::format("group {}", i)); !r)
+      if (auto r = detail::check_mver(group.mver, std::format("group {}", i)); !r)
         return std::unexpected{r.error()};
       groups.push_back(std::move(group));
     }
@@ -143,30 +155,10 @@ namespace wowlib::formats::wmo
       const auto group_data = groups[i].write();
       if (!group_data)
         return std::unexpected{group_data.error()};
-      if (auto r = fs.add_file(group_path(*resolved.path, i), *group_data); !r)
+      if (auto r = fs.add_file(detail::group_path(*resolved.path, i), *group_data); !r)
         return make_error(r.error().code, std::format("group {}: {}", i, r.error().message),
                           r.error().native_error);
     }
     return {};
   }
-
-#define WOWLIB_WMO_INSTANTIATE(Suffix, version_)                                                   \
-  template struct root::WMORoot<versions::version_>;                                               \
-  template struct group::WMOGroupBody<versions::version_>;                                         \
-  template struct group::WMOGroup<versions::version_>;                                             \
-  template struct WMO<versions::version_>;
-
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_INSTANTIATE)
-#undef WOWLIB_WMO_INSTANTIATE
-}
-
-namespace wowlib::formats
-{
-#define WOWLIB_WMO_INSTANTIATE_SERIALIZER(Suffix, version_)                                        \
-  template struct ChunkedFile<wmo::root::WMORoot<versions::version_>>;                             \
-  template struct ChunkedFile<wmo::group::WMOGroupBody<versions::version_>>;                       \
-  template struct ChunkedFile<wmo::group::WMOGroup<versions::version_>>;
-
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_INSTANTIATE_SERIALIZER)
-#undef WOWLIB_WMO_INSTANTIATE_SERIALIZER
 }

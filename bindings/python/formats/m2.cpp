@@ -14,6 +14,8 @@
 
 #include "formats/m2.hpp"
 
+#include "instantiations/m2.hpp"
+
 #include <format>
 #include <string>
 

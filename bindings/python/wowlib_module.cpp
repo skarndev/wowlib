@@ -22,6 +22,8 @@
     typed @c \@overload blocks. The one thing stubgen cannot synthesize — the
     @c AnyX union aliases — comes from the declarative stub PATTERN_FILE, not code. */
 
+#include "instantiations/m2.hpp"
+#include "instantiations/wmo.hpp"
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/filesystem.h>

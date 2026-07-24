@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <wowlib/formats/wmo/wmo.hpp>
+#include <wowlib/formats/wmo/io.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
 #include "integration_env.hpp"
