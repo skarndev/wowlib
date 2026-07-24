@@ -125,9 +125,11 @@ namespace wowlib::formats::m2::body
     {
       [[
         =since(m2_per_sequence_timelines),
+        =welder::mark::exclude,
         =welder::doc("How many .skin files (LOD views) belong to the model "
-                     "(WotLK+); the M2 assembly keeps it in sync with its "
-                     "skins on write.")]]
+                     "(WotLK+). A derived wire field: the M2 assembly's "
+                     "skins vector is the source of truth — its write stamps "
+                     "this from skins.size(), and the bindings hide it.")]]
       std::uint32_t num_skin_profiles = 0;
 
       [[=welder::mark::exclude]]
@@ -189,7 +191,9 @@ namespace wowlib::formats::m2::body
       "lights", "cameras", "camera_lookup_table", "ribbon_emitters",
       "particle_emitters", "texture_combiner_combos"};
 
-    [[=welder::doc("The leading magic, 'MD20'.")]]
+    [[=welder::mark::exclude,
+      =welder::doc("The leading magic, 'MD20' — constant on every model; "
+                   "hidden from the bindings.")]]
     std::uint32_t magic = md20_magic;
 
     [[=welder::doc("The MD20 format version (256 vanilla .. 274 Legion+).")]]

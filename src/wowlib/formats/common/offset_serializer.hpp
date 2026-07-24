@@ -476,6 +476,45 @@ namespace wowlib::formats
     }
   }
 
+  /** The static wire offset of entity member @a name for @a E's version: the
+      version-active member sizes summed in wire order up to (not including)
+      the member. Lets a caller stamp a derived wire field into an
+      already-serialized image (the M2 assembly stamping num_skin_profiles
+      from its skins vector) without mutating entity state. Only valid while
+      no runtime-gated (gated_by) member precedes @a name — the offset would
+      be runtime state then; both that and the member's existence are
+      enforced at compile time.
+      @tparam E the offset entity type.
+      @param name the member identifier.
+      @return the byte offset inside the entity's wire image. */
+  template <OffsetEntity E>
+  consteval std::size_t wire_offset_of(std::string_view name)
+  {
+    constexpr auto members = detail::members_of<E>();
+    constexpr auto order = detail::offset_order<E>();
+    std::size_t off = 0;
+    bool found = false;
+    template for (constexpr std::size_t idx : order)
+    {
+      constexpr auto m = members[idx];
+      if constexpr (detail::version_active<E::version, m>())
+      {
+        if (!found && std::meta::identifier_of(m) == name)
+          found = true;
+        if (!found)
+        {
+          if (detail::annotation<detail::gated_by_spec, m>().has_value())
+            throw "wire_offset_of: a runtime-gated (gated_by) member precedes the target";
+          using MT = [:std::meta::type_of(m):];
+          off += detail::wire_size<MT, E::version>();
+        }
+      }
+    }
+    if (!found)
+      throw "wire_offset_of: the entity has no such wire member";
+    return off;
+  }
+
   // --- OffsetFile method definitions (declared in offsets.hpp) ----------------
 
   template <typename Derived>

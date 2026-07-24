@@ -421,6 +421,19 @@ namespace wowlib::formats
               else if (auto r = detail::write_value(entity.[:m:], out); !r)
                 return r;
               writer.end_chunk(size_at);
+              // Derived-field stamping: an entity may declare
+              //   void patch_chunk(std::uint32_t fourcc, std::span<std::byte>) const
+              // to overwrite wire fields whose source of truth is other
+              // members (e.g. WMORoot stamping the MOHD counts from its
+              // vectors). The hook sees the finished payload in place, so
+              // write() stays const and entity state is untouched.
+              if constexpr (requires {
+                              entity.patch_chunk(std::uint32_t{}, std::span<std::byte>{});
+                            })
+                entity.patch_chunk(
+                  spec->magic,
+                  std::span<std::byte>{out.data() + size_at + sizeof(std::uint32_t),
+                                       out.size() - size_at - sizeof(std::uint32_t)});
               ++written[static_cast<std::size_t>(index)];
             }
           }

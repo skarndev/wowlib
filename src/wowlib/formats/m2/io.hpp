@@ -419,12 +419,22 @@ namespace wowlib::formats::m2
     }
     else
     {
-      // Legion+ clients may still ship raw MD20 files — dispatch on the magic
       std::uint32_t lead = 0;
       if (main->size() >= 4)
         std::memcpy(&lead, main->data(), 4);
       if (lead == md20_magic)
-        return detail::read_monolithic(*this, fs, key, std::span<const std::byte>{*main});
+      {
+        // Legion clients still served leftover raw MD20 models; from BfA on
+        // none exist, so a bare image under a BfA+ target is a mismatch, not
+        // a fallback (m2_chunked_only).
+        if constexpr (V < m2_chunked_only)
+          return detail::read_monolithic(*this, fs, key, std::span<const std::byte>{*main});
+        else
+          return make_error(ErrorCode::FormatVersionMismatch,
+                            "bare MD20 model under a BfA+ target — raw (unchunked) .m2 files "
+                            "no longer exist from 8.0 on; if this is a Legion-era file, read "
+                            "it with the legion target");
+      }
       return detail::read_chunked(*this, fs, key, std::span<const std::byte>{*main});
     }
   }
@@ -448,11 +458,6 @@ namespace wowlib::formats::m2
     }
     else
     {
-      if (data.num_skin_profiles != this->skins.size())
-        return make_error(ErrorCode::InvalidEntityState,
-                          std::format("num_skin_profiles is {} but {} skins are baked in",
-                                      data.num_skin_profiles, this->skins.size()));
-
       // whose sequence table drives the .anim split
       const auto* sequences = &data.sequences;
       bool has_skel = false;
@@ -480,9 +485,18 @@ namespace wowlib::formats::m2
         };
         return ctx;
       };
-      const auto bytes = data.write(make_sink(afm2_bufs));
+      auto bytes = data.write(make_sink(afm2_bufs));
       if (!bytes)
         return std::unexpected{bytes.error()};
+
+      // stamp the derived skin count into the freshly written image — the
+      // baked skins vector is the source of truth (num_skin_profiles is a
+      // hidden wire field, see M2Data)
+      {
+        constexpr std::size_t count_at = wire_offset_of<M2Data<V>>("num_skin_profiles");
+        const auto count = static_cast<std::uint32_t>(this->skins.size());
+        std::memcpy(bytes->data() + count_at, &count, sizeof count);
+      }
 
       if constexpr (V < m2_chunked_container)
       {

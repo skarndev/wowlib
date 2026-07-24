@@ -91,7 +91,9 @@ namespace wowlib::formats::wmo
     if (auto r = detail::check_mver(root.mver, "root"); !r)
       return std::unexpected{r.error()};
 
-    const std::size_t n_groups = root.header.n_groups;
+    // MOGI (one info record per group file) is the group count's source of
+    // truth — header.n_groups is a derived wire field stamped from it.
+    const std::size_t n_groups = root.group_infos.size();
     // GFID (group FileDataIDs) is Legion+; pre-Legion roots have no such member
     // (it lives in a version trait that version does not inherit), so they always
     // locate groups by the "{root}_NNN.wmo" path convention.
@@ -143,6 +145,13 @@ namespace wowlib::formats::wmo
     if (!resolved.path)
       return make_error(ErrorCode::PathNotResolvable,
                         "saving a WMO needs a path for the root key");
+    // the derived n_groups is stamped from MOGI, so the two group tables the
+    // entity does keep (info records and group files) must agree
+    if (root.group_infos.size() != groups.size())
+      return make_error(ErrorCode::InvalidEntityState,
+                        std::format("the MOGI group-info table holds {} records but {} group "
+                                    "files are baked in — every group needs its info record",
+                                    root.group_infos.size(), groups.size()));
 
     const auto root_data = root.write();
     if (!root_data)

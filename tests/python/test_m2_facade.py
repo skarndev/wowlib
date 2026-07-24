@@ -52,9 +52,11 @@ def test_version_gated_members_do_not_exist_off_era():
     vanilla = body_mod.M2Data.for_version(X.Vanilla)
     wotlk = body_mod.M2Data.for_version(X.Wotlk)
     assert hasattr(vanilla, "skin_profiles")
-    assert not hasattr(vanilla, "num_skin_profiles")
-    assert hasattr(wotlk, "num_skin_profiles")
     assert not hasattr(wotlk, "skin_profiles")
+    # the derived skin count is a hidden wire field on every version:
+    # len(m2.skins) is the source of truth
+    assert not hasattr(wotlk, "num_skin_profiles")
+    assert not hasattr(wotlk, "magic")
 
 
 @pytest.mark.parametrize("module, family, first", [

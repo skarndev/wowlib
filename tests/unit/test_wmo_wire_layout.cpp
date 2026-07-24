@@ -115,12 +115,17 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
   FileBuffer root_data;
   put_chunk(root_data, "MVER", &mver, sizeof mver);
   SMOHeader header;
+  // n_groups is a derived wire field, stamped from the MOGI table on write —
+  // the handcrafted file must carry the matching MOGI record for the
+  // round-trip to reproduce it
   header.n_groups = 1;
   header.n_textures = 1;
   put_chunk(root_data, "MOHD", &header, sizeof header);
   SMOMaterial material;
   material.blend_mode = 1;
   put_chunk(root_data, "MOMT", &material, sizeof material);
+  const SMOGroupInfo group_info{};
+  put_chunk(root_data, "MOGI", &group_info, sizeof group_info);
 
   FileBuffer group_data;
   put_chunk(group_data, "MVER", &mver, sizeof mver);

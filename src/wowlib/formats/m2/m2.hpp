@@ -89,8 +89,9 @@ namespace wowlib::formats::m2
       [[
         =welder::mark::no_reassign,
         =welder::doc(R"(The model's LOD views, in view order ("{model}0N.skin"
-                        files, WotLK+); num_skin_profiles on the body must
-                        match — write() validates.)")]]
+                        files, WotLK+). The source of truth for the view
+                        count: write() stamps the body's num_skin_profiles
+                        wire field from this vector's length.)")]]
       std::vector<Skin<V>> skins;
 
       [[=welder::mark::exclude]]

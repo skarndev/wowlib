@@ -60,7 +60,9 @@ namespace wowlib::formats::m2::skin
   {
     static constexpr ClientVersion version = V;
 
-    [[=welder::doc("The leading magic, 'SKIN'.")]]
+    [[=welder::mark::exclude,
+      =welder::doc("The leading magic, 'SKIN' — constant on every view file; "
+                   "hidden from the bindings.")]]
     std::uint32_t magic = skin_magic;
 
     [[=welder::doc("The LOD view's tables (local lookups, submeshes, "

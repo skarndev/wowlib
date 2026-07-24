@@ -13,6 +13,8 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
+#include <span>
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
@@ -432,5 +434,25 @@ namespace wowlib::formats::wmo::root
       four_cc("MDDI"), four_cc("MPVD"), four_cc("MAVG"), four_cc("MAVD"), four_cc("MBVD"),
       four_cc("MFED"), four_cc("MGI2"), four_cc("MNLD"), four_cc("MDDL"), four_cc("MOMX"),
     };
+
+    /** Serializer hook (see write_entity): stamp the derived MOHD counts into
+        the just-written header payload — n_groups from the MOGI table,
+        n_portals and n_doodad_sets from their vectors. The counts real client
+        files disagree with their containers on (n_textures, n_lights,
+        n_doodad_defs, n_doodad_names) stay stored fields; see SMOHeader.
+        @param fourcc  the emitted chunk's id, in disk layout.
+        @param payload the finished chunk payload, patched in place. */
+    [[=welder::mark::exclude]]
+    void patch_chunk(std::uint32_t fourcc, std::span<std::byte> payload) const
+    {
+      if (fourcc != four_cc("MOHD") || payload.size() < sizeof(SMOHeader))
+        return;
+      SMOHeader h;
+      std::memcpy(&h, payload.data(), sizeof h);
+      h.n_groups = static_cast<std::uint32_t>(group_infos.size());
+      h.n_portals = static_cast<std::uint32_t>(portals.size());
+      h.n_doodad_sets = static_cast<std::uint32_t>(doodad_sets.size());
+      std::memcpy(payload.data(), &h, sizeof h);
+    }
   };
 }

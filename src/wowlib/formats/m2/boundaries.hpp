@@ -44,6 +44,12 @@ namespace wowlib::formats::m2
       joined by the companion chunks (PFID/SFID/AFID/…, forward fourccs). */
   inline constexpr ClientVersion m2_chunked_container{7, 0, 1, 20740};
 
+  /** BfA (8.0.1): the chunked container is universal — Legion clients still
+      served leftover raw MD20 models, but from 8.0 on none exist, so BfA+
+      reads treat a bare MD20 magic as a version mismatch instead of falling
+      back to the monolithic path. */
+  inline constexpr ClientVersion m2_chunked_only{8, 0, 1, 0};
+
   /** The MD20 format_version wowlib writes for @a v — the value the client
       era itself exports (wowdev.wiki/M2#Versions): vanilla 256, TBC 263,
       WotLK 264, Cata through WoD 272, Legion+ 274.
