@@ -156,15 +156,35 @@ def _chunk_struct_side(name: str) -> str | None:
     return _CHUNK_SIDE_CACHE.get(name)
 
 
+_COMMON_CACHE: set[str] | None = None
+
+
+def _common_names() -> set[str]:
+    """Struct names documented on the Common structures page (from the stub)."""
+    global _COMMON_CACHE
+    if _COMMON_CACHE is None:
+        try:
+            txt = (STUBS / "wowlib/formats/common.pyi").read_text(encoding="utf-8")
+            _COMMON_CACHE = set(re.findall(r"^class ([A-Za-z0-9_]+)", txt, re.M))
+        except OSError:
+            _COMMON_CACHE = set()
+    return _COMMON_CACHE
+
+
 def _elem_html(elem: str, base: str) -> str:
-    """The element inside list[…]; linked to its chunks-page entry when it is a
-    documented wire struct (SMOPoly, SMOMaterial, WMOBatch⟨version⟩ → its base)."""
+    """The element inside list[…], linked to its documentation when it is a known
+    struct: a WMO wire struct on its chunks page (SMOPoly, SMOMaterial,
+    WMOBatch⟨version⟩ → its base), or a shared primitive on the Common page
+    (C3Vector, CArgb, …)."""
     lookup = elem.replace(_VERSION_PLACEHOLDER, "")
     side = _chunk_struct_side(lookup)
     if side:
         anchor = f"{base}python/wmo/{side}-chunks/#wowlib.formats.wmo.{side}.chunks.{lookup}"
-        return f'<a class="autorefs autorefs-internal" href="{anchor}">{elem}</a>'
-    return elem
+    elif lookup in _common_names():
+        anchor = f"{base}python/common/#wowlib.formats.common.{lookup}"
+    else:
+        return elem
+    return f'<a class="autorefs autorefs-internal" href="{anchor}">{elem}</a>'
 
 
 def _coerce_vectors(html_out: str, base: str) -> str:

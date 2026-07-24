@@ -101,6 +101,7 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
            ${_wowlib_stubs}/wowlib/fs.pyi
            ${_wowlib_stubs}/wowlib/versions.pyi
            ${_wowlib_stubs}/wowlib/formats/__init__.pyi
+           ${_wowlib_stubs}/wowlib/formats/common.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/root/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/root/chunks.pyi

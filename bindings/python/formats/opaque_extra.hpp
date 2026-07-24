@@ -26,10 +26,10 @@
 
 #include <wowlib/formats/common/types.hpp>
 
-WELDER_OPAQUE(std::vector<wowlib::formats::C2Vector>)
+WELDER_OPAQUE(std::vector<wowlib::formats::common::C2Vector>)
 
 namespace wowlib
 {
   using VectorC2Vector [[=welder::weld(welder::lang::py)]] =
-    std::vector<wowlib::formats::C2Vector>;
+    std::vector<wowlib::formats::common::C2Vector>;
 }

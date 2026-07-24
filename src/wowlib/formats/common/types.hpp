@@ -24,7 +24,7 @@
 #  define WOWLIB_EMPTY_BASES
 #endif
 
-namespace wowlib::formats
+namespace wowlib::formats::common
 {
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
@@ -190,4 +190,14 @@ namespace wowlib::formats
   static_assert(sizeof(CArgb) == 4);
   static_assert(sizeof(CImVector) == 4);
   static_assert(sizeof(fixed16) == 2);
+}
+
+// The primitives live in wowlib::formats::common (welded as the wowlib.formats.common
+// submodule), but the format code refers to them by their bare client names. This
+// directive keeps both bare (C3Vector) and wowlib::formats::C3Vector lookups working —
+// qualified name lookup follows using-directives — WITHOUT re-declaring them as members
+// of wowlib::formats (so welder still binds them under `common`, not twice).
+namespace wowlib::formats
+{
+  using namespace common;
 }

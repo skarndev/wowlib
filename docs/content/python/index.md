@@ -12,6 +12,7 @@ docstrings here match what you import.
 |---|---|
 | [`wowlib`](core.md) | Core vocabulary: `ClientVersion`, `Expansion`, `Locale`, file keys, exceptions |
 | [`wowlib.fs`](fs.md) | The filesystem gateway over MPQ / CASC storages |
+| [`wowlib.formats.common`](common.md) | Shared wire primitives — vectors, matrices, colours, planes |
 | [`wowlib.formats.wmo`](wmo/index.md) | The WMO format — root & group, per-expansion classes |
 | [containers](containers.md) | Opaque `Vector*` types — by-reference, zero-copy NumPy |
 

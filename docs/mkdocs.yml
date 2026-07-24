@@ -127,6 +127,7 @@ nav:
       - python/index.md
       - Core & versions: python/core.md
       - Filesystem: python/fs.md
+      - Common structures: python/common.md
       - WMO format:
           - python/wmo/index.md
           - Fields & versions: python/wmo/fields.md
