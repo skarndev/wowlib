@@ -147,6 +147,14 @@ a.wmo-cc:hover {
   color: var(--md-primary-fg-color);
   border-color: var(--md-primary-fg-color);
 }
+/* Wire integer-width marker inside a signature: int -> Annotated[int, uint32].
+   The width is the C++ fixed-width type (nanobind coerces them all to Python int),
+   preserved here so the on-disk field size stays visible. */
+.wmo-int {
+  font-style: normal;
+  color: var(--md-accent-fg-color, var(--md-primary-fg-color));
+  opacity: 0.9;
+}
 
 /* Home-page cards: let long titles wrap cleanly. */
 .md-typeset .grid.cards > ul > li > hr {

@@ -185,9 +185,14 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
     since/until badge. There is no separate "removed" section.
   - Generating markdown (not surgical HTML) keeps the right-hand TOC correct: the toc
     extension sees the real `###` headings.
-  - Flag/enum types on the chunk pages get a wowdev badge + a backlink to the field that
-    uses them, via `ENUM_CHUNK` (enum → owning chunk FourCC) resolved through the entity
-    fields (`_augment_chunks`).
+  - Flag/enum types on the chunk pages get a wowdev badge + a same-page backlink to the
+    wire struct that carries the bits, via `ENUM_CHUNK` (enum → (FourCC, struct), e.g.
+    `PolyFlags → (MOPY, SMOPoly)`; templated structs alias, `WMOGroupHeader → SMOGroupHeader`).
+  - Wire integer widths: nanobind flattens every `std::uintN_t`/`std::intN_t` to Python
+    `int`, so the on-disk size is parsed back from the chunk sources (`_struct_int_fields`)
+    and the rendered signatures re-annotated `int → Annotated[int, uint32]` (arrays →
+    `list[Annotated[int, uint8]]`, signed → `int16`). This runs in `on_post_page`, not
+    `on_page_content` — the `int` type is an unresolved autoref until then.
 
 ## Reflection findings (gcc 16.1, `-freflection`)
 

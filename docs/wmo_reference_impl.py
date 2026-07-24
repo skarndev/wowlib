@@ -558,6 +558,86 @@ def _augment_chunks(html_out: str, side: str, base: str) -> str:
     return _HEADING_RE.sub(repl, html_out)
 
 
+# --- wire integer widths -----------------------------------------------------
+# nanobind coerces every fixed-width C++ integer (std::uint32_t, std::int16_t, …)
+# to a bare Python `int`, so the on-disk field size vanishes from the stubs. The
+# width lives only in the chunk sources; parse it back and re-annotate the rendered
+# signatures as Annotated[int, uint32] so the wire size stays documented.
+_CHUNK_HEADERS = {
+    "root": ["doodad", "environment", "header", "light", "material", "structure"],
+    "group": ["geometry", "header", "light", "liquid"],
+}
+# Templated wire structs weld under a different Python name than their C++ struct
+# (their per-version classes share one field layout); map the rendered class back.
+_CPP_STRUCT_ALIAS = {"WMOGroupHeader": "SMOGroupHeader", "WMOBatch": "SMOBatch"}
+_STRUCT_MEMBER_RE = re.compile(
+    r"(?:\[\[(?P<ann>.*?)\]\]\s*)?"                    # optional annotation
+    r"(?:std::)?(?P<arr>array<\s*)?(?:std::)?"          # optional std::array<
+    r"(?P<sign>u?)int(?P<bits>8|16|32|64)_t"
+    r"(?:\s*,\s*\d+\s*>)?\s+(?P<field>\w+)\s*[={;]", re.DOTALL)
+_INT_SPAN = '<span title="int">int</span>'
+_INT_FIELDS_CACHE: dict[str, dict[str, dict[str, tuple[bool, int]]]] = {}
+
+
+def _struct_int_fields(side: str) -> dict[str, dict[str, tuple[bool, int]]]:
+    """{C++ struct name: {field: (unsigned, bits)}} for the side's chunk wire structs.
+    Struct regions run from one struct/enum opening brace to the next; the member
+    regex only matches fixed-width int declarations, so doc-string braces in between
+    are harmless."""
+    if side not in _INT_FIELDS_CACHE:
+        base = REPO_ROOT / f"src/wowlib/formats/wmo/{side}/chunks"
+        out: dict[str, dict[str, tuple[bool, int]]] = {}
+        for fn in _CHUNK_HEADERS[side]:
+            txt = (base / f"{fn}.hpp").read_text(encoding="utf-8")
+            spans = [(m.start(), m.end(), m.group("name")) for m in re.finditer(
+                r"(?:struct|class|enum\s+class)\s+(?:\[\[.*?\]\]\s*)?"
+                r"(?:WOWLIB_EMPTY_BASES\s+)?(?P<name>[A-Za-z_]\w*)(?:<[^>]*>)?"
+                r"\s*(?::[^{;]*)?\{", txt, re.DOTALL)]
+            for i, (_s, e, name) in enumerate(spans):
+                region = txt[e: spans[i + 1][0] if i + 1 < len(spans) else len(txt)]
+                fields: dict[str, tuple[bool, int]] = {}
+                for mm in _STRUCT_MEMBER_RE.finditer(region):
+                    if mm.group("ann") and "mark::exclude" in mm.group("ann"):
+                        continue
+                    fields[mm.group("field")] = (mm.group("sign") == "u",
+                                                 int(mm.group("bits")))
+                if fields:
+                    out.setdefault(name, {}).update(fields)
+        _INT_FIELDS_CACHE[side] = out
+    return _INT_FIELDS_CACHE[side]
+
+
+def _cpp_struct(cls: str) -> str:
+    """The C++ wire-struct name for a rendered class (strip version suffix, undo the
+    templated-struct weld aliasing)."""
+    for suf in EXP_SUFFIXES:
+        if cls != suf and cls.endswith(suf):
+            cls = cls[: -len(suf)]
+            break
+    return _CPP_STRUCT_ALIAS.get(cls, cls)
+
+
+def _annotate_int_widths(html_out: str, side: str) -> str:
+    ints = _struct_int_fields(side)
+    pat = re.compile(
+        r'(?P<pre><h(?P<lvl>[1-6]) id="wowlib\.formats\.wmo\.' + side +
+        r'\.chunks\.(?P<cls>\w+)\.(?P<field>\w+)"[^>]*>.*?</h(?P=lvl)>\s*'
+        r'<div class="[^"]*doc-signature[^"]*">)(?P<sig>.*?)(?P<end></div>)', re.DOTALL)
+
+    def repl(m):
+        info = ints.get(_cpp_struct(m["cls"]), {}).get(m["field"])
+        if not info or _INT_SPAN not in m["sig"]:
+            return m.group(0)
+        unsigned, bits = info
+        label = f"{'u' if unsigned else ''}int{bits}"
+        title = f"{'unsigned ' if unsigned else 'signed '}{bits}-bit integer on the wire"
+        ann = (f'Annotated[{_INT_SPAN}, '
+               f'<span class="wmo-int" title="{title}">{label}</span>]')
+        return m["pre"] + m["sig"].replace(_INT_SPAN, ann, 1) + m["end"]
+
+    return pat.sub(repl, html_out)
+
+
 # --- mkdocs hooks ------------------------------------------------------------
 def _version_class_fields(side: str) -> dict[str, dict[str, tuple[str, str]]]:
     """{version class name: {field: (type, docstring)}} for a side's per-version
@@ -699,14 +779,21 @@ def on_post_page(output, page, config, **kwargs):
 
     - All Python API pages: coerce scalar opaque-vector type annotations to
       list[int]/list[float].
+    - Chunk pages: re-annotate wire integer fields with their C++ width
+      (int -> Annotated[int, uint32]).
     - Fields page: rewrite cross-reference link text (e.g. the `body`/`header`
       property types) to the generic WMO…⟨version⟩ name — these are autorefs
       placeholders during on_page_content, real <a> tags only now. Hrefs untouched.
+
+    The int-type span is an unresolved autoref during on_page_content and only
+    becomes `<span title="int">int</span>` here, so the width pass must run now.
     """
     try:
         src = page.file.src_uri
         if src.startswith("python/"):
             output = _coerce_vectors(output, _base_prefix(page))
+        if src in CHUNK_PAGES:
+            output = _annotate_int_widths(output, CHUNK_PAGES[src])
         if src == TARGET_PAGE:
             output = _XREF_NAME_RE.sub(rf"\1\2{_VERSION_PLACEHOLDER}\3", output)
     except re.error:
