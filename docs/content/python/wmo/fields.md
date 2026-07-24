@@ -12,6 +12,10 @@ availability is **version-restricted** also carries an expansion badge; a field
 with **no badge exists in every supported version**, so the version-specific ones
 stand out. The badges are generated from the C++ sources, so they cannot drift.
 
+Fields are grouped into sections by area (materials, geometry, lights, …). A chunk
+that was **removed** in a later client (its badge ends at a version) still appears
+in its section — the badge shows where it went away.
+
 <!-- wmo-legend -->
 
 ## Version-agnostic unions
@@ -52,11 +56,7 @@ per-version layout below is shown generically as `WMORoot⟨version⟩`.
       heading_level: 3
       show_root_toc_entry: true
 
-::: wowlib.formats.wmo.root.WMORootTheWarWithin
-    options:
-      heading_level: 3
-
-<!-- wmo-root-removed -->
+<!-- wmo-root-fields -->
 
 ## Group file
 
@@ -75,8 +75,4 @@ MOGP container) and the container body (`WMOGroupBody`), which holds the geometr
     options:
       heading_level: 3
 
-::: wowlib.formats.wmo.group.WMOGroupBodyTheWarWithin
-    options:
-      heading_level: 3
-
-<!-- wmo-group-removed -->
+<!-- wmo-group-fields -->

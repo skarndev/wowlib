@@ -45,7 +45,8 @@ STUBS = REPO_ROOT / "build/bindings/bindings/python/stubs"
 TARGET_PAGE = "python/wmo/fields.md"
 CHUNK_PAGES = {"python/wmo/root-chunks.md": "root", "python/wmo/group-chunks.md": "group"}
 MARKER_LEGEND = "<!-- wmo-legend -->"
-MARKER_REMOVED = {"root": "<!-- wmo-root-removed -->", "group": "<!-- wmo-group-removed -->"}
+# Filled with the category-grouped field sections (see _fields_markdown).
+MARKER_FIELDS = {"root": "<!-- wmo-root-fields -->", "group": "<!-- wmo-group-fields -->"}
 # The concrete representative class each side's fields are documented on. Since a
 # per-version type only carries its version's fields, the representative must be the
 # one with the largest field set: the latest version. Chunks REMOVED before then
@@ -98,6 +99,68 @@ EXPANSIONS = {
     11: ("tww", "TWW", "The War Within"),
 }
 LATEST_MAJOR = 11
+
+# --- fields-page category taxonomy -------------------------------------------
+# Chunks are grouped into these sections on the fields page (finer-grained split:
+# Collision apart from Geometry, Volumes from Fog, Group-table from Culling). This
+# grouping is pure documentation structure, not wire semantics, so it lives here
+# rather than as a C++ annotation; a chunk FourCC missing from FOURCC_CATEGORY is
+# logged and dropped into "Header" so the omission is visible, never silent.
+CATEGORY_ORDER = ["Header", "Materials", "Geometry", "Collision", "Doodads",
+                  "Lights", "Portals", "Fog", "Volumes", "Liquid", "Group table",
+                  "Culling", "Skybox"]
+FOURCC_CATEGORY = {
+    "MVER": "Header", "MOHD": "Header", "MOGP": "Header",
+    "MOMT": "Materials", "MOM3": "Materials", "MOTX": "Materials", "MOUV": "Materials",
+    "MOPY": "Geometry", "MPY2": "Geometry", "MOVI": "Geometry", "MOVX": "Geometry",
+    "MOVT": "Geometry", "MONR": "Geometry", "MOTV": "Geometry", "MOBA": "Geometry",
+    "MORB": "Geometry", "MOTA": "Geometry", "MOBS": "Geometry", "MOCV": "Geometry",
+    "MOC2": "Geometry", "MORI": "Geometry", "MOGX": "Geometry", "MOQG": "Geometry",
+    "MOBN": "Collision", "MOBR": "Collision", "MOPB": "Geometry",
+    "MDAL": "Lights", "MOPL": "Portals",
+    "MODS": "Doodads", "MODN": "Doodads", "MODI": "Doodads", "MODD": "Doodads",
+    "MDDI": "Doodads", "MDDL": "Doodads", "MODR": "Doodads",
+    "MOLT": "Lights", "MOLV": "Lights", "MNLD": "Lights", "MOLR": "Lights",
+    "MOLP": "Lights", "MOLS": "Lights", "MLSS": "Lights", "MLSP": "Lights",
+    "MLSK": "Lights", "MOP2": "Lights", "MNLR": "Lights",
+    "MOPV": "Portals", "MOPT": "Portals", "MOPR": "Portals", "MOPE": "Portals",
+    "MFOG": "Fog", "MFED": "Fog", "MFVR": "Fog",
+    "MPVD": "Volumes", "MAVG": "Volumes", "MAVD": "Volumes", "MBVD": "Volumes",
+    "MPVR": "Volumes", "MAVR": "Volumes", "MBVR": "Volumes",
+    "MLIQ": "Liquid",
+    "MOGN": "Group table", "MOGI": "Group table", "MGI2": "Group table", "GFID": "Group table",
+    "MOVV": "Culling", "MOVB": "Culling", "MCVP": "Culling", "MOMX": "Culling",
+    "MOSB": "Skybox", "MOSI": "Skybox",
+}
+CATEGORY_BLURB = {
+    "Header": "The file version and the root/group header.",
+    "Materials": "The material table, shaders and texture references.",
+    "Geometry": "Vertices, normals, texture coordinates, render batches and triangle data.",
+    "Collision": "The collision BSP tree.",
+    "Doodads": "Doodad (M2) sets, placements and their file references.",
+    "Lights": "Static and dynamic lights, and the group references into them.",
+    "Portals": "Portal geometry linking groups for visibility.",
+    "Fog": "Fog volumes and the group references into them.",
+    "Volumes": "Particulate and ambient volumes, and the group references into them.",
+    "Liquid": "The liquid grid (water, lava, slime).",
+    "Group table": "Group names, per-group info and the group-file table.",
+    "Culling": "Visibility blocks and convex culling volumes.",
+    "Skybox": "The skybox reference.",
+}
+
+# Flag/enum types documented on the chunk pages -> (owning chunk FourCC, the wire
+# struct whose field carries the bits). The FourCC drives the wowdev badge (that
+# chunk's section); the struct drives a same-page backlink to where it is used
+# (e.g. PolyFlags -> SMOPoly.flags). LightType is a plain enum, treated the same.
+ENUM_CHUNK = {
+    "MaterialFlags": ("MOMT", "SMOMaterial"),
+    "HeaderFlags": ("MOHD", "SMOHeader"),
+    "LightType": ("MOLT", "SMOLight"),
+    "DoodadFlags": ("MODD", "SMODoodadDef"),
+    "PolyFlags": ("MOPY", "SMOPoly"),
+    "GroupFlags": ("MOGP", "WMOGroupHeader"),
+    "GroupFlags2": ("MOGP", "WMOGroupHeader"),
+}
 
 # FourCC -> wowdev.wiki WMO-page anchor (vendored; refresh with build.py).
 try:
@@ -422,10 +485,16 @@ def _inject_for_version(html_out: str) -> str:
 
 def _augment_fields(html_out: str, base: str) -> str:
     root, group = _entity_fields()
-    classes = "|".join(REPR_CLASS.values())
+    # Any per-version class may render on this page: the representative for live
+    # fields, an earlier class for a removed chunk (rendered from its last version).
+    # Field info is keyed by name (identical across versions), so only the side and
+    # field name matter, not the class suffix.
+    hid_re = re.compile(
+        r"wowlib\.formats\.wmo\.(root|group)\.(?:WMORoot|WMOGroupBody)"
+        + _SUFFIX_ALT + r"\.(\w+)$")
 
     def repl(m):
-        mm = re.match(rf"wowlib\.formats\.wmo\.(root|group)\.(?:{classes})\.(\w+)$", m["hid"])
+        mm = hid_re.match(m["hid"])
         if not mm:
             return m.group(0)
         f = (root if mm.group(1) == "root" else group).get(mm.group(2))
@@ -458,19 +527,32 @@ def _rewrite_toc(items) -> None:
 
 def _augment_chunks(html_out: str, side: str, base: str) -> str:
     owners = _chunk_owners(side)
-    cls = REPR_CLASS[side]
+    struct_names = _chunk_names(side)
 
     def repl(m):
         mm = re.match(rf"wowlib\.formats\.wmo\.{side}\.chunks\.(\w+)$", m["hid"])
-        if not mm or mm.group(1) not in owners:
+        if not mm:
             return m.group(0)
+        name = mm.group(1)
         parts = []
-        for fname, cc in owners[mm.group(1)]:
-            anchor = f"{base}python/wmo/fields/#wowlib.formats.wmo.{side}.{cls}.{fname}"
-            parts.append(f'<a class="wmo-owner" href="{anchor}"'
-                         f' title="Used by the {fname} field of the WMO {side} entity">'
-                         f"[{html.escape(fname)}]</a>")
-            parts.append(_cc_html(cc))
+        if name in owners:                       # a wire struct -> its entity field(s)
+            for fname, cc in owners[name]:
+                anchor = (f"{base}python/wmo/fields/"
+                          f"#wowlib.formats.wmo.{side}.{REPR_CLASS[side]}.{fname}")
+                parts.append(f'<a class="wmo-owner" href="{anchor}"'
+                             f' title="Used by the {fname} field of the WMO {side} entity">'
+                             f"[{html.escape(fname)}]</a>")
+                parts.append(_cc_html(cc))
+        elif name in ENUM_CHUNK:                 # a flag/enum -> the struct that carries it
+            cc, struct = ENUM_CHUNK[name]
+            if struct in struct_names:           # same-page link to the wire struct
+                anchor = f"#wowlib.formats.wmo.{side}.chunks.{struct}"
+                parts.append(f'<a class="wmo-owner" href="{anchor}"'
+                             f' title="Flag bits of {struct} ({cc})">'
+                             f"[{html.escape(struct)}]</a>")
+            parts.append(_cc_html(cc))           # badge -> that chunk's wowdev section
+        if not parts:
+            return m.group(0)
         return f'{m["open"]}{m["inner"]}<span class="wmo-tags">{"".join(parts)}</span>{m["close"]}'
 
     return _HEADING_RE.sub(repl, html_out)
@@ -500,53 +582,101 @@ def _version_class_fields(side: str) -> dict[str, dict[str, tuple[str, str]]]:
     return out
 
 
-def _removed_fields(side: str) -> list[tuple[str, str, str]]:
-    """(field, type, doc) for fields in the union of all version classes but absent
-    from the representative — chunks removed before the latest version (root's MOSB).
-    This is the introspection that completes the fields-page superset."""
+_MODULE = {"root": "wowlib.formats.wmo.root", "group": "wowlib.formats.wmo.group"}
+_ORDER_CACHE: dict[str, list[str]] = {}
+
+
+def _chunk_order(side: str) -> list[str]:
+    """The entity's canonical chunk FourCC order (its `static constexpr chunk_order`
+    table), so fields render in stream order rather than trait-flatten order."""
+    if side not in _ORDER_CACHE:
+        txt = (ROOT_HPP if side == "root" else GROUP_HPP).read_text(encoding="utf-8")
+        m = re.search(r"chunk_order\s*=\s*\{(.*?)\}", txt, re.DOTALL)
+        _ORDER_CACHE[side] = re.findall(r'four_cc\("([^"]+)"\)', m.group(1)) if m else []
+    return _ORDER_CACHE[side]
+
+
+def _field_source_class(side: str) -> dict[str, str]:
+    """field name -> the version class the fields page renders it from: the
+    representative when it still declares the field, else the latest earlier class
+    that does (a chunk removed before the representative, e.g. root MOTX at 8.3)."""
     classes = _version_class_fields(side)
-    rep = set(classes.get(REPR_CLASS[side], {}))
-    superset: dict[str, tuple[str, str]] = {}
-    for flds in classes.values():
-        for name, td in flds.items():
-            superset.setdefault(name, td)
-    return [(name, t, d) for name, (t, d) in superset.items() if name not in rep]
+    prefix = "WMORoot" if side == "root" else "WMOGroupBody"
+    rep = REPR_CLASS[side]
+    have: dict[str, list[tuple[int, str]]] = {}
+    for cls, flds in classes.items():
+        suf = cls[len(prefix):]
+        if suf not in EXP_SUFFIXES:
+            continue
+        rank = EXP_SUFFIXES.index(suf)
+        for name in flds:
+            have.setdefault(name, []).append((rank, cls))
+    out: dict[str, str] = {}
+    for name, ranked in have.items():
+        out[name] = rep if any(c == rep for _, c in ranked) else max(ranked)[1]
+    return out
 
 
-def _render_removed(side: str, base: str) -> str:
-    """A 'Removed in later versions' subsection for the fields the representative
-    lacks — rendered as attribute entries with the same badges as the live fields."""
-    removed = _removed_fields(side)
-    if not removed:
-        return ""
+def _fields_markdown(side: str) -> str:
+    """The category-grouped field sections for one side: a `### Category` heading
+    per non-empty category (in CATEGORY_ORDER), each followed by mkdocstrings
+    directives that render just that category's members. Members come from the
+    representative class, except removed chunks, which render from their last
+    version class — so added and removed chunks sit together in their section."""
     fields = _entity_fields()[0 if side == "root" else 1]
-    rows = []
-    for name, typ, doc in removed:
-        f = fields.get(name, {})
-        tags = _cc_html(f.get("cc", "")) + _range_html(f.get("since"), f.get("until"), base)
-        doc_html = f"<p>{html.escape(doc)}</p>" if doc else ""
-        rows.append(
-            '<div class="doc doc-object doc-attribute">'
-            '<h4 class="doc doc-heading">'
-            '<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code> '
-            f'<span class="doc doc-object-name doc-attribute-name">{html.escape(name)}</span>'
-            f'<span class="wmo-tags">{tags}</span></h4>'
-            f'<div class="doc doc-contents"><p><code>{html.escape(typ)}</code></p>'
-            f"{doc_html}</div></div>")
-    return ("<h3>Removed in later versions</h3>\n"
-            "<p>Present in earlier clients but gone from the representative version "
-            "above — the badge shows where each was removed.</p>\n" + "\n".join(rows))
+    order = _chunk_order(side)
+    source = _field_source_class(side)
+
+    def rank(f):
+        return order.index(f["cc"]) if f["cc"] in order else len(order)
+
+    buckets: dict[str, list[tuple[str, str]]] = {c: [] for c in CATEGORY_ORDER}
+    unmapped: list[str] = []
+    for f in sorted((f for f in fields.values() if not f["container"]), key=rank):
+        cls = source.get(f["name"])
+        if not cls:                              # no stub declares it (nothing to render)
+            continue
+        cat = FOURCC_CATEGORY.get(f["cc"])
+        if cat is None:
+            unmapped.append(f["cc"])
+            cat = "Header"
+        buckets[cat].append((f["name"], cls))
+    if unmapped:
+        print(f"wowlib-docs: WARNING uncategorized {side} chunks (add to "
+              f"FOURCC_CATEGORY): {', '.join(sorted(set(unmapped)))}", flush=True)
+
+    out: list[str] = []
+    for cat in CATEGORY_ORDER:
+        members = buckets[cat]
+        if not members:
+            continue
+        out.append(f"### {cat} {{#wmo-{side}-{_category_slug(cat)}}}")
+        if CATEGORY_BLURB.get(cat):
+            out.append(CATEGORY_BLURB[cat])
+        # One directive per member, addressed as Class.attr (not a class with a
+        # members filter) — an attribute carries no "Bases:"/class-docstring to leak
+        # into the section. A removed chunk names an earlier class than the rest.
+        for name, cls in members:
+            out.append(f"::: {_MODULE[side]}.{cls}.{name}\n"
+                       "    options:\n"
+                       "      show_root_heading: true\n"
+                       "      show_root_toc_entry: true\n"
+                       "      heading_level: 4")
+    return "\n\n".join(out)
+
+
+def _category_slug(cat: str) -> str:
+    return cat.lower().replace(" ", "-")
 
 
 def on_page_markdown(markdown, page, config, files, **kwargs):
     if page.file.src_uri != TARGET_PAGE:
         return markdown
-    base = _base_prefix(page)
     if MARKER_LEGEND in markdown:
-        markdown = markdown.replace(MARKER_LEGEND, _legend(base))
-    for side, marker in MARKER_REMOVED.items():
+        markdown = markdown.replace(MARKER_LEGEND, _legend(_base_prefix(page)))
+    for side, marker in MARKER_FIELDS.items():
         if marker in markdown:
-            markdown = markdown.replace(marker, _render_removed(side, base))
+            markdown = markdown.replace(marker, _fields_markdown(side))
     return markdown
 
 

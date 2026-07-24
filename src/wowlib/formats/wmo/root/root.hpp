@@ -5,9 +5,10 @@
     materials, group metadata, portals, lights, doodads, fog and the
     later-expansion volume/light extensions. Version-gated chunks live in
     conditionally-inherited trait bases (one unwelded struct per availability
-    range, in wmo::root::detail) — including the pre-8.1-only MOSB, which the
-    8.1+ MOSI replaces — while the always-present chunks are the entity's own
-    members. A version's WMORoot therefore carries ONLY the chunks that version
+    range, in wmo::root::detail) — including the pre-8.1-only MOSB (replaced by
+    the 8.1+ MOSI) and the pre-8.3 by-name blocks MOTX/MODN (gone once the client
+    stopped resolving files by name) — while the always-present chunks are the
+    entity's own members. A version's WMORoot therefore carries ONLY the chunks that version
     defines. The root wire structs live in wmo::root::chunks. */
 
 #include <array>
@@ -99,6 +100,35 @@ namespace wowlib::formats::wmo::root
         =welder::doc(R"(Skybox filename (MOSB; pre-8.1); raw bytes — files pad it to
                         4-byte alignment. Replaced by skybox_fdid (MOSI) in 8.1+.)")]]
       ChunkBlob skybox_name;
+    };
+
+    /** Pre-8.3 root chunks: the by-name file-reference blocks. Since 8.3 the client
+        no longer resolves textures or doodads by filename, so both are gone from
+        8.3+ files — the material texture FileDataIDs and MODI (doodad FileDataIDs)
+        fully replace them. (Assumption pending full-client validation; if a 8.3+
+        file is ever seen carrying MOTX/MODN this bound is wrong.) */
+    struct RootPre83
+    {
+      [[
+        =chunk("MOTX"),
+        =until(ClientVersion{8, 3, 0, 32044}),
+        =formats::optional,
+        =welder::doc(R"(Texture filenames (MOTX); the material texture fields index
+                        into this block. Pre-8.1 it is the primary reference; in
+                        8.1/8.2 its presence marks the fallback mode (MOMT texture
+                        fields are MOTX offsets, not FileDataIDs). Removed at 8.3,
+                        when the client dropped name-based texture loading.)")]]
+      StringBlock textures;
+
+      [[
+        =chunk("MODN"),
+        =until(ClientVersion{8, 3, 0, 32044}),
+        =formats::optional,
+        =welder::doc(R"(Doodad (M2) filenames (MODN); MODD entries index into this
+                        block. Pre-8.1 primary, 8.1/8.2 fallback (see textures).
+                        Removed at 8.3 alongside MOTX; MODI (doodad FileDataIDs)
+                        replaces it.)")]]
+      StringBlock doodad_names;
     };
 
     /** 8.1+ root chunks (the FileDataID chunks that replace name lookups). */
@@ -271,6 +301,7 @@ namespace wowlib::formats::wmo::root
       slot<V, ClientVersion{7, 0, 1, 20740}, detail::RootLegion>,
       slot<V, ClientVersion{7, 3, 0, 24473}, detail::Root73>,
       slot<V, ClientVersion{0, 0, 0, 0}, detail::RootPre81, ClientVersion{8, 1, 0, 27826}>,
+      slot<V, ClientVersion{0, 0, 0, 0}, detail::RootPre83, ClientVersion{8, 3, 0, 32044}>,
       slot<V, ClientVersion{8, 1, 0, 27826}, detail::Root81>,
       slot<V, ClientVersion{8, 3, 0, 32044}, detail::Root83>,
       slot<V, ClientVersion{9, 0, 1, 33978}, detail::Root90>,
@@ -289,14 +320,6 @@ namespace wowlib::formats::wmo::root
       =chunk("MOHD"),
       =welder::doc("The root header (MOHD).")]]
     SMOHeader header{};
-
-    [[
-      =chunk("MOTX"),
-      =formats::optional,
-      =welder::doc(R"(Texture filenames (MOTX; pre-8.1, or the 8.1+ fallback mode —
-                      its presence means MOMT texture fields are offsets into it,
-                      not FileDataIDs).)")]]
-    StringBlock textures;
 
     [[
       =chunk("MOMT"),
@@ -366,13 +389,6 @@ namespace wowlib::formats::wmo::root
       =welder::mark::no_reassign,
       =welder::doc("Doodad sets (MODS).")]]
     std::vector<SMODoodadSet> doodad_sets;
-
-    [[
-      =chunk("MODN"),
-      =formats::optional,
-      =welder::doc(R"(Doodad (M2) filenames (MODN; pre-8.1 or fallback, see
-                      textures).)")]]
-    StringBlock doodad_names;
 
     [[
       =chunk("MODD"),

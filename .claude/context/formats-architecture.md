@@ -115,6 +115,80 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   (Python factories) use it to degrade a missing ladder to a NotImplemented
   Result instead of convert()'s static_assert.
 
+## Versioned-trait layout (conditional bases) — 2026-07-24
+
+Replaces the earlier "one struct with EVERY field, `since`/`until` gating what
+serializes." A version's entity now carries ONLY the chunks that version defines, so
+setting an absent field is a **compile error** (Python `AttributeError`) — not a
+silently-dropped write. Migrated: `WMOGroupBody`, `WMORoot` (commits 381043e,
+bdd2e94). The single-struct model described above is history; this is how versioned
+entities work now.
+
+- **Range-traits**: version-gated chunk members move into small **unwelded** structs
+  in the entity's `detail::` namespace, one per availability RANGE (root:
+  RootLegion/73/Pre81/81/83/90/91/110/111; group: GroupBodyCata/Wod/Legion/81/83/90/
+  100). Chunks sharing a `since` (and `until`) go in one trait — well-scoped ranges
+  keep the count small (~7–9). Members keep their full `[[chunk/since/until/doc/mark]]`.
+- **Conditional inheritance**: `slot<V, Since, Trait, Until = version_never_removed>`
+  (`formats/common/version_slot.hpp`) = `std::conditional_t<(V >= Since && V < Until),
+  Trait, absent<Trait>>`. The entity inherits one slot per trait; inactive → a
+  DISTINCT empty `absent<Trait>` (one per Trait, so several inactive slots aren't a
+  duplicated base; EBO elides them). A REMOVED chunk (root MOSB, gone at 8.1) is a
+  trait with `Until` set. Always-present + V-dependent members (header, `batches<V>`)
+  stay own members.
+- **welder needs NO changes**: it flattens a non-welded base's public members onto the
+  derived binding (`carriage.hpp` `bind_members` over `public_bases`; `reflect.hpp:396`),
+  reading annotations off the member's DECLARING class — so an active trait's
+  marks/docs survive and `WMORootWotlk` binds only its fields. (We first spiked C++26
+  `std::meta::define_aggregate` member injection: it works and MEMBER annotations
+  survive, BUT injected CLASS annotations do NOT — no weld marker, would need explicit
+  tack-`weld_type` — and `^^std::uint32_t` on a bare alias fails. Conditional bases are
+  simpler and keep the Python layer identical; old type-level tricks beat reflection
+  here. Spikes were throwaway.)
+
+**Serializer** (serializer.hpp):
+- `members_of<E>` now **flattens public bases** (`collect_members`, mirroring welder)
+  so it sees trait members. Base bookkeeping (ChunkExtras journal/unknown/trailing)
+  comes along but carries no `chunk()`, so every chunk loop skips it. The journal's
+  member index just indexes the flattened list (stable ⇒ round-trip unaffected).
+- Fresh-entity write order is an **authoritative `static constexpr chunk_order`** (a
+  fourcc array) on the entity — the by-trait flatten order is NOT canonical.
+  `write_order<E>()` follows it when present (detected via `requires { E::chunk_order; }`;
+  it and `version` are *static* members, invisible to welder + `members_of` which use
+  *nonstatic* members), else declaration order (un-migrated entities unchanged). A
+  compile-time check requires the table to list every chunk member exactly once.
+  `version_active` is now largely redundant (an inactive chunk's member doesn't exist);
+  `since`/`until` survive on trait members as doc metadata (the docs badges read them).
+
+**Latent bug the migration caught**: `WMO::read` (wmo.cpp) read `root.group_fdids`
+(GFID, Legion+) unconditionally — a compile error once pre-Legion roots lack it.
+Guarded with `if constexpr (requires { root.group_fdids; })`; pre-Legion locates groups
+by path. **Rule**: library/test code touching a version-gated member must `if constexpr
+(requires { … })`-guard the access.
+
+**Docs interaction** (`docs/wmo_reference_impl.py`): no single version has the superset
+(removed chunks). Each side's C++ slice reads from the entity header's `namespace detail`
+(traits) through the struct, since the range members now live in the traits. The fields
+page (`content/python/wmo/fields.md`) no longer lists a class; it carries two markers
+(`<!-- wmo-{root,group}-fields -->`) that `on_page_markdown` replaces with **per-category
+`### Section` headings + generated mkdocstrings `:::` directives** (`_fields_markdown`):
+  - Chunks are grouped by a finer-grained taxonomy — `CATEGORY_ORDER` / `FOURCC_CATEGORY`
+    (Header · Materials · Geometry · Collision · Doodads · Lights · Portals · Fog ·
+    Volumes · Liquid · Group table · Culling · Skybox). This map is presentation-only
+    (not a C++ annotation); a chunk FourCC missing from it is logged at build time and
+    dropped into Header, so drift is loud, never silent.
+  - Each directive uses `show_root_heading: false` + `members: [...]` to render just that
+    category's members (ordered by the entity's `chunk_order`). Live fields come from the
+    representative (latest) class; a **removed** chunk renders from the latest version
+    class that still declares it (`_field_source_class`, e.g. root MOTX/MODN/MOSB from
+    `WMORootLegion`) — so added and removed chunks sit together in-section, each with its
+    since/until badge. There is no separate "removed" section.
+  - Generating markdown (not surgical HTML) keeps the right-hand TOC correct: the toc
+    extension sees the real `###` headings.
+  - Flag/enum types on the chunk pages get a wowdev badge + a backlink to the field that
+    uses them, via `ENUM_CHUNK` (enum → owning chunk FourCC) resolved through the entity
+    fields (`_augment_chunks`).
+
 ## Reflection findings (gcc 16.1, `-freflection`)
 
 Canary: `tests/unit/test_reflection_spike.cpp` — keep compiling. Everything
