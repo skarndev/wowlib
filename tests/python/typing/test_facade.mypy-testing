@@ -12,13 +12,13 @@ from wowlib.formats import wmo
 
 @pytest.mark.mypy_testing
 def mypy_for_version_narrows_to_the_concrete_class() -> None:
-    reveal_type(wmo.WMO.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.wmo.WMOWotlk
+    reveal_type(wmo.WMO.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.wmo.WMOVanillaToWotlk
 
 
 @pytest.mark.mypy_testing
 def mypy_convert_narrows_on_the_target_literal() -> None:
     w = wmo.WMO.for_version(wowlib.Expansion.Wotlk)
-    reveal_type(w.convert(wowlib.Expansion.Cata))  # R: wowlib.formats.wmo.WMOCata
+    reveal_type(w.convert(wowlib.Expansion.Cata))  # R: wowlib.formats.wmo.WMOCataToMop
 
 
 @pytest.mark.mypy_testing

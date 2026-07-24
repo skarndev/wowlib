@@ -72,36 +72,41 @@ def test_subset_families_reject_earlier_eras(module, family, first):
         base.for_version(X.Vanilla)
 
 
+# one union arm per RANGE (real content permutation), not per release
 @pytest.mark.parametrize("module, alias, count", [
-    ("m2", "AnyM2", 11),
-    ("body", "AnyM2Data", 11),
-    ("skin", "AnySkin", 9),
-    ("body", "AnyM2File", 5),
-    ("m2", "AnySkeleton", 5),
+    ("m2", "AnyM2", 10),        # only Cata..MoP share a range
+    ("body", "AnyM2Data", 6),   # Vanilla|Tbc|Wotlk|CataToMop|Wod|LegionPlus
+    ("skin", "AnySkin", 2),     # Wotlk|CataPlus
+    ("body", "AnyM2File", 5),   # every chunked release differs
+    ("m2", "AnySkeleton", 1),   # stable across the whole chunked era
 ])
 def test_anyx_unions_fold_only_existing_eras(module, alias, count):
     mod = {"m2": m2_mod, "body": body_mod, "skin": skin_mod}[module]
     union = getattr(mod, alias)
+    if count == 1:
+        # a single-range family folds to the class itself, not a UnionType
+        assert isinstance(union, type)
+        return
     assert isinstance(union, types.UnionType)
     assert len(union.__args__) == count
 
 
 def test_records_bind_under_their_submodule():
-    bone = records_mod.M2CompBoneWotlk()
+    bone = records_mod.M2CompBoneWotlkPlus()
     assert bone.parent_bone == -1
-    seq = records_mod.M2SequenceWotlk()
+    seq = records_mod.M2SequenceWotlkToMop()
     seq.duration = 2000
     assert seq.duration == 2000
-    profile = skin_mod.M2SkinProfileWotlk()
+    profile = skin_mod.M2SkinProfileTbcToWotlk()
     assert profile.bone_count_max == 0
-    header = m2_mod.SkelHeaderLegion()
+    header = m2_mod.SkelHeaderLegionPlus()
     assert header.flags == 0x100
 
 
 def test_tracks_expose_per_sequence_arrays():
-    track = records_mod.M2TrackC3VectorWotlk()
+    track = records_mod.M2TrackC3VectorWotlkPlus()
     assert track.global_sequence == 0xFFFF
-    old = records_mod.M2TrackC3VectorVanilla()
+    old = records_mod.M2TrackC3VectorVanillaToTbc()
     assert hasattr(old, "interpolation_ranges")
     assert not hasattr(track, "interpolation_ranges")
 
@@ -109,7 +114,7 @@ def test_tracks_expose_per_sequence_arrays():
 def test_synthetic_body_roundtrips_through_bytes():
     model = body_mod.M2Data.for_version(X.Wotlk)
     model.name = "python_test"
-    seq = records_mod.M2SequenceWotlk()
+    seq = records_mod.M2SequenceWotlkToMop()
     seq.duration = 1000
     seq.flags = 0x20  # data in .m2 — everything inline
     model.sequences.append(seq)

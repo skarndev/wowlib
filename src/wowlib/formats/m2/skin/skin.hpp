@@ -48,6 +48,8 @@ namespace wowlib::formats::m2::skin
       the magic.
       @tparam V the client version this skin targets.
       @see https://wowdev.wiki/M2/.skin */
+  namespace detail
+  {
   template <ClientVersion V>
     requires (V >= m2_per_sequence_timelines)
   struct [[
@@ -67,8 +69,18 @@ namespace wowlib::formats::m2::skin
 
     [[=welder::doc("The LOD view's tables (local lookups, submeshes, "
                    "batches).")]]
-    M2SkinProfile<V> profile{};
+    skin::M2SkinProfile<V> profile{};
 
     bool operator==(const Skin&) const = default;
   };
+  }
+
+  /** An external LOD view — the canonicalizing face of detail::Skin: every
+      WotLK+ version maps to its range's first grid version (m2_skin_pivots:
+      only Cata's shadow batches split the era, so two instantiations cover
+      all nine releases). Pre-WotLK versions stay a substitution failure. */
+  template <ClientVersion V>
+    requires (V >= m2_per_sequence_timelines)
+  using Skin =
+    detail::Skin<canonical_version(V, m2_skin_pivots, m2_skin_versions)>;
 }

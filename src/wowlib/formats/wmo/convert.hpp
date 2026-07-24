@@ -19,6 +19,18 @@ namespace wowlib::formats
       one adjacent step at a time. */
   template <>
   inline constexpr auto supported_versions<wmo::WMO> = wmo::wmo_versions;
+  /** The same ladder keyed on the detail template: convert() DEDUCES the
+      family from an entity reference, and deduction sees wmo::detail::WMO —
+      an alias template is not identity-equal to its target for
+      template-template matching. */
+  template <>
+  inline constexpr auto supported_versions<wmo::detail::WMO> = wmo::wmo_versions;
+
+  /** The assembly's canonicalization pivots (both spellings, as above). */
+  template <>
+  inline constexpr auto version_pivots<wmo::WMO> = wmo::wmo_assembly_pivots;
+  template <>
+  inline constexpr auto version_pivots<wmo::detail::WMO> = wmo::wmo_assembly_pivots;
 
   // convert_step(const wmo::WMO<From>&, version_tag<To>) overloads go here as
   // each adjacent-version pair's chunk-set translation is implemented; until then

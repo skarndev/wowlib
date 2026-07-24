@@ -80,121 +80,134 @@ namespace wowlib::formats::wmo::group::chunks
 
   /** The 0x44-byte header leading the MOGP container payload. The final u32
       slot is unused up to 9.1.5 and becomes the split-group indices after. */
-  template <ClientVersion V>
-  struct SMOGroupHeader;
-
-  template <ClientVersion V>
-    requires(V < wmo_split_groups)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("The MOGP group header: names, flags, bounds, portal and batch "
-                 "ranges, fog and liquid.")
-  ]] WOWLIB_EMPTY_BASES SMOGroupHeader<V> : WMOGroupHeaderBase
+namespace detail
   {
-    [[=welder::doc("Byte offset of the group name in MOGN.")]]
-    std::uint32_t group_name = 0;
+    // The annotated era layouts; instantiate through the canonicalizing
+    // aliases below, never directly.
+      template <ClientVersion V>
+    struct SMOGroupHeader;
 
-    [[=welder::doc("Byte offset of the descriptive name in MOGN.")]]
-    std::uint32_t descriptive_group_name = 0;
+    template <ClientVersion V>
+      requires(V < wmo_split_groups)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("The MOGP group header: names, flags, bounds, portal and batch "
+                   "ranges, fog and liquid.")
+    ]] WOWLIB_EMPTY_BASES SMOGroupHeader<V> : WMOGroupHeaderBase
+    {
+      [[=welder::doc("Byte offset of the group name in MOGN.")]]
+      std::uint32_t group_name = 0;
 
-    [[=welder::doc("Group flags; GroupFlags bits.")]]
-    std::uint32_t flags = 0;
+      [[=welder::doc("Byte offset of the descriptive name in MOGN.")]]
+      std::uint32_t descriptive_group_name = 0;
 
-    [[=welder::doc("Group bounding box.")]]
-    CAaBox bounding_box{};
+      [[=welder::doc("Group flags; GroupFlags bits.")]]
+      std::uint32_t flags = 0;
 
-    [[=welder::doc("First portal reference in MOPR.")]]
-    std::uint16_t portal_start = 0;
+      [[=welder::doc("Group bounding box.")]]
+      CAaBox bounding_box{};
 
-    [[=welder::doc("Portal reference count.")]]
-    std::uint16_t portal_count = 0;
+      [[=welder::doc("First portal reference in MOPR.")]]
+      std::uint16_t portal_start = 0;
 
-    [[=welder::doc("Transition batch count (MOBA prefix).")]]
-    std::uint16_t trans_batch_count = 0;
+      [[=welder::doc("Portal reference count.")]]
+      std::uint16_t portal_count = 0;
 
-    [[=welder::doc("Interior batch count.")]]
-    std::uint16_t int_batch_count = 0;
+      [[=welder::doc("Transition batch count (MOBA prefix).")]]
+      std::uint16_t trans_batch_count = 0;
 
-    [[=welder::doc("Exterior batch count.")]]
-    std::uint16_t ext_batch_count = 0;
+      [[=welder::doc("Interior batch count.")]]
+      std::uint16_t int_batch_count = 0;
 
-    /** The fourth batch-count slot; unused by clients. */
-    std::uint16_t batch_type_d = 0;
+      [[=welder::doc("Exterior batch count.")]]
+      std::uint16_t ext_batch_count = 0;
 
-    [[=welder::doc("Fog indices into MFOG.")]]
-    std::array<std::uint8_t, 4> fog_ids{};
+      /** The fourth batch-count slot; unused by clients. */
+      std::uint16_t batch_type_d = 0;
 
-    [[=welder::doc("Group liquid type; interpretation depends on the root "
-                   "use_liquid_type_dbc_id flag.")]]
-    std::uint32_t group_liquid = 0;
+      [[=welder::doc("Fog indices into MFOG.")]]
+      std::array<std::uint8_t, 4> fog_ids{};
 
-    [[=welder::doc("Foreign key into WMOAreaTable (m_WMOGroupID).")]]
-    std::uint32_t unique_id = 0;
+      [[=welder::doc("Group liquid type; interpretation depends on the root "
+                     "use_liquid_type_dbc_id flag.")]]
+      std::uint32_t group_liquid = 0;
 
-    [[=welder::doc("Extended flags (Cataclysm+); GroupFlags2 bits.")]]
-    std::uint32_t flags2 = 0;
+      [[=welder::doc("Foreign key into WMOAreaTable (m_WMOGroupID).")]]
+      std::uint32_t unique_id = 0;
 
-    /** Unused up to 9.1.5 (becomes the split-group indices in 9.2+). */
-    std::uint32_t unused = 0;
-  };
+      [[=welder::doc("Extended flags (Cataclysm+); GroupFlags2 bits.")]]
+      std::uint32_t flags2 = 0;
 
+      /** Unused up to 9.1.5 (becomes the split-group indices in 9.2+). */
+      std::uint32_t unused = 0;
+    };
+
+    template <ClientVersion V>
+      requires(V >= wmo_split_groups)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("The MOGP group header: names, flags, bounds, portal and batch "
+                   "ranges, fog, liquid and split-group links (9.2+).")
+    ]] WOWLIB_EMPTY_BASES SMOGroupHeader<V> : WMOGroupHeaderBase
+    {
+      [[=welder::doc("Byte offset of the group name in MOGN.")]]
+      std::uint32_t group_name = 0;
+
+      [[=welder::doc("Byte offset of the descriptive name in MOGN.")]]
+      std::uint32_t descriptive_group_name = 0;
+
+      [[=welder::doc("Group flags; GroupFlags bits.")]]
+      std::uint32_t flags = 0;
+
+      [[=welder::doc("Group bounding box.")]]
+      CAaBox bounding_box{};
+
+      [[=welder::doc("First portal reference in MOPR.")]]
+      std::uint16_t portal_start = 0;
+
+      [[=welder::doc("Portal reference count.")]]
+      std::uint16_t portal_count = 0;
+
+      [[=welder::doc("Transition batch count (MOBA prefix).")]]
+      std::uint16_t trans_batch_count = 0;
+
+      [[=welder::doc("Interior batch count.")]]
+      std::uint16_t int_batch_count = 0;
+
+      [[=welder::doc("Exterior batch count.")]]
+      std::uint16_t ext_batch_count = 0;
+
+      /** The fourth batch-count slot; unused by clients. */
+      std::uint16_t batch_type_d = 0;
+
+      [[=welder::doc("Fog indices into MFOG.")]]
+      std::array<std::uint8_t, 4> fog_ids{};
+
+      [[=welder::doc("Group liquid type; interpretation depends on the root "
+                     "use_liquid_type_dbc_id flag.")]]
+      std::uint32_t group_liquid = 0;
+
+      [[=welder::doc("Foreign key into WMOAreaTable (m_WMOGroupID).")]]
+      std::uint32_t unique_id = 0;
+
+      [[=welder::doc("Extended flags (Cataclysm+); GroupFlags2 bits.")]]
+      std::uint32_t flags2 = 0;
+
+      [[=welder::doc("Parent split group, or the first child (9.2+ split groups).")]]
+      std::int16_t parent_or_first_child_split_group_index = -1;
+
+      [[=welder::doc("Next sibling in the split-group chain.")]]
+      std::int16_t next_split_child_group_index = -1;
+    };
+  }
+
+  /** The MOGP header — the canonicalizing face of detail::SMOGroupHeader
+      (wmo_group_header_pivots: the split-group indices arrive at 9.2), so
+      two instantiations cover all eleven releases. */
   template <ClientVersion V>
-    requires(V >= wmo_split_groups)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("The MOGP group header: names, flags, bounds, portal and batch "
-                 "ranges, fog, liquid and split-group links (9.2+).")
-  ]] WOWLIB_EMPTY_BASES SMOGroupHeader<V> : WMOGroupHeaderBase
-  {
-    [[=welder::doc("Byte offset of the group name in MOGN.")]]
-    std::uint32_t group_name = 0;
+  using SMOGroupHeader =
+    detail::SMOGroupHeader<canonical_version(V, wmo_group_header_pivots, wmo_versions)>;
 
-    [[=welder::doc("Byte offset of the descriptive name in MOGN.")]]
-    std::uint32_t descriptive_group_name = 0;
-
-    [[=welder::doc("Group flags; GroupFlags bits.")]]
-    std::uint32_t flags = 0;
-
-    [[=welder::doc("Group bounding box.")]]
-    CAaBox bounding_box{};
-
-    [[=welder::doc("First portal reference in MOPR.")]]
-    std::uint16_t portal_start = 0;
-
-    [[=welder::doc("Portal reference count.")]]
-    std::uint16_t portal_count = 0;
-
-    [[=welder::doc("Transition batch count (MOBA prefix).")]]
-    std::uint16_t trans_batch_count = 0;
-
-    [[=welder::doc("Interior batch count.")]]
-    std::uint16_t int_batch_count = 0;
-
-    [[=welder::doc("Exterior batch count.")]]
-    std::uint16_t ext_batch_count = 0;
-
-    /** The fourth batch-count slot; unused by clients. */
-    std::uint16_t batch_type_d = 0;
-
-    [[=welder::doc("Fog indices into MFOG.")]]
-    std::array<std::uint8_t, 4> fog_ids{};
-
-    [[=welder::doc("Group liquid type; interpretation depends on the root "
-                   "use_liquid_type_dbc_id flag.")]]
-    std::uint32_t group_liquid = 0;
-
-    [[=welder::doc("Foreign key into WMOAreaTable (m_WMOGroupID).")]]
-    std::uint32_t unique_id = 0;
-
-    [[=welder::doc("Extended flags (Cataclysm+); GroupFlags2 bits.")]]
-    std::uint32_t flags2 = 0;
-
-    [[=welder::doc("Parent split group, or the first child (9.2+ split groups).")]]
-    std::int16_t parent_or_first_child_split_group_index = -1;
-
-    [[=welder::doc("Next sibling in the split-group chain.")]]
-    std::int16_t next_split_child_group_index = -1;
-  };
 
   static_assert(sizeof(SMOGroupHeader<versions::wotlk>) == 0x44);
   static_assert(sizeof(SMOGroupHeader<versions::shadowlands>) == 0x44);

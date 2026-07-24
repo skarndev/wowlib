@@ -56,6 +56,8 @@ namespace wowlib::formats::m2::body
       the assembly re-encodes it).
       @tparam V the client version this shell targets.
       @see https://wowdev.wiki/M2#Chunks */
+  namespace detail
+  {
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
   struct [[
@@ -310,4 +312,15 @@ namespace wowlib::formats::m2::body
 
     bool operator==(const M2File&) const = default;
   };
+  }
+
+  /** The chunked .m2 stream — the canonicalizing face of detail::M2File:
+      every Legion+ version maps to its range's first grid version
+      (m2_file_pivots — the active chunk set is constant within a range).
+      Pre-Legion versions stay a substitution failure, so the facade's era
+      subsetting is unchanged. */
+  template <ClientVersion V>
+    requires (V >= m2_chunked_container)
+  using M2File =
+    body::detail::M2File<canonical_version(V, m2_file_pivots, m2_chunked_versions)>;
 }

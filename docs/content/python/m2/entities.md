@@ -34,7 +34,7 @@ render batches and the index/triangle tables of one LOD view.
       heading_level: 3
       show_root_toc_entry: true
 
-::: wowlib.formats.m2.skin.SkinTheWarWithin
+::: wowlib.formats.m2.skin.SkinCataPlus
     options:
       heading_level: 3
       show_root_toc_entry: true
@@ -51,7 +51,7 @@ documented with the other [records](records.md).
       heading_level: 3
       show_root_toc_entry: true
 
-::: wowlib.formats.m2.SkeletonTheWarWithin
+::: wowlib.formats.m2.SkeletonLegionPlus
     options:
       heading_level: 3
       show_root_toc_entry: true
@@ -61,7 +61,7 @@ documented with the other [records](records.md).
 The per-version body and shell classes render here for completeness; their
 fields are documented on [Fields & versions](fields.md).
 
-::: wowlib.formats.m2.body.M2DataTheWarWithin
+::: wowlib.formats.m2.body.M2DataLegionPlus
     options:
       heading_level: 3
       show_root_toc_entry: true

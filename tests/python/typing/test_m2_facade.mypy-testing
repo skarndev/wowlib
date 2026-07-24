@@ -16,13 +16,13 @@ def mypy_for_version_narrows_to_the_concrete_class() -> None:
 
 @pytest.mark.mypy_testing
 def mypy_subset_family_narrows_too() -> None:
-    reveal_type(m2.Skeleton.for_version(wowlib.Expansion.Legion))  # R: wowlib.formats.m2.SkeletonLegion
+    reveal_type(m2.Skeleton.for_version(wowlib.Expansion.Legion))  # R: wowlib.formats.m2.SkeletonLegionPlus
 
 
 @pytest.mark.mypy_testing
 def mypy_convert_narrows_on_the_target_literal() -> None:
     model = m2.M2.for_version(wowlib.Expansion.Wotlk)
-    reveal_type(model.convert(wowlib.Expansion.Cata))  # R: wowlib.formats.m2.M2Cata
+    reveal_type(model.convert(wowlib.Expansion.Cata))  # R: wowlib.formats.m2.M2CataToMop
 
 
 @pytest.mark.mypy_testing
@@ -37,11 +37,11 @@ def mypy_body_family_narrows_in_its_submodule() -> None:
 
 @pytest.mark.mypy_testing
 def mypy_records_bind_versioned_concretes() -> None:
-    bone = body.records.M2CompBoneWotlk()
+    bone = body.records.M2CompBoneWotlkPlus()
     reveal_type(bone.parent_bone)  # R: int
 
 
 @pytest.mark.mypy_testing
 def mypy_skin_records_live_beside_the_entity() -> None:
-    profile = skin.M2SkinProfileWotlk()
+    profile = skin.M2SkinProfileTbcToWotlk()
     reveal_type(profile.bone_count_max)  # R: int

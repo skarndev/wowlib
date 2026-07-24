@@ -11,9 +11,11 @@
     wowdev.wiki documents it), instead of grouping chunks under a shared,
     guessed-at "feature set" constant. */
 
+#include <array>
 #include <cstdint>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/formats/common/version_range.hpp>
 
 namespace wowlib::formats::wmo
 {
@@ -27,4 +29,54 @@ namespace wowlib::formats::wmo
   /** 9.2.0.42423: the unused u32 at MOGP+0x40 becomes the two split-group
       indices. A layout pivot for SMOGroupHeader. */
   inline constexpr ClientVersion wmo_split_groups{9, 2, 0, 42423};
+
+  // --- version grid and per-family canonicalization pivots ------------------
+  //
+  // Every versioned WMO family instantiates only for its REAL content
+  // permutations (see formats/common/version_range.hpp): the public name is
+  // a canonicalizing alias flooring the requested version over the family's
+  // pivots. The lists are generous — every documented change point, not just
+  // the ones the current grid straddles; the welded range tables in wmo.hpp
+  // are consteval-checked against them.
+
+  /** The versions WMO is instantiated (and welded) for: every targeted
+      last-minor-of-major release, in release order. */
+  inline constexpr std::array wmo_versions{
+    versions::vanilla, versions::tbc,         versions::wotlk,
+    versions::cata,    versions::mop,         versions::wod,
+    versions::legion,  versions::bfa,         versions::shadowlands,
+    versions::dragonflight, versions::tww};
+
+  /** SMOBatch: the culling-box prelude gives way to the large material id. */
+  inline constexpr std::array wmo_batch_pivots{wmo_batch_large_material};
+
+  /** SMOGroupHeader: the split-group indices replacing the unused u32. */
+  inline constexpr std::array wmo_group_header_pivots{wmo_split_groups};
+
+  /** WMORoot: every trait-slot boundary and chunk-introduction build the
+      root file carries (GFID/MOUV/MOSI/MODI/the volume family/new lights/
+      M3 materials). */
+  inline constexpr std::array wmo_root_pivots{
+    ClientVersion{7, 0, 1, 20740}, ClientVersion{7, 3, 0, 24473},
+    ClientVersion{8, 1, 0, 27826}, ClientVersion{8, 3, 0, 32044},
+    ClientVersion{9, 0, 1, 33978}, ClientVersion{9, 1, 0, 39015},
+    ClientVersion{11, 0, 0, 54210}, ClientVersion{11, 1, 0, 58221}};
+
+  /** WMOGroupBody / WMOGroup: every trait-slot boundary and chunk build the
+      group files carry, plus the two wire-layout pivots above. */
+  inline constexpr std::array wmo_group_pivots{
+    ClientVersion{4, 0, 0, 0},      ClientVersion{6, 0, 0, 0},
+    wmo_batch_large_material,       ClientVersion{8, 1, 0, 27826},
+    ClientVersion{8, 3, 0, 33775},  ClientVersion{9, 0, 1, 33978},
+    wmo_split_groups,               ClientVersion{10, 0, 0, 46181}};
+
+  /** The WMO assembly: the union of the root and group pivots. */
+  inline constexpr std::array wmo_assembly_pivots{
+    ClientVersion{4, 0, 0, 0},      ClientVersion{6, 0, 0, 0},
+    wmo_batch_large_material,       ClientVersion{7, 3, 0, 24473},
+    ClientVersion{8, 1, 0, 27826},  ClientVersion{8, 3, 0, 32044},
+    ClientVersion{8, 3, 0, 33775},  ClientVersion{9, 0, 1, 33978},
+    ClientVersion{9, 1, 0, 39015},  wmo_split_groups,
+    ClientVersion{10, 0, 0, 46181}, ClientVersion{11, 0, 0, 54210},
+    ClientVersion{11, 1, 0, 58221}};
 }

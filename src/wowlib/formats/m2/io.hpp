@@ -29,7 +29,7 @@
 namespace wowlib::formats::m2
 {
   template <ClientVersion V>
-  Result<void> M2<V>::check_header(std::uint32_t magic, std::uint32_t format_version)
+  Result<void> detail::M2<V>::check_header(std::uint32_t magic, std::uint32_t format_version)
   {
     if (magic != md20_magic)
       return make_error(ErrorCode::FormatVersionMismatch,
@@ -46,8 +46,8 @@ namespace wowlib::formats::m2
   }
 
   template <ClientVersion V>
-  Result<void> M2<V>::read_skin_into(fs::FileSystem& fs, const FileKey& key,
-                                     std::string_view what, std::vector<Skin<V>>& out)
+  Result<void> detail::M2<V>::read_skin_into(fs::FileSystem& fs, const FileKey& key,
+                                             std::string_view what, auto& out)
     requires (V >= m2_per_sequence_timelines)
   {
     const auto bytes = fs.read_file(key);
@@ -66,7 +66,7 @@ namespace wowlib::formats::m2
   }
 
   template <ClientVersion V>
-  Result<void> M2<V>::read_monolithic(fs::FileSystem& fs, const FileKey& key,
+  Result<void> detail::M2<V>::read_monolithic(fs::FileSystem& fs, const FileKey& key,
                                       std::span<const std::byte> main)
     requires (V >= m2_per_sequence_timelines)
   {
@@ -103,7 +103,7 @@ namespace wowlib::formats::m2
   }
 
   template <ClientVersion V>
-  Result<void> M2<V>::read_chunked(fs::FileSystem& fs, const FileKey& key,
+  Result<void> detail::M2<V>::read_chunked(fs::FileSystem& fs, const FileKey& key,
                                    std::span<const std::byte> main)
     requires (V >= m2_chunked_container)
   {
@@ -198,7 +198,7 @@ namespace wowlib::formats::m2
 
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
-  Result<void> Skeleton<V>::read(fs::FileSystem& fs, const FileKey& key)
+  Result<void> detail::Skeleton<V>::read(fs::FileSystem& fs, const FileKey& key)
   {
     const auto bytes = fs.read_file(key);
     if (!bytes)
@@ -265,7 +265,7 @@ namespace wowlib::formats::m2
 
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
-  Result<void> Skeleton<V>::write(fs::FileSystem& fs, const FileKey& key) const
+  Result<void> detail::Skeleton<V>::write(fs::FileSystem& fs, const FileKey& key) const
   {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
@@ -326,7 +326,7 @@ namespace wowlib::formats::m2
   }
 
   template <ClientVersion V>
-  Result<void> M2<V>::read(fs::FileSystem& fs, const FileKey& key)
+  Result<void> detail::M2<V>::read(fs::FileSystem& fs, const FileKey& key)
   {
     const auto main = fs.read_file(key);
     if (!main)
@@ -377,7 +377,7 @@ namespace wowlib::formats::m2
   }
 
   template <ClientVersion V>
-  Result<void> M2<V>::write(fs::FileSystem& fs, const FileKey& key) const
+  Result<void> detail::M2<V>::write(fs::FileSystem& fs, const FileKey& key) const
   {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
@@ -506,7 +506,9 @@ namespace wowlib::formats::m2
           // skel-based: re-encode the skeleton blocks, then assemble the
           // shared .anim files as AFM2 (body events) + AFSA (attachments) +
           // AFSB (bones) and hang every satellite id off the skeleton
-          Skeleton<V> skel_copy = this->skel;
+          // deduced: inside m2::detail the bare Skeleton names the RAW
+          // template, but the member is the collapsed m2::Skeleton alias type
+          auto skel_copy = this->skel;
           std::map<std::uint32_t, FileBuffer> afsa_bufs;
           std::map<std::uint32_t, FileBuffer> afsb_bufs;
           {
@@ -547,7 +549,7 @@ namespace wowlib::formats::m2
           }
           skel_copy.bone_fdids = bone_fdids;
 
-          const auto skel_bytes = skel_copy.ChunkedFile<Skeleton<V>>::write();
+          const auto skel_bytes = skel_copy.ChunkedFile<m2::Skeleton<V>>::write();
           if (!skel_bytes)
             return std::unexpected{skel_bytes.error()};
           const auto r = fs.add_file(detail::skel_path(stem), *skel_bytes);

@@ -34,57 +34,69 @@ namespace wowlib::formats::m2::body::records
     SequenceId [[=welder::doc("BfA+: parent_bone/submesh_id form a sequence id.")]] = 0x2000
   };
 
-  template <ClientVersion V>
-  struct M2CompBone;
-
-  template <ClientVersion V>
-    requires (V < m2_compressed_bones)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
-  ]] M2CompBone<V>
+  namespace detail
   {
-    [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
-    std::int32_t key_bone_id = -1;
-    [[=welder::doc("See BoneFlags.")]]
-    std::uint32_t flags = 0;
-    [[=welder::doc("Parent bone index, -1 for roots.")]]
-    std::int16_t parent_bone = -1;
-    [[=welder::doc("Mesh part id.")]]
-    std::uint16_t submesh_id = 0;
-    M2Track<C3Vector, V> translation{};
-    M2Track<C4Quaternion, V> rotation{};
-    M2Track<C3Vector, V> scale{};
-    [[=welder::doc("The bone's pivot point.")]]
-    C3Vector pivot{};
+    // The annotated era layouts; instantiate through the canonicalizing
+    // aliases below, never directly.
+    template <ClientVersion V>
+    struct M2CompBone;
 
-    bool operator==(const M2CompBone&) const = default;
-  };
+    template <ClientVersion V>
+      requires (V < m2_compressed_bones)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
+    ]] M2CompBone<V>
+    {
+      [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
+      std::int32_t key_bone_id = -1;
+      [[=welder::doc("See BoneFlags.")]]
+      std::uint32_t flags = 0;
+      [[=welder::doc("Parent bone index, -1 for roots.")]]
+      std::int16_t parent_bone = -1;
+      [[=welder::doc("Mesh part id.")]]
+      std::uint16_t submesh_id = 0;
+      records::M2Track<C3Vector, V> translation{};
+      records::M2Track<C4Quaternion, V> rotation{};
+      records::M2Track<C3Vector, V> scale{};
+      [[=welder::doc("The bone's pivot point.")]]
+      C3Vector pivot{};
 
+      bool operator==(const M2CompBone&) const = default;
+    };
+
+    template <ClientVersion V>
+      requires (V >= m2_compressed_bones)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A bone (TBC+): compressed-quaternion rotations plus the debug name "
+                   "CRC; the track era inside follows the entity version.")
+    ]] M2CompBone<V>
+    {
+      [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
+      std::int32_t key_bone_id = -1;
+      [[=welder::doc("See BoneFlags.")]]
+      std::uint32_t flags = 0;
+      [[=welder::doc("Parent bone index, -1 for roots.")]]
+      std::int16_t parent_bone = -1;
+      [[=welder::doc("Mesh part id.")]]
+      std::uint16_t submesh_id = 0;
+      [[=welder::doc("CRC of the authoring bone name (debug only).")]]
+      std::uint32_t bone_name_crc = 0;
+      records::M2Track<C3Vector, V> translation{};
+      records::M2Track<M2CompQuat, V> rotation{};
+      records::M2Track<C3Vector, V> scale{};
+      [[=welder::doc("The bone's pivot point.")]]
+      C3Vector pivot{};
+
+      bool operator==(const M2CompBone&) const = default;
+    };
+  }
+
+  /** A bone — the canonicalizing face of detail::M2CompBone: every client
+      version maps to its range's first grid version (m2_bone_pivots: TBC's
+      compressed quaternions + name CRC, WotLK's per-sequence timelines). */
   template <ClientVersion V>
-    requires (V >= m2_compressed_bones)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A bone (TBC+): compressed-quaternion rotations plus the debug name "
-                 "CRC; the track era inside follows the entity version.")
-  ]] M2CompBone<V>
-  {
-    [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
-    std::int32_t key_bone_id = -1;
-    [[=welder::doc("See BoneFlags.")]]
-    std::uint32_t flags = 0;
-    [[=welder::doc("Parent bone index, -1 for roots.")]]
-    std::int16_t parent_bone = -1;
-    [[=welder::doc("Mesh part id.")]]
-    std::uint16_t submesh_id = 0;
-    [[=welder::doc("CRC of the authoring bone name (debug only).")]]
-    std::uint32_t bone_name_crc = 0;
-    M2Track<C3Vector, V> translation{};
-    M2Track<M2CompQuat, V> rotation{};
-    M2Track<C3Vector, V> scale{};
-    [[=welder::doc("The bone's pivot point.")]]
-    C3Vector pivot{};
-
-    bool operator==(const M2CompBone&) const = default;
-  };
+  using M2CompBone =
+    detail::M2CompBone<canonical_version(V, m2_bone_pivots, m2_versions)>;
 }

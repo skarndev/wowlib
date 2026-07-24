@@ -47,117 +47,130 @@ namespace wowlib::formats::m2::body::records
     return (flags & 0x130u) == 0;
   }
 
-  template <ClientVersion V>
-  struct M2Sequence;
-
-  template <ClientVersion V>
-    requires (V < m2_per_sequence_timelines)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("An animation sequence, pre-WotLK layout: global start/end timestamps, "
-                 "one u32 blend time.")
-  ]] M2Sequence<V>
+  namespace detail
   {
-    [[=welder::doc("Animation id in AnimationData.dbc.")]]
-    std::uint16_t id = 0;
-    [[=welder::doc("Which variation of the animation this is.")]]
-    std::uint16_t variation_index = 0;
-    [[=welder::doc("Slice start on the global timeline.")]]
-    std::uint32_t start_timestamp = 0;
-    [[=welder::doc("Slice end on the global timeline.")]]
-    std::uint32_t end_timestamp = 0;
-    [[=welder::doc("Character move speed during the sequence.")]]
-    float movespeed = 0;
-    [[=welder::doc("See SequenceFlags.")]]
-    std::uint32_t flags = 0;
-    [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
-    std::int16_t frequency = 0;
-    std::uint16_t padding = 0;
-    [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
-    M2Range replay{};
-    [[=welder::doc("Transition blend duration, milliseconds.")]]
-    std::uint32_t blend_time = 0;
-    [[=welder::doc("Bounds while the sequence plays.")]]
-    M2Bounds bounds{};
-    [[=welder::doc("Next variation index, -1 if none.")]]
-    std::int16_t variation_next = -1;
-    [[=welder::doc("Alias target (flags & 0x40 chains).")]]
-    std::uint16_t alias_next = 0;
+    // The annotated era layouts; instantiate through the canonicalizing
+    // aliases below, never directly.
+    template <ClientVersion V>
+    struct M2Sequence;
 
-    bool operator==(const M2Sequence&) const = default;
-  };
+    template <ClientVersion V>
+      requires (V < m2_per_sequence_timelines)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("An animation sequence, pre-WotLK layout: global start/end timestamps, "
+                   "one u32 blend time.")
+    ]] M2Sequence<V>
+    {
+      [[=welder::doc("Animation id in AnimationData.dbc.")]]
+      std::uint16_t id = 0;
+      [[=welder::doc("Which variation of the animation this is.")]]
+      std::uint16_t variation_index = 0;
+      [[=welder::doc("Slice start on the global timeline.")]]
+      std::uint32_t start_timestamp = 0;
+      [[=welder::doc("Slice end on the global timeline.")]]
+      std::uint32_t end_timestamp = 0;
+      [[=welder::doc("Character move speed during the sequence.")]]
+      float movespeed = 0;
+      [[=welder::doc("See SequenceFlags.")]]
+      std::uint32_t flags = 0;
+      [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
+      std::int16_t frequency = 0;
+      std::uint16_t padding = 0;
+      [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
+      M2Range replay{};
+      [[=welder::doc("Transition blend duration, milliseconds.")]]
+      std::uint32_t blend_time = 0;
+      [[=welder::doc("Bounds while the sequence plays.")]]
+      M2Bounds bounds{};
+      [[=welder::doc("Next variation index, -1 if none.")]]
+      std::int16_t variation_next = -1;
+      [[=welder::doc("Alias target (flags & 0x40 chains).")]]
+      std::uint16_t alias_next = 0;
 
+      bool operator==(const M2Sequence&) const = default;
+    };
+
+    template <ClientVersion V>
+      requires (V >= m2_per_sequence_timelines && V < m2_split_blend_times)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("An animation sequence, WotLK through MoP layout: an own duration, one "
+                   "u32 blend time.")
+    ]] M2Sequence<V>
+    {
+      [[=welder::doc("Animation id in AnimationData.dbc.")]]
+      std::uint16_t id = 0;
+      [[=welder::doc("Which variation of the animation this is.")]]
+      std::uint16_t variation_index = 0;
+      [[=welder::doc("Sequence length, milliseconds.")]]
+      std::uint32_t duration = 0;
+      [[=welder::doc("Character move speed during the sequence.")]]
+      float movespeed = 0;
+      [[=welder::doc("See SequenceFlags.")]]
+      std::uint32_t flags = 0;
+      [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
+      std::int16_t frequency = 0;
+      std::uint16_t padding = 0;
+      [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
+      M2Range replay{};
+      [[=welder::doc("Transition blend duration, milliseconds.")]]
+      std::uint32_t blend_time = 0;
+      [[=welder::doc("Bounds while the sequence plays.")]]
+      M2Bounds bounds{};
+      [[=welder::doc("Next variation index, -1 if none.")]]
+      std::int16_t variation_next = -1;
+      [[=welder::doc("Alias target (flags & 0x40 chains).")]]
+      std::uint16_t alias_next = 0;
+
+      bool operator==(const M2Sequence&) const = default;
+    };
+
+    template <ClientVersion V>
+      requires (V >= m2_split_blend_times)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("An animation sequence, WoD+ layout: an own duration, split "
+                   "blend-in/out times.")
+    ]] M2Sequence<V>
+    {
+      [[=welder::doc("Animation id in AnimationData.dbc.")]]
+      std::uint16_t id = 0;
+      [[=welder::doc("Which variation of the animation this is.")]]
+      std::uint16_t variation_index = 0;
+      [[=welder::doc("Sequence length, milliseconds.")]]
+      std::uint32_t duration = 0;
+      [[=welder::doc("Character move speed during the sequence.")]]
+      float movespeed = 0;
+      [[=welder::doc("See SequenceFlags.")]]
+      std::uint32_t flags = 0;
+      [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
+      std::int16_t frequency = 0;
+      std::uint16_t padding = 0;
+      [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
+      M2Range replay{};
+      [[=welder::doc("Blend-in duration, milliseconds.")]]
+      std::uint16_t blend_time_in = 0;
+      [[=welder::doc("Blend-out duration, milliseconds.")]]
+      std::uint16_t blend_time_out = 0;
+      [[=welder::doc("Bounds while the sequence plays.")]]
+      M2Bounds bounds{};
+      [[=welder::doc("Next variation index, -1 if none.")]]
+      std::int16_t variation_next = -1;
+      [[=welder::doc("Alias target (flags & 0x40 chains).")]]
+      std::uint16_t alias_next = 0;
+
+      bool operator==(const M2Sequence&) const = default;
+    };
+  }
+
+  /** An animation sequence — the canonicalizing face of detail::M2Sequence:
+      every client version maps to its range's first grid version
+      (m2_sequence_pivots: WotLK's duration layout, WoD's split blend times),
+      so one instantiation serves the whole range. */
   template <ClientVersion V>
-    requires (V >= m2_per_sequence_timelines && V < m2_split_blend_times)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("An animation sequence, WotLK through MoP layout: an own duration, one "
-                 "u32 blend time.")
-  ]] M2Sequence<V>
-  {
-    [[=welder::doc("Animation id in AnimationData.dbc.")]]
-    std::uint16_t id = 0;
-    [[=welder::doc("Which variation of the animation this is.")]]
-    std::uint16_t variation_index = 0;
-    [[=welder::doc("Sequence length, milliseconds.")]]
-    std::uint32_t duration = 0;
-    [[=welder::doc("Character move speed during the sequence.")]]
-    float movespeed = 0;
-    [[=welder::doc("See SequenceFlags.")]]
-    std::uint32_t flags = 0;
-    [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
-    std::int16_t frequency = 0;
-    std::uint16_t padding = 0;
-    [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
-    M2Range replay{};
-    [[=welder::doc("Transition blend duration, milliseconds.")]]
-    std::uint32_t blend_time = 0;
-    [[=welder::doc("Bounds while the sequence plays.")]]
-    M2Bounds bounds{};
-    [[=welder::doc("Next variation index, -1 if none.")]]
-    std::int16_t variation_next = -1;
-    [[=welder::doc("Alias target (flags & 0x40 chains).")]]
-    std::uint16_t alias_next = 0;
-
-    bool operator==(const M2Sequence&) const = default;
-  };
-
-  template <ClientVersion V>
-    requires (V >= m2_split_blend_times)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("An animation sequence, WoD+ layout: an own duration, split "
-                 "blend-in/out times.")
-  ]] M2Sequence<V>
-  {
-    [[=welder::doc("Animation id in AnimationData.dbc.")]]
-    std::uint16_t id = 0;
-    [[=welder::doc("Which variation of the animation this is.")]]
-    std::uint16_t variation_index = 0;
-    [[=welder::doc("Sequence length, milliseconds.")]]
-    std::uint32_t duration = 0;
-    [[=welder::doc("Character move speed during the sequence.")]]
-    float movespeed = 0;
-    [[=welder::doc("See SequenceFlags.")]]
-    std::uint32_t flags = 0;
-    [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
-    std::int16_t frequency = 0;
-    std::uint16_t padding = 0;
-    [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
-    M2Range replay{};
-    [[=welder::doc("Blend-in duration, milliseconds.")]]
-    std::uint16_t blend_time_in = 0;
-    [[=welder::doc("Blend-out duration, milliseconds.")]]
-    std::uint16_t blend_time_out = 0;
-    [[=welder::doc("Bounds while the sequence plays.")]]
-    M2Bounds bounds{};
-    [[=welder::doc("Next variation index, -1 if none.")]]
-    std::int16_t variation_next = -1;
-    [[=welder::doc("Alias target (flags & 0x40 chains).")]]
-    std::uint16_t alias_next = 0;
-
-    bool operator==(const M2Sequence&) const = default;
-  };
+  using M2Sequence =
+    detail::M2Sequence<canonical_version(V, m2_sequence_pivots, m2_versions)>;
 
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),

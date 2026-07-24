@@ -77,54 +77,74 @@ namespace wowlib::formats::m2::body::records
     bool operator==(const M2Texture&) const = default;
   };
 
-  template <ClientVersion V>
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A vertex color + alpha animation pair, referenced from skin batches "
-                 "by color index.")
-  ]] M2Color
+namespace detail
   {
-    [[=welder::doc("RGB vertex color.")]]
-    M2Track<C3Vector, V> color{};
-    [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
-    M2Track<fixed16, V> alpha{};
+    // The annotated era layouts; instantiate through the canonicalizing
+    // aliases below, never directly.
+      template <ClientVersion V>
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A vertex color + alpha animation pair, referenced from skin batches "
+                   "by color index.")
+    ]] M2Color
+    {
+      [[=welder::doc("RGB vertex color.")]]
+      records::M2Track<C3Vector, V> color{};
+      [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
+      records::M2Track<fixed16, V> alpha{};
 
-    bool operator==(const M2Color&) const = default;
-  };
+      bool operator==(const M2Color&) const = default;
+    };
 
+    template <ClientVersion V>
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A global texture weight (transparency) track.")
+    ]] M2TextureWeight
+    {
+      records::M2Track<fixed16, V> weight{};
+
+      bool operator==(const M2TextureWeight&) const = default;
+    };
+
+    template <ClientVersion V>
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
+    ]] M2TextureFlipbook
+    {
+      records::M2Track<std::uint16_t, V> frames{};
+
+      bool operator==(const M2TextureFlipbook&) const = default;
+    };
+
+    template <ClientVersion V>
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A UV animation: translation/rotation/scaling keyframes for the "
+                   "texture matrix (rotation pivots at texture center 0.5, 0.5).")
+    ]] M2TextureTransform
+    {
+      records::M2Track<C3Vector, V> translation{};
+      records::M2Track<C4Quaternion, V> rotation{};
+      records::M2Track<C3Vector, V> scaling{};
+
+      bool operator==(const M2TextureTransform&) const = default;
+    };
+  }
+
+  // The canonicalizing faces: these records' only version axis is the track
+  // era of the animations they embed (m2_track_pivots).
   template <ClientVersion V>
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A global texture weight (transparency) track.")
-  ]] M2TextureWeight
-  {
-    M2Track<fixed16, V> weight{};
-
-    bool operator==(const M2TextureWeight&) const = default;
-  };
-
+  using M2Color = detail::M2Color<canonical_version(V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
-  ]] M2TextureFlipbook
-  {
-    M2Track<std::uint16_t, V> frames{};
-
-    bool operator==(const M2TextureFlipbook&) const = default;
-  };
-
+  using M2TextureWeight =
+    detail::M2TextureWeight<canonical_version(V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A UV animation: translation/rotation/scaling keyframes for the "
-                 "texture matrix (rotation pivots at texture center 0.5, 0.5).")
-  ]] M2TextureTransform
-  {
-    M2Track<C3Vector, V> translation{};
-    M2Track<C4Quaternion, V> rotation{};
-    M2Track<C3Vector, V> scaling{};
+  using M2TextureFlipbook =
+    detail::M2TextureFlipbook<canonical_version(V, m2_track_pivots, m2_versions)>;
+  template <ClientVersion V>
+  using M2TextureTransform =
+    detail::M2TextureTransform<canonical_version(V, m2_track_pivots, m2_versions)>;
 
-    bool operator==(const M2TextureTransform&) const = default;
-  };
 }

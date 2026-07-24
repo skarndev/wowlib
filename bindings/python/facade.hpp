@@ -24,9 +24,12 @@
 
 #include <nanobind/nanobind.h>
 
+#include <span>
+
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/expansion.hpp>
 #include <wowlib/core/reflect.hpp>
+#include <wowlib/formats/common/version_range.hpp>
 
 namespace wowlib_py
 {
@@ -46,10 +49,18 @@ namespace wowlib_py
     return store.emplace_back(std::move(s)).c_str();
   }
 
-  /** @brief Compose a concrete class name, e.g. @c "WMO" + @c Wotlk → @c "WMOWotlk". */
-  inline std::string concrete_name(std::string_view base, wowlib::Expansion x)
+  /** @brief The RANGE-suffixed concrete class name expansion @p x maps to,
+      e.g. @c "M2" + @c Mop → @c "M2CataToMop": the family instantiates one
+      class per canonical version range (see version_range.hpp), and every
+      facade spelling goes through the same suffix derivation the welded
+      alias tables are checked against. */
+  inline std::string concrete_name(std::string_view base, wowlib::Expansion x,
+                                   std::span<const wowlib::ClientVersion> pivots,
+                                   std::span<const wowlib::ClientVersion> grid)
   {
-    return std::string{base} + std::string{wowlib::enum_name(x)};
+    const wowlib::ClientVersion canonical =
+      wowlib::formats::canonical_version(wowlib::to_client_version(x), pivots, grid);
+    return std::string{base} + wowlib::formats::range_suffix(canonical, pivots, grid);
   }
 
   /** @brief Whether family @p F instantiates for expansion @p X.
@@ -61,6 +72,18 @@ namespace wowlib_py
       expansions instead of tripping their constraints. */
   template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
   concept family_has = requires { typename F<wowlib::to_client_version(X)>; };
+
+  /** @brief The concrete (canonical) instantiation family @p F maps expansion
+      @p X to, as a nested typedef. Function templates that need it in their
+      SIGNATURE must go through this indirection: spelling the canonicalizing
+      alias there directly trips gcc 16's "sorry, unimplemented: mangling
+      view_convert_expr" (the span-converting canonical_version call cannot be
+      mangled as a dependent expression). */
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
+  struct concrete_of
+  {
+    using type = F<wowlib::to_client_version(X)>;
+  };
 
   /** @brief A bare, default-constructed @c F instance for expansion @p X.
 
@@ -93,9 +116,12 @@ namespace wowlib_py
     return result;
   }
 
-  /** @brief Attach one @c for_version Literal overload (@p X → the concrete class). */
+  /** @brief Attach one @c for_version Literal overload (@p X → its range's
+      concrete class; several Literals may share one class). */
   template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
-  void def_for_version_overload(nb::handle base, std::string_view base_name)
+  void def_for_version_overload(nb::handle base, std::string_view base_name,
+                                std::span<const wowlib::ClientVersion> pivots,
+                                std::span<const wowlib::ClientVersion> grid)
   {
     nb::cpp_function(
       [](wowlib::Expansion expansion) -> nb::object
@@ -107,7 +133,7 @@ namespace wowlib_py
       nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
       nb::sig(persist("def for_version(expansion: typing.Literal[wowlib.Expansion."
                       + std::string{wowlib::enum_name(X)} + "]) -> "
-                      + concrete_name(base_name, X))));
+                      + concrete_name(base_name, X, pivots, grid))));
   }
 
   /** @brief Attach @c for_version to a family @p base.
@@ -118,13 +144,17 @@ namespace wowlib_py
       @tparam F the family class template.
       @param base the welded family base to receive the static method.
       @param base_name the base's Python name, used to spell the @c concrete/@c AnyX
-             return types in the generated signatures. */
+             return types in the generated signatures.
+      @param pivots the family's canonicalization pivots (boundaries header).
+      @param grid   the family's release grid (full or era subset). */
   template <template <wowlib::ClientVersion> class F>
-  void def_for_version(nb::handle base, std::string_view base_name)
+  void def_for_version(nb::handle base, std::string_view base_name,
+                       std::span<const wowlib::ClientVersion> pivots,
+                       std::span<const wowlib::ClientVersion> grid)
   {
     template for (constexpr auto e : expansion_enumerators)
       if constexpr (family_has<F, ([:e:])>)
-        def_for_version_overload<F, ([:e:])>(base, base_name);
+        def_for_version_overload<F, ([:e:])>(base, base_name, pivots, grid);
     nb::cpp_function(
       [](wowlib::Expansion expansion) { return make_for_version<F>(expansion); },
       nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
@@ -145,19 +175,26 @@ namespace wowlib_py
       | @c ..." on its own — no PATTERN_FILE entry, one fewer coupling point.
 
       @tparam F the family class template — subset families (constrained to
-              later eras) fold only the expansions they instantiate for.
+              later eras) fold only the expansions they instantiate for, and
+              expansions sharing a range fold the same class (a union
+              deduplicates itself).
       @param module the submodule that owns the concrete classes and receives the
              alias (each family lives beside its own concretes).
-      @param base_name the family base name, e.g. @c "WMO" → binds @c AnyWMO. */
+      @param base_name the family base name, e.g. @c "WMO" → binds @c AnyWMO.
+      @param pivots the family's canonicalization pivots.
+      @param grid   the family's release grid. */
   template <template <wowlib::ClientVersion> class F>
-  void def_any_alias(nb::module_ module, std::string_view base_name)
+  void def_any_alias(nb::module_ module, std::string_view base_name,
+                     std::span<const wowlib::ClientVersion> pivots,
+                     std::span<const wowlib::ClientVersion> grid)
   {
     nb::object alias;
     template for (constexpr auto e : expansion_enumerators)
     {
       if constexpr (family_has<F, ([:e:])>)
       {
-        nb::object concrete = module.attr(concrete_name(base_name, [:e:]).c_str());
+        nb::object concrete =
+          module.attr(concrete_name(base_name, [:e:], pivots, grid).c_str());
         alias = alias.is_valid() ? nb::object(alias | concrete) : concrete;
       }
     }

@@ -152,12 +152,15 @@ namespace wowlib::formats::m2::body
     };
   }
 
+  namespace detail
+  {
   /** The MD20 model body for one client version: header scalars plus every
       offset-addressed block, decoded into vectors. This entity alone is a
       complete pre-WotLK model; later clients pull skins, low-priority
       sequence data, skeleton and physics from satellite files — the M2
-      assembly bakes those back in.
-      @tparam V the client version this body targets.
+      assembly bakes those back in. Instantiate through the canonicalizing
+      body::M2Data alias, never directly.
+      @tparam V the canonical client version this body targets.
       @see https://wowdev.wiki/M2 */
   template <ClientVersion V>
   struct [[
@@ -167,10 +170,13 @@ namespace wowlib::formats::m2::body
         offset-addressed block, decoded. A version's class carries ONLY the
         members that version defines. See https://wowdev.wiki/M2.)")
   ]] M2Data : OffsetFile<M2Data<V>>,
-                  slot<V, ClientVersion{0, 0, 0, 0}, detail::DataPreWotlk<V>,
+                  // the traits share this namespace (body::detail), so they
+                  // need no qualifier — and a bare detail:: would be
+                  // ambiguous against records::detail via the using-directive
+                  slot<V, ClientVersion{0, 0, 0, 0}, DataPreWotlk<V>,
                        m2_per_sequence_timelines>,
-                  slot<V, m2_per_sequence_timelines, detail::DataWotlk>,
-                  slot<V, m2_compressed_bones, detail::DataTbc>,
+                  slot<V, m2_per_sequence_timelines, DataWotlk>,
+                  slot<V, m2_compressed_bones, DataTbc>,
                   M2DataBase
   {
     static constexpr ClientVersion version = V;
@@ -336,4 +342,11 @@ namespace wowlib::formats::m2::body
 
     bool operator==(const M2Data&) const = default;
   };
+  }
+
+  /** The MD20 body — the canonicalizing face of detail::M2Data: every client
+      version maps to its range's first grid version (m2_data_pivots), so one
+      instantiation serves e.g. both Cata and MoP. */
+  template <ClientVersion V>
+  using M2Data = body::detail::M2Data<canonical_version(V, m2_data_pivots, m2_versions)>;
 }

@@ -7,10 +7,12 @@
     is stored per file — reading trusts the requested entity version's layout
     and cross-checks the file's value. */
 
+#include <array>
 #include <cstdint>
 #include <utility>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/formats/common/version_range.hpp>
 
 namespace wowlib::formats::m2
 {
@@ -85,4 +87,107 @@ namespace wowlib::formats::m2
       return {258, 263};
     return {256, 257};
   }
+
+  // --- version grids and per-family canonicalization pivots -----------------
+  //
+  // Every versioned M2 family instantiates only for its REAL content
+  // permutations: the public name is a canonicalizing alias over the nested
+  // detail:: template (see formats/common/version_range.hpp), flooring the
+  // requested version over the family's pivots below. A pivot that does not
+  // separate two grid versions is a harmless no-op, so the lists are
+  // generous — they name every documented change, not just the ones the
+  // current grid straddles. The welded range tables in m2.hpp are
+  // consteval-checked against these lists (ranges_valid), so neither side
+  // can drift.
+
+  /** The versions M2 is instantiated (and welded) for: every targeted
+      last-minor-of-major release, in release order. */
+  inline constexpr std::array m2_versions{
+    versions::vanilla, versions::tbc,         versions::wotlk,
+    versions::cata,    versions::mop,         versions::wod,
+    versions::legion,  versions::bfa,         versions::shadowlands,
+    versions::dragonflight, versions::tww};
+
+  /** The era subset .skin files exist for (WotLK+). */
+  inline constexpr std::array m2_skin_versions{
+    versions::wotlk, versions::cata,        versions::mop,
+    versions::wod,   versions::legion,      versions::bfa,
+    versions::shadowlands, versions::dragonflight, versions::tww};
+
+  /** The era subset the chunked container exists for (Legion+). */
+  inline constexpr std::array m2_chunked_versions{
+    versions::legion, versions::bfa, versions::shadowlands,
+    versions::dragonflight, versions::tww};
+
+  /** Track-shaped records (M2Track, M2TrackBase, and every record whose only
+      version axis is the tracks it embeds: colors, weights, transforms,
+      flipbooks, attachments, events, lights, ribbons — the ribbon's WotLK
+      trailing fields share the same pivot). */
+  inline constexpr std::array m2_track_pivots{m2_per_sequence_timelines};
+
+  /** M2Sequence: timestamps→duration at WotLK, blend-time split at WoD. */
+  inline constexpr std::array m2_sequence_pivots{m2_per_sequence_timelines,
+                                                m2_split_blend_times};
+
+  /** M2CompBone: raw→compressed quaternions + name CRC at TBC, per-sequence
+      track timelines at WotLK. */
+  inline constexpr std::array m2_bone_pivots{m2_compressed_bones,
+                                             m2_per_sequence_timelines};
+
+  /** M2Camera: per-sequence tracks at WotLK, static FoV→spline at Cata. */
+  inline constexpr std::array m2_camera_pivots{m2_per_sequence_timelines,
+                                               m2_multitex_particles};
+
+  /** M2Particle: byte-packed blending/emitter types at TBC, FBlock ramps and
+      spins at WotLK, the multi-texture 492-byte layout at Cata. */
+  inline constexpr std::array m2_particle_pivots{m2_compressed_bones,
+                                                 m2_per_sequence_timelines,
+                                                 m2_multitex_particles};
+
+  /** M2SkinSection: the sort center/radius tail at TBC. */
+  inline constexpr std::array m2_skin_section_pivots{m2_compressed_bones};
+
+  /** M2SkinProfile: the section layout at TBC, shadow batches at Cata. */
+  inline constexpr std::array m2_skin_profile_pivots{m2_compressed_bones,
+                                                     m2_multitex_particles};
+
+  /** The Skin entity (.skin files, WotLK+): its existence boundary plus the
+      profile's Cata shadow batches. Canonicalized over m2_skin_versions. */
+  inline constexpr std::array m2_skin_pivots{m2_per_sequence_timelines,
+                                             m2_multitex_particles};
+
+  /** M2Data (the MD20 body): the union of every record pivot, its own trait
+      slots (TBC combos, WotLK external skins) and the wire-version steps
+      (263/264/272/274). */
+  inline constexpr std::array m2_data_pivots{
+    m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,
+    m2_split_blend_times, m2_chunked_container};
+
+  /** M2File (the chunked stream): every chunk-introduction build — each
+      documented since() value, so the active chunk set is constant within a
+      range. Canonicalized over m2_chunked_versions. */
+  inline constexpr std::array m2_file_pivots{
+    m2_chunked_container,
+    ClientVersion{7, 3, 0, 24500},   // EXP2/PABC/PADC/PSBC/PEDC/SKID
+    ClientVersion{8, 0, 1, 26629},   // TXID/LDV1
+    ClientVersion{8, 1, 0, 27826},   // RPID/GPID
+    ClientVersion{8, 2, 0, 30080},   // WFV1/WFV2/PGD1
+    ClientVersion{9, 0, 1, 33978},   // WFV3/PFDC/EDGF/NERF/DBOC
+    ClientVersion{9, 0, 1, 34365},   // DETL
+    ClientVersion{10, 0, 0, 0},      // AFRA
+    ClientVersion{11, 1, 7, 60520}}; // PCOL/DPIV
+
+  /** Skeleton and its chunk payloads plus the shell payload records: stable
+      across the whole chunked era — no pivots, one instantiation. */
+  inline constexpr std::array<ClientVersion, 0> m2_skeleton_pivots{};
+
+  /** The M2 assembly: the union of the body, skin and stream pivots plus the
+      bare-MD20 read gate (m2_chunked_only). */
+  inline constexpr std::array m2_assembly_pivots{
+    m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,
+    m2_split_blend_times, m2_chunked_container, m2_chunked_only,
+    ClientVersion{7, 3, 0, 24500},  ClientVersion{8, 0, 1, 26629},
+    ClientVersion{8, 1, 0, 27826},  ClientVersion{8, 2, 0, 30080},
+    ClientVersion{9, 0, 1, 33978},  ClientVersion{9, 0, 1, 34365},
+    ClientVersion{10, 0, 0, 0},     ClientVersion{11, 1, 7, 60520}};
 }

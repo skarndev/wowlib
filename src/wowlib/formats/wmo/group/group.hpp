@@ -287,190 +287,214 @@ namespace wowlib::formats::wmo::group
     };
   }
 
-  /** The MOGP container payload for one client version.
-
-      MOGP wraps the geometry that makes up one WMO group: the group header
-      followed by the triangle/vertex/normal arrays, texture coordinates, render
-      batches, the collision BSP tree, liquid grid and — on later clients — the
-      group-local light and volume reference chunks. The always-present chunks are
-      own members (canonical order); version-gated chunks are inherited from the
-      detail:: trait bases active for @a V.
-
-      @tparam V the client version this layout targets.
-      @see https://wowdev.wiki/WMO */
-  template <ClientVersion V>
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc(R"(
-        The MOGP payload for one client version: the group header and the geometry
-        subchunks (triangles, vertices, normals, batches, BSP, liquid, lights).
-        See https://wowdev.wiki/WMO.)")
-  ]] WMOGroupBody
-    : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase,
-      slot<V, ClientVersion{4, 0, 0, 0}, detail::GroupBodyCata>,
-      slot<V, ClientVersion{6, 0, 0, 0}, detail::GroupBodyWod>,
-      slot<V, ClientVersion{7, 0, 1, 20740}, detail::GroupBodyLegion>,
-      slot<V, ClientVersion{8, 1, 0, 27826}, detail::GroupBody81>,
-      slot<V, ClientVersion{8, 3, 0, 33775}, detail::GroupBody83>,
-      slot<V, ClientVersion{9, 0, 1, 33978}, detail::GroupBody90>,
-      slot<V, ClientVersion{10, 0, 0, 46181}, detail::GroupBody100>
+  namespace detail
   {
-    static constexpr ClientVersion version = V;
+  // The annotated entities; instantiate through the canonicalizing
+  // aliases below, never directly. The trait bases share this namespace,
+  // so they need no qualifier (a bare detail:: would be ambiguous against
+  // chunks::detail via the using-directive).
+    /** The MOGP container payload for one client version.
 
-    [[
-      =formats::header,
-      =welder::doc("The group header leading the MOGP payload.")]]
-    SMOGroupHeader<V> header{};
+        MOGP wraps the geometry that makes up one WMO group: the group header
+        followed by the triangle/vertex/normal arrays, texture coordinates, render
+        batches, the collision BSP tree, liquid grid and — on later clients — the
+        group-local light and volume reference chunks. The always-present chunks are
+        own members (canonical order); version-gated chunks are inherited from the
+        detail:: trait bases active for @a V.
 
-    [[
-      =chunk("MOPY"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Per-triangle material info (MOPY).")]]
-    std::vector<SMOPoly> polys;
+        @tparam V the client version this layout targets.
+        @see https://wowdev.wiki/WMO */
+    template <ClientVersion V>
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc(R"(
+          The MOGP payload for one client version: the group header and the geometry
+          subchunks (triangles, vertices, normals, batches, BSP, liquid, lights).
+          See https://wowdev.wiki/WMO.)")
+    ]] WMOGroupBody
+      : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase,
+        slot<V, ClientVersion{4, 0, 0, 0}, GroupBodyCata>,
+        slot<V, ClientVersion{6, 0, 0, 0}, GroupBodyWod>,
+        slot<V, ClientVersion{7, 0, 1, 20740}, GroupBodyLegion>,
+        slot<V, ClientVersion{8, 1, 0, 27826}, GroupBody81>,
+        slot<V, ClientVersion{8, 3, 0, 33775}, GroupBody83>,
+        slot<V, ClientVersion{9, 0, 1, 33978}, GroupBody90>,
+        slot<V, ClientVersion{10, 0, 0, 46181}, GroupBody100>
+    {
+      static constexpr ClientVersion version = V;
 
-    [[
-      =chunk("MOVI"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Triangle vertex indices (MOVI), three per triangle.")]]
-    std::vector<std::uint16_t> indices;
+      [[
+        =formats::header,
+        =welder::doc("The group header leading the MOGP payload.")]]
+      SMOGroupHeader<V> header{};
 
-    [[
-      =chunk("MOVT"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Vertices (MOVT).")]]
-    std::vector<C3Vector> vertices;
+      [[
+        =chunk("MOPY"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Per-triangle material info (MOPY).")]]
+      std::vector<SMOPoly> polys;
 
-    [[
-      =chunk("MONR"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Normals (MONR).")]]
-    std::vector<C3Vector> normals;
+      [[
+        =chunk("MOVI"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Triangle vertex indices (MOVI), three per triangle.")]]
+      std::vector<std::uint16_t> indices;
 
-    [[
-      =chunk("MOTV"),
-      =formats::optional,
-      =repeats(3),
-      =welder::mark::only(welder::lang::py),
-      =welder::doc(R"(Texture-coordinate sets (MOTV), up to three; the active count
-                      is driven by the group flags (has_two_motv, has_three_motv).
-                      Binds as a list of the filled sets, by value.)")]]
-    Repeated<std::vector<C2Vector>, 3> texcoords;
+      [[
+        =chunk("MOVT"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Vertices (MOVT).")]]
+      std::vector<C3Vector> vertices;
 
-    [[
-      =chunk("MOBA"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Render batches (MOBA).")]]
-    std::vector<SMOBatch<V>> batches;
+      [[
+        =chunk("MONR"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Normals (MONR).")]]
+      std::vector<C3Vector> normals;
 
-    [[
-      =chunk("MOLR"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Light references into the root's MOLT (MOLR).")]]
-    std::vector<std::uint16_t> light_refs;
+      [[
+        =chunk("MOTV"),
+        =formats::optional,
+        =repeats(3),
+        =welder::mark::only(welder::lang::py),
+        =welder::doc(R"(Texture-coordinate sets (MOTV), up to three; the active count
+                        is driven by the group flags (has_two_motv, has_three_motv).
+                        Binds as a list of the filled sets, by value.)")]]
+      Repeated<std::vector<C2Vector>, 3> texcoords;
 
-    [[
-      =chunk("MODR"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Doodad references into the root's MODD (MODR).")]]
-    std::vector<std::uint16_t> doodad_refs;
+      [[
+        =chunk("MOBA"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Render batches (MOBA).")]]
+      std::vector<SMOBatch<V>> batches;
 
-    [[
-      =chunk("MOBN"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Collision BSP nodes (MOBN).")]]
-    std::vector<CAaBspNode> bsp_nodes;
+      [[
+        =chunk("MOLR"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Light references into the root's MOLT (MOLR).")]]
+      std::vector<std::uint16_t> light_refs;
 
-    [[
-      =chunk("MOBR"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("BSP face indices (MOBR).")]]
-    std::vector<std::uint16_t> bsp_face_indices;
+      [[
+        =chunk("MODR"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Doodad references into the root's MODD (MODR).")]]
+      std::vector<std::uint16_t> doodad_refs;
 
-    [[
-      =chunk("MOCV"),
-      =formats::optional,
-      =repeats(2),
-      =welder::mark::only(welder::lang::py),
-      =welder::doc(R"(Vertex-color layers (MOCV), up to two; the active count is
-                      driven by the group flags (has_vertex_colors, has_two_mocv).
-                      Binds as a list of the filled layers, by value.)")]]
-    Repeated<std::vector<CImVector>, 2> vertex_colors;
+      [[
+        =chunk("MOBN"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Collision BSP nodes (MOBN).")]]
+      std::vector<CAaBspNode> bsp_nodes;
 
-    [[
-      =chunk("MOC2"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Second vertex-color-like weights (MOC2), used by the parallax
-                      and shader-23 materials.)")]]
-    std::vector<CImVector> vertex_colors2;
+      [[
+        =chunk("MOBR"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("BSP face indices (MOBR).")]]
+      std::vector<std::uint16_t> bsp_face_indices;
 
-    [[
-      =chunk("MLIQ"),
-      =formats::optional,
-      =welder::doc(R"(Liquid data (MLIQ): a vertex grid and tile-flag grid with a
-                      base position and material id.)")]]
-    MLIQData liquid;
+      [[
+        =chunk("MOCV"),
+        =formats::optional,
+        =repeats(2),
+        =welder::mark::only(welder::lang::py),
+        =welder::doc(R"(Vertex-color layers (MOCV), up to two; the active count is
+                        driven by the group flags (has_vertex_colors, has_two_mocv).
+                        Binds as a list of the filled layers, by value.)")]]
+      Repeated<std::vector<CImVector>, 2> vertex_colors;
 
-    [[
-      =chunk("MORI"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Triangle-strip indices (MORI).")]]
-    std::vector<std::uint16_t> trans_batch_indices;
+      [[
+        =chunk("MOC2"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Second vertex-color-like weights (MOC2), used by the parallax
+                        and shader-23 materials.)")]]
+      std::vector<CImVector> vertex_colors2;
 
-    /** The canonical chunk-stream order the serializer emits a fresh entity in —
-        decoupled from the by-trait flatten order of the version bases. Lists every
-        chunk member exactly once (checked at compile time by write_order). The
-        header (MOGP prelude) is written ahead of the stream, so it is not listed.
+      [[
+        =chunk("MLIQ"),
+        =formats::optional,
+        =welder::doc(R"(Liquid data (MLIQ): a vertex grid and tile-flag grid with a
+                        base position and material id.)")]]
+      MLIQData liquid;
 
-        v14-alpha-only subchunks (MOLM/MOLD, MOIN, lightmap MOLV, MPB*) predate the
-        supported range; anything else unmodeled round-trips via ChunkExtras. */
-    static constexpr std::array chunk_order = {
-      four_cc("MOGX"), four_cc("MOPY"), four_cc("MPY2"), four_cc("MOVI"), four_cc("MOVX"),
-      four_cc("MOVT"), four_cc("MONR"), four_cc("MOTV"), four_cc("MOBA"), four_cc("MOQG"),
-      four_cc("MOLR"), four_cc("MODR"), four_cc("MOBN"), four_cc("MOBR"), four_cc("MOCV"),
-      four_cc("MOC2"), four_cc("MLIQ"), four_cc("MORI"), four_cc("MORB"), four_cc("MOTA"),
-      four_cc("MOBS"), four_cc("MDAL"), four_cc("MOPL"), four_cc("MOPB"), four_cc("MOLS"),
-      four_cc("MOLP"), four_cc("MLSS"), four_cc("MLSP"), four_cc("MLSK"), four_cc("MOP2"),
-      four_cc("MPVR"), four_cc("MAVR"), four_cc("MBVR"), four_cc("MFVR"), four_cc("MNLR"),
+      [[
+        =chunk("MORI"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Triangle-strip indices (MORI).")]]
+      std::vector<std::uint16_t> trans_batch_indices;
+
+      /** The canonical chunk-stream order the serializer emits a fresh entity in —
+          decoupled from the by-trait flatten order of the version bases. Lists every
+          chunk member exactly once (checked at compile time by write_order). The
+          header (MOGP prelude) is written ahead of the stream, so it is not listed.
+
+          v14-alpha-only subchunks (MOLM/MOLD, MOIN, lightmap MOLV, MPB*) predate the
+          supported range; anything else unmodeled round-trips via ChunkExtras. */
+      static constexpr std::array chunk_order = {
+        four_cc("MOGX"), four_cc("MOPY"), four_cc("MPY2"), four_cc("MOVI"), four_cc("MOVX"),
+        four_cc("MOVT"), four_cc("MONR"), four_cc("MOTV"), four_cc("MOBA"), four_cc("MOQG"),
+        four_cc("MOLR"), four_cc("MODR"), four_cc("MOBN"), four_cc("MOBR"), four_cc("MOCV"),
+        four_cc("MOC2"), four_cc("MLIQ"), four_cc("MORI"), four_cc("MORB"), four_cc("MOTA"),
+        four_cc("MOBS"), four_cc("MDAL"), four_cc("MOPL"), four_cc("MOPB"), four_cc("MOLS"),
+        four_cc("MOLP"), four_cc("MLSS"), four_cc("MLSP"), four_cc("MLSK"), four_cc("MOP2"),
+        four_cc("MPVR"), four_cc("MAVR"), four_cc("MBVR"), four_cc("MFVR"), four_cc("MNLR"),
+      };
     };
-  };
 
-  /** One WMO group file for one client version: the format version (MVER) and the
-      MOGP container holding the group's geometry.
+    /** One WMO group file for one client version: the format version (MVER) and the
+        MOGP container holding the group's geometry.
 
-      @tparam V the client version this layout targets.
-      @see https://wowdev.wiki/WMO */
-  template <ClientVersion V>
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc(R"(
-        One WMO group file for one client version: the format version and the MOGP
-        container holding the group's geometry (see WMOGroupBody). A group holds
-        the 3D model data for one unit of a world map object. See
-        https://wowdev.wiki/WMO.)")
-  ]] WMOGroup : ChunkedFile<WMOGroup<V>>, WMOGroupBase
-  {
-    static constexpr ClientVersion version = V;
+        @tparam V the client version this layout targets.
+        @see https://wowdev.wiki/WMO */
+    template <ClientVersion V>
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc(R"(
+          One WMO group file for one client version: the format version and the MOGP
+          container holding the group's geometry (see WMOGroupBody). A group holds
+          the 3D model data for one unit of a world map object. See
+          https://wowdev.wiki/WMO.)")
+    ]] WMOGroup : ChunkedFile<WMOGroup<V>>, WMOGroupBase
+    {
+      static constexpr ClientVersion version = V;
 
-    [[
-      =chunk("MVER"),
-      =welder::doc("The WMO format version; 17 for every supported client.")]]
-    std::uint32_t mver = wmo_version_v17;
+      [[
+        =chunk("MVER"),
+        =welder::doc("The WMO format version; 17 for every supported client.")]]
+      std::uint32_t mver = wmo_version_v17;
 
-    [[
-      =chunk("MOGP"),
-      =formats::container,
-      =welder::doc("The MOGP container: group header and geometry.")]]
+      [[
+        =chunk("MOGP"),
+        =formats::container,
+        =welder::doc("The MOGP container: group header and geometry.")]]
+      // the raw sibling is intentional: WMOGroup and WMOGroupBody share
+    // wmo_group_pivots, so at a canonical V they are the same type the
+    // canonicalizing alias would name
     WMOGroupBody<V> body{};
-  };
+    };
+  }
+
+  /** The MOGP payload — the canonicalizing face of detail::WMOGroupBody:
+      every client version maps to its range's first grid version
+      (wmo_group_pivots). */
+  template <ClientVersion V>
+  using WMOGroupBody =
+    group::detail::WMOGroupBody<canonical_version(V, wmo_group_pivots, wmo_versions)>;
+
+  /** One WMO group file — the canonicalizing face of detail::WMOGroup
+      (same pivots as the body it contains). */
+  template <ClientVersion V>
+  using WMOGroup =
+    group::detail::WMOGroup<canonical_version(V, wmo_group_pivots, wmo_versions)>;
+
 }

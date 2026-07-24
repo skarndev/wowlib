@@ -27,7 +27,7 @@ classes, bound as a real `types.UnionType` on its module (importable, and usable
 handles any version:
 
 ```python
-from wowlib.formats.wmo.root import AnyWMORoot   # WMORootVanilla | … | WMORootTheWarWithin
+from wowlib.formats.wmo.root import AnyWMORoot   # WMORootVanillaToWod | … | WMORootTheWarWithin
 
 def process(root: AnyWMORoot) -> None:
     ...
@@ -67,7 +67,7 @@ MOGP container) and the container body (`WMOGroupBody`), which holds the geometr
     options:
       heading_level: 3
 
-::: wowlib.formats.wmo.group.WMOGroupTheWarWithin
+::: wowlib.formats.wmo.group.WMOGroupDragonflightPlus
     options:
       heading_level: 3
 

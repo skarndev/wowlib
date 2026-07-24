@@ -197,6 +197,54 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
     that `_coerce_vectors` produces for opaque int vectors). Both run in `on_post_page`
     — the `int` type is an unresolved autoref until then.
 
+## Range-collapsed instantiation (2026-07-25, user item: "we overinstantiate")
+
+- Every versioned family now instantiates ONE class per REAL content
+  permutation, not per release. Mechanism
+  (formats/common/version_range.hpp): the annotated struct moves into a
+  nested `detail` namespace and the public name becomes a CANONICALIZING
+  alias — `template<V> using Foo = detail::Foo<canonical_version(V, pivots,
+  grid)>` — flooring V over the family's declared pivots to its range's
+  first grid version. Pivot lists + grids live in each format's
+  boundaries.hpp (generous listing is free: a pivot that doesn't separate
+  two grid versions is a no-op). Constrained families keep a requires on the
+  ALIAS so facade era-subsetting (family_has) still works.
+- Welded names carry RANGE suffixes: single version "Wotlk", interior
+  "CataToMop", trailing "LegionPlus" (stable when new releases extend the
+  range). The welding X-macros are per-family RANGE tables, consteval-checked
+  by ranges_valid() against the pivots (suffix strings included, via #Suffix
+  stringization) — rows, names and pivots cannot drift. The facade
+  (def_for_version/def_any_alias/convert sigs) takes (pivots, grid) per
+  family and derives the same names via range_suffix(); several Expansion
+  Literals map to one concrete class and AnyX unions fold per range (AnySkin
+  = SkinWotlk | SkinCataPlus; AnySkeleton is a single class, not a union).
+- Collapse achieved: M2 tracks/records 11→2-4 each, Skin 9→2, Skeleton+Skel
+  payloads 5→1, M2Data 11→6, WMORoot 11→5, WMOGroup(Body) 11→7,
+  SMOBatch/SMOGroupHeader 11→2, assemblies 11→10 (M2) / 11→8 (WMO).
+- convert() walks the CANONICAL ladder: a new `version_pivots<E>` trait
+  (specialized beside supported_versions for BOTH the alias and detail
+  spellings — an alias template is not identity-equal to its target for
+  template-template matching, and deduction sees the detail one) + a
+  next_canonical() step; ranges cost no convert_step.
+- GOTCHAS learned:
+  - Inside a `detail` block, a sibling RAW template SHADOWS the
+    canonicalizing alias — every cross-family member reference must go
+    through the alias (records::M2Track<...>, skin::M2SkinProfile<...>,
+    m2::Skeleton<...>), or never-welded raw instantiations leak into member
+    types (import-time std::bad_cast from eager NSDMI conversion; found via
+    lldb break on __cxa_throw).
+  - Explicit instantiation must name the detail:: template (an alias cannot
+    head one), and same-type rows across a range must be driven by the
+    family's OWN range table or you get duplicate-instantiation errors.
+  - gcc 16 cannot mangle the span-converting canonical_version call in a
+    dependent function signature ("sorry, unimplemented: mangling
+    view_convert_expr") — facade glue goes through a concrete_of<F, X>
+    nested-typedef indirection.
+  - Explicit class instantiation instantiates CONSTRAINED member
+    declarations' signatures too: an era-gated method must not spell an
+    era-constrained alias in its parameters (M2::read_skin_into takes
+    `auto& out`).
+
 ## Instantiation & I/O layout (2026-07-24 refactor)
 
 - **The library ships NO explicit instantiations.** The all-versions

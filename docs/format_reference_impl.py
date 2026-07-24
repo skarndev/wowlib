@@ -62,21 +62,39 @@ STUBS = REPO_ROOT / "build/bindings/bindings/python/stubs"
 # (an element class documented by two formats links to the first).
 FORMAT_MODULES = ("wmo_reference_config", "m2_reference_config")
 
-# Expansion suffixes (welded class names), stripped from the *displayed* class
-# name so the per-version layout reads generically (WMOGroupBodyTheWarWithin ->
-# WMOGroupBody⟨version⟩); ids/anchors keep the real name so links resolve.
+# Version-RANGE suffixes (welded class names): the library instantiates one
+# class per content-permutation range, so a suffix is a plain expansion name
+# ("Wotlk"), an interior range ("CataToMop") or an open-ended one
+# ("LegionPlus"). Stripped from the *displayed* class name so the layout reads
+# generically (WMOGroupBodyDragonflightPlus -> WMOGroupBody⟨version⟩);
+# ids/anchors keep the real name so links resolve.
 EXP_SUFFIXES = ("Vanilla", "Tbc", "Wotlk", "Cata", "Mop", "Wod", "Legion", "Bfa",
                 "Shadowlands", "Dragonflight", "TheWarWithin")
-_SUFFIX_ALT = "(?:" + "|".join(EXP_SUFFIXES) + ")"
+_EXP_ALT = "(?:" + "|".join(EXP_SUFFIXES) + ")"
+_SUFFIX_ALT = f"(?:{_EXP_ALT}(?:To{_EXP_ALT}|Plus)?)"
+_RANGE_RE = re.compile(f"({_EXP_ALT})(?:To({_EXP_ALT})|(Plus))?$")
 _VERSION_PLACEHOLDER = "⟨version⟩"
 
 
+def split_range_suffix(name: str) -> tuple[str, str] | None:
+    """``(stem, suffix)`` when *name* ends in a range suffix, else ``None``
+    (the whole-name-is-a-suffix case is not a versioned class)."""
+    m = _RANGE_RE.search(name)
+    if not m or m.start() == 0:
+        return None
+    return name[: m.start()], name[m.start():]
+
+
+def range_rank(suffix: str) -> int:
+    """Order range suffixes by their FIRST covered expansion."""
+    m = _RANGE_RE.match(suffix)
+    return EXP_SUFFIXES.index(m.group(1)) if m else -1
+
+
 def _generic_name(name: str) -> str:
-    """Strip a trailing expansion suffix, replacing it with ⟨version⟩."""
-    for suf in EXP_SUFFIXES:
-        if name != suf and name.endswith(suf):
-            return name[: -len(suf)] + _VERSION_PLACEHOLDER
-    return name
+    """Strip a trailing range suffix, replacing it with ⟨version⟩."""
+    split = split_range_suffix(name)
+    return split[0] + _VERSION_PLACEHOLDER if split else name
 
 
 # major client version -> (css/icon key, short label, full name). Colours live in
@@ -698,12 +716,11 @@ def _struct_int_fields(headers: tuple[Path, ...]) -> dict[str, dict[str, tuple[b
 
 
 def _cpp_struct(cls: str, alias: dict[str, str]) -> str:
-    """The C++ wire-struct name for a rendered class (strip version suffix, undo
-    any templated-struct weld aliasing)."""
-    for suf in EXP_SUFFIXES:
-        if cls != suf and cls.endswith(suf):
-            cls = cls[: -len(suf)]
-            break
+    """The C++ wire-struct name for a rendered class (strip the range suffix,
+    undo any templated-struct weld aliasing)."""
+    split = split_range_suffix(cls)
+    if split:
+        cls = split[0]
     return alias.get(cls, cls)
 
 
@@ -787,9 +804,9 @@ def _field_source_class(side: Side) -> dict[str, str]:
     have: dict[str, list[tuple[int, str]]] = {}
     for cls, flds in classes.items():
         suf = cls[len(side.class_prefix):]
-        if suf not in EXP_SUFFIXES:
+        rank = range_rank(suf)
+        if rank < 0:
             continue
-        rank = EXP_SUFFIXES.index(suf)
         for name in flds:
             have.setdefault(name, []).append((rank, cls))
     out: dict[str, str] = {}

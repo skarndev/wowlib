@@ -9,28 +9,29 @@
 # and (b) writes the correct `AnyX = C0 | C1 | ...` alias instead.
 #
 # The `$` anchors the key so AnyWMOGroup does not also match AnyWMOGroupBody. This
-# stub spelling is the one hand-maintained coupling point with wmo_versions + the
-# X-macro: a new Expansion grows the runtime unions automatically (def_any_alias
-# walks expansion_enumerators) but must be added to the matching line here too.
-# check.py guards both halves — a runtime isinstance test and a mypy narrowing test.
+# stub spelling is the one hand-maintained coupling point with the per-family
+# RANGE tables (WOWLIB_*_RANGES_* in wmo.hpp/m2.hpp): one entry per range row,
+# spelled with the same range suffix ("CataToMop", "LegionPlus"). A pivot/grid
+# change moves the rows there (consteval-checked) and must be mirrored here;
+# the pytest facade suites guard both halves.
 
 wowlib.formats.wmo.AnyWMO$:
-    AnyWMO = WMOVanilla | WMOTbc | WMOWotlk | WMOCata | WMOMop | WMOWod | WMOLegion | WMOBfa | WMOShadowlands | WMODragonflight | WMOTheWarWithin
+    AnyWMO = WMOVanillaToWotlk | WMOCataToMop | WMOWod | WMOLegion | WMOBfa | WMOShadowlands | WMODragonflight | WMOTheWarWithin
 
 wowlib.formats.wmo.root.AnyWMORoot$:
-    AnyWMORoot = WMORootVanilla | WMORootTbc | WMORootWotlk | WMORootCata | WMORootMop | WMORootWod | WMORootLegion | WMORootBfa | WMORootShadowlands | WMORootDragonflight | WMORootTheWarWithin
+    AnyWMORoot = WMORootVanillaToWod | WMORootLegion | WMORootBfa | WMORootShadowlandsToDragonflight | WMORootTheWarWithin
 
 wowlib.formats.wmo.group.AnyWMOGroup$:
-    AnyWMOGroup = WMOGroupVanilla | WMOGroupTbc | WMOGroupWotlk | WMOGroupCata | WMOGroupMop | WMOGroupWod | WMOGroupLegion | WMOGroupBfa | WMOGroupShadowlands | WMOGroupDragonflight | WMOGroupTheWarWithin
+    AnyWMOGroup = WMOGroupVanillaToWotlk | WMOGroupCataToMop | WMOGroupWod | WMOGroupLegion | WMOGroupBfa | WMOGroupShadowlands | WMOGroupDragonflightPlus
 
 wowlib.formats.wmo.group.AnyWMOGroupBody$:
-    AnyWMOGroupBody = WMOGroupBodyVanilla | WMOGroupBodyTbc | WMOGroupBodyWotlk | WMOGroupBodyCata | WMOGroupBodyMop | WMOGroupBodyWod | WMOGroupBodyLegion | WMOGroupBodyBfa | WMOGroupBodyShadowlands | WMOGroupBodyDragonflight | WMOGroupBodyTheWarWithin
+    AnyWMOGroupBody = WMOGroupBodyVanillaToWotlk | WMOGroupBodyCataToMop | WMOGroupBodyWod | WMOGroupBodyLegion | WMOGroupBodyBfa | WMOGroupBodyShadowlands | WMOGroupBodyDragonflightPlus
 
 wowlib.formats.wmo.group.chunks.AnyWMOGroupHeader$:
-    AnyWMOGroupHeader = WMOGroupHeaderVanilla | WMOGroupHeaderTbc | WMOGroupHeaderWotlk | WMOGroupHeaderCata | WMOGroupHeaderMop | WMOGroupHeaderWod | WMOGroupHeaderLegion | WMOGroupHeaderBfa | WMOGroupHeaderShadowlands | WMOGroupHeaderDragonflight | WMOGroupHeaderTheWarWithin
+    AnyWMOGroupHeader = WMOGroupHeaderVanillaToBfa | WMOGroupHeaderShadowlandsPlus
 
 wowlib.formats.wmo.group.chunks.AnyWMOBatch$:
-    AnyWMOBatch = WMOBatchVanilla | WMOBatchTbc | WMOBatchWotlk | WMOBatchCata | WMOBatchMop | WMOBatchWod | WMOBatchLegion | WMOBatchBfa | WMOBatchShadowlands | WMOBatchDragonflight | WMOBatchTheWarWithin
+    AnyWMOBatch = WMOBatchVanillaToWod | WMOBatchLegionPlus
 
 # Every wowlib exception carries `code` (the ErrorCode spelling) and `native_error`
 # (the raw StormLib/CascLib/OS error). errors.cpp attaches these per-instance at raise
@@ -44,16 +45,16 @@ wowlib.Error$:
 
 
 wowlib.formats.m2.AnyM2$:
-    AnyM2 = M2Vanilla | M2Tbc | M2Wotlk | M2Cata | M2Mop | M2Wod | M2Legion | M2Bfa | M2Shadowlands | M2Dragonflight | M2TheWarWithin
+    AnyM2 = M2Vanilla | M2Tbc | M2Wotlk | M2CataToMop | M2Wod | M2Legion | M2Bfa | M2Shadowlands | M2Dragonflight | M2TheWarWithin
 
 wowlib.formats.m2.body.AnyM2Data$:
-    AnyM2Data = M2DataVanilla | M2DataTbc | M2DataWotlk | M2DataCata | M2DataMop | M2DataWod | M2DataLegion | M2DataBfa | M2DataShadowlands | M2DataDragonflight | M2DataTheWarWithin
+    AnyM2Data = M2DataVanilla | M2DataTbc | M2DataWotlk | M2DataCataToMop | M2DataWod | M2DataLegionPlus
 
 wowlib.formats.m2.skin.AnySkin$:
-    AnySkin = SkinWotlk | SkinCata | SkinMop | SkinWod | SkinLegion | SkinBfa | SkinShadowlands | SkinDragonflight | SkinTheWarWithin
+    AnySkin = SkinWotlk | SkinCataPlus
 
 wowlib.formats.m2.body.AnyM2File$:
     AnyM2File = M2FileLegion | M2FileBfa | M2FileShadowlands | M2FileDragonflight | M2FileTheWarWithin
 
 wowlib.formats.m2.AnySkeleton$:
-    AnySkeleton = SkeletonLegion | SkeletonBfa | SkeletonShadowlands | SkeletonDragonflight | SkeletonTheWarWithin
+    AnySkeleton = SkeletonLegionPlus

@@ -80,7 +80,7 @@ namespace wowlib_py::formats::m2
         to a @c NotImplemented Result.
         @throws nanobind::type_error if @p source is not an M2 instance. */
     template <wowlib::Expansion To>
-    wowlib::Result<wowlib::formats::m2::M2<wowlib::to_client_version(To)>>
+    wowlib::Result<typename concrete_of<wowlib::formats::m2::M2, To>::type>
     convert_m2_from_any(nb::handle source)
     {
       template for (constexpr auto e : expansion_enumerators)
@@ -117,8 +117,9 @@ namespace wowlib_py::formats::m2
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enum_name(To)} + "]) -> M2"
-                        + std::string{wowlib::enum_name(To)})));
+                        + std::string{wowlib::enum_name(To)} + "]) -> "
+                        + concrete_name("M2", To, wowlib::formats::m2::m2_assembly_pivots,
+                                        wowlib::formats::m2::m2_versions))));
     }
 
     /** @brief Attach @c read/@c write/@c convert to @c M2Base.
@@ -233,21 +234,30 @@ namespace wowlib_py::formats::m2
     nb::module_ body = nb::cast<nb::module_>(m2.attr("body"));
     nb::module_ skin = nb::cast<nb::module_>(m2.attr("skin"));
 
-    def_for_version<wowlib::formats::m2::M2>(m2.attr("M2"), "M2");
-    def_for_version<wowlib::formats::m2::M2Data>(body.attr("M2Data"), "M2Data");
-    def_for_version<wowlib::formats::m2::Skin>(skin.attr("Skin"), "Skin");
-    def_for_version<wowlib::formats::m2::M2File>(body.attr("M2File"), "M2File");
-    def_for_version<wowlib::formats::m2::Skeleton>(m2.attr("Skeleton"), "Skeleton");
+    // every family hands the facade its canonicalization pivots + grid, so
+    // the Literal overload/sig names are the same range-suffixed classes the
+    // welded alias tables produce
+    namespace fm2 = wowlib::formats::m2;
+    def_for_version<fm2::M2>(m2.attr("M2"), "M2", fm2::m2_assembly_pivots, fm2::m2_versions);
+    def_for_version<fm2::M2Data>(body.attr("M2Data"), "M2Data", fm2::m2_data_pivots,
+                                 fm2::m2_versions);
+    def_for_version<fm2::Skin>(skin.attr("Skin"), "Skin", fm2::m2_skin_pivots,
+                               fm2::m2_skin_versions);
+    def_for_version<fm2::M2File>(body.attr("M2File"), "M2File", fm2::m2_file_pivots,
+                                 fm2::m2_chunked_versions);
+    def_for_version<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton", fm2::m2_skeleton_pivots,
+                                   fm2::m2_chunked_versions);
 
     def_m2_ops(m2.attr("M2"));
     def_skeleton_ops(m2.attr("Skeleton"));
 
     // Runtime AnyX union aliases (importable TypeAliases) on the family's own
     // submodule; the subset families fold only the expansions they exist for.
-    def_any_alias<wowlib::formats::m2::M2>(m2, "M2");
-    def_any_alias<wowlib::formats::m2::M2Data>(body, "M2Data");
-    def_any_alias<wowlib::formats::m2::Skin>(skin, "Skin");
-    def_any_alias<wowlib::formats::m2::M2File>(body, "M2File");
-    def_any_alias<wowlib::formats::m2::Skeleton>(m2, "Skeleton");
+    def_any_alias<fm2::M2>(m2, "M2", fm2::m2_assembly_pivots, fm2::m2_versions);
+    def_any_alias<fm2::M2Data>(body, "M2Data", fm2::m2_data_pivots, fm2::m2_versions);
+    def_any_alias<fm2::Skin>(skin, "Skin", fm2::m2_skin_pivots, fm2::m2_skin_versions);
+    def_any_alias<fm2::M2File>(body, "M2File", fm2::m2_file_pivots, fm2::m2_chunked_versions);
+    def_any_alias<fm2::Skeleton>(m2, "Skeleton", fm2::m2_skeleton_pivots,
+                                 fm2::m2_chunked_versions);
   }
 }

@@ -19,6 +19,16 @@ namespace wowlib::formats
       this one adjacent step at a time. */
   template <>
   inline constexpr auto supported_versions<m2::M2> = m2::m2_versions;
+  /** The same ladder keyed on the detail template (see the WMO counterpart:
+      deduction from an entity reference sees m2::detail::M2). */
+  template <>
+  inline constexpr auto supported_versions<m2::detail::M2> = m2::m2_versions;
+
+  /** The assembly's canonicalization pivots (both spellings, as above). */
+  template <>
+  inline constexpr auto version_pivots<m2::M2> = m2::m2_assembly_pivots;
+  template <>
+  inline constexpr auto version_pivots<m2::detail::M2> = m2::m2_assembly_pivots;
 
   // convert_step(const m2::M2<From>&, version_tag<To>) overloads go here as
   // each adjacent-version pair's layout translation is implemented (track

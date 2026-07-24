@@ -83,74 +83,87 @@ namespace wowlib::formats::wmo::group::chunks
   /** One render batch, 24 bytes. Before 7.0 the leading 12 bytes are an int16
       culling box; from 7.0 they are unused except for a uint16 material id
       backing the large-material flag bit. */
-  template <ClientVersion V>
-  struct SMOBatch;
-
-  template <ClientVersion V>
-    requires(V < wmo_batch_large_material)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("One MOBA render batch: an index range sharing one material, "
-                 "with its low-resolution culling box.")
-  ]] WOWLIB_EMPTY_BASES SMOBatch<V> : WMOBatchBase
+namespace detail
   {
-    [[=welder::doc("Culling box minimum corner (rounded vertex bounds).")]]
-    std::array<std::int16_t, 3> box_min{};
+    // The annotated era layouts; instantiate through the canonicalizing
+    // aliases below, never directly.
+      template <ClientVersion V>
+    struct SMOBatch;
 
-    [[=welder::doc("Culling box maximum corner.")]]
-    std::array<std::int16_t, 3> box_max{};
+    template <ClientVersion V>
+      requires(V < wmo_batch_large_material)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("One MOBA render batch: an index range sharing one material, "
+                   "with its low-resolution culling box.")
+    ]] WOWLIB_EMPTY_BASES SMOBatch<V> : WMOBatchBase
+    {
+      [[=welder::doc("Culling box minimum corner (rounded vertex bounds).")]]
+      std::array<std::int16_t, 3> box_min{};
 
-    [[=welder::doc("First face index in MOVI.")]]
-    std::uint32_t start_index = 0;
+      [[=welder::doc("Culling box maximum corner.")]]
+      std::array<std::int16_t, 3> box_max{};
 
-    [[=welder::doc("Number of MOVI indices.")]]
-    std::uint16_t count = 0;
+      [[=welder::doc("First face index in MOVI.")]]
+      std::uint32_t start_index = 0;
 
-    [[=welder::doc("First vertex used in MOVT.")]]
-    std::uint16_t min_index = 0;
+      [[=welder::doc("Number of MOVI indices.")]]
+      std::uint16_t count = 0;
 
-    [[=welder::doc("Last vertex used, inclusive.")]]
-    std::uint16_t max_index = 0;
+      [[=welder::doc("First vertex used in MOVT.")]]
+      std::uint16_t min_index = 0;
 
-    [[=welder::doc("Batch flags.")]]
-    std::uint8_t flags = 0;
+      [[=welder::doc("Last vertex used, inclusive.")]]
+      std::uint16_t max_index = 0;
 
-    [[=welder::doc("Index into MOMT.")]]
-    std::uint8_t material_id = 0;
-  };
+      [[=welder::doc("Batch flags.")]]
+      std::uint8_t flags = 0;
 
+      [[=welder::doc("Index into MOMT.")]]
+      std::uint8_t material_id = 0;
+    };
+
+    template <ClientVersion V>
+      requires(V >= wmo_batch_large_material)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("One MOBA render batch: an index range sharing one material "
+                   "(Legion+ layout with the 16-bit material id).")
+    ]] WOWLIB_EMPTY_BASES SMOBatch<V> : WMOBatchBase
+    {
+      /** The nulled remains of the pre-7.0 culling box. */
+      [[=welder::mark::exclude]] std::array<std::uint8_t, 10> unknown{};
+
+      [[=welder::doc("16-bit material id; used when flags has 0x2.")]]
+      std::uint16_t material_id_large = 0;
+
+      [[=welder::doc("First face index in MOVI.")]]
+      std::uint32_t start_index = 0;
+
+      [[=welder::doc("Number of MOVI indices.")]]
+      std::uint16_t count = 0;
+
+      [[=welder::doc("First vertex used in MOVT.")]]
+      std::uint16_t min_index = 0;
+
+      [[=welder::doc("Last vertex used, inclusive.")]]
+      std::uint16_t max_index = 0;
+
+      [[=welder::doc("Batch flags; 0x2: use material_id_large.")]]
+      std::uint8_t flags = 0;
+
+      [[=welder::doc("Index into MOMT (when it fits 8 bits).")]]
+      std::uint8_t material_id = 0;
+    };
+  }
+
+  /** A MOBA render batch — the canonicalizing face of detail::SMOBatch
+      (wmo_batch_pivots: the culling box gives way to the large material id
+      at Legion), so two instantiations cover all eleven releases. */
   template <ClientVersion V>
-    requires(V >= wmo_batch_large_material)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("One MOBA render batch: an index range sharing one material "
-                 "(Legion+ layout with the 16-bit material id).")
-  ]] WOWLIB_EMPTY_BASES SMOBatch<V> : WMOBatchBase
-  {
-    /** The nulled remains of the pre-7.0 culling box. */
-    [[=welder::mark::exclude]] std::array<std::uint8_t, 10> unknown{};
+  using SMOBatch =
+    detail::SMOBatch<canonical_version(V, wmo_batch_pivots, wmo_versions)>;
 
-    [[=welder::doc("16-bit material id; used when flags has 0x2.")]]
-    std::uint16_t material_id_large = 0;
-
-    [[=welder::doc("First face index in MOVI.")]]
-    std::uint32_t start_index = 0;
-
-    [[=welder::doc("Number of MOVI indices.")]]
-    std::uint16_t count = 0;
-
-    [[=welder::doc("First vertex used in MOVT.")]]
-    std::uint16_t min_index = 0;
-
-    [[=welder::doc("Last vertex used, inclusive.")]]
-    std::uint16_t max_index = 0;
-
-    [[=welder::doc("Batch flags; 0x2: use material_id_large.")]]
-    std::uint8_t flags = 0;
-
-    [[=welder::doc("Index into MOMT (when it fits 8 bits).")]]
-    std::uint8_t material_id = 0;
-  };
 
   static_assert(sizeof(SMOBatch<versions::wotlk>) == 0x18);
   static_assert(sizeof(SMOBatch<versions::shadowlands>) == 0x18);

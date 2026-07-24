@@ -105,88 +105,108 @@ namespace wowlib::formats::m2::body::records
   static_assert(sizeof(M2SplineKey<float>) == 12);
   static_assert(sizeof(M2SplineKey<C3Vector>) == 36);
 
+  namespace detail
+  {
+  // The annotated era layouts; instantiate through the canonicalizing
+  // aliases below, never directly.
   /** An animation track for value type @a T, laid out for client version
-      @a V. See the file comment for the two eras. Interpolation types:
-      0 none, 1 linear, 2 bezier, 3 hermite (spline types only valid for
-      M2SplineKey tracks). A track bound to a global sequence (index != -1)
-      has a single timeline clamped to that loop. */
+        @a V. See the file comment for the two eras. Interpolation types:
+        0 none, 1 linear, 2 bezier, 3 hermite (spline types only valid for
+        M2SplineKey tracks). A track bound to a global sequence (index != -1)
+        has a single timeline clamped to that loop. */
+    template <typename T, ClientVersion V>
+    struct M2Track;
+
+    template <typename T, ClientVersion V>
+      requires (V < m2_per_sequence_timelines)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("An animation track, pre-WotLK layout: one global timeline with "
+                   "per-sequence interpolation ranges.")
+    ]] M2Track<T, V>
+    {
+      std::uint16_t interpolation_type = 0;
+      [[=welder::doc("-1: none.")]]
+      std::uint16_t global_sequence = 0xFFFF;
+      std::vector<M2Range> interpolation_ranges;
+      std::vector<std::uint32_t> timestamps;
+      std::vector<T> values;
+
+      bool operator==(const M2Track&) const = default;
+    };
+
+    template <typename T, ClientVersion V>
+      requires (V >= m2_per_sequence_timelines)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("An animation track, WotLK+ layout: one timestamp/value array per "
+                   "sequence; an external sequence keeps its arrays in the .anim file.")
+    ]] M2Track<T, V>
+    {
+      std::uint16_t interpolation_type = 0;
+      [[=welder::doc("-1: none.")]]
+      std::uint16_t global_sequence = 0xFFFF;
+
+      [[=formats::sequence_data]]
+      std::vector<std::vector<std::uint32_t>> timestamps;
+
+      [[=formats::sequence_data]]
+      std::vector<std::vector<T>> values;
+
+      bool operator==(const M2Track&) const = default;
+    };
+
+    /** A timestamp-only track (event triggers: every key is an implicit "fire
+        now"). Same two eras as M2Track. */
+    template <ClientVersion V>
+    struct M2TrackBase;
+
+    template <ClientVersion V>
+      requires (V < m2_per_sequence_timelines)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A timestamp-only event track, pre-WotLK layout (every key fires).")
+    ]] M2TrackBase<V>
+    {
+      std::uint16_t interpolation_type = 0;
+      std::uint16_t global_sequence = 0xFFFF;
+      std::vector<M2Range> interpolation_ranges;
+      std::vector<std::uint32_t> timestamps;
+
+      bool operator==(const M2TrackBase&) const = default;
+    };
+
+    template <ClientVersion V>
+      requires (V >= m2_per_sequence_timelines)
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc("A timestamp-only event track, WotLK+ layout (every key fires).")
+    ]] M2TrackBase<V>
+    {
+      std::uint16_t interpolation_type = 0;
+      std::uint16_t global_sequence = 0xFFFF;
+
+      [[=formats::sequence_data]]
+      std::vector<std::vector<std::uint32_t>> timestamps;
+
+      bool operator==(const M2TrackBase&) const = default;
+    };
+  }
+
+  /** An animation track for value type @a T — the canonicalizing face of
+      detail::M2Track: every client version maps to its range's first grid
+      version (m2_track_pivots), so one instantiation serves the whole range.
+      See the detail primary for the era semantics. */
   template <typename T, ClientVersion V>
-  struct M2Track;
+  using M2Track =
+    detail::M2Track<T, canonical_version(V, m2_track_pivots, m2_versions)>;
 
-  template <typename T, ClientVersion V>
-    requires (V < m2_per_sequence_timelines)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("An animation track, pre-WotLK layout: one global timeline with "
-                 "per-sequence interpolation ranges.")
-  ]] M2Track<T, V>
-  {
-    std::uint16_t interpolation_type = 0;
-    [[=welder::doc("-1: none.")]]
-    std::uint16_t global_sequence = 0xFFFF;
-    std::vector<M2Range> interpolation_ranges;
-    std::vector<std::uint32_t> timestamps;
-    std::vector<T> values;
-
-    bool operator==(const M2Track&) const = default;
-  };
-
-  template <typename T, ClientVersion V>
-    requires (V >= m2_per_sequence_timelines)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("An animation track, WotLK+ layout: one timestamp/value array per "
-                 "sequence; an external sequence keeps its arrays in the .anim file.")
-  ]] M2Track<T, V>
-  {
-    std::uint16_t interpolation_type = 0;
-    [[=welder::doc("-1: none.")]]
-    std::uint16_t global_sequence = 0xFFFF;
-
-    [[=formats::sequence_data]]
-    std::vector<std::vector<std::uint32_t>> timestamps;
-
-    [[=formats::sequence_data]]
-    std::vector<std::vector<T>> values;
-
-    bool operator==(const M2Track&) const = default;
-  };
-
-  /** A timestamp-only track (event triggers: every key is an implicit "fire
-      now"). Same two eras as M2Track. */
+  /** A timestamp-only event track — the canonicalizing face of
+      detail::M2TrackBase (same two eras and pivots as M2Track). */
   template <ClientVersion V>
-  struct M2TrackBase;
+  using M2TrackBase =
+    detail::M2TrackBase<canonical_version(V, m2_track_pivots, m2_versions)>;
 
-  template <ClientVersion V>
-    requires (V < m2_per_sequence_timelines)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A timestamp-only event track, pre-WotLK layout (every key fires).")
-  ]] M2TrackBase<V>
-  {
-    std::uint16_t interpolation_type = 0;
-    std::uint16_t global_sequence = 0xFFFF;
-    std::vector<M2Range> interpolation_ranges;
-    std::vector<std::uint32_t> timestamps;
-
-    bool operator==(const M2TrackBase&) const = default;
-  };
-
-  template <ClientVersion V>
-    requires (V >= m2_per_sequence_timelines)
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc("A timestamp-only event track, WotLK+ layout (every key fires).")
-  ]] M2TrackBase<V>
-  {
-    std::uint16_t interpolation_type = 0;
-    std::uint16_t global_sequence = 0xFFFF;
-
-    [[=formats::sequence_data]]
-    std::vector<std::vector<std::uint32_t>> timestamps;
-
-    bool operator==(const M2TrackBase&) const = default;
-  };
 
   template <typename T>
   struct [[

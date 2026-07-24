@@ -16,13 +16,14 @@ gchunks_mod = wmo_mod.group.chunks
 
 
 def test_for_version_returns_the_concrete_class(fresh_wmo):
-    assert type(fresh_wmo).__name__ == "WMOWotlk"
+    # WotLK shares the VanillaToWotlk range — for_version returns the range class
+    assert type(fresh_wmo).__name__ == "WMOVanillaToWotlk"
 
 
 def test_concrete_natively_inherits_the_base(fresh_wmo):
-    assert wmo_mod.WMOWotlk.__bases__ == (wmo_mod.WMO,)
+    assert wmo_mod.WMOVanillaToWotlk.__bases__ == (wmo_mod.WMO,)
     assert isinstance(fresh_wmo, wmo_mod.WMO)
-    assert issubclass(wmo_mod.WMOWotlk, wmo_mod.WMO)
+    assert issubclass(wmo_mod.WMOVanillaToWotlk, wmo_mod.WMO)
 
 
 def test_families_do_not_cross_inherit(fresh_wmo):
@@ -51,7 +52,7 @@ def test_concrete_isinstance_matches_the_union(fresh_wmo):
 
 
 def test_convert_identity_copies(fresh_wmo):
-    assert type(fresh_wmo.convert(wowlib.Expansion.Wotlk)).__name__ == "WMOWotlk"
+    assert type(fresh_wmo.convert(wowlib.Expansion.Wotlk)).__name__ == "WMOVanillaToWotlk"
 
 
 def test_convert_stepless_pair_raises(fresh_wmo):
@@ -69,5 +70,5 @@ def test_roundtrip_internals_stay_hidden(fresh_wmo):
 
 def test_read_write_live_on_the_base_not_the_concrete(fresh_wmo):
     assert all(hasattr(fresh_wmo, verb) for verb in ("read", "write", "convert"))
-    assert "read" not in wmo_mod.WMOWotlk.__dict__
+    assert "read" not in wmo_mod.WMOVanillaToWotlk.__dict__
     assert hasattr(fresh_wmo.root, "read") and hasattr(fresh_wmo.root, "write")

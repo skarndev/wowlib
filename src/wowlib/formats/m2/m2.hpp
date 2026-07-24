@@ -38,15 +38,6 @@ namespace wowlib::formats::m2
   using skin::Skin;
   using skin::skin_magic;
 
-  /** The versions M2 is instantiated (and welded) for: every targeted
-      last-minor-of-major release, in release order. Kept in sync with the
-      alias/instantiation X-macro below (checked by static_assert). */
-  inline constexpr std::array m2_versions{
-    versions::vanilla, versions::tbc,         versions::wotlk,
-    versions::cata,    versions::mop,         versions::wod,
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
-
   /** The version-agnostic base of every M2<V> (welded as "M2").
 
       This empty base exists ENTIRELY for the language bindings (Python, Lua):
@@ -141,7 +132,9 @@ namespace wowlib::formats::m2
                         exactly when the chunk stream carries a skeleton
                         FileDataID; skeletons are shared between models, so
                         edit with care or write the .skel standalone.)")]]
-      Skeleton<V> skel{};
+      // through the m2:: alias, NOT the sibling detail raw — the skeleton
+      // collapses to its single chunked-era instantiation
+      m2::Skeleton<V> skel{};
 
       [[
         =welder::mark::no_reassign,
@@ -154,6 +147,8 @@ namespace wowlib::formats::m2
     };
   }
 
+  namespace detail
+  {
   /** A whole M2 model for one client version: the MD20 body plus every
       baked-in satellite. Reading resolves external sequence data (.anim) and
       the LOD views (.skin) into the entity; writing re-derives the satellite
@@ -162,7 +157,8 @@ namespace wowlib::formats::m2
 
       There is no byte-perfect round-trip for offset formats: writes lay data
       out canonically, and a written model re-reads equal instead.
-      @tparam V the client version this assembly targets.
+      Instantiate through the canonicalizing m2::M2 alias, never directly.
+      @tparam V the canonical client version this assembly targets.
       @see https://wowdev.wiki/M2 */
   template <ClientVersion V>
   struct [[
@@ -216,14 +212,17 @@ namespace wowlib::formats::m2
         @return nothing, or FormatVersionMismatch. */
     static Result<void> check_header(std::uint32_t magic, std::uint32_t format_version);
 
-    /** Load and parse one .skin by key into @a out.
+    /** Load and parse one .skin by key into @a out (a std::vector<Skin<V>>;
+        deduced so the pre-WotLK class instantiations — which the bindings
+        instantiate EXPLICITLY, member declarations included — never spell
+        the era-constrained Skin alias in a signature).
         @param fs   the filesystem gateway.
         @param key  the .skin identity.
         @param what the diagnostic context ("skin 2", "lod skin 1").
         @param out  the vector the parsed skin is appended to.
         @return nothing, or the contextualized error. */
     static Result<void> read_skin_into(fs::FileSystem& fs, const FileKey& key,
-                                       std::string_view what, std::vector<Skin<V>>& out)
+                                       std::string_view what, auto& out)
       requires (V >= m2_per_sequence_timelines);
 
     /** The read path shared by every monolithic-with-satellites era (WotLK
@@ -260,39 +259,87 @@ namespace wowlib::formats::m2
       return !skeleton_fdid.empty() && skeleton_fdid.front() != 0;
     }
   };
+  }
+
+  /** A whole model — the canonicalizing face of detail::M2: every client
+      version maps to its range's first grid version (m2_assembly_pivots),
+      so one instantiation serves e.g. both Cata and MoP. */
+  template <ClientVersion V>
+  using M2 = detail::M2<canonical_version(V, m2_assembly_pivots, m2_versions)>;
 }
 
-/** Per-version expansion of the M2 template surface. X(Suffix, version) is
-    invoked once per targeted release, in release order — the single spot that
-    couples m2::m2_versions, the welded aliases and the explicit
-    instantiations. Extending the version list means adding one row here. */
-#define WOWLIB_M2_FOR_EACH_VERSION(X)                                                              \
+/** Per-RANGE expansion of the M2 template surface: each family's X-macro
+    lists one row per REAL content permutation — X(Suffix, version) with the
+    range's canonical grid version — and drives the welded aliases here plus
+    the instantiation matrix in bindings/python/instantiations/. Every table
+    is consteval-checked against the family's pivots (ranges_valid in
+    m2::detail below), so a row set, a suffix or a pivot list cannot drift
+    from the others. Extending the version list means revisiting the pivot
+    lists in boundaries.hpp; the checks then dictate the rows. */
+#define WOWLIB_M2_RANGES_TRACKS(X)                                                                 \
+  X(VanillaToTbc, vanilla)                                                                         \
+  X(WotlkPlus, wotlk)
+
+#define WOWLIB_M2_RANGES_SEQUENCE(X)                                                               \
+  X(VanillaToTbc, vanilla)                                                                         \
+  X(WotlkToMop, wotlk)                                                                             \
+  X(WodPlus, wod)
+
+#define WOWLIB_M2_RANGES_BONE(X)                                                                   \
+  X(Vanilla, vanilla)                                                                              \
+  X(Tbc, tbc)                                                                                      \
+  X(WotlkPlus, wotlk)
+
+#define WOWLIB_M2_RANGES_CAMERA(X)                                                                 \
+  X(VanillaToTbc, vanilla)                                                                         \
+  X(Wotlk, wotlk)                                                                                  \
+  X(CataPlus, cata)
+
+#define WOWLIB_M2_RANGES_PARTICLE(X)                                                               \
   X(Vanilla, vanilla)                                                                              \
   X(Tbc, tbc)                                                                                      \
   X(Wotlk, wotlk)                                                                                  \
-  X(Cata, cata)                                                                                    \
-  X(Mop, mop)                                                                                      \
-  X(Wod, wod)                                                                                      \
-  X(Legion, legion)                                                                                \
-  X(Bfa, bfa)                                                                                      \
-  X(Shadowlands, shadowlands)                                                                      \
-  X(Dragonflight, dragonflight)                                                                    \
-  X(TheWarWithin, tww)
+  X(CataPlus, cata)
 
-/** The subset with external .skin files (Skin<V> exists WotLK+ only). */
-#define WOWLIB_M2_FOR_EACH_SKIN_VERSION(X)                                                         \
+#define WOWLIB_M2_RANGES_SKIN_SECTION(X)                                                           \
+  X(Vanilla, vanilla)                                                                              \
+  X(TbcPlus, tbc)
+
+#define WOWLIB_M2_RANGES_SKIN_PROFILE(X)                                                           \
+  X(Vanilla, vanilla)                                                                              \
+  X(TbcToWotlk, tbc)                                                                               \
+  X(CataPlus, cata)
+
+#define WOWLIB_M2_RANGES_DATA(X)                                                                   \
+  X(Vanilla, vanilla)                                                                              \
+  X(Tbc, tbc)                                                                                      \
   X(Wotlk, wotlk)                                                                                  \
-  X(Cata, cata)                                                                                    \
-  X(Mop, mop)                                                                                      \
+  X(CataToMop, cata)                                                                               \
   X(Wod, wod)                                                                                      \
+  X(LegionPlus, legion)
+
+#define WOWLIB_M2_RANGES_SKIN(X)                                                                   \
+  X(Wotlk, wotlk)                                                                                  \
+  X(CataPlus, cata)
+
+#define WOWLIB_M2_RANGES_FILE(X)                                                                   \
   X(Legion, legion)                                                                                \
   X(Bfa, bfa)                                                                                      \
   X(Shadowlands, shadowlands)                                                                      \
   X(Dragonflight, dragonflight)                                                                    \
   X(TheWarWithin, tww)
 
-/** The subset with the chunked shell (M2File<V> exists Legion+ only). */
-#define WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(X)                                                      \
+/** The chunk payloads (the Skel family, Exp2/Pabc/Psbc/Pgd1) and the Skeleton are
+    stable across the whole chunked era: one range. */
+#define WOWLIB_M2_RANGES_CHUNK_PAYLOADS(X)                                                         \
+  X(LegionPlus, legion)
+
+#define WOWLIB_M2_RANGES_ASSEMBLY(X)                                                               \
+  X(Vanilla, vanilla)                                                                              \
+  X(Tbc, tbc)                                                                                      \
+  X(Wotlk, wotlk)                                                                                  \
+  X(CataToMop, cata)                                                                               \
+  X(Wod, wod)                                                                                      \
   X(Legion, legion)                                                                                \
   X(Bfa, bfa)                                                                                      \
   X(Shadowlands, shadowlands)                                                                      \
@@ -301,12 +348,12 @@ namespace wowlib::formats::m2
 
 // The bindings surface: welder welds a class-template instantiation through a
 // namespace-scope alias, whose identifier is the target-language name; each
-// family's aliases are declared in its own namespace so the per-version
-// classes surface under the matching submodule (formats.m2, .body,
-// .body.records, .skin, .bone). Welded NSDMI defaults convert eagerly at
-// registration and the walk follows namespace-member declaration order, so
-// within every namespace the records alias before the entities whose members
-// default them, and the assembly comes last.
+// family's aliases are declared in its own namespace so the per-range classes
+// surface under the matching submodule (formats.m2, .body, .body.records,
+// .skin, .bone). Welded NSDMI defaults convert eagerly at registration and the
+// walk follows namespace-member declaration order, so within every namespace
+// the records alias before the entities whose members default them, and the
+// assembly comes last.
 namespace wowlib::formats::m2::body::records
 {
   // element/ramp types with no version axis, named once
@@ -318,7 +365,7 @@ namespace wowlib::formats::m2::body::records
   using FBlockUInt16 = FBlock<std::uint16_t>;
   using M2PartTrackFixed16 = M2PartTrack<fixed16>;
 
-#define WOWLIB_M2_RECORD_ALIAS(Suffix, version_)                                                   \
+#define WOWLIB_M2_TRACKS_ALIAS(Suffix, version_)                                                   \
   using M2TrackC3Vector##Suffix = M2Track<C3Vector, versions::version_>;                           \
   using M2TrackC4Quaternion##Suffix = M2Track<C4Quaternion, versions::version_>;                   \
   using M2TrackCompQuat##Suffix = M2Track<M2CompQuat, versions::version_>;                         \
@@ -329,8 +376,6 @@ namespace wowlib::formats::m2::body::records
   using M2TrackSplineC3Vector##Suffix = M2Track<M2SplineKey<C3Vector>, versions::version_>;        \
   using M2TrackSplineFloat##Suffix = M2Track<M2SplineKey<float>, versions::version_>;              \
   using M2EventTrack##Suffix = M2TrackBase<versions::version_>;                                    \
-  using M2Sequence##Suffix = M2Sequence<versions::version_>;                                       \
-  using M2CompBone##Suffix = M2CompBone<versions::version_>;                                       \
   using M2Color##Suffix = M2Color<versions::version_>;                                             \
   using M2TextureWeight##Suffix = M2TextureWeight<versions::version_>;                             \
   using M2TextureFlipbook##Suffix = M2TextureFlipbook<versions::version_>;                         \
@@ -338,42 +383,64 @@ namespace wowlib::formats::m2::body::records
   using M2Attachment##Suffix = M2Attachment<versions::version_>;                                   \
   using M2Event##Suffix = M2Event<versions::version_>;                                             \
   using M2Light##Suffix = M2Light<versions::version_>;                                             \
-  using M2Camera##Suffix = M2Camera<versions::version_>;                                           \
-  using M2Ribbon##Suffix = M2Ribbon<versions::version_>;                                           \
+  using M2Ribbon##Suffix = M2Ribbon<versions::version_>;
+  WOWLIB_M2_RANGES_TRACKS(WOWLIB_M2_TRACKS_ALIAS)
+#undef WOWLIB_M2_TRACKS_ALIAS
+
+#define WOWLIB_M2_SEQUENCE_ALIAS(Suffix, version_)                                                 \
+  using M2Sequence##Suffix = M2Sequence<versions::version_>;
+  WOWLIB_M2_RANGES_SEQUENCE(WOWLIB_M2_SEQUENCE_ALIAS)
+#undef WOWLIB_M2_SEQUENCE_ALIAS
+
+#define WOWLIB_M2_BONE_ALIAS(Suffix, version_)                                                     \
+  using M2CompBone##Suffix = M2CompBone<versions::version_>;
+  WOWLIB_M2_RANGES_BONE(WOWLIB_M2_BONE_ALIAS)
+#undef WOWLIB_M2_BONE_ALIAS
+
+#define WOWLIB_M2_CAMERA_ALIAS(Suffix, version_)                                                   \
+  using M2Camera##Suffix = M2Camera<versions::version_>;
+  WOWLIB_M2_RANGES_CAMERA(WOWLIB_M2_CAMERA_ALIAS)
+#undef WOWLIB_M2_CAMERA_ALIAS
+
+#define WOWLIB_M2_PARTICLE_ALIAS(Suffix, version_)                                                 \
   using M2Particle##Suffix = M2Particle<versions::version_>;
-  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_RECORD_ALIAS)
-#undef WOWLIB_M2_RECORD_ALIAS
+  WOWLIB_M2_RANGES_PARTICLE(WOWLIB_M2_PARTICLE_ALIAS)
+#undef WOWLIB_M2_PARTICLE_ALIAS
 
 #define WOWLIB_M2_SHELL_RECORD_ALIAS(Suffix, version_)                                             \
   using Exp2Data##Suffix = Exp2Data<versions::version_>;                                           \
   using PabcData##Suffix = PabcData<versions::version_>;                                           \
   using PsbcData##Suffix = PsbcData<versions::version_>;                                           \
   using Pgd1Data##Suffix = Pgd1Data<versions::version_>;
-  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_SHELL_RECORD_ALIAS)
+  WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_SHELL_RECORD_ALIAS)
 #undef WOWLIB_M2_SHELL_RECORD_ALIAS
 }
 
 namespace wowlib::formats::m2::body
 {
 #define WOWLIB_M2_DATA_ALIAS(Suffix, version_) using M2Data##Suffix = M2Data<versions::version_>;
-  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_DATA_ALIAS)
+  WOWLIB_M2_RANGES_DATA(WOWLIB_M2_DATA_ALIAS)
 #undef WOWLIB_M2_DATA_ALIAS
 
 #define WOWLIB_M2_FILE_ALIAS(Suffix, version_) using M2File##Suffix = M2File<versions::version_>;
-  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_FILE_ALIAS)
+  WOWLIB_M2_RANGES_FILE(WOWLIB_M2_FILE_ALIAS)
 #undef WOWLIB_M2_FILE_ALIAS
 }
 
 namespace wowlib::formats::m2::skin
 {
-#define WOWLIB_M2_SKIN_RECORD_ALIAS(Suffix, version_)                                              \
-  using M2SkinSection##Suffix = M2SkinSection<versions::version_>;                                 \
+#define WOWLIB_M2_SKIN_SECTION_ALIAS(Suffix, version_)                                             \
+  using M2SkinSection##Suffix = M2SkinSection<versions::version_>;
+  WOWLIB_M2_RANGES_SKIN_SECTION(WOWLIB_M2_SKIN_SECTION_ALIAS)
+#undef WOWLIB_M2_SKIN_SECTION_ALIAS
+
+#define WOWLIB_M2_SKIN_PROFILE_ALIAS(Suffix, version_)                                             \
   using M2SkinProfile##Suffix = M2SkinProfile<versions::version_>;
-  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_SKIN_RECORD_ALIAS)
-#undef WOWLIB_M2_SKIN_RECORD_ALIAS
+  WOWLIB_M2_RANGES_SKIN_PROFILE(WOWLIB_M2_SKIN_PROFILE_ALIAS)
+#undef WOWLIB_M2_SKIN_PROFILE_ALIAS
 
 #define WOWLIB_M2_SKIN_ALIAS(Suffix, version_) using Skin##Suffix = Skin<versions::version_>;
-  WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_SKIN_ALIAS)
+  WOWLIB_M2_RANGES_SKIN(WOWLIB_M2_SKIN_ALIAS)
 #undef WOWLIB_M2_SKIN_ALIAS
 }
 
@@ -385,38 +452,62 @@ namespace wowlib::formats::m2
   using SkelBones##Suffix = SkelBones<versions::version_>;                                         \
   using SkelAttachments##Suffix = SkelAttachments<versions::version_>;                             \
   using Skeleton##Suffix = Skeleton<versions::version_>;
-  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_SKELETON_ALIAS)
+  WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_SKELETON_ALIAS)
 #undef WOWLIB_M2_SKELETON_ALIAS
 
   // the assembly last: its NSDMI defaults name M2Data/M2File/Skeleton values
 #define WOWLIB_M2_ASSEMBLY_ALIAS(Suffix, version_) using M2##Suffix = M2<versions::version_>;
-  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_ASSEMBLY_ALIAS)
+  WOWLIB_M2_RANGES_ASSEMBLY(WOWLIB_M2_ASSEMBLY_ALIAS)
 #undef WOWLIB_M2_ASSEMBLY_ALIAS
 
   namespace detail
   {
-    /** X-macro coverage check: every alias row must be an m2_versions entry
-        and vice versa. */
-    consteval bool m2_macro_covers_versions()
-    {
-      std::size_t rows = 0;
-#define WOWLIB_M2_COUNT_ROW(Suffix, version_)                                                      \
-  {                                                                                                \
-    ++rows;                                                                                        \
-    bool found = false;                                                                            \
-    for (const ClientVersion& v : m2_versions)                                                     \
-      found = found || v == versions::version_;                                                    \
-    if (!found)                                                                                    \
-      return false;                                                                                \
-  }
-      WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_COUNT_ROW)
-#undef WOWLIB_M2_COUNT_ROW
-      return rows == m2_versions.size();
-    }
-    static_assert(m2_macro_covers_versions(),
-                  "WOWLIB_M2_FOR_EACH_VERSION must list exactly the m2_versions entries");
-  }
+    // Range-table validation: every family's rows must exactly enumerate the
+    // distinct canonicals of its grid, with the suffix range_suffix derives.
+#define WOWLIB_M2_RANGE_ROW(Suffix, version_)                                                      \
+  ::wowlib::formats::RangeRow{#Suffix, ::wowlib::versions::version_},
 
+    inline constexpr std::array m2_track_rows{WOWLIB_M2_RANGES_TRACKS(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_track_rows, m2_track_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_TRACKS drifted from m2_track_pivots");
+    inline constexpr std::array m2_sequence_rows{WOWLIB_M2_RANGES_SEQUENCE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_sequence_rows, m2_sequence_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_SEQUENCE drifted from m2_sequence_pivots");
+    inline constexpr std::array m2_bone_rows{WOWLIB_M2_RANGES_BONE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_bone_rows, m2_bone_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_BONE drifted from m2_bone_pivots");
+    inline constexpr std::array m2_camera_rows{WOWLIB_M2_RANGES_CAMERA(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_camera_rows, m2_camera_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_CAMERA drifted from m2_camera_pivots");
+    inline constexpr std::array m2_particle_rows{WOWLIB_M2_RANGES_PARTICLE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_particle_rows, m2_particle_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_PARTICLE drifted from m2_particle_pivots");
+    inline constexpr std::array m2_skin_section_rows{
+      WOWLIB_M2_RANGES_SKIN_SECTION(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_skin_section_rows, m2_skin_section_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_SKIN_SECTION drifted from m2_skin_section_pivots");
+    inline constexpr std::array m2_skin_profile_rows{
+      WOWLIB_M2_RANGES_SKIN_PROFILE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_skin_profile_rows, m2_skin_profile_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_SKIN_PROFILE drifted from m2_skin_profile_pivots");
+    inline constexpr std::array m2_data_rows{WOWLIB_M2_RANGES_DATA(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_data_rows, m2_data_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_DATA drifted from m2_data_pivots");
+    inline constexpr std::array m2_skin_rows{WOWLIB_M2_RANGES_SKIN(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_skin_rows, m2_skin_pivots, m2_skin_versions),
+                  "WOWLIB_M2_RANGES_SKIN drifted from m2_skin_pivots");
+    inline constexpr std::array m2_file_rows{WOWLIB_M2_RANGES_FILE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_file_rows, m2_file_pivots, m2_chunked_versions),
+                  "WOWLIB_M2_RANGES_FILE drifted from m2_file_pivots");
+    inline constexpr std::array m2_chunk_payload_rows{
+      WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_chunk_payload_rows, m2_skeleton_pivots, m2_chunked_versions),
+                  "WOWLIB_M2_RANGES_CHUNK_PAYLOADS drifted from m2_skeleton_pivots");
+    inline constexpr std::array m2_assembly_rows{WOWLIB_M2_RANGES_ASSEMBLY(WOWLIB_M2_RANGE_ROW)};
+    static_assert(ranges_valid(m2_assembly_rows, m2_assembly_pivots, m2_versions),
+                  "WOWLIB_M2_RANGES_ASSEMBLY drifted from m2_assembly_pivots");
+#undef WOWLIB_M2_RANGE_ROW
+  }
 }
 
 // There are NO extern-template declarations or explicit instantiations here:

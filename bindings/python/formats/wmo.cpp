@@ -78,7 +78,7 @@ namespace wowlib_py::formats::wmo
         the pair up here with no glue change).
         @throws nanobind::type_error if @p source is not a WMO instance. */
     template <wowlib::Expansion To>
-    wowlib::Result<wowlib::formats::wmo::WMO<wowlib::to_client_version(To)>>
+    wowlib::Result<typename concrete_of<wowlib::formats::wmo::WMO, To>::type>
     convert_wmo_from_any(nb::handle source)
     {
       template for (constexpr auto e : expansion_enumerators)
@@ -114,8 +114,9 @@ namespace wowlib_py::formats::wmo
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enum_name(To)} + "]) -> WMO"
-                        + std::string{wowlib::enum_name(To)})));
+                        + std::string{wowlib::enum_name(To)} + "]) -> "
+                        + concrete_name("WMO", To, wowlib::formats::wmo::wmo_assembly_pivots,
+                                        wowlib::formats::wmo::wmo_versions))));
     }
 
     /** @brief Attach @c read/@c write/@c convert to @c WMOBase.
@@ -238,27 +239,40 @@ namespace wowlib_py::formats::wmo
     nb::module_ group = nb::cast<nb::module_>(wmo.attr("group"));
     nb::module_ group_chunks = nb::cast<nb::module_>(group.attr("chunks"));
 
-    def_for_version<wowlib::formats::wmo::WMO>(wmo.attr("WMO"), "WMO");
-    def_for_version<wowlib::formats::wmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot");
-    def_for_version<wowlib::formats::wmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup");
-    def_for_version<wowlib::formats::wmo::group::WMOGroupBody>(group.attr("WMOGroupBody"),
-                                                              "WMOGroupBody");
-    def_for_version<wowlib::formats::wmo::group::chunks::SMOGroupHeader>(
-      group_chunks.attr("WMOGroupHeader"), "WMOGroupHeader");
-    def_for_version<wowlib::formats::wmo::group::chunks::SMOBatch>(
-      group_chunks.attr("WMOBatch"), "WMOBatch");
+    // every family hands the facade its canonicalization pivots + grid, so
+    // the Literal overload/sig names are the same range-suffixed classes the
+    // welded alias tables produce
+    namespace fwmo = wowlib::formats::wmo;
+    def_for_version<fwmo::WMO>(wmo.attr("WMO"), "WMO", fwmo::wmo_assembly_pivots,
+                               fwmo::wmo_versions);
+    def_for_version<fwmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot",
+                                         fwmo::wmo_root_pivots, fwmo::wmo_versions);
+    def_for_version<fwmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup",
+                                           fwmo::wmo_group_pivots, fwmo::wmo_versions);
+    def_for_version<fwmo::group::WMOGroupBody>(group.attr("WMOGroupBody"), "WMOGroupBody",
+                                               fwmo::wmo_group_pivots, fwmo::wmo_versions);
+    def_for_version<fwmo::group::chunks::SMOGroupHeader>(
+      group_chunks.attr("WMOGroupHeader"), "WMOGroupHeader", fwmo::wmo_group_header_pivots,
+      fwmo::wmo_versions);
+    def_for_version<fwmo::group::chunks::SMOBatch>(
+      group_chunks.attr("WMOBatch"), "WMOBatch", fwmo::wmo_batch_pivots, fwmo::wmo_versions);
 
     def_wmo_ops(wmo.attr("WMO"));
 
     // Runtime AnyX union aliases (importable TypeAliases; stubgen renders them
     // natively — see def_any_alias). Each lands on the submodule that owns its
     // concretes. A new Expansion grows every union with no edit here.
-    def_any_alias<wowlib::formats::wmo::WMO>(wmo, "WMO");
-    def_any_alias<wowlib::formats::wmo::root::WMORoot>(root, "WMORoot");
-    def_any_alias<wowlib::formats::wmo::group::WMOGroup>(group, "WMOGroup");
-    def_any_alias<wowlib::formats::wmo::group::WMOGroupBody>(group, "WMOGroupBody");
-    def_any_alias<wowlib::formats::wmo::group::chunks::SMOGroupHeader>(group_chunks,
-                                                                       "WMOGroupHeader");
-    def_any_alias<wowlib::formats::wmo::group::chunks::SMOBatch>(group_chunks, "WMOBatch");
+    def_any_alias<fwmo::WMO>(wmo, "WMO", fwmo::wmo_assembly_pivots, fwmo::wmo_versions);
+    def_any_alias<fwmo::root::WMORoot>(root, "WMORoot", fwmo::wmo_root_pivots,
+                                       fwmo::wmo_versions);
+    def_any_alias<fwmo::group::WMOGroup>(group, "WMOGroup", fwmo::wmo_group_pivots,
+                                         fwmo::wmo_versions);
+    def_any_alias<fwmo::group::WMOGroupBody>(group, "WMOGroupBody", fwmo::wmo_group_pivots,
+                                             fwmo::wmo_versions);
+    def_any_alias<fwmo::group::chunks::SMOGroupHeader>(group_chunks, "WMOGroupHeader",
+                                                       fwmo::wmo_group_header_pivots,
+                                                       fwmo::wmo_versions);
+    def_any_alias<fwmo::group::chunks::SMOBatch>(group_chunks, "WMOBatch",
+                                                 fwmo::wmo_batch_pivots, fwmo::wmo_versions);
   }
 }

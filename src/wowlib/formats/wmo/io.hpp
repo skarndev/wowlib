@@ -21,7 +21,7 @@
 namespace wowlib::formats::wmo
 {
   template <ClientVersion V>
-  std::string WMO<V>::group_path(std::string_view root_path, std::size_t index)
+  std::string detail::WMO<V>::group_path(std::string_view root_path, std::size_t index)
   {
     std::string_view stem = root_path;
     if (stem.ends_with(".wmo"))
@@ -30,7 +30,7 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<void> WMO<V>::check_mver(std::uint32_t mver, std::string_view which)
+  Result<void> detail::WMO<V>::check_mver(std::uint32_t mver, std::string_view which)
   {
     if (mver != wmo_version_v17)
       return make_error(ErrorCode::FormatVersionMismatch,
@@ -39,7 +39,7 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<void> WMO<V>::read(std::span<const std::byte> root_data,
+  Result<void> detail::WMO<V>::read(std::span<const std::byte> root_data,
                             std::span<const std::span<const std::byte>> group_datas)
   {
     root = {};
@@ -66,7 +66,7 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<void> WMO<V>::read(fs::FileSystem& fs, const FileKey& key)
+  Result<void> detail::WMO<V>::read(fs::FileSystem& fs, const FileKey& key)
   {
     const auto root_data = fs.read_file(key);
     if (!root_data)
@@ -128,7 +128,7 @@ namespace wowlib::formats::wmo
   }
 
   template <ClientVersion V>
-  Result<void> WMO<V>::write(fs::FileSystem& fs, const FileKey& key) const
+  Result<void> detail::WMO<V>::write(fs::FileSystem& fs, const FileKey& key) const
   {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)

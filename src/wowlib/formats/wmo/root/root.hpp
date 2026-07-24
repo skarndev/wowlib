@@ -277,182 +277,198 @@ namespace wowlib::formats::wmo::root
     };
   }
 
-  /** A WMO (world map object) root file for one client version.
-
-      The root file holds everything shared across the object — the material and
-      texture tables, doodad (M2) sets and placements, portals, lights, fog, the
-      convex-volume/visible-block culling data and the per-group table (MOGI/GFID)
-      — while the actual 3D geometry lives in the separate group files (WMOGroup).
-      The always-present chunks are own members (canonical order); version-gated
-      chunks are inherited from the detail:: trait bases active for @a V.
-
-      @tparam V the client version this layout targets.
-      @see https://wowdev.wiki/WMO */
-  template <ClientVersion V>
-  struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc(R"(
-        A WMO root file for one client version. The root lists the object's shared
-        data — materials and textures, doodad (M2) sets and placements, portals,
-        lights, fog, culling volumes and the per-group table — while the 3D
-        geometry lives in the separate group files (see WMOGroup). An instance read
-        from a client file rewrites byte-for-byte until modified. See
-        https://wowdev.wiki/WMO.)")
-  ]] WMORoot
-    : ChunkedFile<WMORoot<V>>, WMORootBase,
-      slot<V, ClientVersion{7, 0, 1, 20740}, detail::RootLegion>,
-      slot<V, ClientVersion{7, 3, 0, 24473}, detail::Root73>,
-      slot<V, ClientVersion{0, 0, 0, 0}, detail::RootPre81, ClientVersion{8, 1, 0, 27826}>,
-      slot<V, ClientVersion{0, 0, 0, 0}, detail::RootPre83, ClientVersion{8, 3, 0, 32044}>,
-      slot<V, ClientVersion{8, 1, 0, 27826}, detail::Root81>,
-      slot<V, ClientVersion{8, 3, 0, 32044}, detail::Root83>,
-      slot<V, ClientVersion{9, 0, 1, 33978}, detail::Root90>,
-      slot<V, ClientVersion{9, 1, 0, 39015}, detail::Root91>,
-      slot<V, ClientVersion{11, 0, 0, 54210}, detail::Root110>,
-      slot<V, ClientVersion{11, 1, 0, 58221}, detail::Root111>
+  namespace detail
   {
-    static constexpr ClientVersion version = V;
+  // The annotated entity; instantiate through the canonicalizing alias
+  // below, never directly. The trait bases share this namespace, so they
+  // need no qualifier (a bare detail:: would be ambiguous against
+  // chunks::detail via the using-directive).
+    /** A WMO (world map object) root file for one client version.
 
-    [[
-      =chunk("MVER"),
-      =welder::doc("The WMO format version; 17 for every supported client.")]]
-    std::uint32_t mver = wmo_version_v17;
+        The root file holds everything shared across the object — the material and
+        texture tables, doodad (M2) sets and placements, portals, lights, fog, the
+        convex-volume/visible-block culling data and the per-group table (MOGI/GFID)
+        — while the actual 3D geometry lives in the separate group files (WMOGroup).
+        The always-present chunks are own members (canonical order); version-gated
+        chunks are inherited from the detail:: trait bases active for @a V.
 
-    [[
-      =chunk("MOHD"),
-      =welder::doc("The root header (MOHD).")]]
-    SMOHeader header{};
-
-    [[
-      =chunk("MOMT"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Materials (MOMT).")]]
-    std::vector<SMOMaterial> materials;
-
-    [[
-      =chunk("MOGN"),
-      =formats::optional,
-      =welder::doc("Group names (MOGN), referenced by byte offset.")]]
-    StringBlock group_names;
-
-    [[
-      =chunk("MOGI"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Per-group info (MOGI).")]]
-    std::vector<SMOGroupInfo> group_infos;
-
-    [[
-      =chunk("MOPV"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Portal vertices (MOPV).")]]
-    std::vector<C3Vector> portal_vertices;
-
-    [[
-      =chunk("MOPT"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Portals (MOPT).")]]
-    std::vector<SMOPortal> portals;
-
-    [[
-      =chunk("MOPR"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Portal references from groups (MOPR).")]]
-    std::vector<SMOPortalRef> portal_refs;
-
-    [[
-      =chunk("MOVV"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Visible block vertices (MOVV).")]]
-    std::vector<C3Vector> visible_block_vertices;
-
-    [[
-      =chunk("MOVB"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Visible blocks (MOVB).")]]
-    std::vector<SMOVisibleBlock> visible_blocks;
-
-    [[
-      =chunk("MOLT"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Lights (MOLT).")]]
-    std::vector<SMOLight> lights;
-
-    [[
-      =chunk("MODS"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Doodad sets (MODS).")]]
-    std::vector<SMODoodadSet> doodad_sets;
-
-    [[
-      =chunk("MODD"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Doodad placements (MODD).")]]
-    std::vector<SMODoodadDef> doodad_defs;
-
-    [[
-      =chunk("MFOG"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Fog volumes (MFOG).")]]
-    std::vector<SMOFog> fogs;
-
-    [[
-      =chunk("MCVP"),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Convex volume planes (MCVP); transports mostly.")]]
-    std::vector<C4Plane> convex_volume_planes;
-
-    [[
-      =chunk("MOMX"),
-      =formats::optional,
-      =welder::doc("MOMX (11.x, undocumented purpose); preserved opaque.")]]
-    ChunkBlob momx;
-
-    /** The canonical chunk-stream order the serializer emits a fresh entity in —
-        decoupled from the by-trait flatten order of the version bases. Lists every
-        chunk member exactly once (checked at compile time by write_order).
-
-        MFOB (12.1+, Midnight) postdates the supported client range; it and any
-        other unmodeled root chunk round-trip through ChunkExtras::unknown. */
-    static constexpr std::array chunk_order = {
-      four_cc("MVER"), four_cc("MOHD"), four_cc("MOTX"), four_cc("MOMT"), four_cc("MOM3"),
-      four_cc("MOUV"), four_cc("MOGN"), four_cc("MOGI"), four_cc("MOSB"), four_cc("MOSI"),
-      four_cc("MOPV"), four_cc("MOPT"), four_cc("MOPR"), four_cc("MOPE"), four_cc("MOVV"),
-      four_cc("MOVB"), four_cc("MOLT"), four_cc("MOLV"), four_cc("MODS"), four_cc("MODN"),
-      four_cc("MODI"), four_cc("MODD"), four_cc("MFOG"), four_cc("MCVP"), four_cc("GFID"),
-      four_cc("MDDI"), four_cc("MPVD"), four_cc("MAVG"), four_cc("MAVD"), four_cc("MBVD"),
-      four_cc("MFED"), four_cc("MGI2"), four_cc("MNLD"), four_cc("MDDL"), four_cc("MOMX"),
-    };
-
-    /** Serializer hook (see write_entity): stamp the derived MOHD counts into
-        the just-written header payload — n_groups from the MOGI table,
-        n_portals and n_doodad_sets from their vectors. The counts real client
-        files disagree with their containers on (n_textures, n_lights,
-        n_doodad_defs, n_doodad_names) stay stored fields; see SMOHeader.
-        @param fourcc  the emitted chunk's id, in disk layout.
-        @param payload the finished chunk payload, patched in place. */
-    [[=welder::mark::exclude]]
-    void patch_chunk(std::uint32_t fourcc, std::span<std::byte> payload) const
+        @tparam V the client version this layout targets.
+        @see https://wowdev.wiki/WMO */
+    template <ClientVersion V>
+    struct [[
+      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::doc(R"(
+          A WMO root file for one client version. The root lists the object's shared
+          data — materials and textures, doodad (M2) sets and placements, portals,
+          lights, fog, culling volumes and the per-group table — while the 3D
+          geometry lives in the separate group files (see WMOGroup). An instance read
+          from a client file rewrites byte-for-byte until modified. See
+          https://wowdev.wiki/WMO.)")
+    ]] WMORoot
+      : ChunkedFile<WMORoot<V>>, WMORootBase,
+        slot<V, ClientVersion{7, 0, 1, 20740}, RootLegion>,
+        slot<V, ClientVersion{7, 3, 0, 24473}, Root73>,
+        slot<V, ClientVersion{0, 0, 0, 0}, RootPre81, ClientVersion{8, 1, 0, 27826}>,
+        slot<V, ClientVersion{0, 0, 0, 0}, RootPre83, ClientVersion{8, 3, 0, 32044}>,
+        slot<V, ClientVersion{8, 1, 0, 27826}, Root81>,
+        slot<V, ClientVersion{8, 3, 0, 32044}, Root83>,
+        slot<V, ClientVersion{9, 0, 1, 33978}, Root90>,
+        slot<V, ClientVersion{9, 1, 0, 39015}, Root91>,
+        slot<V, ClientVersion{11, 0, 0, 54210}, Root110>,
+        slot<V, ClientVersion{11, 1, 0, 58221}, Root111>
     {
-      if (fourcc != four_cc("MOHD") || payload.size() < sizeof(SMOHeader))
-        return;
-      SMOHeader h;
-      std::memcpy(&h, payload.data(), sizeof h);
-      h.n_groups = static_cast<std::uint32_t>(group_infos.size());
-      h.n_portals = static_cast<std::uint32_t>(portals.size());
-      h.n_doodad_sets = static_cast<std::uint32_t>(doodad_sets.size());
-      std::memcpy(payload.data(), &h, sizeof h);
-    }
-  };
+      static constexpr ClientVersion version = V;
+
+      [[
+        =chunk("MVER"),
+        =welder::doc("The WMO format version; 17 for every supported client.")]]
+      std::uint32_t mver = wmo_version_v17;
+
+      [[
+        =chunk("MOHD"),
+        =welder::doc("The root header (MOHD).")]]
+      SMOHeader header{};
+
+      [[
+        =chunk("MOMT"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Materials (MOMT).")]]
+      std::vector<SMOMaterial> materials;
+
+      [[
+        =chunk("MOGN"),
+        =formats::optional,
+        =welder::doc("Group names (MOGN), referenced by byte offset.")]]
+      StringBlock group_names;
+
+      [[
+        =chunk("MOGI"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Per-group info (MOGI).")]]
+      std::vector<SMOGroupInfo> group_infos;
+
+      [[
+        =chunk("MOPV"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Portal vertices (MOPV).")]]
+      std::vector<C3Vector> portal_vertices;
+
+      [[
+        =chunk("MOPT"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Portals (MOPT).")]]
+      std::vector<SMOPortal> portals;
+
+      [[
+        =chunk("MOPR"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Portal references from groups (MOPR).")]]
+      std::vector<SMOPortalRef> portal_refs;
+
+      [[
+        =chunk("MOVV"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Visible block vertices (MOVV).")]]
+      std::vector<C3Vector> visible_block_vertices;
+
+      [[
+        =chunk("MOVB"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Visible blocks (MOVB).")]]
+      std::vector<SMOVisibleBlock> visible_blocks;
+
+      [[
+        =chunk("MOLT"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Lights (MOLT).")]]
+      std::vector<SMOLight> lights;
+
+      [[
+        =chunk("MODS"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Doodad sets (MODS).")]]
+      std::vector<SMODoodadSet> doodad_sets;
+
+      [[
+        =chunk("MODD"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Doodad placements (MODD).")]]
+      std::vector<SMODoodadDef> doodad_defs;
+
+      [[
+        =chunk("MFOG"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Fog volumes (MFOG).")]]
+      std::vector<SMOFog> fogs;
+
+      [[
+        =chunk("MCVP"),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Convex volume planes (MCVP); transports mostly.")]]
+      std::vector<C4Plane> convex_volume_planes;
+
+      [[
+        =chunk("MOMX"),
+        =formats::optional,
+        =welder::doc("MOMX (11.x, undocumented purpose); preserved opaque.")]]
+      ChunkBlob momx;
+
+      /** The canonical chunk-stream order the serializer emits a fresh entity in —
+          decoupled from the by-trait flatten order of the version bases. Lists every
+          chunk member exactly once (checked at compile time by write_order).
+
+          MFOB (12.1+, Midnight) postdates the supported client range; it and any
+          other unmodeled root chunk round-trip through ChunkExtras::unknown. */
+      static constexpr std::array chunk_order = {
+        four_cc("MVER"), four_cc("MOHD"), four_cc("MOTX"), four_cc("MOMT"), four_cc("MOM3"),
+        four_cc("MOUV"), four_cc("MOGN"), four_cc("MOGI"), four_cc("MOSB"), four_cc("MOSI"),
+        four_cc("MOPV"), four_cc("MOPT"), four_cc("MOPR"), four_cc("MOPE"), four_cc("MOVV"),
+        four_cc("MOVB"), four_cc("MOLT"), four_cc("MOLV"), four_cc("MODS"), four_cc("MODN"),
+        four_cc("MODI"), four_cc("MODD"), four_cc("MFOG"), four_cc("MCVP"), four_cc("GFID"),
+        four_cc("MDDI"), four_cc("MPVD"), four_cc("MAVG"), four_cc("MAVD"), four_cc("MBVD"),
+        four_cc("MFED"), four_cc("MGI2"), four_cc("MNLD"), four_cc("MDDL"), four_cc("MOMX"),
+      };
+
+      /** Serializer hook (see write_entity): stamp the derived MOHD counts into
+          the just-written header payload — n_groups from the MOGI table,
+          n_portals and n_doodad_sets from their vectors. The counts real client
+          files disagree with their containers on (n_textures, n_lights,
+          n_doodad_defs, n_doodad_names) stay stored fields; see SMOHeader.
+          @param fourcc  the emitted chunk's id, in disk layout.
+          @param payload the finished chunk payload, patched in place. */
+      [[=welder::mark::exclude]]
+      void patch_chunk(std::uint32_t fourcc, std::span<std::byte> payload) const
+      {
+        if (fourcc != four_cc("MOHD") || payload.size() < sizeof(SMOHeader))
+          return;
+        SMOHeader h;
+        std::memcpy(&h, payload.data(), sizeof h);
+        h.n_groups = static_cast<std::uint32_t>(group_infos.size());
+        h.n_portals = static_cast<std::uint32_t>(portals.size());
+        h.n_doodad_sets = static_cast<std::uint32_t>(doodad_sets.size());
+        std::memcpy(payload.data(), &h, sizeof h);
+      }
+    };
+  }
+
+  /** A WMO root file — the canonicalizing face of detail::WMORoot: every
+      client version maps to its range's first grid version
+      (wmo_root_pivots), so e.g. one instantiation serves Vanilla through
+      WoD. */
+  template <ClientVersion V>
+  using WMORoot =
+    detail::WMORoot<canonical_version(V, wmo_root_pivots, wmo_versions)>;
+
 }

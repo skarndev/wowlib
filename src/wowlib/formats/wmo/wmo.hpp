@@ -29,15 +29,6 @@ namespace wowlib::formats::wmo
   using root::WMORoot;
   using group::WMOGroup;
 
-  /** The versions WMO is instantiated (and welded) for: every targeted
-      last-minor-of-major release, in release order. Kept in sync with the
-      alias/instantiation X-macro below (checked by static_assert). */
-  inline constexpr std::array wmo_versions{
-    versions::vanilla, versions::tbc,         versions::wotlk,
-    versions::cata,    versions::mop,         versions::wod,
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
-
   /** The version-agnostic base of every WMO<V> (welded as "WMO").
 
       This empty base exists ENTIRELY for the language bindings (Python, Lua): it
@@ -61,8 +52,11 @@ namespace wowlib::formats::wmo
   {
   };
 
+  namespace detail
+  {
   /** A whole WMO (world map object) for one client version: the root file and all
-      its group files unified as one entity.
+      its group files unified as one entity. Instantiate through the
+      canonicalizing wmo::WMO alias, never directly.
 
       A WMO is a v17 world map object — a building, cave, bridge or other placed
       structure. It is stored as a root file (shared data: materials, doodads,
@@ -144,18 +138,49 @@ namespace wowlib::formats::wmo
         @return nothing, or FormatVersionMismatch. */
     static Result<void> check_mver(std::uint32_t mver, std::string_view which);
   };
+  }
+
+  /** A whole WMO — the canonicalizing face of detail::WMO: every client
+      version maps to its range's first grid version (wmo_assembly_pivots),
+      so e.g. one instantiation serves Vanilla through WotLK. */
+  template <ClientVersion V>
+  using WMO = detail::WMO<canonical_version(V, wmo_assembly_pivots, wmo_versions)>;
 }
 
-/** Per-version expansion of the WMO template surface. X(Suffix, version) is
-    invoked once per targeted release, in release order — the single spot that
-    couples wmo::wmo_versions, the welded aliases and the explicit
-    instantiations. Extending the version list means adding one row here. */
-#define WOWLIB_WMO_FOR_EACH_VERSION(X)                                                             \
-  X(Vanilla, vanilla)                                                                              \
-  X(Tbc, tbc)                                                                                      \
-  X(Wotlk, wotlk)                                                                                  \
-  X(Cata, cata)                                                                                    \
-  X(Mop, mop)                                                                                      \
+/** Per-RANGE expansion of the WMO template surface: each family's X-macro
+    lists one row per REAL content permutation — X(Suffix, version) with the
+    range's canonical grid version — and drives the welded aliases here plus
+    the instantiation matrix in bindings/python/instantiations/. Every table
+    is consteval-checked against the family's pivots (ranges_valid in
+    wmo::detail below). Extending the version list means revisiting the pivot
+    lists in boundaries.hpp; the checks then dictate the rows. */
+#define WOWLIB_WMO_RANGES_ROOT(X)                                                                  \
+  X(VanillaToWod, vanilla)                                                                         \
+  X(Legion, legion)                                                                                \
+  X(Bfa, bfa)                                                                                      \
+  X(ShadowlandsToDragonflight, shadowlands)                                                        \
+  X(TheWarWithin, tww)
+
+#define WOWLIB_WMO_RANGES_GROUP(X)                                                                 \
+  X(VanillaToWotlk, vanilla)                                                                       \
+  X(CataToMop, cata)                                                                               \
+  X(Wod, wod)                                                                                      \
+  X(Legion, legion)                                                                                \
+  X(Bfa, bfa)                                                                                      \
+  X(Shadowlands, shadowlands)                                                                      \
+  X(DragonflightPlus, dragonflight)
+
+#define WOWLIB_WMO_RANGES_GROUP_HEADER(X)                                                          \
+  X(VanillaToBfa, vanilla)                                                                         \
+  X(ShadowlandsPlus, shadowlands)
+
+#define WOWLIB_WMO_RANGES_BATCH(X)                                                                 \
+  X(VanillaToWod, vanilla)                                                                         \
+  X(LegionPlus, legion)
+
+#define WOWLIB_WMO_RANGES_ASSEMBLY(X)                                                              \
+  X(VanillaToWotlk, vanilla)                                                                       \
+  X(CataToMop, cata)                                                                               \
   X(Wod, wod)                                                                                      \
   X(Legion, legion)                                                                                \
   X(Bfa, bfa)                                                                                      \
@@ -164,15 +189,14 @@ namespace wowlib::formats::wmo
   X(TheWarWithin, tww)
 
 // The bindings surface for the versioned templates: welder welds a
-// class-template instantiation through a namespace-scope alias, whose identifier
-// is the target-language name. Each family's aliases are declared in its own
-// namespace so the per-version classes surface under the matching submodule,
-// mirroring the C++ layout (wowlib.formats.wmo{,.root,.root.chunks,.group,
-// .group.chunks}).
+// class-template instantiation through a namespace-scope alias, whose
+// identifier is the target-language name. Each family's aliases are declared
+// in its own namespace so the per-range classes surface under the matching
+// submodule, mirroring the C++ layout.
 namespace wowlib::formats::wmo::root
 {
 #define WOWLIB_WMO_ROOT_ALIAS(Suffix, version_) using WMORoot##Suffix = WMORoot<versions::version_>;
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_ROOT_ALIAS)
+  WOWLIB_WMO_RANGES_ROOT(WOWLIB_WMO_ROOT_ALIAS)
 #undef WOWLIB_WMO_ROOT_ALIAS
 }
 
@@ -181,47 +205,54 @@ namespace wowlib::formats::wmo::group
 #define WOWLIB_WMO_GROUP_ALIAS(Suffix, version_)                                                   \
   using WMOGroupBody##Suffix = WMOGroupBody<versions::version_>;                                   \
   using WMOGroup##Suffix = WMOGroup<versions::version_>;
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_GROUP_ALIAS)
+  WOWLIB_WMO_RANGES_GROUP(WOWLIB_WMO_GROUP_ALIAS)
 #undef WOWLIB_WMO_GROUP_ALIAS
 }
 
 namespace wowlib::formats::wmo::group::chunks
 {
-#define WOWLIB_WMO_GROUP_CHUNK_ALIAS(Suffix, version_)                                             \
-  using WMOGroupHeader##Suffix = SMOGroupHeader<versions::version_>;                               \
+#define WOWLIB_WMO_GROUP_HEADER_ALIAS(Suffix, version_)                                            \
+  using WMOGroupHeader##Suffix = SMOGroupHeader<versions::version_>;
+  WOWLIB_WMO_RANGES_GROUP_HEADER(WOWLIB_WMO_GROUP_HEADER_ALIAS)
+#undef WOWLIB_WMO_GROUP_HEADER_ALIAS
+
+#define WOWLIB_WMO_BATCH_ALIAS(Suffix, version_)                                                   \
   using WMOBatch##Suffix = SMOBatch<versions::version_>;
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_GROUP_CHUNK_ALIAS)
-#undef WOWLIB_WMO_GROUP_CHUNK_ALIAS
+  WOWLIB_WMO_RANGES_BATCH(WOWLIB_WMO_BATCH_ALIAS)
+#undef WOWLIB_WMO_BATCH_ALIAS
 }
 
 namespace wowlib::formats::wmo
 {
 #define WOWLIB_WMO_ALIAS(Suffix, version_) using WMO##Suffix = WMO<versions::version_>;
-  WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_ALIAS)
+  WOWLIB_WMO_RANGES_ASSEMBLY(WOWLIB_WMO_ALIAS)
 #undef WOWLIB_WMO_ALIAS
 
   namespace detail
   {
-    /** X-macro coverage check: every alias row must be a wmo_versions entry and
-        vice versa (the row count matches and each row's version is present). */
-    consteval bool wmo_macro_covers_versions()
-    {
-      std::size_t rows = 0;
-#define WOWLIB_WMO_COUNT_ROW(Suffix, version_)                                                     \
-  {                                                                                                \
-    ++rows;                                                                                        \
-    bool found = false;                                                                            \
-    for (const ClientVersion& v : wmo_versions)                                                    \
-      found = found || v == versions::version_;                                                    \
-    if (!found)                                                                                    \
-      return false;                                                                                \
-  }
-      WOWLIB_WMO_FOR_EACH_VERSION(WOWLIB_WMO_COUNT_ROW)
-#undef WOWLIB_WMO_COUNT_ROW
-      return rows == wmo_versions.size();
-    }
-    static_assert(wmo_macro_covers_versions(),
-                  "WOWLIB_WMO_FOR_EACH_VERSION must list exactly the wmo_versions entries");
+    // Range-table validation: every family's rows must exactly enumerate the
+    // distinct canonicals of the grid, with the suffix range_suffix derives.
+#define WOWLIB_WMO_RANGE_ROW(Suffix, version_)                                                     \
+  ::wowlib::formats::RangeRow{#Suffix, ::wowlib::versions::version_},
+
+    inline constexpr std::array wmo_root_rows{WOWLIB_WMO_RANGES_ROOT(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(ranges_valid(wmo_root_rows, wmo_root_pivots, wmo_versions),
+                  "WOWLIB_WMO_RANGES_ROOT drifted from wmo_root_pivots");
+    inline constexpr std::array wmo_group_rows{WOWLIB_WMO_RANGES_GROUP(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(ranges_valid(wmo_group_rows, wmo_group_pivots, wmo_versions),
+                  "WOWLIB_WMO_RANGES_GROUP drifted from wmo_group_pivots");
+    inline constexpr std::array wmo_group_header_rows{
+      WOWLIB_WMO_RANGES_GROUP_HEADER(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(ranges_valid(wmo_group_header_rows, wmo_group_header_pivots, wmo_versions),
+                  "WOWLIB_WMO_RANGES_GROUP_HEADER drifted from wmo_group_header_pivots");
+    inline constexpr std::array wmo_batch_rows{WOWLIB_WMO_RANGES_BATCH(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(ranges_valid(wmo_batch_rows, wmo_batch_pivots, wmo_versions),
+                  "WOWLIB_WMO_RANGES_BATCH drifted from wmo_batch_pivots");
+    inline constexpr std::array wmo_assembly_rows{
+      WOWLIB_WMO_RANGES_ASSEMBLY(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(ranges_valid(wmo_assembly_rows, wmo_assembly_pivots, wmo_versions),
+                  "WOWLIB_WMO_RANGES_ASSEMBLY drifted from wmo_assembly_pivots");
+#undef WOWLIB_WMO_RANGE_ROW
   }
 }
 

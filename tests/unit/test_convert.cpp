@@ -30,5 +30,6 @@ TEST_CASE("identity conversion copies the entity", "[formats][convert]")
 // A cross-version convert<versions::shadowlands>(wotlk_wmo) is a compile-time
 // error until a convert_step for the pair is written — the static_assert names
 // the missing overload. Verified manually; not expressible as a runtime test.
-static_assert(!detail::HasConvertStep<wmo::WMO, versions::wotlk, versions::shadowlands>,
+static_assert(!formats::detail::HasConvertStep<wmo::WMO, versions::wotlk,
+                                              versions::shadowlands>,
               "when the first real step lands, drop this assert and add tests");

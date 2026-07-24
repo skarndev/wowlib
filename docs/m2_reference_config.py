@@ -186,7 +186,7 @@ BODY_SIDE = fr.Side(
     # (skin_profiles, playable_animation_lookup, texture_flipbooks) render from
     # the last class that has them (M2DataTbc), via the engine's removed-field
     # resolution.
-    repr_class="M2DataTheWarWithin",
+    repr_class="M2DataLegionPlus",
     stub="wowlib/formats/m2/body/__init__.pyi",
     parse_fields=_body_fields,
     categorize=lambda f: BODY_FIELD_CATEGORY.get(f["name"]),
