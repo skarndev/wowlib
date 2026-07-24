@@ -169,12 +169,16 @@ namespace wowlib::formats
         @param fourcc the chunk id the error occurred in.
         @param offset the chunk's byte offset in the buffer being read.
         @param what   the failure description.
+        @param endian how the id is laid out on disk (matched members pass
+                      their declared layout; unknown-chunk paths default to
+                      reversed, the common case).
         @return the error, ready to return from a Result function. */
     inline std::unexpected<Error> chunk_error(ErrorCode code, std::uint32_t fourcc,
-                                              std::size_t offset, std::string_view what)
+                                              std::size_t offset, std::string_view what,
+                                              FourCCEndian endian = FourCCEndian::reversed)
     {
       return make_error(code, std::format("chunk {} at offset {:#x}: {}",
-                                          fourcc_to_string(fourcc), offset, what));
+                                          fourcc_to_string(fourcc, endian), offset, what));
     }
 
     // --- single-value (chunk payload <-> member) transfer ---------------------
@@ -188,7 +192,7 @@ namespace wowlib::formats
         @return nothing, or the structural error. */
     template <typename M>
     Result<void> read_value(M& dst, std::span<const std::byte> payload, std::uint32_t fourcc,
-                            std::size_t offset);
+                            std::size_t offset, FourCCEndian endian);
 
     /** Append member @a src's chunk payload to @a out (payload only — the
         caller emits the chunk header).
@@ -319,7 +323,7 @@ namespace wowlib::formats
                               "Repeated<> members must carry a repeats() annotation");
                 if (auto* slot = entity.[:m:].push())
                 {
-                  auto r = detail::read_value(*slot, payload, fourcc, pos);
+                  auto r = detail::read_value(*slot, payload, fourcc, pos, spec->endian);
                   if (!r)
                     return std::unexpected{r.error()};
                   matched = true;
@@ -329,7 +333,7 @@ namespace wowlib::formats
               }
               else if (occurrences[index] == 0)
               {
-                auto r = detail::read_value(entity.[:m:], payload, fourcc, pos);
+                auto r = detail::read_value(entity.[:m:], payload, fourcc, pos, spec->endian);
                 if (!r)
                   return std::unexpected{r.error()};
                 matched = true;
@@ -507,7 +511,7 @@ namespace wowlib::formats
 
     template <typename M>
     Result<void> read_value(M& dst, std::span<const std::byte> payload, std::uint32_t fourcc,
-                            std::size_t offset)
+                            std::size_t offset, FourCCEndian endian)
     {
       if constexpr (ChunkedEntity<M>)
       {
@@ -525,7 +529,8 @@ namespace wowlib::formats
         if (payload.size() % sizeof(T) != 0)
           return chunk_error(ErrorCode::ChunkSizeMismatch, fourcc, offset,
                              std::format("size {} is not a multiple of the {}-byte element",
-                                         payload.size(), sizeof(T)));
+                                         payload.size(), sizeof(T)),
+                             endian);
         dst.resize(payload.size() / sizeof(T));
         std::memcpy(dst.data(), payload.data(), payload.size());
         return {};
@@ -535,7 +540,8 @@ namespace wowlib::formats
         static_assert(std::is_trivially_copyable_v<M>, "data chunks hold raw wire structs");
         if (payload.size() != sizeof(M))
           return chunk_error(ErrorCode::ChunkSizeMismatch, fourcc, offset,
-                             std::format("size {} != expected {}", payload.size(), sizeof(M)));
+                             std::format("size {} != expected {}", payload.size(), sizeof(M)),
+                             endian);
         std::memcpy(&dst, payload.data(), sizeof(M));
         return {};
       }

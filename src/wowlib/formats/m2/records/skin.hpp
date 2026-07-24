@@ -33,7 +33,7 @@ namespace wowlib::formats::m2::records
   {
     [[=welder::doc("Mesh part (geoset) id.")]]
     std::uint16_t skin_section_id = 0;
-    [[=welder::doc("(level << 16) extends the start fields.")]]
+    [[=welder::doc("Extends the 16-bit index_start by (level << 16) — index lists outgrow 64k first; vertex_start stays plain (verified on level=1 client files).")]]
     std::uint16_t level = 0;
     [[=welder::doc("First local vertex.")]]
     std::uint16_t vertex_start = 0;
@@ -63,7 +63,7 @@ namespace wowlib::formats::m2::records
   {
     [[=welder::doc("Mesh part (geoset) id.")]]
     std::uint16_t skin_section_id = 0;
-    [[=welder::doc("(level << 16) extends the start fields.")]]
+    [[=welder::doc("Extends the 16-bit index_start by (level << 16) — index lists outgrow 64k first; vertex_start stays plain (verified on level=1 client files).")]]
     std::uint16_t level = 0;
     [[=welder::doc("First local vertex.")]]
     std::uint16_t vertex_start = 0;

@@ -267,9 +267,10 @@ namespace wowlib::formats::m2
       =chunk("DETL", FourCCEndian::forward),
       =since(ClientVersion{9, 0, 1, 34365}),
       =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Per-light detail overrides (DETL), one per light.")]]
-    std::vector<M2LightDetail> light_details;
+      =welder::doc("Per-light detail overrides (DETL), kept verbatim: real "
+                   "9.x files carry 16-byte records where wowdev documents "
+                   "12 (see M2LightDetail for the known half).")]]
+    ChunkBlob light_details;
 
     [[
       =chunk("DBOC", FourCCEndian::forward),
