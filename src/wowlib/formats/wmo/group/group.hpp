@@ -3,15 +3,22 @@
 /** @file
     The WMO group-file entities (namespace wowlib::formats::wmo::group): the
     MOGP container body (geometry, batches, collision, liquid and the
-    later-expansion light/volume references) and the group file wrapping it,
-    declared in canonical client chunk order. The group wire structs it is built
-    from live in wmo::group::chunks. */
+    later-expansion light/volume references) and the group file wrapping it. The
+    body's version-gated chunks live in conditionally-inherited trait bases — one
+    unwelded struct per availability range, in wmo::group::detail — while the
+    always-present chunks are the body's own members. A version's WMOGroupBody
+    therefore carries ONLY the fields that version has (setting an absent one is a
+    compile error), and welder flattens the active traits' members onto its
+    binding. The group wire structs are in wmo::group::chunks. */
 
+#include <array>
 #include <cstdint>
+#include <type_traits>
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/chunk.hpp>
+#include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
@@ -65,13 +72,242 @@ namespace wowlib::formats::wmo::group
   {
   };
 
+  namespace detail
+  {
+    /** A distinct empty base per @a Trait, so an entity inheriting several
+        *inactive* version slots never inherits the same empty type twice
+        (ill-formed). Empty, so it is elided (EBO). */
+    template <class Trait>
+    struct absent {};
+
+    /** A version-gated base: WMOGroupBody<V> inherits @a Trait (its chunk members
+        flatten into the entity and its binding) when @a V is at least @a Since,
+        else the empty absent<Trait>. Chunks sharing an availability range go into
+        one Trait, so an entity carries exactly the fields its version defines. */
+    template <ClientVersion V, ClientVersion Since, class Trait>
+    using slot = std::conditional_t<(V >= Since), Trait, absent<Trait>>;
+
+    // --- version-range trait bases (unwelded) ---------------------------------
+    // One struct per availability range; members keep their chunk/since/doc/marks
+    // (read off the declaring class, so flattening preserves them). Members are in
+    // canonical order within a trait for readability; the serialization order is
+    // the entity's chunk_order table, not the flatten order.
+
+    /** Cata+ (4.0) group-body chunks. */
+    struct GroupBodyCata
+    {
+      [[
+        =chunk("MORB"),
+        =since(ClientVersion{4, 0, 0, 0}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Triangle-strip batch overrides (MORB, Cata+); same count as
+                        MOBA.)")]]
+      std::vector<RenderBatchOverride> batch_overrides;
+
+      [[
+        =chunk("MOTA"),
+        =since(ClientVersion{4, 0, 0, 0}),
+        =formats::optional,
+        =welder::doc(R"(Tangent arrays (MOTA, Cata+); offset-based layout, kept
+                        opaque.)")]]
+      ChunkBlob tangents;
+
+      [[
+        =chunk("MOBS"),
+        =since(ClientVersion{4, 0, 0, 0}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Shadow batches (MOBS, Cata+).")]]
+      std::vector<ShadowBatch> shadow_batches;
+    };
+
+    /** WoD+ (6.0) group-body chunks. */
+    struct GroupBodyWod
+    {
+      [[
+        =chunk("MDAL"),
+        =since(ClientVersion{6, 0, 0, 0}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Ambient color override (MDAL, WoD+); a single color in
+                        practice, replacing the header ambient.)")]]
+      std::vector<CArgb> ambient_color_override;
+
+      [[
+        =chunk("MOPL"),
+        =since(ClientVersion{6, 0, 0, 0}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Terrain-cutting planes (MOPL, WoD+); requires the
+                        can_cut_terrain flag, at most 32.)")]]
+      std::vector<C4Plane> terrain_cut_planes;
+    };
+
+    /** Legion+ (7.0.1) group-body chunks. */
+    struct GroupBodyLegion
+    {
+      [[
+        =chunk("MOPB"),
+        =since(ClientVersion{7, 0, 1, 20740}),
+        =formats::optional,
+        =welder::doc(R"(Prepass batches (MOPB, Legion+); undocumented 24-byte
+                        records, kept opaque.)")]]
+      ChunkBlob prepass_batches;
+
+      [[
+        =chunk("MOLS"),
+        =since(ClientVersion{7, 0, 1, 20740}),
+        =formats::optional,
+        =welder::doc(R"(Spot lights (MOLS, Legion+); undocumented 56-byte records,
+                        kept opaque.)")]]
+      ChunkBlob spot_lights;
+
+      [[
+        =chunk("MOLP"),
+        =since(ClientVersion{7, 0, 1, 20740}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Point lights (MOLP, Legion+).")]]
+      std::vector<PointLight> point_lights;
+    };
+
+    /** 8.1+ group-body light-set chunks. */
+    struct GroupBody81
+    {
+      [[
+        =chunk("MLSS"),
+        =since(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Spot-light sets (MLSS, 8.1+): (first, count) ranges into MOLS
+                        per doodad set.)")]]
+      std::vector<LightSet> spot_light_sets;
+
+      [[
+        =chunk("MLSP"),
+        =since(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Point-light sets (MLSP, 8.1+): (first, count) ranges into
+                        MOLP per doodad set.)")]]
+      std::vector<LightSet> point_light_sets;
+
+      [[
+        =chunk("MLSK"),
+        =since(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Point-light animation sets (MLSK, 8.1+): (first, count)
+                        ranges into MOP2.)")]]
+      std::vector<LightSet> point_light_anim_sets;
+
+      [[
+        =chunk("MOP2"),
+        =since(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Animated point lights (MOP2, 8.1+).")]]
+      std::vector<PointLightAnim> point_light_anims;
+    };
+
+    /** 8.3+ group-body chunks. */
+    struct GroupBody83
+    {
+      [[
+        =chunk("MPVR"),
+        =since(ClientVersion{8, 3, 0, 33775}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Particulate volume references (MPVR, 8.3+) into the root's MPVD.")]]
+      std::vector<std::uint16_t> particulate_refs;
+    };
+
+    /** 9.0+ group-body chunks (large-mesh indices and the volume/light refs). */
+    struct GroupBody90
+    {
+      [[
+        =chunk("MOVX"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(32-bit triangle vertex indices (MOVX, ~9.0+; the large-mesh
+                        MOVI replacement).)")]]
+      std::vector<std::uint32_t> large_indices;
+
+      [[
+        =chunk("MAVR"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Ambient volume references (MAVR, 9.0+) into the root's MAVD.")]]
+      std::vector<std::uint16_t> ambient_volume_refs;
+
+      [[
+        =chunk("MBVR"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Box volume references (MBVR, 9.0+) into the root's MBVD.")]]
+      std::vector<std::uint16_t> box_volume_refs;
+
+      [[
+        =chunk("MFVR"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Fog volume references (MFVR, 9.0+) into the root's MFOG and
+                        MFED.)")]]
+      std::vector<std::uint16_t> fog_volume_refs;
+
+      [[
+        =chunk("MNLR"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("New-light references (MNLR, 9.0+) into the root's MNLD.")]]
+      std::vector<std::uint16_t> new_light_refs;
+    };
+
+    /** 10.0+ (Dragonflight) group-body query chunks. */
+    struct GroupBody100
+    {
+      [[
+        =chunk("MOGX"),
+        =since(ClientVersion{10, 0, 0, 46181}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Query face start (MOGX, 10.0+): the base subtracted from a
+                        polygon index into MOQG. A single value in practice.)")]]
+      std::vector<std::uint32_t> query_face_start;
+
+      [[
+        =chunk("MPY2"),
+        =since(ClientVersion{10, 0, 0, 46181}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Per-triangle material info v2 (MPY2, 10.0+; replaces MOPY).")]]
+      std::vector<Poly2> polys2;
+
+      [[
+        =chunk("MOQG"),
+        =since(ClientVersion{10, 0, 0, 46181}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Per-polygon ground types (MOQG, 10.0+), indexed by polygon
+                        index minus the MOGX base.)")]]
+      std::vector<std::uint32_t> query_faces;
+    };
+  }
+
   /** The MOGP container payload for one client version.
 
       MOGP wraps the geometry that makes up one WMO group: the group header
       followed by the triangle/vertex/normal arrays, texture coordinates, render
       batches, the collision BSP tree, liquid grid and — on later clients — the
-      group-local light and volume reference chunks. Members are declared in
-      canonical client chunk order.
+      group-local light and volume reference chunks. The always-present chunks are
+      own members (canonical order); version-gated chunks are inherited from the
+      detail:: trait bases active for @a V.
 
       @tparam V the client version this layout targets.
       @see https://wowdev.wiki/WMO */
@@ -82,7 +318,15 @@ namespace wowlib::formats::wmo::group
         The MOGP payload for one client version: the group header and the geometry
         subchunks (triangles, vertices, normals, batches, BSP, liquid, lights).
         See https://wowdev.wiki/WMO.)")
-  ]] WMOGroupBody : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase
+  ]] WMOGroupBody
+    : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase,
+      detail::slot<V, ClientVersion{4, 0, 0, 0}, detail::GroupBodyCata>,
+      detail::slot<V, ClientVersion{6, 0, 0, 0}, detail::GroupBodyWod>,
+      detail::slot<V, ClientVersion{7, 0, 1, 20740}, detail::GroupBodyLegion>,
+      detail::slot<V, ClientVersion{8, 1, 0, 27826}, detail::GroupBody81>,
+      detail::slot<V, ClientVersion{8, 3, 0, 33775}, detail::GroupBody83>,
+      detail::slot<V, ClientVersion{9, 0, 1, 33978}, detail::GroupBody90>,
+      detail::slot<V, ClientVersion{10, 0, 0, 46181}, detail::GroupBody100>
   {
     static constexpr ClientVersion version = V;
 
@@ -92,15 +336,6 @@ namespace wowlib::formats::wmo::group
     SMOGroupHeader<V> header{};
 
     [[
-      =chunk("MOGX"),
-      =since(ClientVersion{10, 0, 0, 46181}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Query face start (MOGX, 10.0+): the base subtracted from a
-                      polygon index into MOQG. A single value in practice.)")]]
-    std::vector<std::uint32_t> query_face_start;
-
-    [[
       =chunk("MOPY"),
       =formats::optional,
       =welder::mark::no_reassign,
@@ -108,28 +343,11 @@ namespace wowlib::formats::wmo::group
     std::vector<SMOPoly> polys;
 
     [[
-      =chunk("MPY2"),
-      =since(ClientVersion{10, 0, 0, 46181}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Per-triangle material info v2 (MPY2, 10.0+; replaces MOPY).")]]
-    std::vector<Poly2> polys2;
-
-    [[
       =chunk("MOVI"),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Triangle vertex indices (MOVI), three per triangle.")]]
     std::vector<std::uint16_t> indices;
-
-    [[
-      =chunk("MOVX"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(32-bit triangle vertex indices (MOVX, ~9.0+; the large-mesh
-                      MOVI replacement).)")]]
-    std::vector<std::uint32_t> large_indices;
 
     [[
       =chunk("MOVT"),
@@ -161,15 +379,6 @@ namespace wowlib::formats::wmo::group
       =welder::mark::no_reassign,
       =welder::doc("Render batches (MOBA).")]]
     std::vector<SMOBatch<V>> batches;
-
-    [[
-      =chunk("MOQG"),
-      =since(ClientVersion{10, 0, 0, 46181}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Per-polygon ground types (MOQG, 10.0+), indexed by polygon
-                      index minus the MOGX base.)")]]
-    std::vector<std::uint32_t> query_faces;
 
     [[
       =chunk("MOLR"),
@@ -231,152 +440,22 @@ namespace wowlib::formats::wmo::group
       =welder::doc("Triangle-strip indices (MORI).")]]
     std::vector<std::uint16_t> trans_batch_indices;
 
-    [[
-      =chunk("MORB"),
-      =since(ClientVersion{4, 0, 0, 0}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Triangle-strip batch overrides (MORB, Cata+); same count as
-                      MOBA.)")]]
-    std::vector<RenderBatchOverride> batch_overrides;
+    /** The canonical chunk-stream order the serializer emits a fresh entity in —
+        decoupled from the by-trait flatten order of the version bases. Lists every
+        chunk member exactly once (checked at compile time by write_order). The
+        header (MOGP prelude) is written ahead of the stream, so it is not listed.
 
-    [[
-      =chunk("MOTA"),
-      =since(ClientVersion{4, 0, 0, 0}),
-      =formats::optional,
-      =welder::doc(R"(Tangent arrays (MOTA, Cata+); offset-based layout, kept
-                      opaque.)")]]
-    ChunkBlob tangents;
-
-    [[
-      =chunk("MOBS"),
-      =since(ClientVersion{4, 0, 0, 0}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Shadow batches (MOBS, Cata+).")]]
-    std::vector<ShadowBatch> shadow_batches;
-
-    [[
-      =chunk("MDAL"),
-      =since(ClientVersion{6, 0, 0, 0}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Ambient color override (MDAL, WoD+); a single color in
-                      practice, replacing the header ambient.)")]]
-    std::vector<CArgb> ambient_color_override;
-
-    [[
-      =chunk("MOPL"),
-      =since(ClientVersion{6, 0, 0, 0}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Terrain-cutting planes (MOPL, WoD+); requires the
-                      can_cut_terrain flag, at most 32.)")]]
-    std::vector<C4Plane> terrain_cut_planes;
-
-    [[
-      =chunk("MOPB"),
-      =since(ClientVersion{7, 0, 1, 20740}),
-      =formats::optional,
-      =welder::doc(R"(Prepass batches (MOPB, Legion+); undocumented 24-byte
-                      records, kept opaque.)")]]
-    ChunkBlob prepass_batches;
-
-    [[
-      =chunk("MOLS"),
-      =since(ClientVersion{7, 0, 1, 20740}),
-      =formats::optional,
-      =welder::doc(R"(Spot lights (MOLS, Legion+); undocumented 56-byte records,
-                      kept opaque.)")]]
-    ChunkBlob spot_lights;
-
-    [[
-      =chunk("MOLP"),
-      =since(ClientVersion{7, 0, 1, 20740}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Point lights (MOLP, Legion+).")]]
-    std::vector<PointLight> point_lights;
-
-    [[
-      =chunk("MLSS"),
-      =since(ClientVersion{8, 1, 0, 27826}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Spot-light sets (MLSS, 8.1+): (first, count) ranges into MOLS
-                      per doodad set.)")]]
-    std::vector<LightSet> spot_light_sets;
-
-    [[
-      =chunk("MLSP"),
-      =since(ClientVersion{8, 1, 0, 27826}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Point-light sets (MLSP, 8.1+): (first, count) ranges into
-                      MOLP per doodad set.)")]]
-    std::vector<LightSet> point_light_sets;
-
-    [[
-      =chunk("MLSK"),
-      =since(ClientVersion{8, 1, 0, 27826}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Point-light animation sets (MLSK, 8.1+): (first, count)
-                      ranges into MOP2.)")]]
-    std::vector<LightSet> point_light_anim_sets;
-
-    [[
-      =chunk("MOP2"),
-      =since(ClientVersion{8, 1, 0, 27826}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Animated point lights (MOP2, 8.1+).")]]
-    std::vector<PointLightAnim> point_light_anims;
-
-    [[
-      =chunk("MPVR"),
-      =since(ClientVersion{8, 3, 0, 33775}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Particulate volume references (MPVR, 8.3+) into the root's MPVD.")]]
-    std::vector<std::uint16_t> particulate_refs;
-
-    [[
-      =chunk("MAVR"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Ambient volume references (MAVR, 9.0+) into the root's MAVD.")]]
-    std::vector<std::uint16_t> ambient_volume_refs;
-
-    [[
-      =chunk("MBVR"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Box volume references (MBVR, 9.0+) into the root's MBVD.")]]
-    std::vector<std::uint16_t> box_volume_refs;
-
-    [[
-      =chunk("MFVR"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Fog volume references (MFVR, 9.0+) into the root's MFOG and
-                      MFED.)")]]
-    std::vector<std::uint16_t> fog_volume_refs;
-
-    [[
-      =chunk("MNLR"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("New-light references (MNLR, 9.0+) into the root's MNLD.")]]
-    std::vector<std::uint16_t> new_light_refs;
-
-    // v14-alpha-only subchunks (MOLM/MOLD, MOIN, lightmap MOLV, MPB*) predate
-    // the supported range; anything else unmodeled stays in
-    // ChunkExtras::unknown, round-tripping verbatim.
+        v14-alpha-only subchunks (MOLM/MOLD, MOIN, lightmap MOLV, MPB*) predate the
+        supported range; anything else unmodeled round-trips via ChunkExtras. */
+    static constexpr std::array chunk_order = {
+      four_cc("MOGX"), four_cc("MOPY"), four_cc("MPY2"), four_cc("MOVI"), four_cc("MOVX"),
+      four_cc("MOVT"), four_cc("MONR"), four_cc("MOTV"), four_cc("MOBA"), four_cc("MOQG"),
+      four_cc("MOLR"), four_cc("MODR"), four_cc("MOBN"), four_cc("MOBR"), four_cc("MOCV"),
+      four_cc("MOC2"), four_cc("MLIQ"), four_cc("MORI"), four_cc("MORB"), four_cc("MOTA"),
+      four_cc("MOBS"), four_cc("MDAL"), four_cc("MOPL"), four_cc("MOPB"), four_cc("MOLS"),
+      four_cc("MOLP"), four_cc("MLSS"), four_cc("MLSP"), four_cc("MLSK"), four_cc("MOP2"),
+      four_cc("MPVR"), four_cc("MAVR"), four_cc("MBVR"), four_cc("MFVR"), four_cc("MNLR"),
+    };
   };
 
   /** One WMO group file for one client version: the format version (MVER) and the

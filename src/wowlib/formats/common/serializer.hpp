@@ -99,15 +99,69 @@ namespace wowlib::formats
       static constexpr std::size_t capacity = N;
     };
 
-    /** The reflected own-member list of @a E (base-class members — i.e. the
-        ChunkExtras bookkeeping — are not enumerated).
+    /** Collect @a type's non-static data members with its public bases flattened
+        in FIRST (recursively, declaration order) — mirroring how welder flattens a
+        non-welded base's members into the derived binding. Lets a versioned entity
+        carry its version-gated chunk members in conditionally-inherited trait bases
+        (present only for the versions they belong to) while the serializer still
+        sees them. Base bookkeeping members (ChunkExtras: journal/unknown/trailing)
+        come along but carry no chunk() annotation, so every chunk loop skips them. */
+    consteval void collect_members(std::meta::info type, std::vector<std::meta::info>& out)
+    {
+      for (auto b : std::meta::bases_of(type, std::meta::access_context::unchecked()))
+        if (std::meta::is_public(b))
+          collect_members(std::meta::type_of(b), out);
+      for (auto m : std::meta::nonstatic_data_members_of(type, std::meta::access_context::unchecked()))
+        out.push_back(m);
+    }
+
+    /** The reflected member list of @a E, public bases flattened in (see
+        collect_members). Stable order, so the journal's member index is consistent
+        between read and write.
         @tparam E the entity type.
         @return a static array of the reflected non-static data members. */
     template <typename E>
     consteval auto members_of()
     {
-      return std::define_static_array(
-        std::meta::nonstatic_data_members_of(^^E, std::meta::access_context::current()));
+      std::vector<std::meta::info> out;
+      collect_members(^^E, out);
+      return std::define_static_array(out);
+    }
+
+    /** The chunk() fourcc of member @a member, or 0 if it carries none. */
+    consteval std::uint32_t chunk_magic_of(std::meta::info member)
+    {
+      auto anns = std::meta::annotations_of_with_type(member, ^^chunk_spec);
+      return anns.empty() ? 0u : std::meta::extract<chunk_spec>(anns[0]).magic;
+    }
+
+    /** The member indices (into members_of<E>) in the order fresh entities emit
+        their chunks. When @a E declares a canonical `chunk_order` (a static array of
+        fourccs — needed once an entity's chunk members are scattered across
+        conditionally-inherited trait bases, whose flatten order is by-trait, not
+        canonical), the chunk members follow it; otherwise members keep their
+        declaration/flatten order. A `chunk_order` must list every chunk member
+        exactly once (asserted). */
+    template <typename E>
+    consteval auto write_order()
+    {
+      constexpr auto members = members_of<E>();
+      std::vector<std::size_t> order;
+      if constexpr (requires { E::chunk_order; })
+      {
+        for (std::uint32_t magic : E::chunk_order)
+          for (std::size_t i = 0; i < members.size(); ++i)
+            if (chunk_magic_of(members[i]) == magic) { order.push_back(i); break; }
+        std::size_t chunk_members = 0;
+        for (std::size_t i = 0; i < members.size(); ++i)
+          chunk_members += (chunk_magic_of(members[i]) != 0);
+        if (order.size() != chunk_members)
+          throw "chunk_order must list every chunk member exactly once";
+      }
+      else
+        for (std::size_t i = 0; i < members.size(); ++i)
+          order.push_back(i);
+      return std::define_static_array(order);
     }
 
     /** Build a chunk-scoped error value.
@@ -387,13 +441,14 @@ namespace wowlib::formats
           return r;
       }
 
-      // members engaged but not journaled: fresh entities (whole declaration
-      // order) and post-read additions alike
-      std::int32_t index = -1;
+      // members engaged but not journaled: fresh entities (in canonical chunk
+      // order — see write_order) and post-read additions alike
+      static constexpr auto order = detail::write_order<E>();
       std::optional<Error> failed;
-      template for (constexpr auto m : members)
+      template for (constexpr std::size_t idx : order)
       {
-        ++index;
+        constexpr auto m = members[idx];
+        constexpr auto index = static_cast<std::int32_t>(idx);
         if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>();
                       spec.has_value() && detail::version_active<E::version, m>())
         {
@@ -401,12 +456,11 @@ namespace wowlib::formats
           if constexpr (detail::repeated_traits<M>::value)
           {
             // journaled occurrences already replayed; append the slots added since
-            for (std::uint32_t i = written[static_cast<std::size_t>(index)];
-                 !failed && i < entity.[:m:].size(); ++i)
+            for (std::uint32_t i = written[idx]; !failed && i < entity.[:m:].size(); ++i)
               if (auto r = emit(index, i); !r)
                 failed = r.error();
           }
-          else if (!failed && written[static_cast<std::size_t>(index)] == 0)
+          else if (!failed && written[idx] == 0)
           {
             constexpr bool required = !detail::annotation<detail::optional_spec, m>().has_value();
             if (required || detail::engaged(entity.[:m:]))

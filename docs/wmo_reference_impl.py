@@ -320,8 +320,11 @@ def _entity_fields() -> tuple[dict, dict]:
         root = {f["name"]: f for f in
                 _parse_members(_slice(ROOT_HPP.read_text(encoding="utf-8"), "]] WMORoot :", None))}
         gtxt = GROUP_HPP.read_text(encoding="utf-8")
+        # WMOGroupBody's version-gated chunks live in detail:: trait bases declared
+        # ahead of the struct, so slice from the detail namespace (traits) through
+        # WMOGroupBody's own members, up to the WMOGroup wrapper.
         group = {f["name"]: f for f in
-                 _parse_members(_slice(gtxt, "]] WMOGroupBody :", "]] WMOGroup :"))}
+                 _parse_members(_slice(gtxt, "namespace detail", "]] WMOGroup :"))}
         for f in _parse_members(_slice(gtxt, "]] WMOGroup :", None)):
             group.setdefault(f["name"], f)
         _FIELDS_CACHE = (root, group)
