@@ -45,23 +45,38 @@ STUBS = REPO_ROOT / "build/bindings/bindings/python/stubs"
 TARGET_PAGE = "python/wmo/fields.md"
 CHUNK_PAGES = {"python/wmo/root-chunks.md": "root", "python/wmo/group-chunks.md": "group"}
 MARKER_LEGEND = "<!-- wmo-legend -->"
-# The concrete representative class each side's attributes/structs are documented on.
-REPR_CLASS = {"root": "WMORootWotlk", "group": "WMOGroupBodyWotlk"}
-# Its expansion suffix — stripped from the *displayed* class name on the fields page
-# so the per-version layout reads generically (WMOGroupWotlk -> WMOGroup⟨version⟩),
-# signalling the fields apply to every version. Ids/anchors keep the real name.
-REPR_SUFFIX = "Wotlk"
+# The concrete representative class each side's fields are documented on. Since a
+# per-version type only carries its version's fields, the representative must be the
+# one with the full superset: for the group side (no removed chunks) that is the
+# latest version; the root side is not yet versioned, so any version has all fields.
+REPR_CLASS = {"root": "WMORootWotlk", "group": "WMOGroupBodyTheWarWithin"}
+# Expansion suffixes (welded class names), stripped from the *displayed* class name
+# so the per-version layout reads generically (WMOGroupBodyTheWarWithin ->
+# WMOGroupBody⟨version⟩); ids/anchors keep the real name so links resolve.
+EXP_SUFFIXES = ("Vanilla", "Tbc", "Wotlk", "Cata", "Mop", "Wod", "Legion", "Bfa",
+                "Shadowlands", "Dragonflight", "TheWarWithin")
+_SUFFIX_ALT = "(?:" + "|".join(EXP_SUFFIXES) + ")"
 _VERSION_PLACEHOLDER = "⟨version⟩"
+
+
+def _generic_name(name: str) -> str:
+    """Strip a trailing expansion suffix, replacing it with ⟨version⟩."""
+    for suf in EXP_SUFFIXES:
+        if name != suf and name.endswith(suf):
+            return name[: -len(suf)] + _VERSION_PLACEHOLDER
+    return name
+
+
 _CLASSNAME_RE = re.compile(
     r'(<span class="doc doc-object-name doc-class-name">)(WMO[A-Za-z]+?)'
-    + REPR_SUFFIX + r'(</span>)')
+    + _SUFFIX_ALT + r'(</span>)')
 # The same name where mkdocstrings echoes it: the signature code block (pygments
-# name span) and cross-reference link text. Ids/hrefs (…="…Wotlk") are untouched,
-# so links still resolve; only the shown text goes generic. Hand-written prose uses
-# <code>…</code> and is deliberately left alone.
-_SIG_NAME_RE = re.compile(r'(<span class="n[cf]">)(WMO[A-Za-z]+?)' + REPR_SUFFIX + r'(</span>)')
-_XREF_NAME_RE = re.compile(r'(<a\b[^>]*>)(WMO[A-Za-z]+?)' + REPR_SUFFIX + r'(</a>)')
-_TOC_TITLE_RE = re.compile(r'\b(WMO[A-Za-z]+?)' + REPR_SUFFIX + r'\b')
+# name span) and cross-reference link text. Ids/hrefs are untouched (the suffix must
+# abut the closing tag), so links still resolve; only the shown text goes generic.
+# Hand-written prose uses <code>…</code> and is deliberately left alone.
+_SIG_NAME_RE = re.compile(r'(<span class="n[cf]">)(WMO[A-Za-z]+?)' + _SUFFIX_ALT + r'(</span>)')
+_XREF_NAME_RE = re.compile(r'(<a\b[^>]*>)(WMO[A-Za-z]+?)' + _SUFFIX_ALT + r'(</a>)')
+_TOC_TITLE_RE = re.compile(r'\b(WMO[A-Za-z]+?)' + _SUFFIX_ALT + r'\b')
 
 # major client version -> (css/icon key, short label, full name). Colours live in
 # the stylesheet (.exp-<key>); latest supported = TheWarWithin.
@@ -128,9 +143,7 @@ def _vector_elements() -> dict[str, str]:
               or re.search(r"def __getitem__\(self, arg: int[^)]*\)\s*->\s*([A-Za-z0-9_.]+)", block))
         if not em:
             continue
-        elem = em.group(1).split(".")[-1]
-        if elem != REPR_SUFFIX and elem.endswith(REPR_SUFFIX):
-            elem = elem[: -len(REPR_SUFFIX)] + _VERSION_PLACEHOLDER
+        elem = _generic_name(em.group(1).split(".")[-1])
         out[m.group(1)] = elem       # bare element name; list[…] built at rewrite time
     return out
 

@@ -65,7 +65,7 @@ MOGP container) and the container body (`WMOGroupBody`), which holds the geometr
     options:
       heading_level: 3
 
-::: wowlib.formats.wmo.group.WMOGroupWotlk
+::: wowlib.formats.wmo.group.WMOGroupTheWarWithin
     options:
       heading_level: 3
 
@@ -73,6 +73,6 @@ MOGP container) and the container body (`WMOGroupBody`), which holds the geometr
     options:
       heading_level: 3
 
-::: wowlib.formats.wmo.group.WMOGroupBodyWotlk
+::: wowlib.formats.wmo.group.WMOGroupBodyTheWarWithin
     options:
       heading_level: 3
