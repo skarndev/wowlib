@@ -9,6 +9,8 @@
 
 #include <array>
 #include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
@@ -123,6 +125,24 @@ namespace wowlib::formats::wmo
     Result<void> write(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                        const FileKey& key
                        [[=welder::doc("the root file identity; must resolve to a path")]]) const;
+
+  private:
+    // --- internal fs-I/O helpers (definitions in io.hpp; private so the
+    // --- Python/Lua surface and the public C++ API stay verbs-only) --------
+
+    /** Derive a group file path from its root: "world\wmo\thing.wmo" ->
+        "world\wmo\thing_007.wmo".
+        @param root_path the root file path.
+        @param index     the zero-based group index.
+        @return the derived group path. */
+    static std::string group_path(std::string_view root_path, std::size_t index);
+
+    /** Verify an MVER payload against the v17 the supported clients share.
+        @param mver  the version value read from the file.
+        @param which which file carried it, for the diagnostic ("root",
+                     "group 3", ...).
+        @return nothing, or FormatVersionMismatch. */
+    static Result<void> check_mver(std::uint32_t mver, std::string_view which);
   };
 }
 

@@ -92,19 +92,19 @@ namespace
       INFO((r ? std::string{} : r.error().message));
       REQUIRE(r.has_value());
     }
-    CHECK(model.data.magic == md20_magic);
+    CHECK(model.root.magic == md20_magic);
     constexpr auto era = m2_wire_version_range(V);
-    CHECK(model.data.format_version >= era.first);
-    CHECK(model.data.format_version <= era.second);
-    CHECK(model.data.num_skin_profiles == model.skins.size());
+    CHECK(model.root.format_version >= era.first);
+    CHECK(model.root.format_version <= era.second);
+    CHECK(model.root.num_skin_profiles == model.skins.size());
 
     // skel-based models keep the external-data gating sequences in the
     // skeleton, and their bone/attachment blocks round-trip separately
-    const auto* gate_sequences = &model.data.sequences;
+    const auto* gate_sequences = &model.root.sequences;
     bool has_skel = false;
-    if constexpr (requires { model.shell; })
+    if constexpr (requires { model.chunks; })
     {
-      has_skel = !model.shell.skeleton_fdid.empty() && model.shell.skeleton_fdid.front() != 0;
+      has_skel = !model.chunks.skeleton_fdid.empty() && model.chunks.skeleton_fdid.front() != 0;
       if (has_skel)
         gate_sequences = &model.skel.sequence_block.sequences;
     }
@@ -143,7 +143,7 @@ namespace
     };
 
     M2Data<V> reparsed;
-    resplit_roundtrip(model.data, reparsed, "body");
+    resplit_roundtrip(model.root, reparsed, "body");
 
     if constexpr (requires { model.skel; })
       if (has_skel)

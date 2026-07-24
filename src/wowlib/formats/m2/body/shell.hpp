@@ -8,8 +8,9 @@
     disk, unlike every other WoW chunk format.
 
     MD21 stays a ChunkBlob at this level: its content is the offset-addressed
-    MD20 image, which the M2 assembly decodes into M2Data with the satellite
-    context (.anim resolution) in hand — a plain shell read preserves it
+    MD20 image, which the M2 assembly decodes into its `root` (M2Data) with
+    the satellite context (.anim resolution) in hand, then DROPS — the blob
+    is transport, not state; a plain chunk-level read still preserves it
     verbatim. Undocumented/unstable payloads stay ChunkBlob too. */
 
 #include <array>
@@ -69,8 +70,13 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("MD21", FourCCEndian::forward),
-      =welder::doc("The MD20 image, verbatim; offsets inside are relative to "
-                   "this payload. The M2 assembly decodes it into M2Data.")]]
+      =welder::mark::exclude,
+      =welder::doc("The MD20 image TRANSPORT blob; offsets inside are "
+                   "relative to this payload. Hidden from the bindings: a "
+                   "chunk-level read keeps it verbatim, but the M2 assembly "
+                   "decodes it into M2.root and drops the bytes — the "
+                   "decoded body is the source of truth, and the assembly "
+                   "write re-encodes it here.")]]
     ChunkBlob md21;
 
     [[

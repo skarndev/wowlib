@@ -155,15 +155,6 @@ namespace wowlib::formats::m2::detail
     std::map<std::uint32_t, std::optional<FileBuffer>> files_;
   };
 
-  /** Whether a shell/skeleton SKID reference chunk actually engages a
-      skeleton — files may carry the chunk with a stored 0 meaning "none",
-      and read/write must agree on the predicate (a mismatch would convert
-      such a model into a broken skel-based one on round-trip). */
-  inline bool skeleton_engaged(std::span<const std::uint32_t> skeleton_fdid)
-  {
-    return !skeleton_fdid.empty() && skeleton_fdid.front() != 0;
-  }
-
   /** The per-sequence base resolver every M2-family read path shares:
       sequence @a i's inner arrays resolve against @a inline_base when its
       data is inline, the EMPTY span when it is an alias (stale records are

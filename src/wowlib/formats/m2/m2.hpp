@@ -9,6 +9,8 @@
     adds the chunked wrapper and .skel/.bone/.phys satellites (stage 3). */
 
 #include <array>
+#include <span>
+#include <string_view>
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
@@ -98,7 +100,7 @@ namespace wowlib::formats::m2
       bool operator==(const AssemblySkins&) const = default;
     };
 
-    /** Legion+ assembly members: the chunked shell and the satellites it
+    /** Legion+ assembly members: the chunk stream and the satellites it
         references. */
     template <ClientVersion V>
     struct AssemblyLegion
@@ -112,12 +114,13 @@ namespace wowlib::formats::m2
     struct AssemblyLegion<V>
     {
       [[
-        =welder::doc(R"(The chunked .m2 shell: satellite chunks (FileDataIDs,
-                        extended particles, parent overrides) plus preserved
-                        unknown chunks. Its MD21 blob is the on-disk image;
-                        `data` is the decoded form — write() re-encodes data
-                        into it and refreshes the FileDataID chunks.)")]]
-      M2File<V> shell{};
+        =welder::doc(R"(The chunked .m2 stream (Legion+): the satellite chunks
+                        (FileDataIDs, extended particles, parent overrides)
+                        plus preserved unknown chunks. The MD21 transport blob
+                        inside is TRANSIENT: read() decodes it into `root` and
+                        drops the bytes; write() re-encodes root into the
+                        stream and refreshes the FileDataID chunks.)")]]
+      M2File<V> chunks{};
 
       [[
         =welder::mark::no_reassign,
@@ -128,15 +131,16 @@ namespace wowlib::formats::m2
       [[
         =welder::doc("The referenced .phys file bytes (PFID), baked in "
                      "verbatim — structured physics is a follow-up "
-                     "milestone. Inline physics (PFDC) stays on the shell.")]]
+                     "milestone. Inline physics (PFDC) stays a chunk on "
+                     "the stream.")]]
       ChunkBlob phys;
 
       [[
         =welder::doc(R"(The shared skeleton (SKID), fully baked in — bones,
                         attachments, sequences and the parent link. Engaged
-                        exactly when the shell carries a skeleton FileDataID;
-                        skeletons are shared between models, so edit with
-                        care or write the .skel standalone.)")]]
+                        exactly when the chunk stream carries a skeleton
+                        FileDataID; skeletons are shared between models, so
+                        edit with care or write the .skel standalone.)")]]
       Skeleton<V> skel{};
 
       [[
@@ -174,8 +178,11 @@ namespace wowlib::formats::m2
   {
     static constexpr ClientVersion version = V;
 
-    [[=welder::doc("The MD20 body.")]]
-    M2Data<V> data{};
+    [[=welder::doc("The MD20 body — the model's root, uniform across every "
+                   "era (pre-Legion it IS the file; Legion+ it is the "
+                   "decoded MD21 image, whose transport blob `chunks` drops "
+                   "after read).")]]
+    M2Data<V> root{};
 
     // read()/write() weld the (FileSystem, FileKey) load/save on LUA ONLY —
     // mirroring WMO: on Python the module glue attaches the richer
@@ -197,6 +204,61 @@ namespace wowlib::formats::m2
                        [[=welder::doc("the .m2 file identity; must resolve to a path")]]) const;
 
     bool operator==(const M2&) const = default;
+
+  private:
+    // --- internal fs-I/O helpers (definitions in io.hpp; private so the
+    // --- Python/Lua surface and the public C++ API stay verbs-only) --------
+
+    /** Verify the MD20 magic and that the file's format version belongs to
+        @a V's era.
+        @param magic          the leading magic read from the file.
+        @param format_version the version field read from the file.
+        @return nothing, or FormatVersionMismatch. */
+    static Result<void> check_header(std::uint32_t magic, std::uint32_t format_version);
+
+    /** Load and parse one .skin by key into @a out.
+        @param fs   the filesystem gateway.
+        @param key  the .skin identity.
+        @param what the diagnostic context ("skin 2", "lod skin 1").
+        @param out  the vector the parsed skin is appended to.
+        @return nothing, or the contextualized error. */
+    static Result<void> read_skin_into(fs::FileSystem& fs, const FileKey& key,
+                                       std::string_view what, std::vector<Skin<V>>& out)
+      requires (V >= m2_per_sequence_timelines);
+
+    /** The read path shared by every monolithic-with-satellites era (WotLK
+        through pre-Legion, and Legion-era files still shipping raw MD20):
+        decode the body with name-based .anim resolution, then load the
+        numbered .skin views.
+        @param fs   the filesystem gateway.
+        @param key  the model identity.
+        @param main the model file bytes.
+        @return nothing, or the first error. */
+    Result<void> read_monolithic(fs::FileSystem& fs, const FileKey& key,
+                                 std::span<const std::byte> main)
+      requires (V >= m2_per_sequence_timelines);
+
+    /** The Legion+ chunked read path: parse the stream, pull the skeleton in
+        when the model is skel-based, then decode the MD21 image with
+        FileDataID-based satellite resolution (and drop the transport blob).
+        @param fs   the filesystem gateway.
+        @param key  the model identity.
+        @param main the model file bytes.
+        @return nothing, or the first error. */
+    Result<void> read_chunked(fs::FileSystem& fs, const FileKey& key,
+                              std::span<const std::byte> main)
+      requires (V >= m2_chunked_container);
+
+    /** Whether the SKID reference chunk actually engages a skeleton — files
+        may carry the chunk with a stored 0 meaning "none", and read and
+        write MUST agree on this predicate (a mismatch would convert such a
+        model into a broken skel-based one on round-trip).
+        @param skeleton_fdid the SKID entries.
+        @return whether a skeleton is referenced. */
+    static bool skeleton_engaged(std::span<const std::uint32_t> skeleton_fdid)
+    {
+      return !skeleton_fdid.empty() && skeleton_fdid.front() != 0;
+    }
   };
 }
 

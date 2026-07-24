@@ -2,8 +2,8 @@
 
 /** @file
     The M2 family's filesystem I/O — the out-of-line definitions of
-    M2<V>::read/write and Skeleton<V>::read/write, plus their internal
-    helpers (m2::detail). A separate header (rather than m2.hpp itself) so
+    M2<V>::read/write and Skeleton<V>::read/write plus M2's private I/O
+    helpers (declared in m2.hpp). A separate header (rather than m2.hpp) so
     parse-only consumers do not pull the fs::FileSystem dependency, and so
     the definitions are visible for implicit instantiation: the library
     ships NO explicit instantiations — every consumer TU instantiates
@@ -26,16 +26,10 @@
 #include <wowlib/formats/m2/m2.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
-namespace wowlib::formats::m2::detail
+namespace wowlib::formats::m2
 {
-  /** Verify the MD20 magic and that the file's format version belongs to
-      @a V's era.
-      @tparam V the entity version the caller parsed with.
-      @param magic          the leading magic read from the file.
-      @param format_version the version field read from the file.
-      @return nothing, or FormatVersionMismatch. */
   template <ClientVersion V>
-  Result<void> check_header(std::uint32_t magic, std::uint32_t format_version)
+  Result<void> M2<V>::check_header(std::uint32_t magic, std::uint32_t format_version)
   {
     if (magic != md20_magic)
       return make_error(ErrorCode::FormatVersionMismatch,
@@ -51,16 +45,10 @@ namespace wowlib::formats::m2::detail
     return {};
   }
 
-  /** Load and parse one .skin by key into @a out.
-      @tparam V the skin version to parse as.
-      @param fs   the filesystem gateway.
-      @param key  the .skin identity.
-      @param what the diagnostic context ("skin 2", "lod skin 1").
-      @param out  the vector the parsed skin is appended to.
-      @return nothing, or the contextualized error. */
   template <ClientVersion V>
-  Result<void> read_skin_into(fs::FileSystem& fs, const FileKey& key, std::string_view what,
-                              std::vector<Skin<V>>& out)
+  Result<void> M2<V>::read_skin_into(fs::FileSystem& fs, const FileKey& key,
+                                     std::string_view what, std::vector<Skin<V>>& out)
+    requires (V >= m2_per_sequence_timelines)
   {
     const auto bytes = fs.read_file(key);
     if (!bytes)
@@ -77,18 +65,10 @@ namespace wowlib::formats::m2::detail
     return {};
   }
 
-  /** The read path shared by every monolithic-with-satellites era (WotLK
-      through pre-Legion, and Legion-era files still shipping raw MD20):
-      decode the body with name-based .anim resolution, then load the
-      numbered .skin views.
-      @param self the assembly being filled.
-      @param fs   the filesystem gateway.
-      @param key  the model identity.
-      @param main the model file bytes.
-      @return nothing, or the first error. */
   template <ClientVersion V>
-  Result<void> read_monolithic(M2<V>& self, fs::FileSystem& fs, const FileKey& key,
-                               std::span<const std::byte> main)
+  Result<void> M2<V>::read_monolithic(fs::FileSystem& fs, const FileKey& key,
+                                      std::span<const std::byte> main)
+    requires (V >= m2_per_sequence_timelines)
   {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
@@ -107,39 +87,32 @@ namespace wowlib::formats::m2::detail
     }};
     OffsetReadContext ctx;
     ctx.sequence_base =
-      detail::make_sequence_base(self.data.sequences, cache, main, detail::afm2_magic);
-    if (auto r = self.data.read(main, ctx); !r)
+      detail::make_sequence_base(this->root.sequences, cache, main, detail::afm2_magic);
+    if (auto r = this->root.read(main, ctx); !r)
       return r;
-    if (auto r = check_header<V>(self.data.magic, self.data.format_version); !r)
+    if (auto r = check_header(this->root.magic, this->root.format_version); !r)
       return r;
 
-    self.skins.reserve(self.data.num_skin_profiles);
-    for (std::uint32_t i = 0; i < self.data.num_skin_profiles; ++i)
+    this->skins.reserve(this->root.num_skin_profiles);
+    for (std::uint32_t i = 0; i < this->root.num_skin_profiles; ++i)
       if (auto r = read_skin_into(fs, FileKey{detail::skin_path(stem, i)},
-                                  std::format("skin {}", i), self.skins);
+                                  std::format("skin {}", i), this->skins);
           !r)
         return r;
     return {};
   }
 
-  /** The Legion+ chunked read path: parse the shell, pull the skeleton in
-      when the model is skel-based, then decode the MD21 image with
-      FileDataID-based satellite resolution.
-      @param self the assembly being filled.
-      @param fs   the filesystem gateway.
-      @param key  the model identity.
-      @param main the model file bytes.
-      @return nothing, or the first error. */
   template <ClientVersion V>
-  Result<void> read_chunked(M2<V>& self, fs::FileSystem& fs, const FileKey& key,
-                            std::span<const std::byte> main)
+  Result<void> M2<V>::read_chunked(fs::FileSystem& fs, const FileKey& key,
+                                   std::span<const std::byte> main)
+    requires (V >= m2_chunked_container)
   {
-    if (auto r = self.shell.read(main); !r)
+    if (auto r = this->chunks.read(main); !r)
       return r;
 
-    const bool has_skel = detail::skeleton_engaged(self.shell.skeleton_fdid);
+    const bool has_skel = skeleton_engaged(this->chunks.skeleton_fdid);
     if (has_skel)
-      if (auto r = self.skel.read(fs, FileKey{FileDataID{self.shell.skeleton_fdid.front()}});
+      if (auto r = this->skel.read(fs, FileKey{FileDataID{this->chunks.skeleton_fdid.front()}});
           !r)
         return make_error(r.error().code, std::format(".skel: {}", r.error().message),
                           r.error().native_error);
@@ -149,13 +122,13 @@ namespace wowlib::formats::m2::detail
     if (const FileKey resolved = fs.resolve(key); resolved.path)
       stem = detail::m2_stem(*resolved.path);
 
-    const std::span<const std::byte> md21{self.shell.md21.bytes};
+    const std::span<const std::byte> md21{this->chunks.md21.bytes};
 
     // skel-based models keep their sequences (and thus the external-data
     // flags) in the skeleton; the body's own table is empty then
     const auto* sequences =
-      has_skel ? &self.skel.sequence_block.sequences : &self.data.sequences;
-    const auto& afids = has_skel ? self.skel.effective_anim_fdids() : self.shell.anim_fdids;
+      has_skel ? &this->skel.sequence_block.sequences : &this->root.sequences;
+    const auto& afids = has_skel ? this->skel.effective_anim_fdids() : this->chunks.anim_fdids;
 
     detail::AnimCache cache{[&, stem](std::uint16_t id, std::uint16_t sub) -> Result<FileBuffer> {
       const std::uint32_t fdid = detail::afid_lookup(afids, id, sub);
@@ -167,32 +140,32 @@ namespace wowlib::formats::m2::detail
     }};
     OffsetReadContext ctx;
     ctx.sequence_base = detail::make_sequence_base(*sequences, cache, md21, detail::afm2_magic);
-    if (auto r = self.data.read(md21, ctx); !r)
+    if (auto r = this->root.read(md21, ctx); !r)
       return r;
-    if (auto r = check_header<V>(self.data.magic, self.data.format_version); !r)
+    if (auto r = check_header(this->root.magic, this->root.format_version); !r)
       return r;
 
     // skins: the first num_skin_profiles SFID entries are the views, the
     // rest the LOD bands (real files occasionally truncate the LOD tail)
-    if (self.shell.skin_fdids.size() < self.data.num_skin_profiles)
+    if (this->chunks.skin_fdids.size() < this->root.num_skin_profiles)
       return make_error(ErrorCode::InvalidEntityState,
                         std::format("SFID holds {} entries, the body declares {} views",
-                                    self.shell.skin_fdids.size(),
-                                    self.data.num_skin_profiles));
-    for (std::uint32_t i = 0; i < self.data.num_skin_profiles; ++i)
-      if (auto r = read_skin_into(fs, FileKey{FileDataID{self.shell.skin_fdids[i]}},
-                                  std::format("skin {}", i), self.skins);
+                                    this->chunks.skin_fdids.size(),
+                                    this->root.num_skin_profiles));
+    for (std::uint32_t i = 0; i < this->root.num_skin_profiles; ++i)
+      if (auto r = read_skin_into(fs, FileKey{FileDataID{this->chunks.skin_fdids[i]}},
+                                  std::format("skin {}", i), this->skins);
           !r)
         return r;
-    for (std::size_t i = self.data.num_skin_profiles; i < self.shell.skin_fdids.size(); ++i)
-      if (self.shell.skin_fdids[i] != 0)
-        if (auto r = read_skin_into(fs, FileKey{FileDataID{self.shell.skin_fdids[i]}},
-                                    std::format("lod skin {}", i), self.lod_skins);
+    for (std::size_t i = this->root.num_skin_profiles; i < this->chunks.skin_fdids.size(); ++i)
+      if (this->chunks.skin_fdids[i] != 0)
+        if (auto r = read_skin_into(fs, FileKey{FileDataID{this->chunks.skin_fdids[i]}},
+                                    std::format("lod skin {}", i), this->lod_skins);
             !r)
           return r;
 
     // .bone files (the skeleton's when skel-based)
-    const auto& bfids = has_skel ? self.skel.effective_bone_fdids() : self.shell.bone_fdids;
+    const auto& bfids = has_skel ? this->skel.effective_bone_fdids() : this->chunks.bone_fdids;
     for (std::size_t i = 0; i < bfids.size(); ++i)
     {
       if (bfids[i] == 0)
@@ -206,20 +179,23 @@ namespace wowlib::formats::m2::detail
       if (auto r = bone.read(std::span<const std::byte>{*bytes}); !r)
         return make_error(r.error().code, std::format(".bone {}: {}", i, r.error().message),
                           r.error().native_error);
-      self.bone_files.push_back(std::move(bone));
+      this->bone_files.push_back(std::move(bone));
     }
 
-    // physics: referenced file baked in verbatim (inline PFDC stays on the
-    // shell); a missing file degrades to empty
-    if (!self.shell.phys_fdid.empty() && self.shell.phys_fdid.front() != 0)
-      if (auto bytes = fs.read_file(FileKey{FileDataID{self.shell.phys_fdid.front()}}))
-        self.phys.bytes = std::move(*bytes);
+    // physics: referenced file baked in verbatim (inline PFDC stays a chunk
+    // on the stream); a missing file degrades to empty
+    if (!this->chunks.phys_fdid.empty() && this->chunks.phys_fdid.front() != 0)
+      if (auto bytes = fs.read_file(FileKey{FileDataID{this->chunks.phys_fdid.front()}}))
+        this->phys.bytes = std::move(*bytes);
+
+    // the MD21 transport blob is spent once the body is decoded — drop it
+    // rather than keep a second whole-model image in memory; write()
+    // re-encodes root into the stream (the md21 span above dies with it,
+    // hence last)
+    this->chunks.md21.bytes = {};
     return {};
   }
-}
 
-namespace wowlib::formats::m2
-{
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
   Result<void> Skeleton<V>::read(fs::FileSystem& fs, const FileKey& key)
@@ -356,12 +332,12 @@ namespace wowlib::formats::m2
     if (!main)
       return std::unexpected{main.error()};
 
-    data = {};
+    root = {};
     if constexpr (V >= m2_per_sequence_timelines)
       this->skins.clear();
     if constexpr (V >= m2_chunked_container)
     {
-      this->shell = {};
+      this->chunks = {};
       this->lod_skins.clear();
       this->phys = {};
       this->skel = {};
@@ -370,13 +346,13 @@ namespace wowlib::formats::m2
 
     if constexpr (V < m2_per_sequence_timelines)
     {
-      if (auto r = data.read(std::span<const std::byte>{*main}); !r)
+      if (auto r = root.read(std::span<const std::byte>{*main}); !r)
         return r;
-      return detail::check_header<V>(data.magic, data.format_version);
+      return check_header(root.magic, root.format_version);
     }
     else if constexpr (V < m2_chunked_container)
     {
-      return detail::read_monolithic(*this, fs, key, std::span<const std::byte>{*main});
+      return read_monolithic(fs, key, std::span<const std::byte>{*main});
     }
     else
     {
@@ -389,14 +365,14 @@ namespace wowlib::formats::m2
         // none exist, so a bare image under a BfA+ target is a mismatch, not
         // a fallback (m2_chunked_only).
         if constexpr (V < m2_chunked_only)
-          return detail::read_monolithic(*this, fs, key, std::span<const std::byte>{*main});
+          return read_monolithic(fs, key, std::span<const std::byte>{*main});
         else
           return make_error(ErrorCode::FormatVersionMismatch,
                             "bare MD20 model under a BfA+ target — raw (unchunked) .m2 files "
                             "no longer exist from 8.0 on; if this is a Legion-era file, read "
                             "it with the legion target");
       }
-      return detail::read_chunked(*this, fs, key, std::span<const std::byte>{*main});
+      return read_chunked(fs, key, std::span<const std::byte>{*main});
     }
   }
 
@@ -410,7 +386,7 @@ namespace wowlib::formats::m2
 
     if constexpr (V < m2_per_sequence_timelines)
     {
-      const auto bytes = data.write();
+      const auto bytes = root.write();
       if (!bytes)
         return std::unexpected{bytes.error()};
       if (auto r = fs.add_file(*resolved.path, *bytes); !r)
@@ -420,13 +396,13 @@ namespace wowlib::formats::m2
     else
     {
       // whose sequence table drives the .anim split
-      const auto* sequences = &data.sequences;
+      const auto* sequences = &root.sequences;
       bool has_skel = false;
       if constexpr (V >= m2_chunked_container)
       {
         // the SAME engagement predicate the read path uses — a stored SKID of
         // 0 must not flip a non-skel model into a skel-based write
-        has_skel = detail::skeleton_engaged(this->shell.skeleton_fdid);
+        has_skel = skeleton_engaged(this->chunks.skeleton_fdid);
         if (has_skel)
           sequences = &this->skel.sequence_block.sequences;
       }
@@ -439,7 +415,7 @@ namespace wowlib::formats::m2
       const auto make_sink = [sequences](std::map<std::uint32_t, FileBuffer>& bufs) {
         return detail::make_sequence_sink(*sequences, bufs);
       };
-      auto bytes = data.write(make_sink(afm2_bufs));
+      auto bytes = root.write(make_sink(afm2_bufs));
       if (!bytes)
         return std::unexpected{bytes.error()};
 
@@ -480,10 +456,10 @@ namespace wowlib::formats::m2
       }
       else
       {
-        // rebuild the shell around the re-encoded image: satellites write
-        // first so their fresh FileDataIDs land in the reference chunks
-        M2File<V> shell = this->shell;
-        shell.md21.bytes = std::move(*bytes);
+        // rebuild the chunk stream around the re-encoded image: satellites
+        // write first so their fresh FileDataIDs land in the reference chunks
+        M2File<V> stream = this->chunks;
+        stream.md21.bytes = std::move(*bytes);
 
         // .bone files (fdids land in the skeleton for skel-based models)
         std::vector<std::uint32_t> bone_fdids;
@@ -501,14 +477,14 @@ namespace wowlib::formats::m2
           bone_fdids.push_back(r->value);
         }
 
-        shell.anim_fdids.clear();
+        stream.anim_fdids.clear();
         if (!has_skel)
         {
           // .anim payloads, AFM2-wrapped when the model asks for chunked ones
           for (const auto& [packed, buf] : afm2_bufs)
           {
             FileBuffer file;
-            if ((data.global_flags & 0x2000u) != 0)
+            if ((root.global_flags & 0x2000u) != 0)
               detail::append_chunk(file, detail::afm2_magic, buf);
             else
               file = buf;
@@ -519,11 +495,11 @@ namespace wowlib::formats::m2
                                 std::format("anim {:04}-{:02}: {}", packed >> 16,
                                             packed & 0xFFFFu, r.error().message),
                                 r.error().native_error);
-            shell.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
+            stream.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
                                         static_cast<std::uint16_t>(packed & 0xFFFFu),
                                         r->value});
           }
-          shell.bone_fdids = bone_fdids;
+          stream.bone_fdids = bone_fdids;
         }
         else
         {
@@ -578,10 +554,10 @@ namespace wowlib::formats::m2
           if (!r)
             return make_error(r.error().code, std::format(".skel: {}", r.error().message),
                               r.error().native_error);
-          shell.skeleton_fdid.assign(1, r->value);
+          stream.skeleton_fdid.assign(1, r->value);
         }
 
-        shell.skin_fdids.clear();
+        stream.skin_fdids.clear();
         for (std::size_t i = 0; i < this->skins.size(); ++i)
         {
           const auto skin_bytes = this->skins[i].write();
@@ -592,7 +568,7 @@ namespace wowlib::formats::m2
           if (!r)
             return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
                               r.error().native_error);
-          shell.skin_fdids.push_back(r->value);
+          stream.skin_fdids.push_back(r->value);
         }
         for (std::size_t i = 0; i < this->lod_skins.size(); ++i)
         {
@@ -605,23 +581,23 @@ namespace wowlib::formats::m2
             return make_error(r.error().code,
                               std::format("lod skin {}: {}", i, r.error().message),
                               r.error().native_error);
-          shell.skin_fdids.push_back(r->value);
+          stream.skin_fdids.push_back(r->value);
         }
 
-        shell.phys_fdid.clear();
+        stream.phys_fdid.clear();
         if (!this->phys.bytes.empty())
         {
           const auto r = fs.add_file(stem + ".phys", this->phys.bytes);
           if (!r)
             return make_error(r.error().code, std::format(".phys: {}", r.error().message),
                               r.error().native_error);
-          shell.phys_fdid.push_back(r->value);
+          stream.phys_fdid.push_back(r->value);
         }
 
-        const auto shell_bytes = shell.write();
-        if (!shell_bytes)
-          return std::unexpected{shell_bytes.error()};
-        if (auto r = fs.add_file(*resolved.path, *shell_bytes); !r)
+        const auto stream_bytes = stream.write();
+        if (!stream_bytes)
+          return std::unexpected{stream_bytes.error()};
+        if (auto r = fs.add_file(*resolved.path, *stream_bytes); !r)
           return std::unexpected{r.error()};
         return {};
       }
