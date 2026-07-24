@@ -15,8 +15,10 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
+#include <wowlib/formats/m2/bone_file.hpp>
 #include <wowlib/formats/m2/chunked.hpp>
 #include <wowlib/formats/m2/data.hpp>
+#include <wowlib/formats/m2/skel.hpp>
 #include <wowlib/formats/m2/skin.hpp>
 
 namespace wowlib::fs
@@ -97,6 +99,20 @@ namespace wowlib::formats::m2
                      "verbatim — structured physics is a follow-up "
                      "milestone. Inline physics (PFDC) stays on the shell.")]]
       ChunkBlob phys;
+
+      [[
+        =welder::doc(R"(The shared skeleton (SKID), fully baked in — bones,
+                        attachments, sequences and the parent link. Engaged
+                        exactly when the shell carries a skeleton FileDataID;
+                        skeletons are shared between models, so edit with
+                        care or write the .skel standalone.)")]]
+      Skeleton<V> skel{};
+
+      [[
+        =welder::mark::no_reassign,
+        =welder::doc("The .bone facial-pose files (BFID; the skeleton's when "
+                     "skel-based), in variant order.")]]
+      std::vector<BoneFile> bone_files;
 
       bool operator==(const AssemblyLegion&) const = default;
     };
@@ -201,7 +217,9 @@ namespace wowlib::formats::m2
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_SKIN_ALIAS)
 #undef WOWLIB_M2_SKIN_ALIAS
 
-#define WOWLIB_M2_FILE_ALIAS(Suffix, version_) using M2File##Suffix = M2File<versions::version_>;
+#define WOWLIB_M2_FILE_ALIAS(Suffix, version_)                                                     \
+  using M2File##Suffix = M2File<versions::version_>;                                              \
+  using Skeleton##Suffix = Skeleton<versions::version_>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_FILE_ALIAS)
 #undef WOWLIB_M2_FILE_ALIAS
 
@@ -239,7 +257,9 @@ namespace wowlib::formats::m2
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_SKIN_EXTERN)
 #undef WOWLIB_M2_SKIN_EXTERN
 
-#define WOWLIB_M2_FILE_EXTERN(Suffix, version_) extern template struct M2File<versions::version_>;
+#define WOWLIB_M2_FILE_EXTERN(Suffix, version_)                                                    \
+  extern template struct M2File<versions::version_>;                                             \
+  extern template struct Skeleton<versions::version_>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_FILE_EXTERN)
 #undef WOWLIB_M2_FILE_EXTERN
 }
@@ -261,7 +281,10 @@ namespace wowlib::formats
 #undef WOWLIB_M2_EXTERN_SKIN_SERIALIZER
 
 #define WOWLIB_M2_EXTERN_FILE_SERIALIZER(Suffix, version_)                                         \
-  extern template struct ChunkedFile<m2::M2File<versions::version_>>;
+  extern template struct ChunkedFile<m2::M2File<versions::version_>>;                             \
+  extern template struct ChunkedFile<m2::Skeleton<versions::version_>>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_EXTERN_FILE_SERIALIZER)
 #undef WOWLIB_M2_EXTERN_FILE_SERIALIZER
+
+  extern template struct ChunkedFile<m2::BoneFile>;
 }

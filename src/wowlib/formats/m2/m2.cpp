@@ -4,56 +4,19 @@
 #include <format>
 #include <map>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
 
 #include <wowlib/formats/common/offset_serializer.hpp>
+#include <wowlib/formats/m2/satellite_io.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
 namespace wowlib::formats::m2
 {
   namespace
   {
-    /** The model path without its extension: "creature\\x\\x.m2" -> "creature\\x\\x"
-        (.mdx and .mdl spellings appear in old data references).
-        @param path the model file path.
-        @return the stem satellite names derive from. */
-    std::string m2_stem(std::string_view path)
-    {
-      for (std::string_view ext : {".m2", ".M2", ".mdx", ".MDX", ".mdl", ".MDL"})
-        if (path.ends_with(ext))
-          return std::string{path.substr(0, path.size() - ext.size())};
-      return std::string{path};
-    }
-
-    /** "{stem}0N.skin" — the numbered view naming convention. */
-    std::string skin_path(std::string_view stem, std::uint32_t index)
-    {
-      return std::format("{}{:02}.skin", stem, index);
-    }
-
-    /** "{stem}_lod0N.skin" — LOD bands number from 1. */
-    std::string lod_skin_path(std::string_view stem, std::uint32_t band)
-    {
-      return std::format("{}_lod{:02}.skin", stem, band);
-    }
-
-    /** "{stem}AAAA-SS.anim" — the external-sequence naming. */
-    std::string anim_path(std::string_view stem, std::uint32_t anim_id, std::uint32_t sub_id)
-    {
-      return std::format("{}{:04}-{:02}.anim", stem, anim_id, sub_id);
-    }
-
-    /** The anim-cache key for a sequence: (id, variation) packed. */
-    constexpr std::uint32_t anim_key(std::uint16_t id, std::uint16_t variation)
-    {
-      return (static_cast<std::uint32_t>(id) << 16) | variation;
-    }
-
-    /** The AFM2 fourcc as scanned from disk (forward, like all M2 chunks). */
-    inline constexpr std::uint32_t afm2_magic = four_cc("AFM2", FourCCEndian::forward);
-
     /** Verify the MD20 magic and that the file's format version belongs to
         @a V's era.
         @tparam V the entity version the caller parsed with.
@@ -77,57 +40,25 @@ namespace wowlib::formats::m2
       return {};
     }
 
-    /** Whether sequence @a s owns an external .anim file: its data is
-        low-priority (0x130 clear) and it is no alias (aliases resolve to
-        another sequence's data). */
-    template <typename Sequence>
-    bool owns_anim_file(const Sequence& s)
+    /** Load and parse one .skin by key into @a out.
+        @return nothing, or the contextualized error. */
+    template <ClientVersion V>
+    Result<void> read_skin_into(fs::FileSystem& fs, const FileKey& key, std::string_view what,
+                                std::vector<Skin<V>>& out)
     {
-      return records::sequence_data_external(s.flags) && (s.flags & 0x40u) == 0;
-    }
-
-    /** A loaded .anim file plus the window track offsets resolve against —
-        the AFM2 payload for chunked files, the whole file otherwise. */
-    struct AnimSlot
-    {
-      std::optional<FileBuffer> file;
-      std::size_t offset = 0;
-      std::size_t length = 0;
-    };
-
-    /** Locate the resolution window of a loaded .anim file: chunked files
-        (leading AFM2) expose that chunk's payload, raw files their whole
-        content.
-        @param slot the slot whose file just loaded; offset/length set. */
-    void locate_anim_window(AnimSlot& slot)
-    {
-      const FileBuffer& buf = *slot.file;
-      slot.offset = 0;
-      slot.length = buf.size();
-      if (buf.size() < 8)
-        return;
-      std::uint32_t lead = 0;
-      std::memcpy(&lead, buf.data(), 4);
-      if (lead != afm2_magic)
-        return;
-      // chunked: scan for AFM2 (first in practice, but chunks may reorder)
-      for (std::size_t pos = 0; pos + 8 <= buf.size();)
-      {
-        std::uint32_t fourcc = 0;
-        std::uint32_t size = 0;
-        std::memcpy(&fourcc, buf.data() + pos, 4);
-        std::memcpy(&size, buf.data() + pos + 4, 4);
-        if (size > buf.size() - pos - 8)
-          break;
-        if (fourcc == afm2_magic)
-        {
-          slot.offset = pos + 8;
-          slot.length = size;
-          return;
-        }
-        pos += 8 + size;
-      }
-      slot.length = 0;  // chunked but no usable AFM2: treat as missing
+      const auto bytes = fs.read_file(key);
+      if (!bytes)
+        return make_error(bytes.error().code, std::format("{}: {}", what, bytes.error().message),
+                          bytes.error().native_error);
+      Skin<V> skin;
+      if (auto r = skin.read(std::span<const std::byte>{*bytes}); !r)
+        return make_error(r.error().code, std::format("{}: {}", what, r.error().message),
+                          r.error().native_error);
+      if (skin.magic != skin_magic)
+        return make_error(ErrorCode::FormatVersionMismatch,
+                          std::format("{} magic is {:#010x}, expected 'SKIN'", what, skin.magic));
+      out.push_back(std::move(skin));
+      return {};
     }
 
     /** The read path shared by every monolithic-with-satellites era (WotLK
@@ -148,32 +79,24 @@ namespace wowlib::formats::m2
         return make_error(ErrorCode::PathNotResolvable,
                           "a monolithic M2's satellite files (.skin/.anim) need a "
                           "resolvable path for the model key");
-      const std::string stem = m2_stem(*resolved.path);
+      const std::string stem = detail::m2_stem(*resolved.path);
 
       // Low-priority sequence data lives in per-sequence .anim files; the
       // context resolves them lazily — the sequences table is populated
       // before any track member reads (wire order), so the flags are already
       // decoded when the first track consults us. A missing .anim file
       // leaves its sequences' tracks empty rather than failing.
-      std::map<std::uint32_t, AnimSlot> anim_cache;
+      detail::AnimCache cache{[&](std::uint16_t id, std::uint16_t sub) {
+        return fs.read_file(FileKey{detail::anim_path(stem, id, sub)});
+      }};
       OffsetReadContext ctx;
       ctx.sequence_base = [&](std::size_t i) -> std::span<const std::byte> {
         if (i >= self.data.sequences.size())
           return main;
         const auto& s = self.data.sequences[i];
-        if (!owns_anim_file(s))
+        if (!detail::owns_anim_file(s))
           return main;
-        auto [it, inserted] = anim_cache.try_emplace(anim_key(s.id, s.variation_index));
-        if (inserted)
-          if (auto file = fs.read_file(FileKey{anim_path(stem, s.id, s.variation_index)}))
-          {
-            it->second.file = std::move(*file);
-            locate_anim_window(it->second);
-          }
-        if (!it->second.file || it->second.length == 0)
-          return {};
-        return std::span<const std::byte>{*it->second.file}.subspan(it->second.offset,
-                                                                    it->second.length);
+        return cache.window(s.id, s.variation_index, detail::afm2_magic);
       };
       if (auto r = self.data.read(main, ctx); !r)
         return r;
@@ -182,27 +105,16 @@ namespace wowlib::formats::m2
 
       self.skins.reserve(self.data.num_skin_profiles);
       for (std::uint32_t i = 0; i < self.data.num_skin_profiles; ++i)
-      {
-        const auto skin_data = fs.read_file(FileKey{skin_path(stem, i)});
-        if (!skin_data)
-          return make_error(skin_data.error().code,
-                            std::format("skin {}: {}", i, skin_data.error().message),
-                            skin_data.error().native_error);
-        Skin<V> skin;
-        if (auto r = skin.read(std::span<const std::byte>{*skin_data}); !r)
-          return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
-                            r.error().native_error);
-        if (skin.magic != skin_magic)
-          return make_error(ErrorCode::FormatVersionMismatch,
-                            std::format("skin {} magic is {:#010x}, expected 'SKIN'", i,
-                                        skin.magic));
-        self.skins.push_back(std::move(skin));
-      }
+        if (auto r = read_skin_into(fs, FileKey{detail::skin_path(stem, i)},
+                                    std::format("skin {}", i), self.skins);
+            !r)
+          return r;
       return {};
     }
 
-    /** The Legion+ chunked read path: parse the shell, then decode the MD21
-        image with FileDataID-based satellite resolution.
+    /** The Legion+ chunked read path: parse the shell, pull the skeleton in
+        when the model is skel-based, then decode the MD21 image with
+        FileDataID-based satellite resolution.
         @param self the assembly being filled.
         @param fs   the filesystem gateway.
         @param key  the model identity.
@@ -214,50 +126,44 @@ namespace wowlib::formats::m2
     {
       if (auto r = self.shell.read(main); !r)
         return r;
-      if (!self.shell.skeleton_fdid.empty() && self.shell.skeleton_fdid.front() != 0)
-        return make_error(ErrorCode::NotImplemented,
-                          ".skel-based models are not implemented yet (stage 3b)");
+
+      const bool has_skel =
+        !self.shell.skeleton_fdid.empty() && self.shell.skeleton_fdid.front() != 0;
+      if (has_skel)
+        if (auto r = self.skel.read(fs, FileKey{FileDataID{self.shell.skeleton_fdid.front()}});
+            !r)
+          return make_error(r.error().code, std::format(".skel: {}", r.error().message),
+                            r.error().native_error);
 
       // name fallback for satellites without FileDataID entries
       std::optional<std::string> stem;
       if (const FileKey resolved = fs.resolve(key); resolved.path)
-        stem = m2_stem(*resolved.path);
+        stem = detail::m2_stem(*resolved.path);
 
       const std::span<const std::byte> md21{self.shell.md21.bytes};
 
-      const auto afid_lookup = [&](std::uint16_t id, std::uint16_t sub) -> std::uint32_t {
-        for (const AnimFileEntry& e : self.shell.anim_fdids)
-          if (e.anim_id == id && e.sub_anim_id == sub)
-            return e.file_id;
-        return 0;
-      };
+      // skel-based models keep their sequences (and thus the external-data
+      // flags) in the skeleton; the body's own table is empty then
+      const auto* sequences =
+        has_skel ? &self.skel.sequence_block.sequences : &self.data.sequences;
+      const auto& afids = has_skel ? self.skel.effective_anim_fdids() : self.shell.anim_fdids;
 
-      std::map<std::uint32_t, AnimSlot> anim_cache;
+      detail::AnimCache cache{[&, stem](std::uint16_t id, std::uint16_t sub) -> Result<FileBuffer> {
+        const std::uint32_t fdid = detail::afid_lookup(afids, id, sub);
+        if (fdid != 0)
+          return fs.read_file(FileKey{FileDataID{fdid}});
+        if (stem)
+          return fs.read_file(FileKey{detail::anim_path(*stem, id, sub)});
+        return make_error(ErrorCode::FileNotFound, "no AFID entry and no path");
+      }};
       OffsetReadContext ctx;
-      ctx.sequence_base = [&](std::size_t i) -> std::span<const std::byte> {
-        if (i >= self.data.sequences.size())
+      ctx.sequence_base = [&, sequences](std::size_t i) -> std::span<const std::byte> {
+        if (i >= sequences->size())
           return md21;
-        const auto& s = self.data.sequences[i];
-        if (!owns_anim_file(s))
+        const auto& s = (*sequences)[i];
+        if (!detail::owns_anim_file(s))
           return md21;
-        auto [it, inserted] = anim_cache.try_emplace(anim_key(s.id, s.variation_index));
-        if (inserted)
-        {
-          const std::uint32_t fdid = afid_lookup(s.id, s.variation_index);
-          auto file = fdid != 0 ? fs.read_file(FileKey{FileDataID{fdid}})
-                      : stem    ? fs.read_file(FileKey{anim_path(*stem, s.id, s.variation_index)})
-                                : Result<FileBuffer>{std::unexpected{
-                                    Error{ErrorCode::FileNotFound, "no AFID entry and no path"}}};
-          if (file)
-          {
-            it->second.file = std::move(*file);
-            locate_anim_window(it->second);
-          }
-        }
-        if (!it->second.file || it->second.length == 0)
-          return {};
-        return std::span<const std::byte>{*it->second.file}.subspan(it->second.offset,
-                                                                    it->second.length);
+        return cache.window(s.id, s.variation_index, detail::afm2_magic);
       };
       if (auto r = self.data.read(md21, ctx); !r)
         return r;
@@ -266,39 +172,40 @@ namespace wowlib::formats::m2
 
       // skins: the first num_skin_profiles SFID entries are the views, the
       // rest the LOD bands (real files occasionally truncate the LOD tail)
-      const auto read_skin = [&](std::uint32_t fdid, std::string_view what,
-                                 std::vector<Skin<V>>& out) -> Result<void> {
-        const auto bytes = fs.read_file(FileKey{FileDataID{fdid}});
-        if (!bytes)
-          return make_error(bytes.error().code,
-                            std::format("{}: {}", what, bytes.error().message),
-                            bytes.error().native_error);
-        Skin<V> skin;
-        if (auto r = skin.read(std::span<const std::byte>{*bytes}); !r)
-          return make_error(r.error().code, std::format("{}: {}", what, r.error().message),
-                            r.error().native_error);
-        if (skin.magic != skin_magic)
-          return make_error(ErrorCode::FormatVersionMismatch,
-                            std::format("{} magic is {:#010x}, expected 'SKIN'", what,
-                                        skin.magic));
-        out.push_back(std::move(skin));
-        return {};
-      };
       if (self.shell.skin_fdids.size() < self.data.num_skin_profiles)
         return make_error(ErrorCode::InvalidEntityState,
                           std::format("SFID holds {} entries, the body declares {} views",
                                       self.shell.skin_fdids.size(),
                                       self.data.num_skin_profiles));
       for (std::uint32_t i = 0; i < self.data.num_skin_profiles; ++i)
-        if (auto r = read_skin(self.shell.skin_fdids[i], std::format("skin {}", i), self.skins);
+        if (auto r = read_skin_into(fs, FileKey{FileDataID{self.shell.skin_fdids[i]}},
+                                    std::format("skin {}", i), self.skins);
             !r)
           return r;
       for (std::size_t i = self.data.num_skin_profiles; i < self.shell.skin_fdids.size(); ++i)
         if (self.shell.skin_fdids[i] != 0)
-          if (auto r = read_skin(self.shell.skin_fdids[i], std::format("lod skin {}", i),
-                                 self.lod_skins);
+          if (auto r = read_skin_into(fs, FileKey{FileDataID{self.shell.skin_fdids[i]}},
+                                      std::format("lod skin {}", i), self.lod_skins);
               !r)
             return r;
+
+      // .bone files (the skeleton's when skel-based)
+      const auto& bfids = has_skel ? self.skel.effective_bone_fdids() : self.shell.bone_fdids;
+      for (std::size_t i = 0; i < bfids.size(); ++i)
+      {
+        if (bfids[i] == 0)
+          continue;
+        const auto bytes = fs.read_file(FileKey{FileDataID{bfids[i]}});
+        if (!bytes)
+          return make_error(bytes.error().code,
+                            std::format(".bone {}: {}", i, bytes.error().message),
+                            bytes.error().native_error);
+        BoneFile bone;
+        if (auto r = bone.read(std::span<const std::byte>{*bytes}); !r)
+          return make_error(r.error().code, std::format(".bone {}: {}", i, r.error().message),
+                            r.error().native_error);
+        self.bone_files.push_back(std::move(bone));
+      }
 
       // physics: referenced file baked in verbatim (inline PFDC stays on the
       // shell); a missing file degrades to empty
@@ -324,6 +231,8 @@ namespace wowlib::formats::m2
       this->shell = {};
       this->lod_skins.clear();
       this->phys = {};
+      this->skel = {};
+      this->bone_files.clear();
     }
 
     if constexpr (V < m2_per_sequence_timelines)
@@ -354,7 +263,7 @@ namespace wowlib::formats::m2
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
       return make_error(ErrorCode::PathNotResolvable, "saving an M2 needs a path for the key");
-    const std::string stem = m2_stem(*resolved.path);
+    const std::string stem = detail::m2_stem(*resolved.path);
 
     if constexpr (V < m2_per_sequence_timelines)
     {
@@ -372,44 +281,45 @@ namespace wowlib::formats::m2
                           std::format("num_skin_profiles is {} but {} skins are baked in",
                                       data.num_skin_profiles, this->skins.size()));
 
+      // whose sequence table drives the .anim split
+      const auto* sequences = &data.sequences;
+      bool has_skel = false;
+      if constexpr (V >= m2_chunked_container)
+      {
+        has_skel = !this->shell.skeleton_fdid.empty();
+        if (has_skel)
+          sequences = &this->skel.sequence_block.sequences;
+      }
+
       // Low-priority sequences split back out: every external sequence gets
       // an .anim buffer, filled as the tracks route their per-sequence
-      // blocks through the sink (empty ones still write — the client
+      // blocks through the sinks (empty ones still write — the client
       // requests the file whenever the flags say so).
-      std::map<std::uint32_t, FileBuffer> anim_bufs;
-      OffsetWriteContext ctx;
-      ctx.sequence_sink = [&](std::size_t i) -> FileBuffer* {
-        if (i >= data.sequences.size())
-          return nullptr;
-        const auto& s = data.sequences[i];
-        if (!owns_anim_file(s))
-          return nullptr;
-        return &anim_bufs[anim_key(s.id, s.variation_index)];
+      std::map<std::uint32_t, FileBuffer> afm2_bufs;
+      const auto make_sink = [sequences](std::map<std::uint32_t, FileBuffer>& bufs) {
+        OffsetWriteContext ctx;
+        ctx.sequence_sink = [sequences, &bufs](std::size_t i) -> FileBuffer* {
+          if (i >= sequences->size())
+            return nullptr;
+          const auto& s = (*sequences)[i];
+          if (!detail::owns_anim_file(s))
+            return nullptr;
+          return &bufs[detail::anim_key(s.id, s.variation_index)];
+        };
+        return ctx;
       };
-      const auto bytes = data.write(ctx);
+      const auto bytes = data.write(make_sink(afm2_bufs));
       if (!bytes)
         return std::unexpected{bytes.error()};
 
-      // the .anim payloads, chunked (AFM2) when the model asks for it
-      const auto anim_file_bytes = [&](const FileBuffer& buf) -> FileBuffer {
-        if ((data.global_flags & 0x2000u) == 0)
-          return buf;
-        FileBuffer out;
-        const std::uint32_t size = static_cast<std::uint32_t>(buf.size());
-        out.resize(8);
-        std::memcpy(out.data(), &afm2_magic, 4);
-        std::memcpy(out.data() + 4, &size, 4);
-        out.insert(out.end(), buf.begin(), buf.end());
-        return out;
-      };
-
       if constexpr (V < m2_chunked_container)
       {
+        // pre-Legion: raw .anim payloads under conventional names
         if (auto r = fs.add_file(*resolved.path, *bytes); !r)
           return std::unexpected{r.error()};
-        for (const auto& [packed, buf] : anim_bufs)
-          if (auto r = fs.add_file(anim_path(stem, packed >> 16, packed & 0xFFFFu),
-                                   anim_file_bytes(buf));
+        for (const auto& [packed, buf] : afm2_bufs)
+          if (auto r =
+                fs.add_file(detail::anim_path(stem, packed >> 16, packed & 0xFFFFu), buf);
               !r)
             return make_error(r.error().code,
                               std::format("anim {:04}-{:02}: {}", packed >> 16,
@@ -420,8 +330,8 @@ namespace wowlib::formats::m2
           const auto skin_bytes = this->skins[i].write();
           if (!skin_bytes)
             return std::unexpected{skin_bytes.error()};
-          if (auto r =
-                fs.add_file(skin_path(stem, static_cast<std::uint32_t>(i)), *skin_bytes);
+          if (auto r = fs.add_file(detail::skin_path(stem, static_cast<std::uint32_t>(i)),
+                                   *skin_bytes);
               !r)
             return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
                               r.error().native_error);
@@ -435,18 +345,100 @@ namespace wowlib::formats::m2
         M2File<V> shell = this->shell;
         shell.md21.bytes = *bytes;
 
-        shell.anim_fdids.clear();
-        for (const auto& [packed, buf] : anim_bufs)
+        // .bone files (fdids land in the skeleton for skel-based models)
+        std::vector<std::uint32_t> bone_fdids;
+        for (std::size_t i = 0; i < this->bone_files.size(); ++i)
         {
-          const auto r = fs.add_file(anim_path(stem, packed >> 16, packed & 0xFFFFu),
-                                     anim_file_bytes(buf));
+          const auto bone_bytes = this->bone_files[i].write();
+          if (!bone_bytes)
+            return std::unexpected{bone_bytes.error()};
+          const auto r = fs.add_file(detail::bone_path(stem, static_cast<std::uint32_t>(i)),
+                                     *bone_bytes);
           if (!r)
             return make_error(r.error().code,
-                              std::format("anim {:04}-{:02}: {}", packed >> 16,
-                                          packed & 0xFFFFu, r.error().message),
+                              std::format(".bone {}: {}", i, r.error().message),
                               r.error().native_error);
-          shell.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
-                                      static_cast<std::uint16_t>(packed & 0xFFFFu), r->value});
+          bone_fdids.push_back(r->value);
+        }
+
+        shell.anim_fdids.clear();
+        if (!has_skel)
+        {
+          // .anim payloads, AFM2-wrapped when the model asks for chunked ones
+          for (const auto& [packed, buf] : afm2_bufs)
+          {
+            FileBuffer file;
+            if ((data.global_flags & 0x2000u) != 0)
+              detail::append_chunk(file, detail::afm2_magic, buf);
+            else
+              file = buf;
+            const auto r =
+              fs.add_file(detail::anim_path(stem, packed >> 16, packed & 0xFFFFu), file);
+            if (!r)
+              return make_error(r.error().code,
+                                std::format("anim {:04}-{:02}: {}", packed >> 16,
+                                            packed & 0xFFFFu, r.error().message),
+                                r.error().native_error);
+            shell.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
+                                        static_cast<std::uint16_t>(packed & 0xFFFFu),
+                                        r->value});
+          }
+          shell.bone_fdids = bone_fdids;
+        }
+        else
+        {
+          // skel-based: re-encode the skeleton blocks, then assemble the
+          // shared .anim files as AFM2 (body events) + AFSA (attachments) +
+          // AFSB (bones) and hang every satellite id off the skeleton
+          Skeleton<V> skel_copy = this->skel;
+          std::map<std::uint32_t, FileBuffer> afsa_bufs;
+          std::map<std::uint32_t, FileBuffer> afsb_bufs;
+          {
+            const auto encoded = this->skel.bone_block.write(make_sink(afsb_bufs));
+            if (!encoded)
+              return std::unexpected{encoded.error()};
+            skel_copy.skb1.bytes = *encoded;
+            const auto attachments = this->skel.attachment_block.write(make_sink(afsa_bufs));
+            if (!attachments)
+              return std::unexpected{attachments.error()};
+            skel_copy.ska1.bytes = *attachments;
+          }
+
+          skel_copy.anim_fdids.clear();
+          std::set<std::uint32_t> keys;
+          for (const auto& [k, buf] : afm2_bufs)
+            keys.insert(k);
+          for (const auto& [k, buf] : afsa_bufs)
+            keys.insert(k);
+          for (const auto& [k, buf] : afsb_bufs)
+            keys.insert(k);
+          for (const std::uint32_t packed : keys)
+          {
+            FileBuffer file;
+            detail::append_chunk(file, detail::afm2_magic, afm2_bufs[packed]);
+            detail::append_chunk(file, detail::afsa_magic, afsa_bufs[packed]);
+            detail::append_chunk(file, detail::afsb_magic, afsb_bufs[packed]);
+            const auto r =
+              fs.add_file(detail::anim_path(stem, packed >> 16, packed & 0xFFFFu), file);
+            if (!r)
+              return make_error(r.error().code,
+                                std::format("anim {:04}-{:02}: {}", packed >> 16,
+                                            packed & 0xFFFFu, r.error().message),
+                                r.error().native_error);
+            skel_copy.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
+                                            static_cast<std::uint16_t>(packed & 0xFFFFu),
+                                            r->value});
+          }
+          skel_copy.bone_fdids = bone_fdids;
+
+          const auto skel_bytes = skel_copy.ChunkedFile<Skeleton<V>>::write();
+          if (!skel_bytes)
+            return std::unexpected{skel_bytes.error()};
+          const auto r = fs.add_file(detail::skel_path(stem), *skel_bytes);
+          if (!r)
+            return make_error(r.error().code, std::format(".skel: {}", r.error().message),
+                              r.error().native_error);
+          shell.skeleton_fdid.assign(1, r->value);
         }
 
         shell.skin_fdids.clear();
@@ -455,8 +447,8 @@ namespace wowlib::formats::m2
           const auto skin_bytes = this->skins[i].write();
           if (!skin_bytes)
             return std::unexpected{skin_bytes.error()};
-          const auto r =
-            fs.add_file(skin_path(stem, static_cast<std::uint32_t>(i)), *skin_bytes);
+          const auto r = fs.add_file(detail::skin_path(stem, static_cast<std::uint32_t>(i)),
+                                     *skin_bytes);
           if (!r)
             return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
                               r.error().native_error);
@@ -467,8 +459,8 @@ namespace wowlib::formats::m2
           const auto skin_bytes = this->lod_skins[i].write();
           if (!skin_bytes)
             return std::unexpected{skin_bytes.error()};
-          const auto r =
-            fs.add_file(lod_skin_path(stem, static_cast<std::uint32_t>(i) + 1), *skin_bytes);
+          const auto r = fs.add_file(
+            detail::lod_skin_path(stem, static_cast<std::uint32_t>(i) + 1), *skin_bytes);
           if (!r)
             return make_error(r.error().code,
                               std::format("lod skin {}: {}", i, r.error().message),

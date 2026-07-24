@@ -146,6 +146,53 @@ containing nested arrays) fall out naturally.
   welder welds on templated records (stage 4), real client write-through-fs
   test (needs a project-overlay fixture).
 
+## Stage 3 landed (2026-07-24)
+
+- **3a — chunked shell** (commit 0ead6a5): `chunked.hpp` M2File<V> (Legion+),
+  FORWARD fourccs. MD21 = ChunkBlob at shell level (assembly decodes);
+  typed: PFID/SKID as 0-or-1 vectors (presence policy), SFID/AFID/BFID/TXID/
+  RPID/GPID vectors, EXPT/TXAC/DETL record vectors, EXP2/PABC/PSBC/PGD1 as
+  offset-entity payloads (they shadow OffsetFile::empty() for engagement);
+  blobs: LDV1/PADC/PEDC/WFV1-3/PFDC/EDGF/NERF/DBOC/AFRA/PCOL/DPIV. The shell
+  is byte-perfect on plain round-trip EXCEPT when the typed offset-entity
+  chunks are engaged (their payloads re-encode canonically) — the 9.2.7 test
+  branches on that.
+- **3b — Skeleton/.bone** (this commit): `records/skel.hpp` (SkelHeader/
+  SkelSequences typed chunk payloads, SkelBones/SkelAttachments decoded from
+  SKB1/SKA1 blobs, SkelParentData), `skel.hpp/.cpp` Skeleton<V> — first-class
+  read/write(fs,key); read follows the SKPD parent ONE hop for shared
+  AFID/BFID (child keeps own SK*1), decodes bone/attachment blocks through
+  AnimCache windows (AFSB/AFSA); blobs kept after decode so chunk-level
+  write of an untouched skel stays byte-perfect; standalone write re-encodes
+  + emits AFSA/AFSB-only .anim files (documented: the paired M2's write is
+  the full-fidelity path restoring AFM2). `bone_file.hpp` BoneFile
+  (u32 prelude via `header` annotation + BIDA/BOMT; not version-templated).
+  `satellite_io.hpp` (m2::detail): naming helpers + AnimCache (lazy loader,
+  per-fourcc chunk windows, raw-file AFM2 fallback) + append_chunk.
+- **Assembly**: AssemblyLegion slot = shell + lod_skins + phys(ChunkBlob) +
+  skel + bone_files. Read: skel loads FIRST, then the body decodes with the
+  SKELETON's sequences gating externals (body's own table is empty on skel
+  models). Write: bone files → .anim files (AFM2+AFSA+AFSB assembled per
+  sequence for skel models; AFM2-or-raw per global_flags 0x2000 otherwise)
+  → skel (fdids hung off it) → skins/lods → phys → shell (fresh fdids in
+  the reference chunks).
+- Integration: 30 9.2.7 models incl. lightforgeddraeneimale (the parent-skel
+  child — hardest case: SKPD + shared satellites) — shell round-trip + body
+  and SK*1 blocks re-read bit-equal. In the WoWCircle repack the base
+  character models served are non-skel; only lightforged exercises 3b, keep
+  an eye out on a retail 9.2.7+ install later. Suite 86/86.
+
+## Stage 4 (next): bindings + docs
+
+Follow the WMO recipe (formats-architecture.md §recipe + bindings-notes.md):
+def_family calls per version-differing family (M2Data/Skin/M2File/Skeleton/
+M2 + record templates via aliases), M2Base verbs on the base (for_version/
+read/write/convert, nb::sig merged overloads), AnyM2 union, opaque vectors
+(no_reassign already annotated), naming hook keeps M2/FDID acronyms, docs
+site fields page markers + categories, check.py/check.lua extensions, stub
+patterns; supported_versions already in m2/convert.hpp. Also still open:
+span-based M2::read parse overload for buffer-driven Python reads.
+
 ## Naming
 
 Client canonical record names (M2Sequence, M2CompBone, M2Vertex, M2Batch,
