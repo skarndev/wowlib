@@ -262,15 +262,33 @@ index_start.
   generator now opens `vector<vector<T>>` chains by reference (see
   bindings-notes).
 
-## Stage 4b (remaining): docs site + polish
+## Stage 4b: docs site LANDED (2026-07-24); remaining polish
 
-- docs: an M2 fields reference page in the WMO style (docs/wmo_reference.py
-  parses since/until badges textually — an m2 sibling would read data.hpp +
-  records), records wire pages via mkdocstrings, containers page untouched.
-- span+satellites parse API for buffer-driven Python reads (M2Base.read
-  currently fs-only, documented).
-- Record-family bases/for_version if ergonomics ever demand; Lua target when
-  reinstated; real convert_step ladders (m2/convert.hpp scaffold ready).
+- Docs: DONE — the WMO generator was generalized into
+  docs/format_reference_impl.py (engine) + {wmo,m2}_reference_config.py
+  (declarative per-format configs; a side has a KIND: chunked with FourCC
+  badges vs offset entity with wire_order field listing). M2 gets
+  python/m2/fields.md (body taxonomy + shell chunks) through the same badge
+  pipeline; per-format wowdev anchor maps refresh via
+  `docs/build.py refresh-anchors`. Docs build is warning-clean.
+- Still open:
+  - span+satellites parse API for buffer-driven Python reads (M2Base.read
+    currently fs-only, documented).
+  - Record-family bases/for_version if ergonomics ever demand; Lua target
+    when reinstated; real convert_step ladders (m2/convert.hpp scaffold
+    ready).
+  - Deferred cleanup from the 2026-07-24 review: the .anim-file ASSEMBLY
+    plumbing (union section-buffer keys → append_chunk → add_file → collect
+    AnimFileEntry) is still written ~3x across Skeleton<V>::write and
+    M2<V>::write's skel/non-skel branches (io.hpp) — a
+    detail::write_anim_files(span<(magic, bufs&)>) helper would collapse it;
+    and Skeleton<V>::write's `copy = *this` duplicates bone/attachment
+    blocks it never reads (copy only the chunk members).
+  - Known cosmetic: nanobind prints exit-time "leaked type/function"
+    warnings (CAaBox/C3Vector + ~30 functions) at interpreter shutdown —
+    PRE-EXISTING (appears in builds before the 2026-07-24 sweep too),
+    likely the eagerly-converted NSDMI default objects; harmless but worth
+    a look someday.
 
 ## Naming
 
