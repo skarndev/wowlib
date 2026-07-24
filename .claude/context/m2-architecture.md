@@ -210,6 +210,23 @@ shapes:
   wowlib.abi3.so + wowlib-stubs/ from build/bindings after rebuilding, or
   imports test the stale module.
 
+## Post-survey policy: alias sequences (2026-07-24, commit 3f97806)
+
+Alias sequences (flags 0x40) own NO track data — the client follows
+alias_next and never parses their animation blocks — yet files carry STALE
+per-sequence array records for them (dead offsets; HumanMale's aliases
+decode to denormals + NaN, and out-of-bounds records would abort reads).
+wowlib therefore NEVER chases them: every read context returns the empty
+span for alias indices (arrays decode empty), writes emit {0, 0}. Rule
+centralized as detail::sequence_is_alias (satellite_io.hpp). This is also
+why byte-level comparison, not operator==, is the round-trip oracle
+(NaN != NaN): see test_m2_roundtrip's diff_value and the survey script's
+write→read→write byte-stability cycle. The full-corpus survey (temp
+m2_survey.py in the project root, untracked): 91,705/91,705 served 9.2.7
+models clean incl. round-trip; DETL's real records are 16 bytes vs
+wowdev's 12 (kept verbatim, ec7c7c6); M2SkinSection.level extends only
+index_start.
+
 ## Stage 4b (remaining): docs site + polish
 
 - docs: an M2 fields reference page in the WMO style (docs/wmo_reference.py
