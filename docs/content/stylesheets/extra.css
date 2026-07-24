@@ -14,13 +14,6 @@
   font-size: 0.72rem;
 }
 
-/* The generic-WMO fields page renders each field as its own top-level block, which
-   mkdocstrings does not space the way it spaces the children of a class it renders
-   whole — give consecutive attribute blocks room to breathe. */
-.doc-object.doc-attribute + .doc-object.doc-attribute {
-  margin-top: 0.9rem;
-}
-
 /* Left sidebar: indent nested nav items (a section's sub-pages) slightly, with a
    faint guide line, so the hierarchy reads at a glance — e.g. the WMO format
    section's Classes / Root chunks / Group chunks sit visibly under it. */
@@ -76,6 +69,9 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  /* A flex container drops the whitespace text nodes between the symbol badge, the
+     name and the labels, so restore that gap (e.g. "attr" + "mver" + "property"). */
+  column-gap: 0.35rem;
 }
 .wmo-tags {
   display: inline-flex;
