@@ -45,10 +45,14 @@ STUBS = REPO_ROOT / "build/bindings/bindings/python/stubs"
 TARGET_PAGE = "python/wmo/fields.md"
 CHUNK_PAGES = {"python/wmo/root-chunks.md": "root", "python/wmo/group-chunks.md": "group"}
 MARKER_LEGEND = "<!-- wmo-legend -->"
+MARKER_REMOVED = {"root": "<!-- wmo-root-removed -->", "group": "<!-- wmo-group-removed -->"}
 # The concrete representative class each side's fields are documented on. Since a
 # per-version type only carries its version's fields, the representative must be the
-# one with the full superset: for the group side (no removed chunks) that is the
-# latest version; the root side is not yet versioned, so any version has all fields.
+# one with the largest field set: the latest version. Chunks REMOVED before then
+# (e.g. root's MOSB, gone at 8.1) are absent from it — the fields-page superset is
+# completed by introspecting every version class and injecting whatever the
+# representative lacks (see _removed_fields), so the page shows added and removed
+# chunks alike.
 REPR_CLASS = {"root": "WMORootTheWarWithin", "group": "WMOGroupBodyTheWarWithin"}
 # Expansion suffixes (welded class names), stripped from the *displayed* class name
 # so the per-version layout reads generically (WMOGroupBodyTheWarWithin ->
@@ -330,8 +334,11 @@ def _entity_fields() -> tuple[dict, dict]:
     MOGP body members with the WMOGroup wrapper's (mver)."""
     global _FIELDS_CACHE
     if _FIELDS_CACHE is None:
+        # WMORoot's version-gated chunks live in detail:: trait bases declared ahead
+        # of the struct, so slice from the detail namespace (traits) to end-of-file,
+        # covering the traits + WMORoot's own members.
         root = {f["name"]: f for f in
-                _parse_members(_slice(ROOT_HPP.read_text(encoding="utf-8"), "]] WMORoot :", None))}
+                _parse_members(_slice(ROOT_HPP.read_text(encoding="utf-8"), "namespace detail", None))}
         gtxt = GROUP_HPP.read_text(encoding="utf-8")
         # WMOGroupBody's version-gated chunks live in detail:: trait bases declared
         # ahead of the struct, so slice from the detail namespace (traits) through
@@ -470,9 +477,76 @@ def _augment_chunks(html_out: str, side: str, base: str) -> str:
 
 
 # --- mkdocs hooks ------------------------------------------------------------
+def _version_class_fields(side: str) -> dict[str, dict[str, tuple[str, str]]]:
+    """{version class name: {field: (type, docstring)}} for a side's per-version
+    classes (WMORoot<Exp> / WMOGroupBody<Exp>), introspected from the stubs."""
+    sub = "root" if side == "root" else "group"
+    prefix = "WMORoot" if side == "root" else "WMOGroupBody"
+    try:
+        txt = (STUBS / f"wowlib/formats/wmo/{sub}/__init__.pyi").read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    out: dict[str, dict[str, tuple[str, str]]] = {}
+    for block in re.split(r"(?=^class )", txt, flags=re.M):
+        m = re.match(rf"class ({prefix}{_SUFFIX_ALT})[:(]", block)
+        if not m:
+            continue
+        fields: dict[str, tuple[str, str]] = {}
+        for fm in re.finditer(
+                r'def ([a-z]\w+)\(self\)\s*->\s*([^:]+):\s*(?:"""(.*?)""")?', block, re.S):
+            fields.setdefault(fm.group(1),
+                              (fm.group(2).strip(), (fm.group(3) or "").strip()))
+        out[m.group(1)] = fields
+    return out
+
+
+def _removed_fields(side: str) -> list[tuple[str, str, str]]:
+    """(field, type, doc) for fields in the union of all version classes but absent
+    from the representative — chunks removed before the latest version (root's MOSB).
+    This is the introspection that completes the fields-page superset."""
+    classes = _version_class_fields(side)
+    rep = set(classes.get(REPR_CLASS[side], {}))
+    superset: dict[str, tuple[str, str]] = {}
+    for flds in classes.values():
+        for name, td in flds.items():
+            superset.setdefault(name, td)
+    return [(name, t, d) for name, (t, d) in superset.items() if name not in rep]
+
+
+def _render_removed(side: str, base: str) -> str:
+    """A 'Removed in later versions' subsection for the fields the representative
+    lacks — rendered as attribute entries with the same badges as the live fields."""
+    removed = _removed_fields(side)
+    if not removed:
+        return ""
+    fields = _entity_fields()[0 if side == "root" else 1]
+    rows = []
+    for name, typ, doc in removed:
+        f = fields.get(name, {})
+        tags = _cc_html(f.get("cc", "")) + _range_html(f.get("since"), f.get("until"), base)
+        doc_html = f"<p>{html.escape(doc)}</p>" if doc else ""
+        rows.append(
+            '<div class="doc doc-object doc-attribute">'
+            '<h4 class="doc doc-heading">'
+            '<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code> '
+            f'<span class="doc doc-object-name doc-attribute-name">{html.escape(name)}</span>'
+            f'<span class="wmo-tags">{tags}</span></h4>'
+            f'<div class="doc doc-contents"><p><code>{html.escape(typ)}</code></p>'
+            f"{doc_html}</div></div>")
+    return ("<h3>Removed in later versions</h3>\n"
+            "<p>Present in earlier clients but gone from the representative version "
+            "above — the badge shows where each was removed.</p>\n" + "\n".join(rows))
+
+
 def on_page_markdown(markdown, page, config, files, **kwargs):
-    if page.file.src_uri == TARGET_PAGE and MARKER_LEGEND in markdown:
-        return markdown.replace(MARKER_LEGEND, _legend(_base_prefix(page)))
+    if page.file.src_uri != TARGET_PAGE:
+        return markdown
+    base = _base_prefix(page)
+    if MARKER_LEGEND in markdown:
+        markdown = markdown.replace(MARKER_LEGEND, _legend(base))
+    for side, marker in MARKER_REMOVED.items():
+        if marker in markdown:
+            markdown = markdown.replace(marker, _render_removed(side, base))
     return markdown
 
 

@@ -56,6 +56,8 @@ per-version layout below is shown generically as `WMORoot⟨version⟩`.
     options:
       heading_level: 3
 
+<!-- wmo-root-removed -->
+
 ## Group file
 
 A group file has two levels: the wrapper (`WMOGroup` — the format version and the
@@ -76,3 +78,5 @@ MOGP container) and the container body (`WMOGroupBody`), which holds the geometr
 ::: wowlib.formats.wmo.group.WMOGroupBodyTheWarWithin
     options:
       heading_level: 3
+
+<!-- wmo-group-removed -->
