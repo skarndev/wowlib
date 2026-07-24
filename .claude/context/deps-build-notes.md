@@ -18,7 +18,7 @@ errors.
 |---|---|---|
 | StormLib | v9.40 | target `storm`; `STORM_SKIP_INSTALL`, `BUILD_SHARED_LIBS=OFF`; links SDK zlib/bzip2 |
 | CascLib | 3.0 | target `casc_static`; `CASC_BUILD_STATIC_LIB=ON`, `CASC_BUILD_SHARED_LIB=OFF`, unicode off |
-| welder | commit 5bf54fa (no tags yet; nested-container opaque support + reference_internal element access) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
+| welder | commit 9a1c2a7 (no tags yet; lazy welded-class NSDMI defaults = nanobind shutdown-leak fix) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
 
 ## Bumping the welder pin (we own welder)
@@ -85,3 +85,11 @@ errors.
   (a 9.2.7 storage open is ~2.3s optimized; that part is genuine work).
 - Catch2 SECTIONs re-run the whole TEST_CASE (storage re-opened per section) —
   fine now that opens are fast.
+## macOS: never `cp` OVER an installed .so — rm first (AMFI SIGKILL)
+Copying a rebuilt `wowlib.abi3.so` over the existing file (`cp new old`)
+rewrites the same inode; macOS AMFI's code-signature cache still holds the old
+signature, and the *next* page-in from that file kills the process with SIGKILL
+(exit 137, no Python traceback — and it looks like a crash in whatever ran
+last, e.g. `gc.collect()`). lldb-attached processes are immune, which makes it
+extra confusing. Rule: `rm dest && cp src dest` (fresh inode) whenever
+refreshing the venv extension or stubs.

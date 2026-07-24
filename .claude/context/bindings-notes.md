@@ -283,3 +283,21 @@ for stable-ABI validity.
   zero-copy iff `VectorE` was generated (vertex_colors → `list[VectorCImVector]`),
   else a plain by-copy `list[E]` (texcoords → `list[list[C2Vector]]`, since nothing
   else uses `std::vector<C2Vector>` so `VectorC2Vector` isn't generated).
+## Aggregate defaults are LAZY — the nanobind shutdown-leak fix (2026-07)
+`import wowlib` used to end with `nanobind: leaked N types/instances!`. Root
+cause (welder, both Python rods): the synthesized aggregate `__init__` stored
+each NSDMI default of a *welded-class* type as a real Python default object in
+the function record. nanobind instances are not GC objects — the instance→type
+edge is invisible to the GC — so nested default chains
+(`M2Sequence{M2Bounds{CAaBox{C3Vector}}}`) become uncollectable cycles that
+outlive interpreter shutdown (see nanobind `docs/refleaks.rst`). Fix in welder
+(`rods/python/{nanobind,pybind11}/rod.hpp`): a defaultable field whose type is
+registration-needed (`!has_native_caster`) binds `Optional[F] = None`
+(signature spells the default `...`); C++ materializes the NSDMI value from
+`T{}` when the argument is omitted or None. Consequences for wowlib:
+- Stubs/signatures render such params as `F | None = ...` — typing tests and
+  stub goldens must expect that spelling, not a value repr.
+- Native-typed defaults (ints, floats, strings, enums with casters) are still
+  real Python defaults; only welded-class defaults went lazy.
+- Regression fixture: welder `tests/common/cpp/methods.hpp` (Corner/Span/
+  Region/Plot chain) + subprocess shutdown-leak spec in `test_methods.py`.
