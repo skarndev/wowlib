@@ -3,17 +3,24 @@
 /** @file
     The WMO root-file entity (namespace wowlib::formats::wmo::root): header,
     materials, group metadata, portals, lights, doodads, fog and the
-    later-expansion volume/light extensions, declared in canonical client chunk
-    order. The root wire structs it is built from live in wmo::root::chunks. */
+    later-expansion volume/light extensions. Version-gated chunks live in
+    conditionally-inherited trait bases (one unwelded struct per availability
+    range, in wmo::root::detail) — including the pre-8.1-only MOSB, which the
+    8.1+ MOSI replaces — while the always-present chunks are the entity's own
+    members. A version's WMORoot therefore carries ONLY the chunks that version
+    defines. The root wire structs live in wmo::root::chunks. */
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/chunk.hpp>
+#include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/types.hpp>
+#include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
 #include <wowlib/formats/wmo/root/chunks/doodad.hpp>
 #include <wowlib/formats/wmo/root/chunks/environment.hpp>
@@ -48,14 +55,204 @@ namespace wowlib::formats::wmo::root
   {
   };
 
+  namespace detail
+  {
+    // --- version-range trait bases (unwelded) ---------------------------------
+    // One struct per availability range; members keep their chunk/since/until/doc/
+    // marks (read off the declaring class, so flattening preserves them). Member
+    // order within a trait is for readability; the serialization order is the
+    // entity's chunk_order table, not the flatten order.
+
+    /** Legion+ (7.0.1) root chunks. */
+    struct RootLegion
+    {
+      [[
+        =chunk("GFID"),
+        =since(ClientVersion{7, 0, 1, 20740}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Group file FileDataIDs (GFID, Legion+), in group order;
+                        repeated per LOD level for LOD WMOs.)")]]
+      std::vector<std::uint32_t> group_fdids;
+    };
+
+    /** 7.3+ root chunks. */
+    struct Root73
+    {
+      [[
+        =chunk("MOUV"),
+        =since(ClientVersion{7, 3, 0, 24473}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Texture-coordinate translation animations (MOUV, 7.3+), one
+                        per material.)")]]
+      std::vector<UVAnimation> uv_animations;
+    };
+
+    /** Pre-8.1 root chunks, removed once their FileDataID counterparts arrive. */
+    struct RootPre81
+    {
+      [[
+        =chunk("MOSB"),
+        =until(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::doc(R"(Skybox filename (MOSB; pre-8.1); raw bytes — files pad it to
+                        4-byte alignment. Replaced by skybox_fdid (MOSI) in 8.1+.)")]]
+      ChunkBlob skybox_name;
+    };
+
+    /** 8.1+ root chunks (the FileDataID chunks that replace name lookups). */
+    struct Root81
+    {
+      [[
+        =chunk("MOSI"),
+        =since(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Skybox FileDataID (MOSI, 8.1+).")]]
+      std::vector<std::uint32_t> skybox_fdid;
+
+      [[
+        =chunk("MODI"),
+        =since(ClientVersion{8, 1, 0, 27826}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Doodad FileDataIDs (MODI, 8.1+; replaces doodad_names).")]]
+      std::vector<std::uint32_t> doodad_fdids;
+    };
+
+    /** 8.3+ root chunks (per-doodad colour + the volume family). */
+    struct Root83
+    {
+      [[
+        =chunk("MDDI"),
+        =since(ClientVersion{8, 3, 0, 32044}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Per-doodad color multipliers (MDDI, 8.3+), applied to the
+                        MODD color.)")]]
+      std::vector<float> doodad_color_mults;
+
+      [[
+        =chunk("MPVD"),
+        =since(ClientVersion{8, 3, 0, 32044}),
+        =formats::optional,
+        =welder::doc(R"(Particulate volume data (MPVD, 8.3+); undocumented layout,
+                        kept opaque.)")]]
+      ChunkBlob particulate_volumes;
+
+      [[
+        =chunk("MAVG"),
+        =since(ClientVersion{8, 3, 0, 32044}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Global ambient volumes (MAVG, 8.3+); position and radii are
+                        zero, selected by doodad set.)")]]
+      std::vector<AmbientVolume> global_ambient_volumes;
+
+      [[
+        =chunk("MAVD"),
+        =since(ClientVersion{8, 3, 0, 32044}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Ambient volumes (MAVD, 8.3+), overriding the header ambient
+                        color inside their radius.)")]]
+      std::vector<AmbientVolume> ambient_volumes;
+
+      [[
+        =chunk("MBVD"),
+        =since(ClientVersion{8, 3, 0, 32044}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Box ambient volumes (MBVD, 8.3+); read only when MAVG/MAVD is
+                        present.)")]]
+      std::vector<AmbientBoxVolume> ambient_box_volumes;
+    };
+
+    /** 9.0+ root chunks (fog/group v2, dynamic lights, detail doodads). */
+    struct Root90
+    {
+      [[
+        =chunk("MFED"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Fog extra data (MFED, 9.0+); same count as MFOG.")]]
+      std::vector<FogExtra> fog_extras;
+
+      [[
+        =chunk("MGI2"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Group info v2 (MGI2, 9.0+); same count as MOGI, overrides LOD
+                        selection.)")]]
+      std::vector<GroupInfo2> group_infos2;
+
+      [[
+        =chunk("MNLD"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Dynamic lights (MNLD, 9.0+): torch fires, window light
+                        projection and the like.)")]]
+      std::vector<NewLight> new_lights;
+
+      [[
+        =chunk("MDDL"),
+        =since(ClientVersion{9, 0, 1, 33978}),
+        =formats::optional,
+        =welder::doc(R"(Detail (ground-effect) doodad layers (MDDL, 9.0+);
+                        variable-length RLE layout, kept opaque.)")]]
+      ChunkBlob detail_doodads;
+    };
+
+    /** 9.1+ root chunks. */
+    struct Root91
+    {
+      [[
+        =chunk("MOLV"),
+        =since(ClientVersion{9, 1, 0, 39015}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Directional-gradient light extensions (MOLV, 9.1+); entries
+                        reference lights by index.)")]]
+      std::vector<LightExtension> light_extensions;
+    };
+
+    /** 11.0+ root chunks. */
+    struct Root110
+    {
+      [[
+        =chunk("MOM3"),
+        =since(ClientVersion{11, 0, 0, 54210}),
+        =formats::optional,
+        =welder::doc(R"(M3 materials (MOM3, 11.0+); when present, MOMT is ignored. An
+                        m3SI blob, kept opaque.)")]]
+      ChunkBlob materials_m3;
+    };
+
+    /** 11.1+ root chunks. */
+    struct Root111
+    {
+      [[
+        =chunk("MOPE"),
+        =since(ClientVersion{11, 1, 0, 58221}),
+        =formats::optional,
+        =welder::mark::no_reassign,
+        =welder::doc("Portal extra data (MOPE, 11.1+).")]]
+      std::vector<PortalExtra> portal_extras;
+    };
+  }
+
   /** A WMO (world map object) root file for one client version.
 
       The root file holds everything shared across the object — the material and
       texture tables, doodad (M2) sets and placements, portals, lights, fog, the
       convex-volume/visible-block culling data and the per-group table (MOGI/GFID)
-      — while the actual 3D geometry lives in the separate group files
-      (WMOGroup). Chunks are declared in canonical client chunk order; an instance
-      read from a client file rewrites byte-for-byte until modified.
+      — while the actual 3D geometry lives in the separate group files (WMOGroup).
+      The always-present chunks are own members (canonical order); version-gated
+      chunks are inherited from the detail:: trait bases active for @a V.
 
       @tparam V the client version this layout targets.
       @see https://wowdev.wiki/WMO */
@@ -66,10 +263,20 @@ namespace wowlib::formats::wmo::root
         A WMO root file for one client version. The root lists the object's shared
         data — materials and textures, doodad (M2) sets and placements, portals,
         lights, fog, culling volumes and the per-group table — while the 3D
-        geometry lives in the separate group files (see WMOGroup). Chunks are laid
-        out in canonical client order; an instance read from a client file
-        rewrites byte-for-byte until modified. See https://wowdev.wiki/WMO.)")
-  ]] WMORoot : ChunkedFile<WMORoot<V>>, WMORootBase
+        geometry lives in the separate group files (see WMOGroup). An instance read
+        from a client file rewrites byte-for-byte until modified. See
+        https://wowdev.wiki/WMO.)")
+  ]] WMORoot
+    : ChunkedFile<WMORoot<V>>, WMORootBase,
+      slot<V, ClientVersion{7, 0, 1, 20740}, detail::RootLegion>,
+      slot<V, ClientVersion{7, 3, 0, 24473}, detail::Root73>,
+      slot<V, ClientVersion{0, 0, 0, 0}, detail::RootPre81, ClientVersion{8, 1, 0, 27826}>,
+      slot<V, ClientVersion{8, 1, 0, 27826}, detail::Root81>,
+      slot<V, ClientVersion{8, 3, 0, 32044}, detail::Root83>,
+      slot<V, ClientVersion{9, 0, 1, 33978}, detail::Root90>,
+      slot<V, ClientVersion{9, 1, 0, 39015}, detail::Root91>,
+      slot<V, ClientVersion{11, 0, 0, 54210}, detail::Root110>,
+      slot<V, ClientVersion{11, 1, 0, 58221}, detail::Root111>
   {
     static constexpr ClientVersion version = V;
 
@@ -99,23 +306,6 @@ namespace wowlib::formats::wmo::root
     std::vector<SMOMaterial> materials;
 
     [[
-      =chunk("MOM3"),
-      =since(ClientVersion{11, 0, 0, 54210}),
-      =formats::optional,
-      =welder::doc(R"(M3 materials (MOM3, 11.0+); when present, MOMT is ignored. An
-                      m3SI blob, kept opaque.)")]]
-    ChunkBlob materials_m3;
-
-    [[
-      =chunk("MOUV"),
-      =since(ClientVersion{7, 3, 0, 24473}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Texture-coordinate translation animations (MOUV, 7.3+), one
-                      per material.)")]]
-    std::vector<UVAnimation> uv_animations;
-
-    [[
       =chunk("MOGN"),
       =formats::optional,
       =welder::doc("Group names (MOGN), referenced by byte offset.")]]
@@ -127,22 +317,6 @@ namespace wowlib::formats::wmo::root
       =welder::mark::no_reassign,
       =welder::doc("Per-group info (MOGI).")]]
     std::vector<SMOGroupInfo> group_infos;
-
-    [[
-      =chunk("MOSB"),
-      =until(ClientVersion{8, 1, 0, 27826}),
-      =formats::optional,
-      =welder::doc(R"(Skybox filename (MOSB; pre-8.1); raw bytes — files pad it to
-                      4-byte alignment. Replaced by skybox_fdid (MOSI) in 8.1+.)")]]
-    ChunkBlob skybox_name;
-
-    [[
-      =chunk("MOSI"),
-      =since(ClientVersion{8, 1, 0, 27826}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Skybox FileDataID (MOSI, 8.1+).")]]
-    std::vector<std::uint32_t> skybox_fdid;
 
     [[
       =chunk("MOPV"),
@@ -166,14 +340,6 @@ namespace wowlib::formats::wmo::root
     std::vector<SMOPortalRef> portal_refs;
 
     [[
-      =chunk("MOPE"),
-      =since(ClientVersion{11, 1, 0, 58221}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Portal extra data (MOPE, 11.1+).")]]
-    std::vector<PortalExtra> portal_extras;
-
-    [[
       =chunk("MOVV"),
       =formats::optional,
       =welder::mark::no_reassign,
@@ -195,15 +361,6 @@ namespace wowlib::formats::wmo::root
     std::vector<SMOLight> lights;
 
     [[
-      =chunk("MOLV"),
-      =since(ClientVersion{9, 1, 0, 39015}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Directional-gradient light extensions (MOLV, 9.1+); entries
-                      reference lights by index.)")]]
-    std::vector<LightExtension> light_extensions;
-
-    [[
       =chunk("MODS"),
       =formats::optional,
       =welder::mark::no_reassign,
@@ -216,14 +373,6 @@ namespace wowlib::formats::wmo::root
       =welder::doc(R"(Doodad (M2) filenames (MODN; pre-8.1 or fallback, see
                       textures).)")]]
     StringBlock doodad_names;
-
-    [[
-      =chunk("MODI"),
-      =since(ClientVersion{8, 1, 0, 27826}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Doodad FileDataIDs (MODI, 8.1+; replaces doodad_names).")]]
-    std::vector<std::uint32_t> doodad_fdids;
 
     [[
       =chunk("MODD"),
@@ -247,99 +396,25 @@ namespace wowlib::formats::wmo::root
     std::vector<C4Plane> convex_volume_planes;
 
     [[
-      =chunk("GFID"),
-      =since(ClientVersion{7, 0, 1, 20740}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Group file FileDataIDs (GFID, Legion+), in group order;
-                      repeated per LOD level for LOD WMOs.)")]]
-    std::vector<std::uint32_t> group_fdids;
-
-    [[
-      =chunk("MDDI"),
-      =since(ClientVersion{8, 3, 0, 32044}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Per-doodad color multipliers (MDDI, 8.3+), applied to the
-                      MODD color.)")]]
-    std::vector<float> doodad_color_mults;
-
-    [[
-      =chunk("MPVD"),
-      =since(ClientVersion{8, 3, 0, 32044}),
-      =formats::optional,
-      =welder::doc(R"(Particulate volume data (MPVD, 8.3+); undocumented layout,
-                      kept opaque.)")]]
-    ChunkBlob particulate_volumes;
-
-    [[
-      =chunk("MAVG"),
-      =since(ClientVersion{8, 3, 0, 32044}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Global ambient volumes (MAVG, 8.3+); position and radii are
-                      zero, selected by doodad set.)")]]
-    std::vector<AmbientVolume> global_ambient_volumes;
-
-    [[
-      =chunk("MAVD"),
-      =since(ClientVersion{8, 3, 0, 32044}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Ambient volumes (MAVD, 8.3+), overriding the header ambient
-                      color inside their radius.)")]]
-    std::vector<AmbientVolume> ambient_volumes;
-
-    [[
-      =chunk("MBVD"),
-      =since(ClientVersion{8, 3, 0, 32044}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Box ambient volumes (MBVD, 8.3+); read only when MAVG/MAVD is
-                      present.)")]]
-    std::vector<AmbientBoxVolume> ambient_box_volumes;
-
-    [[
-      =chunk("MFED"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc("Fog extra data (MFED, 9.0+); same count as MFOG.")]]
-    std::vector<FogExtra> fog_extras;
-
-    [[
-      =chunk("MGI2"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Group info v2 (MGI2, 9.0+); same count as MOGI, overrides LOD
-                      selection.)")]]
-    std::vector<GroupInfo2> group_infos2;
-
-    [[
-      =chunk("MNLD"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::mark::no_reassign,
-      =welder::doc(R"(Dynamic lights (MNLD, 9.0+): torch fires, window light
-                      projection and the like.)")]]
-    std::vector<NewLight> new_lights;
-
-    [[
-      =chunk("MDDL"),
-      =since(ClientVersion{9, 0, 1, 33978}),
-      =formats::optional,
-      =welder::doc(R"(Detail (ground-effect) doodad layers (MDDL, 9.0+);
-                      variable-length RLE layout, kept opaque.)")]]
-    ChunkBlob detail_doodads;
-
-    [[
       =chunk("MOMX"),
       =formats::optional,
       =welder::doc("MOMX (11.x, undocumented purpose); preserved opaque.")]]
     ChunkBlob momx;
 
-    // MFOB (12.1+, Midnight) postdates the supported client range; it and any
-    // other unmodeled root chunk round-trip through ChunkExtras::unknown.
+    /** The canonical chunk-stream order the serializer emits a fresh entity in —
+        decoupled from the by-trait flatten order of the version bases. Lists every
+        chunk member exactly once (checked at compile time by write_order).
+
+        MFOB (12.1+, Midnight) postdates the supported client range; it and any
+        other unmodeled root chunk round-trip through ChunkExtras::unknown. */
+    static constexpr std::array chunk_order = {
+      four_cc("MVER"), four_cc("MOHD"), four_cc("MOTX"), four_cc("MOMT"), four_cc("MOM3"),
+      four_cc("MOUV"), four_cc("MOGN"), four_cc("MOGI"), four_cc("MOSB"), four_cc("MOSI"),
+      four_cc("MOPV"), four_cc("MOPT"), four_cc("MOPR"), four_cc("MOPE"), four_cc("MOVV"),
+      four_cc("MOVB"), four_cc("MOLT"), four_cc("MOLV"), four_cc("MODS"), four_cc("MODN"),
+      four_cc("MODI"), four_cc("MODD"), four_cc("MFOG"), four_cc("MCVP"), four_cc("GFID"),
+      four_cc("MDDI"), four_cc("MPVD"), four_cc("MAVG"), four_cc("MAVD"), four_cc("MBVD"),
+      four_cc("MFED"), four_cc("MGI2"), four_cc("MNLD"), four_cc("MDDL"), four_cc("MOMX"),
+    };
   };
 }

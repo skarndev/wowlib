@@ -49,7 +49,7 @@ MARKER_LEGEND = "<!-- wmo-legend -->"
 # per-version type only carries its version's fields, the representative must be the
 # one with the full superset: for the group side (no removed chunks) that is the
 # latest version; the root side is not yet versioned, so any version has all fields.
-REPR_CLASS = {"root": "WMORootWotlk", "group": "WMOGroupBodyTheWarWithin"}
+REPR_CLASS = {"root": "WMORootTheWarWithin", "group": "WMOGroupBodyTheWarWithin"}
 # Expansion suffixes (welded class names), stripped from the *displayed* class name
 # so the per-version layout reads generically (WMOGroupBodyTheWarWithin ->
 # WMOGroupBody⟨version⟩); ids/anchors keep the real name so links resolve.

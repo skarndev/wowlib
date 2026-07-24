@@ -13,7 +13,6 @@
 
 #include <array>
 #include <cstdint>
-#include <type_traits>
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
@@ -21,6 +20,7 @@
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/common/types.hpp>
+#include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
 #include <wowlib/formats/wmo/group/chunks/geometry.hpp>
 #include <wowlib/formats/wmo/group/chunks/header.hpp>
@@ -74,19 +74,6 @@ namespace wowlib::formats::wmo::group
 
   namespace detail
   {
-    /** A distinct empty base per @a Trait, so an entity inheriting several
-        *inactive* version slots never inherits the same empty type twice
-        (ill-formed). Empty, so it is elided (EBO). */
-    template <class Trait>
-    struct absent {};
-
-    /** A version-gated base: WMOGroupBody<V> inherits @a Trait (its chunk members
-        flatten into the entity and its binding) when @a V is at least @a Since,
-        else the empty absent<Trait>. Chunks sharing an availability range go into
-        one Trait, so an entity carries exactly the fields its version defines. */
-    template <ClientVersion V, ClientVersion Since, class Trait>
-    using slot = std::conditional_t<(V >= Since), Trait, absent<Trait>>;
-
     // --- version-range trait bases (unwelded) ---------------------------------
     // One struct per availability range; members keep their chunk/since/doc/marks
     // (read off the declaring class, so flattening preserves them). Members are in
@@ -320,13 +307,13 @@ namespace wowlib::formats::wmo::group
         See https://wowdev.wiki/WMO.)")
   ]] WMOGroupBody
     : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase,
-      detail::slot<V, ClientVersion{4, 0, 0, 0}, detail::GroupBodyCata>,
-      detail::slot<V, ClientVersion{6, 0, 0, 0}, detail::GroupBodyWod>,
-      detail::slot<V, ClientVersion{7, 0, 1, 20740}, detail::GroupBodyLegion>,
-      detail::slot<V, ClientVersion{8, 1, 0, 27826}, detail::GroupBody81>,
-      detail::slot<V, ClientVersion{8, 3, 0, 33775}, detail::GroupBody83>,
-      detail::slot<V, ClientVersion{9, 0, 1, 33978}, detail::GroupBody90>,
-      detail::slot<V, ClientVersion{10, 0, 0, 46181}, detail::GroupBody100>
+      slot<V, ClientVersion{4, 0, 0, 0}, detail::GroupBodyCata>,
+      slot<V, ClientVersion{6, 0, 0, 0}, detail::GroupBodyWod>,
+      slot<V, ClientVersion{7, 0, 1, 20740}, detail::GroupBodyLegion>,
+      slot<V, ClientVersion{8, 1, 0, 27826}, detail::GroupBody81>,
+      slot<V, ClientVersion{8, 3, 0, 33775}, detail::GroupBody83>,
+      slot<V, ClientVersion{9, 0, 1, 33978}, detail::GroupBody90>,
+      slot<V, ClientVersion{10, 0, 0, 46181}, detail::GroupBody100>
   {
     static constexpr ClientVersion version = V;
 

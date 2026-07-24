@@ -52,7 +52,7 @@ per-version layout below is shown generically as `WMORoot⟨version⟩`.
       heading_level: 3
       show_root_toc_entry: true
 
-::: wowlib.formats.wmo.root.WMORootWotlk
+::: wowlib.formats.wmo.root.WMORootTheWarWithin
     options:
       heading_level: 3
 

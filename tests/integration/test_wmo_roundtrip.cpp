@@ -78,9 +78,12 @@ namespace
     REQUIRE(rewritten_root.has_value());
     require_identical(*root_data, *rewritten_root, label + " (root)");
 
-    // group identity: GFID when present, name derivation otherwise
+    // group identity: GFID when present (Legion+), name derivation otherwise. The
+    // GFID member only exists on versions that have it, so guard the access.
     const std::size_t n_groups = root.header.n_groups;
-    const bool by_fdid = root.group_fdids.size() >= n_groups;
+    bool by_fdid = false;
+    if constexpr (requires { root.group_fdids; })
+      by_fdid = root.group_fdids.size() >= n_groups;
     std::string root_path;
     if (!by_fdid)
     {
@@ -92,10 +95,13 @@ namespace
 
     for (std::size_t i = 0; i < n_groups; ++i)
     {
-      const FileKey group_key =
-        by_fdid ? FileKey{FileDataID{root.group_fdids[i]}}
-                : FileKey{std::format("{}_{:03}.wmo",
-                                      root_path.substr(0, root_path.size() - 4), i)};
+      const FileKey group_key = [&]() -> FileKey {
+        if constexpr (requires { root.group_fdids; })
+          if (by_fdid)
+            return FileKey{FileDataID{root.group_fdids[i]}};
+        return FileKey{std::format("{}_{:03}.wmo",
+                                   root_path.substr(0, root_path.size() - 4), i)};
+      }();
       const auto group_data = fs.read_file(group_key);
       REQUIRE(group_data.has_value());
 

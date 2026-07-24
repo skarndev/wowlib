@@ -23,9 +23,12 @@ def fresh_wmo():
 
 
 @pytest.fixture
-def fresh_root(fresh_wmo):
-    """The root of a fresh WMO — its many opaque vector fields start empty."""
-    return fresh_wmo.root
+def fresh_root():
+    """The root of a fresh latest-version WMO — its many opaque vector fields start
+    empty. Uses the latest version (not fresh_wmo's Wotlk) so the version-gated
+    fields the vector tests exercise — group_fdids (Legion+), doodad_color_mults
+    (8.3+) — exist on the type."""
+    return wmo_mod.WMO.for_version(wowlib.Expansion.TheWarWithin).root
 
 
 @pytest.fixture(scope="session")

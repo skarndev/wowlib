@@ -80,7 +80,12 @@ namespace wowlib::formats::wmo
       return std::unexpected{r.error()};
 
     const std::size_t n_groups = root.header.n_groups;
-    const bool by_fdid = root.group_fdids.size() >= n_groups;
+    // GFID (group FileDataIDs) is Legion+; pre-Legion roots have no such member
+    // (it lives in a version trait that version does not inherit), so they always
+    // locate groups by the "{root}_NNN.wmo" path convention.
+    bool by_fdid = false;
+    if constexpr (requires { root.group_fdids; })
+      by_fdid = root.group_fdids.size() >= n_groups;
 
     std::string root_path;
     if (!by_fdid)
@@ -96,8 +101,12 @@ namespace wowlib::formats::wmo
     groups.reserve(n_groups);
     for (std::size_t i = 0; i < n_groups; ++i)
     {
-      const FileKey group_key = by_fdid ? FileKey{FileDataID{root.group_fdids[i]}}
-                                        : FileKey{group_path(root_path, i)};
+      const FileKey group_key = [&]() -> FileKey {
+        if constexpr (requires { root.group_fdids; })
+          if (by_fdid)
+            return FileKey{FileDataID{root.group_fdids[i]}};
+        return FileKey{group_path(root_path, i)};
+      }();
       const auto group_data = fs.read_file(group_key);
       if (!group_data)
         return make_error(group_data.error().code,
