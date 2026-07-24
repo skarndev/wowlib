@@ -114,4 +114,27 @@ namespace wowlib::formats
   }
 }
 
+// The m2 namespace likewise first opens AFTER the common wire primitives (its
+// records carry NSDMI defaults of common types — C3Vector pivots, CAaBox
+// bounds) and after wmo, fixing the submodule weld order.
+namespace wowlib::formats
+{
+  namespace
+  [[=welder::doc(R"(
+      The M2 model format: the M2 assembly (body + baked satellite files) and
+      its per-version classes, with the record wire structs in the records
+      submodule. The pre-declaration order is the submodule weld order — the
+      records weld before the entities that name them as NSDMI defaults.)")]]
+  m2
+  {
+    namespace
+    [[=welder::doc("M2 record structs (sequences, bones, tracks, textures, "
+                   "cameras, emitters, skin sections) and their flag enums.")]]
+    records
+    {
+    }
+  }
+}
+
 #include <wowlib/formats/wmo/convert.hpp>
+#include <wowlib/formats/m2/convert.hpp>

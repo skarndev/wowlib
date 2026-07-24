@@ -33,6 +33,8 @@ namespace wowlib::formats::common
   {
     float x = 0;
     float y = 0;
+
+    bool operator==(const C2Vector&) const = default;
   };
 
   struct [[
@@ -42,6 +44,8 @@ namespace wowlib::formats::common
   {
     std::int32_t x = 0;
     std::int32_t y = 0;
+
+    bool operator==(const C2iVector&) const = default;
   };
 
   struct [[
@@ -53,6 +57,8 @@ namespace wowlib::formats::common
     float x = 0;
     float y = 0;
     float z = 0;
+
+    bool operator==(const C3Vector&) const = default;
   };
 
   struct [[
@@ -63,6 +69,8 @@ namespace wowlib::formats::common
     std::int32_t x = 0;
     std::int32_t y = 0;
     std::int32_t z = 0;
+
+    bool operator==(const C3iVector&) const = default;
   };
 
   struct [[
@@ -74,6 +82,8 @@ namespace wowlib::formats::common
     float y = 0;
     float z = 0;
     float w = 0;
+
+    bool operator==(const C4Vector&) const = default;
   };
 
   struct [[
@@ -87,6 +97,8 @@ namespace wowlib::formats::common
     float y = 0;
     float z = 0;
     float w = 1;
+
+    bool operator==(const C4Quaternion&) const = default;
   };
 
   struct [[
@@ -95,6 +107,8 @@ namespace wowlib::formats::common
   ]] C33Matrix
   {
     std::array<C3Vector, 3> columns{};
+
+    bool operator==(const C33Matrix&) const = default;
   };
 
   struct [[
@@ -103,6 +117,8 @@ namespace wowlib::formats::common
   ]] C34Matrix
   {
     std::array<C3Vector, 4> columns{};
+
+    bool operator==(const C34Matrix&) const = default;
   };
 
   struct [[
@@ -111,6 +127,8 @@ namespace wowlib::formats::common
   ]] C44Matrix
   {
     std::array<C4Vector, 4> columns{};
+
+    bool operator==(const C44Matrix&) const = default;
   };
 
   struct [[
@@ -120,6 +138,8 @@ namespace wowlib::formats::common
   {
     C3Vector normal{};
     float distance = 0;
+
+    bool operator==(const C4Plane&) const = default;
   };
 
   struct [[
@@ -129,6 +149,8 @@ namespace wowlib::formats::common
   {
     C3Vector min{};
     C3Vector max{};
+
+    bool operator==(const CAaBox&) const = default;
   };
 
   struct [[
@@ -138,6 +160,19 @@ namespace wowlib::formats::common
   {
     C3Vector position{};
     float radius = 0;
+
+    bool operator==(const CAaSphere&) const = default;
+  };
+
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A float range: minimum and maximum.")
+  ]] CRange
+  {
+    float min = 0;
+    float max = 0;
+
+    bool operator==(const CRange&) const = default;
   };
 
   struct [[
@@ -149,6 +184,8 @@ namespace wowlib::formats::common
     std::uint8_t g = 0;
     std::uint8_t b = 0;
     std::uint8_t a = 0;
+
+    bool operator==(const CArgb&) const = default;
   };
 
   struct [[
@@ -161,6 +198,8 @@ namespace wowlib::formats::common
     std::uint8_t g = 0;
     std::uint8_t r = 0;
     std::uint8_t a = 0;
+
+    bool operator==(const CImVector&) const = default;
   };
 
   struct [[
@@ -173,6 +212,8 @@ namespace wowlib::formats::common
     [[=welder::getter,
       =welder::doc("The value as a float in [-1, 1].")]]
     constexpr float as_float() const { return static_cast<float>(value) / 0x7FFF; }
+
+    bool operator==(const fixed16&) const = default;
   };
 
   static_assert(sizeof(C2Vector) == 8);
@@ -187,6 +228,7 @@ namespace wowlib::formats::common
   static_assert(sizeof(C4Plane) == 16);
   static_assert(sizeof(CAaBox) == 24);
   static_assert(sizeof(CAaSphere) == 16);
+  static_assert(sizeof(CRange) == 8);
   static_assert(sizeof(CArgb) == 4);
   static_assert(sizeof(CImVector) == 4);
   static_assert(sizeof(fixed16) == 2);

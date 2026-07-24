@@ -39,6 +39,7 @@ namespace wowlib
     ChunkSizeMismatch,   /**< A chunk's size disagrees with its wire struct layout. */
     ChunkMissing,        /**< A chunk the format requires is absent from the file. */
     OffsetOutOfBounds,   /**< An offset array (M2Array) points outside its base buffer. */
+    InvalidEntityState,  /**< An entity's members disagree (e.g. a stored count vs baked satellites). */
     FormatVersionMismatch,    /**< The file's version chunk disagrees with the requested version. */
     UnsupportedClientVersion  /**< No format instantiation exists for the requested client version. */
   };

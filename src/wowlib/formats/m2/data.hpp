@@ -1,0 +1,304 @@
+#pragma once
+
+/** @file
+    The MD20 body entity (namespace wowlib::formats::m2): M2Data — the
+    client's own name for the offset-addressed model payload. Pre-Legion this
+    IS the .m2 file; Legion+ it is the MD21 chunk's content (offsets stay
+    relative to the image either way, which is exactly what OffsetFile
+    serializes against).
+
+    Version-gated members live in conditionally-inherited trait slots
+    (m2::detail); the authoritative `wire_order` puts them back at their
+    interleaved wire positions. A version's M2Data carries ONLY the members
+    that version defines — setting an absent one is a compile error. */
+
+#include <array>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <welder/vocabulary.hpp>
+
+#include <wowlib/core/client_version.hpp>
+#include <wowlib/formats/common/annotations.hpp>
+#include <wowlib/formats/common/offsets.hpp>
+#include <wowlib/formats/common/types.hpp>
+#include <wowlib/formats/common/version_slot.hpp>
+#include <wowlib/formats/m2/boundaries.hpp>
+#include <wowlib/formats/m2/records/bone.hpp>
+#include <wowlib/formats/m2/records/effects.hpp>
+#include <wowlib/formats/m2/records/material.hpp>
+#include <wowlib/formats/m2/records/scene.hpp>
+#include <wowlib/formats/m2/records/sequence.hpp>
+#include <wowlib/formats/m2/records/skin.hpp>
+#include <wowlib/formats/m2/records/track.hpp>
+
+namespace wowlib::formats::m2
+{
+  using namespace wowlib::formats::m2::records;
+
+  /** The MD20 leading magic, as memcpy'd from disk. */
+  inline constexpr std::uint32_t md20_magic = 0x3032444D;  // "MD20"
+
+  /** M2Data::global_flags bits. */
+  enum class [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("M2 global flags: tilt behavior, the texture-combiner-combo "
+                 "gate, physics participation and exporter-era markers.")
+  ]] GlobalFlags : std::uint32_t
+  {
+    TiltX [[=welder::doc("Tilt the model over X (flying mounts).")]] = 0x1,
+    TiltY [[=welder::doc("Tilt the model over Y.")]] = 0x2,
+    UseTextureCombinerCombos [[=welder::doc("The texture_combiner_combos "
+                                            "block trails the header (TBC+).")]] = 0x8,
+    LoadPhysData [[=welder::doc("Request the .phys file (MoP+).")]] = 0x20,
+    Unk0x80 [[=welder::doc("Unset stops demon-hunter tattoos glowing (WoD+).")]] = 0x80,
+    CameraRelated [[=welder::doc("Camera related (WoD+).")]] = 0x100,
+    NewParticleRecord [[=welder::doc("Cata: particle records are the 492-byte "
+                                     "layout even below v272.")]] = 0x200,
+    TextureTransformsUseBoneSequences
+      [[=welder::doc("Texture transforms animate on the bone's sequence "
+                     "(Legion+).")]] = 0x800,
+    ChunkedAnimFiles [[=welder::doc("The .anim files are chunked (Legion+).")]] = 0x2000
+  };
+
+  namespace detail
+  {
+    // --- version-range trait bases (unwelded) ---------------------------------
+    // One struct per availability range; wire_order (not flatten order) fixes
+    // their interleaved positions in the header.
+
+    /** Pre-WotLK members: the embedded skin profiles and the vanilla/TBC-only
+        lookup blocks. */
+    template <ClientVersion V>
+    struct DataPreWotlk
+    {
+      [[
+        =until(m2_per_sequence_timelines),
+        =welder::mark::no_reassign,
+        =welder::doc("Playable-animation fallbacks, one per AnimationData.dbc "
+                     "id (pre-WotLK).")]]
+      std::vector<M2SequenceFallback> playable_animation_lookup;
+
+      [[
+        =until(m2_per_sequence_timelines),
+        =welder::mark::no_reassign,
+        =welder::doc("The skin profiles (LOD views), embedded in the model "
+                     "pre-WotLK; WotLK+ moves them to .skin files.")]]
+      std::vector<M2SkinProfile<V>> skin_profiles;
+
+      [[
+        =until(m2_per_sequence_timelines),
+        =welder::mark::no_reassign,
+        =welder::doc("Texture flipbooks (pre-WotLK; never seen engaged).")]]
+      std::vector<M2TextureFlipbook<V>> texture_flipbooks;
+
+      bool operator==(const DataPreWotlk&) const = default;
+    };
+
+    /** WotLK+ members: the external-skin count replacing the embedded
+        profiles. */
+    struct DataWotlk
+    {
+      [[
+        =since(m2_per_sequence_timelines),
+        =welder::doc("How many .skin files (LOD views) belong to the model "
+                     "(WotLK+); the M2 assembly keeps it in sync with its "
+                     "skins on write.")]]
+      std::uint32_t num_skin_profiles = 0;
+
+      bool operator==(const DataWotlk&) const = default;
+    };
+
+    /** TBC+ members: the flag-gated combiner-combo tail. */
+    struct DataTbc
+    {
+      [[
+        =since(m2_compressed_bones),
+        =gated_by(0x8),
+        =welder::mark::no_reassign,
+        =welder::doc("Second-texture material override combos; on the wire "
+                     "only under global flag 0x8 (TBC+).")]]
+      std::vector<std::uint16_t> texture_combiner_combos;
+
+      bool operator==(const DataTbc&) const = default;
+    };
+  }
+
+  /** The MD20 model body for one client version: header scalars plus every
+      offset-addressed block, decoded into vectors. This entity alone is a
+      complete pre-WotLK model; later clients pull skins, low-priority
+      sequence data, skeleton and physics from satellite files — the M2
+      assembly bakes those back in.
+      @tparam V the client version this body targets.
+      @see https://wowdev.wiki/M2 */
+  template <ClientVersion V>
+  struct M2Data : OffsetFile<M2Data<V>>,
+                  slot<V, ClientVersion{0, 0, 0, 0}, detail::DataPreWotlk<V>,
+                       m2_per_sequence_timelines>,
+                  slot<V, m2_per_sequence_timelines, detail::DataWotlk>,
+                  slot<V, m2_compressed_bones, detail::DataTbc>
+  {
+    static constexpr ClientVersion version = V;
+
+    /** The authoritative wire order of every member across all versions —
+        names absent from a version's flatten are skipped. */
+    static constexpr std::array<std::string_view, 41> wire_order{
+      "magic", "format_version", "name", "global_flags",
+      "global_loops", "sequences", "sequence_lookups", "playable_animation_lookup",
+      "bones", "key_bone_lookup", "vertices", "skin_profiles", "num_skin_profiles",
+      "colors", "textures", "texture_weights", "texture_flipbooks",
+      "texture_transforms", "replacable_texture_lookup", "materials",
+      "bone_lookup_table", "texture_lookup_table", "texture_mapping_lookup_table",
+      "transparency_lookup_table", "texture_transforms_lookup_table",
+      "bounding_box", "bounding_sphere_radius", "collision_box",
+      "collision_sphere_radius", "collision_triangles", "collision_vertices",
+      "collision_normals", "attachments", "attachment_lookup_table", "events",
+      "lights", "cameras", "camera_lookup_table", "ribbon_emitters",
+      "particle_emitters", "texture_combiner_combos"};
+
+    [[=welder::doc("The leading magic, 'MD20'.")]]
+    std::uint32_t magic = md20_magic;
+
+    [[=welder::doc("The MD20 format version (256 vanilla .. 274 Legion+).")]]
+    std::uint32_t format_version = m2_wire_version(V);
+
+    [[=welder::doc("The model's internal name; empty in 9.2+ files.")]]
+    std::string name;
+
+    [[=welder::doc("Global flags, see GlobalFlags.")]]
+    std::uint32_t global_flags = 0;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Global-sequence loop lengths (timestamps).")]]
+    std::vector<M2Loop> global_loops;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("The animation sequences.")]]
+    std::vector<M2Sequence<V>> sequences;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Animation-id hash table: AnimationData.dbc id -> sequence "
+                   "index, quadratic probing, -1 empty.")]]
+    std::vector<std::int16_t> sequence_lookups;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("The bones (MAX_BONES nominally 256).")]]
+    std::vector<M2CompBone<V>> bones;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Key-bone lookup: key bone slot -> bone index, -1 if none.")]]
+    std::vector<std::int16_t> key_bone_lookup;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("The global vertex list (Z-up model space).")]]
+    std::vector<M2Vertex> vertices;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Color and alpha animations, referenced from skin batches.")]]
+    std::vector<M2Color<V>> colors;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("The texture definitions.")]]
+    std::vector<M2Texture> textures;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Global transparency weights.")]]
+    std::vector<M2TextureWeight<V>> texture_weights;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("UV animations.")]]
+    std::vector<M2TextureTransform<V>> texture_transforms;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Replacable-texture reverse lookup: replacable id -> "
+                   "texture index or -1.")]]
+    std::vector<std::int16_t> replacable_texture_lookup;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Materials: render flags + blending modes.")]]
+    std::vector<M2Material> materials;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Bone lookup: skin sections select bone subsets through it.")]]
+    std::vector<std::uint16_t> bone_lookup_table;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Texture lookup: batches select textures through it.")]]
+    std::vector<std::uint16_t> texture_lookup_table;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Texture-mapping lookup: -1 environment, 0 first UV set, "
+                   "1 second (unused since Cata).")]]
+    std::vector<std::int16_t> texture_mapping_lookup_table;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Transparency lookup: batches select texture weights "
+                   "through it.")]]
+    std::vector<std::uint16_t> transparency_lookup_table;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Texture-transform lookup: batches select UV animations "
+                   "through it, -1 static.")]]
+    std::vector<std::int16_t> texture_transforms_lookup_table;
+
+    [[=welder::doc("The render bounds.")]]
+    CAaBox bounding_box{};
+
+    [[=welder::doc("The render bounding-sphere radius.")]]
+    float bounding_sphere_radius = 0;
+
+    [[=welder::doc("The collision bounds.")]]
+    CAaBox collision_box{};
+
+    [[=welder::doc("The collision bounding-sphere radius.")]]
+    float collision_sphere_radius = 0;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Collision-hull triangle indices (3 per face).")]]
+    std::vector<std::uint16_t> collision_triangles;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Collision-hull vertices.")]]
+    std::vector<C3Vector> collision_vertices;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Collision-hull per-face normals.")]]
+    std::vector<C3Vector> collision_normals;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Attachment points (weapons, effects, name plates).")]]
+    std::vector<M2Attachment<V>> attachments;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Attachment lookup: attachment id -> index.")]]
+    std::vector<std::uint16_t> attachment_lookup_table;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Timed events (sounds, footsteps, death thud).")]]
+    std::vector<M2Event<V>> events;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Model lights.")]]
+    std::vector<M2Light<V>> lights;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Cameras (portrait, character info, flyby).")]]
+    std::vector<M2Camera<V>> cameras;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Camera lookup: camera type -> index.")]]
+    std::vector<std::uint16_t> camera_lookup_table;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Ribbon (trail) emitters.")]]
+    std::vector<M2Ribbon<V>> ribbon_emitters;
+
+    [[=welder::mark::no_reassign,
+      =welder::doc("Particle emitters.")]]
+    std::vector<M2Particle<V>> particle_emitters;
+
+    bool operator==(const M2Data&) const = default;
+  };
+}

@@ -192,6 +192,11 @@ namespace wowlib::formats
         {
           constexpr auto name = std::meta::identifier_of(m);
           constexpr bool seq = annotation<sequence_data_spec, m>().has_value();
+          // A record bound to a global sequence keeps its single timeline
+          // inline — per-sequence resolution only applies to sequence tracks.
+          bool seq_external = seq;
+          if constexpr (seq && requires { dst.global_sequence; })
+            seq_external = seq && dst.global_sequence == 0xFFFF;
           bool present = true;
           if constexpr (constexpr auto gate = annotation<gated_by_spec, m>(); gate.has_value())
           {
@@ -200,7 +205,7 @@ namespace wowlib::formats
             present = (static_cast<std::uint32_t>(dst.global_flags) & gate->mask) != 0;
           }
           if (!failed && present)
-            if (auto r = read_wire<V>(dst.[:m:], image, cursor, base, ctx, seq, name); !r)
+            if (auto r = read_wire<V>(dst.[:m:], image, cursor, base, ctx, seq_external, name); !r)
               failed = r.error();
         }
       }
@@ -226,6 +231,10 @@ namespace wowlib::formats
         {
           constexpr auto name = std::meta::identifier_of(m);
           constexpr bool seq = annotation<sequence_data_spec, m>().has_value();
+          // Mirror the read side: global-sequence-bound records stay inline.
+          bool seq_external = seq;
+          if constexpr (seq && requires { src.global_sequence; })
+            seq_external = seq && src.global_sequence == 0xFFFF;
           bool present = true;
           if constexpr (constexpr auto gate = annotation<gated_by_spec, m>(); gate.has_value())
           {
@@ -234,8 +243,8 @@ namespace wowlib::formats
             present = (static_cast<std::uint32_t>(src.global_flags) & gate->mask) != 0;
           }
           if (!failed && present)
-            if (auto r =
-                  write_wire<V>(src.[:m:], image_buf, image_pos, cursor, base_buf, ctx, seq, name);
+            if (auto r = write_wire<V>(src.[:m:], image_buf, image_pos, cursor, base_buf, ctx,
+                                       seq_external, name);
                 !r)
               failed = r.error();
         }

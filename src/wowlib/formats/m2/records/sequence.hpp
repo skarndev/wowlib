@@ -1,0 +1,141 @@
+#pragma once
+
+/** @file
+    M2 animation-sequence records (namespace wowlib::formats::m2::records):
+    M2Sequence across its three layout eras, the sequence flags, and the
+    pre-WotLK playable-animation fallback entry. All trivially copyable —
+    they memcpy straight out of their blocks. */
+
+#include <cstdint>
+
+#include <welder/vocabulary.hpp>
+
+#include <wowlib/core/client_version.hpp>
+#include <wowlib/formats/common/flags.hpp>
+#include <wowlib/formats/m2/boundaries.hpp>
+#include <wowlib/formats/m2/records/track.hpp>
+
+namespace wowlib::formats::m2::records
+{
+  /** M2Sequence::flags bits. Wire fields stay plain ints (combined values are
+      not valid enumerators); test with has_flag(). */
+  enum class [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("M2Sequence flags — the 0x20/0x40/0x130 combination decides "
+                 "where the sequence's track data lives (.m2 vs .anim file).")
+  ]] SequenceFlags : std::uint32_t
+  {
+    SetsRuntimeBlend [[=welder::doc("Sets 0x80 when loaded (M2Init).")]] = 0x1,
+    TiltIn [[=welder::doc("Model tilts over X/Y by the end of the animation.")]] = 0x2,
+    TiltOut [[=welder::doc("Model starts tilted and returns upright.")]] = 0x4,
+    TiltFixed [[=welder::doc("Model stays tilted for the whole animation.")]] = 0x8,
+    LoadedLowPriority [[=welder::doc("Set at runtime for loaded low-priority sequences.")]] = 0x10,
+    DataInM2 [[=welder::doc("Primary bone sequence: track data is in the .m2 "
+                            "itself, not an .anim file.")]] = 0x20,
+    Alias [[=welder::doc("The sequence is an alias: follow alias_next until an "
+                         "entry without this flag owns the data.")]] = 0x40,
+    Blended [[=welder::doc("Blend (lerp) into/out of this sequence.")]] = 0x80,
+    StoredInModel [[=welder::doc("Sequence stored in the model (0x100).")]] = 0x100,
+    SplitBlendTimes [[=welder::doc("blend_time is the in/out pair, not one u32.")]] = 0x200,
+    Legion0x800 [[=welder::doc("Seen in Legion 24500 models.")]] = 0x800
+  };
+
+  /** Whether a WotLK+ sequence keeps its track data in an external .anim
+      file — the client loads one iff none of 0x10/0x20/0x100 are set.
+      @param flags the sequence's flags value.
+      @return true when the data lives in "%s%04d-%02d.anim". */
+  constexpr bool sequence_data_external(std::uint32_t flags)
+  {
+    return (flags & 0x130u) == 0;
+  }
+
+  template <ClientVersion V>
+  struct M2Sequence;
+
+  /** Pre-WotLK: sequences slice the model's single global timeline by their
+      start/end timestamps; one u32 blend time. */
+  template <ClientVersion V>
+    requires (V < m2_per_sequence_timelines)
+  struct M2Sequence<V>
+  {
+    std::uint16_t id = 0;              /**< Animation id in AnimationData.dbc. */
+    std::uint16_t variation_index = 0; /**< Which variation of the animation this is. */
+    std::uint32_t start_timestamp = 0; /**< Slice start on the global timeline. */
+    std::uint32_t end_timestamp = 0;   /**< Slice end on the global timeline. */
+    float movespeed = 0;               /**< Character move speed during the sequence. */
+    std::uint32_t flags = 0;           /**< See SequenceFlags. */
+    std::int16_t frequency = 0;        /**< Playback probability weight (sums to 0x7FFF per id). */
+    std::uint16_t padding = 0;
+    M2Range replay{};                  /**< Random repetition bounds; both 0 = no repeat. */
+    std::uint32_t blend_time = 0;      /**< Transition blend duration, milliseconds. */
+    M2Bounds bounds{};                 /**< Bounds while the sequence plays. */
+    std::int16_t variation_next = -1;  /**< Next variation index, -1 if none. */
+    std::uint16_t alias_next = 0;      /**< Alias target (flags & 0x40 chains). */
+
+    bool operator==(const M2Sequence&) const = default;
+  };
+
+  /** WotLK through MoP: an own per-sequence timeline (duration), one u32
+      blend time. */
+  template <ClientVersion V>
+    requires (V >= m2_per_sequence_timelines && V < m2_split_blend_times)
+  struct M2Sequence<V>
+  {
+    std::uint16_t id = 0;              /**< Animation id in AnimationData.dbc. */
+    std::uint16_t variation_index = 0; /**< Which variation of the animation this is. */
+    std::uint32_t duration = 0;        /**< Sequence length, milliseconds. */
+    float movespeed = 0;               /**< Character move speed during the sequence. */
+    std::uint32_t flags = 0;           /**< See SequenceFlags. */
+    std::int16_t frequency = 0;        /**< Playback probability weight (sums to 0x7FFF per id). */
+    std::uint16_t padding = 0;
+    M2Range replay{};                  /**< Random repetition bounds; both 0 = no repeat. */
+    std::uint32_t blend_time = 0;      /**< Transition blend duration, milliseconds. */
+    M2Bounds bounds{};                 /**< Bounds while the sequence plays. */
+    std::int16_t variation_next = -1;  /**< Next variation index, -1 if none. */
+    std::uint16_t alias_next = 0;      /**< Alias target (flags & 0x40 chains). */
+
+    bool operator==(const M2Sequence&) const = default;
+  };
+
+  /** WoD+: the blend time splits into the in/out pair. */
+  template <ClientVersion V>
+    requires (V >= m2_split_blend_times)
+  struct M2Sequence<V>
+  {
+    std::uint16_t id = 0;               /**< Animation id in AnimationData.dbc. */
+    std::uint16_t variation_index = 0;  /**< Which variation of the animation this is. */
+    std::uint32_t duration = 0;         /**< Sequence length, milliseconds. */
+    float movespeed = 0;                /**< Character move speed during the sequence. */
+    std::uint32_t flags = 0;            /**< See SequenceFlags. */
+    std::int16_t frequency = 0;         /**< Playback probability weight (sums to 0x7FFF per id). */
+    std::uint16_t padding = 0;
+    M2Range replay{};                   /**< Random repetition bounds; both 0 = no repeat. */
+    std::uint16_t blend_time_in = 0;    /**< Blend-in duration, milliseconds. */
+    std::uint16_t blend_time_out = 0;   /**< Blend-out duration, milliseconds. */
+    M2Bounds bounds{};                  /**< Bounds while the sequence plays. */
+    std::int16_t variation_next = -1;   /**< Next variation index, -1 if none. */
+    std::uint16_t alias_next = 0;       /**< Alias target (flags & 0x40 chains). */
+
+    bool operator==(const M2Sequence&) const = default;
+  };
+
+  /** Pre-WotLK playable-animation lookup entry: maps every AnimationData.dbc
+      id onto the sequence actually present in the model. */
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A pre-WotLK playable-animation fallback: the substitute "
+                 "animation id plus how to play it (0 normal, 1 backwards, "
+                 "2 frame-by-frame, 3 freeze).")
+  ]] M2SequenceFallback
+  {
+    std::int16_t fallback_animation_id = 0;
+    std::int16_t flags = 0;
+
+    bool operator==(const M2SequenceFallback&) const = default;
+  };
+
+  static_assert(sizeof(M2Sequence<versions::vanilla>) == 68);
+  static_assert(sizeof(M2Sequence<versions::wotlk>) == 64);
+  static_assert(sizeof(M2Sequence<versions::wod>) == 64);
+  static_assert(sizeof(M2SequenceFallback) == 4);
+}

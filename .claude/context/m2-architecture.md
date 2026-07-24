@@ -111,6 +111,41 @@ containing nested arrays) fall out naturally.
   defaulting to the entity's own. Stage 2 wires .anim through it.
 - New ErrorCode: `OffsetOutOfBounds` (an M2Array points outside the buffer).
 
+## Stage 1+2 landed (2026-07-24)
+
+- Stage 1 commit 77a29ba: engine as designed above. Stage 2: `formats/m2/`
+  complete for pre-Legion — boundaries.hpp (+ `m2_wire_version_range`: read
+  accepts the whole era, e.g. tbc 258–263), records/{track,sequence,bone,
+  material,scene,effects,skin}.hpp, data.hpp (M2Data + trait slots
+  DataPreWotlk<V>/DataWotlk/DataTbc + 41-name wire_order), skin.hpp (Skin<V>
+  = magic + inherited M2SkinProfile<V>, wire_order puts magic first),
+  m2.hpp/.cpp (assembly + X-macros ×11 + skin-only X-macro ×9), convert.hpp.
+  All wire sizes static_asserted against wowdev (vanilla header 324, wotlk
+  304, bone 108/112/88, particle 504/476/492, camera 124/100/116, ribbon
+  220/176, skin section 32/48).
+- **Engine addition**: a `sequence_data` member's per-sequence resolution is
+  SKIPPED when the parent record's `global_sequence != 0xFFFF` — global-
+  sequence tracks keep their single timeline inline even when sequences are
+  external. Both read and write gate on it.
+- **Assembly I/O** (m2.cpp): read resolves .anim lazily inside the context
+  closure (sequences decode before any track member — wire order — so flags
+  are available); missing .anim leaves tracks empty, and write regenerates an
+  empty file for them. Aliases (0x40) never own a file. Skins are
+  "{stem}0N.skin"; write validates num_skin_profiles == skins.size()
+  (ErrorCode::InvalidEntityState). Legion+ read/write are NotImplemented
+  until stage 3.
+- **NaN gotcha**: real client data holds NaN floats, so defaulted
+  operator== is NOT the round-trip test oracle — the integration test
+  (test_m2_roundtrip.cpp) uses a reflection-driven bitwise diff_value()
+  (memcmp leaves, member-path output) instead. Keep that pattern for the
+  9.2.7 tests.
+- Integration: 11 curated 3.3.5a models (chicken → HumanMale → KelThuzad →
+  the Northrend glue screen) re-read bit-identically after canonical rewrite,
+  .anim splitting included. Full suite 85/85.
+- Deferred in-stage: span-based M2::read overload (bindings will need it),
+  welder welds on templated records (stage 4), real client write-through-fs
+  test (needs a project-overlay fixture).
+
 ## Naming
 
 Client canonical record names (M2Sequence, M2CompBone, M2Vertex, M2Batch,
