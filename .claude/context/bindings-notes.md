@@ -163,6 +163,23 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
   `AnyX = C0 | ...`. stubgen still auto-imports the typing/collections.abc/wowlib.fs
   names the nb::sig strings use, so no import lines are needed in the pattern file.
 
+## Nested opaque containers (welder 5bf54fa, 2026-07-24)
+
+- The opaque generator now opens NESTED container chains
+  (vector<vector<T>>, map<K, vector<T>>) by reference: eligibility recurses,
+  collection adds every level, aliases render depth-major so inner wrappers
+  weld before the outers that name them. Motivating case: Legion+ M2 track
+  timestamps/values (vector<vector<u32>> / vector<vector<T>>) previously
+  degraded to copied Python lists of inner wrappers.
+- Upstream 91e224d (same day) fixed element ACCESS: nanobind bind_vector/
+  bind_map now pass rv_policy::reference_internal (the automatic_reference
+  default COPIES lvalue-reference elements out of __getitem__/__iter__), so
+  v[i].field = x and nested row mutation write through. Standard caveat:
+  growing/clearing a container invalidates outstanding element references.
+- wowlib names them via welder's derived fallback (VectorVectorUnsignedInt,
+  VectorVectorC3Vector, ...) — the wowlib_opaque_naming hook only styles
+  plain welded-class and versioned-entity elements.
+
 ## Result<T> / std::expected translation
 welder has no expected support; each rod teaches its framework (Python live; the
 Lua notes below describe the intended shape for when that target returns):

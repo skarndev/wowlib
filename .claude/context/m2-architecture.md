@@ -227,6 +227,41 @@ models clean incl. round-trip; DETL's real records are 16 bytes vs
 wowdev's 12 (kept verbatim, ec7c7c6); M2SkinSection.level extends only
 index_start.
 
+## Refactor sweep (2026-07-24 evening; user's 8-point request)
+
+- **Directory = namespace = Python package** (user chose the full WMO-style
+  mirror over a files-only regroup): `formats/m2/` root keeps the two
+  top-level file entities — m2.hpp (M2 assembly) and skeleton.hpp (Skeleton,
+  renamed from skel.*, its SKL1/SKS1/SKB1/SKA1/SKPD payload records inlined,
+  welded at formats.m2 level) — plus boundaries/convert/io.hpp. Sub-entities:
+  `body/` (m2::body: data.hpp M2Data, shell.hpp M2File — was chunked.hpp;
+  `body/records/` m2::body::records with shell.hpp = old companion.hpp),
+  `skin/` (m2::skin: skin.hpp Skin + records.hpp profiles/sections/batches),
+  `bone/` (m2::bone: bone.hpp BoneFile), `detail/satellite_io.hpp`. m2.hpp
+  hoists (`using body::M2Data; using skin::Skin; ...`) so C++ spells short
+  names; Python mirrors: formats.m2.body.M2DataWotlk,
+  formats.m2.body.records.*, formats.m2.skin.SkinWotlk, formats.m2.bone.
+- **No explicit instantiations in the library** (also WMO): fs-level
+  read/write definitions moved from m2.cpp/skeleton.cpp into
+  formats/m2/io.hpp (helpers now documented m2::detail templates); consumers
+  implicitly instantiate only the versions they use. The full matrix lives in
+  bindings/python/instantiations/{m2,wmo}.{hpp,cpp} (extern header included
+  by every binding TU + one instantiation TU per format). GOTCHA:
+  `template for` ranges inside a consteval fn must be `static constexpr`
+  (wire_offset_of failed constant evaluation only for versions no test
+  instantiated — the bindings matrix caught it).
+- **Derived counts**: num_skin_profiles is a HIDDEN wire field
+  (mark::exclude) stamped by M2<V>::write from skins.size() via the new
+  consteval `wire_offset_of<M2Data<V>>("num_skin_profiles")` patch into the
+  written image (the old mismatch error is gone; standalone M2Data write
+  emits the stored value). MD20/SKIN magic members are hidden too.
+- **Raw-MD20 fallback is Legion-only**: new boundary `m2_chunked_only`
+  {8,0,1,0} — BfA+ reads of a bare MD20 magic return FormatVersionMismatch
+  with guidance instead of the monolithic fallback (no such files exist 8.0+).
+- **Nested track containers bind opaque** (welder 5bf54fa): the opaque
+  generator now opens `vector<vector<T>>` chains by reference (see
+  bindings-notes).
+
 ## Stage 4b (remaining): docs site + polish
 
 - docs: an M2 fields reference page in the WMO style (docs/wmo_reference.py
@@ -242,5 +277,6 @@ index_start.
 Client canonical record names (M2Sequence, M2CompBone, M2Vertex, M2Batch,
 M2SkinSection, …); entities `M2<V>` (assembly), `M2Data<V>` (MD20 body — the
 client's own symbol), `Skin<V>`, `Skeleton`, `BoneFile`. Directory mirrors
-namespace: `formats/m2/{body/…,skin/,skel/,anim/,bone/}` with per-family
-record headers under `body/records/`.
+namespace (realized 2026-07-24, see Refactor sweep): `formats/m2/{body/…,
+skin/,bone/,detail/}` with body record headers under `body/records/` and the
+top-level entities (m2.hpp, skeleton.hpp) at the root.

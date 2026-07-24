@@ -18,7 +18,7 @@ errors.
 |---|---|---|
 | StormLib | v9.40 | target `storm`; `STORM_SKIP_INSTALL`, `BUILD_SHARED_LIBS=OFF`; links SDK zlib/bzip2 |
 | CascLib | 3.0 | target `casc_static`; `CASC_BUILD_STATIC_LIB=ON`, `CASC_BUILD_SHARED_LIB=OFF`, unicode off |
-| welder | commit 31b0801 (no tags yet; opaque-container generator + `transform_opaque_container` naming hook + `mark::no_reassign`) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
+| welder | commit 5bf54fa (no tags yet; nested-container opaque support + reference_internal element access) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
 
 ## Bumping the welder pin (we own welder)

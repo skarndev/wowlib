@@ -197,6 +197,34 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
     that `_coerce_vectors` produces for opaque int vectors). Both run in `on_post_page`
     — the `int` type is an unresolved autoref until then.
 
+## Instantiation & I/O layout (2026-07-24 refactor)
+
+- **The library ships NO explicit instantiations.** The all-versions
+  entity + serializer matrix moved to bindings/python/instantiations/
+  ({wmo,m2}.hpp extern declarations included by every binding TU; one .cpp
+  per format expands the matrix, parallel to the welder walk). Library
+  consumers implicitly instantiate exactly the versions they use.
+- **fs-level read/write definitions live in formats/{wmo,m2}/io.hpp** (the
+  old wmo.cpp/m2.cpp/skeleton.cpp are gone; the wowlib static lib is core+fs
+  only). io.hpp is separate from wmo.hpp/m2.hpp so parse-only consumers skip
+  the fs::FileSystem dependency; wowlib.hpp includes it. Tests exercising
+  fs verbs include io.hpp. X-macros + consteval version-coverage checks stay
+  in the library headers.
+- **Derived wire counts** (2026-07-24, survey-grounded: 1983 3.3.5a + 8146
+  9.2.7 roots): write_entity invokes an optional entity hook
+  `patch_chunk(fourcc, span<std::byte>) const` on each finished chunk
+  payload — WMORoot stamps MOHD n_groups (from MOGI), n_portals,
+  n_doodad_sets; those three are mark::exclude'd (hidden from bindings).
+  n_textures / n_lights / n_doodad_defs / n_doodad_names are NOT derivable
+  (real files store legacy values: 387/1983 n_textures, 421 n_doodad_defs,
+  3 n_lights in 9.2.7, all fdid-era n_doodad_names) — they stay stored,
+  quirk documented per member; deriving them would break byte-perfect
+  round-trips. WMO::read counts groups from MOGI (group_infos.size());
+  WMO::write validates MOGI size == groups.size(). The offset engine's
+  counterpart is consteval `wire_offset_of<E>(name)` (offset_serializer.hpp)
+  for stamping into a written image (M2 num_skin_profiles); its `template
+  for` ranges must be `static constexpr` or constant evaluation fails.
+
 ## Reflection findings (gcc 16.1, `-freflection`)
 
 Canary: `tests/unit/test_reflection_spike.cpp` — keep compiling. Everything

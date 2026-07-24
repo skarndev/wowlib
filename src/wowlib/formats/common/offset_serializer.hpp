@@ -490,8 +490,9 @@ namespace wowlib::formats
   template <OffsetEntity E>
   consteval std::size_t wire_offset_of(std::string_view name)
   {
-    constexpr auto members = detail::members_of<E>();
-    constexpr auto order = detail::offset_order<E>();
+    // static: `template for` needs a constant address for the range
+    static constexpr auto members = detail::members_of<E>();
+    static constexpr auto order = detail::offset_order<E>();
     std::size_t off = 0;
     bool found = false;
     template for (constexpr std::size_t idx : order)
