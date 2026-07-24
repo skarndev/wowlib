@@ -189,6 +189,7 @@ namespace wowlib::formats
         @param payload the chunk payload bytes.
         @param fourcc  the chunk id (for diagnostics).
         @param offset  the chunk's byte offset (for diagnostics).
+        @param endian  the chunk id's disk layout (for diagnostics).
         @return nothing, or the structural error. */
     template <typename M>
     Result<void> read_value(M& dst, std::span<const std::byte> payload, std::uint32_t fourcc,

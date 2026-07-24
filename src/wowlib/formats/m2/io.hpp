@@ -106,16 +106,8 @@ namespace wowlib::formats::m2::detail
       return fs.read_file(FileKey{detail::anim_path(stem, id, sub)});
     }};
     OffsetReadContext ctx;
-    ctx.sequence_base = [&](std::size_t i) -> std::span<const std::byte> {
-      if (i >= self.data.sequences.size())
-        return main;
-      const auto& s = self.data.sequences[i];
-      if (detail::sequence_is_alias(s.flags))
-        return {};  // aliases own no data; their stored records are stale
-      if (!detail::owns_anim_file(s))
-        return main;
-      return cache.window(s.id, s.variation_index, detail::afm2_magic);
-    };
+    ctx.sequence_base =
+      detail::make_sequence_base(self.data.sequences, cache, main, detail::afm2_magic);
     if (auto r = self.data.read(main, ctx); !r)
       return r;
     if (auto r = check_header<V>(self.data.magic, self.data.format_version); !r)
@@ -145,8 +137,7 @@ namespace wowlib::formats::m2::detail
     if (auto r = self.shell.read(main); !r)
       return r;
 
-    const bool has_skel =
-      !self.shell.skeleton_fdid.empty() && self.shell.skeleton_fdid.front() != 0;
+    const bool has_skel = detail::skeleton_engaged(self.shell.skeleton_fdid);
     if (has_skel)
       if (auto r = self.skel.read(fs, FileKey{FileDataID{self.shell.skeleton_fdid.front()}});
           !r)
@@ -175,16 +166,7 @@ namespace wowlib::formats::m2::detail
       return make_error(ErrorCode::FileNotFound, "no AFID entry and no path");
     }};
     OffsetReadContext ctx;
-    ctx.sequence_base = [&, sequences](std::size_t i) -> std::span<const std::byte> {
-      if (i >= sequences->size())
-        return md21;
-      const auto& s = (*sequences)[i];
-      if (detail::sequence_is_alias(s.flags))
-        return {};  // aliases own no data; their stored records are stale
-      if (!detail::owns_anim_file(s))
-        return md21;
-      return cache.window(s.id, s.variation_index, detail::afm2_magic);
-    };
+    ctx.sequence_base = detail::make_sequence_base(*sequences, cache, md21, detail::afm2_magic);
     if (auto r = self.data.read(md21, ctx); !r)
       return r;
     if (auto r = check_header<V>(self.data.magic, self.data.format_version); !r)
@@ -280,18 +262,8 @@ namespace wowlib::formats::m2
 
     const auto make_ctx = [&](std::span<const std::byte> inline_base, std::uint32_t window) {
       OffsetReadContext ctx;
-      ctx.sequence_base = [this, &cache, inline_base,
-                           window](std::size_t i) -> std::span<const std::byte> {
-        const auto& seqs = sequence_block.sequences;
-        if (i >= seqs.size())
-          return inline_base;
-        const auto& s = seqs[i];
-        if (detail::sequence_is_alias(s.flags))
-          return {};  // aliases own no data; their stored records are stale
-        if (!detail::owns_anim_file(s))
-          return inline_base;
-        return cache.window(s.id, s.variation_index, window);
-      };
+      ctx.sequence_base =
+        detail::make_sequence_base(sequence_block.sequences, cache, inline_base, window);
       return ctx;
     };
 
@@ -331,28 +303,17 @@ namespace wowlib::formats::m2
     // into per-sequence AFSB/AFSA buffers
     std::map<std::uint32_t, FileBuffer> afsa_bufs;
     std::map<std::uint32_t, FileBuffer> afsb_bufs;
-    const auto make_wctx = [&](std::map<std::uint32_t, FileBuffer>& bufs) {
-      OffsetWriteContext ctx;
-      ctx.sequence_sink = [this, &bufs](std::size_t i) -> FileBuffer* {
-        const auto& seqs = sequence_block.sequences;
-        if (i >= seqs.size())
-          return nullptr;
-        const auto& s = seqs[i];
-        if (!detail::owns_anim_file(s))
-          return nullptr;
-        return &bufs[detail::anim_key(s.id, s.variation_index)];
-      };
-      return ctx;
-    };
     {
-      const auto encoded = bone_block.write(make_wctx(afsb_bufs));
+      auto encoded =
+        bone_block.write(detail::make_sequence_sink(sequence_block.sequences, afsb_bufs));
       if (!encoded)
         return std::unexpected{encoded.error()};
-      copy.skb1.bytes = *encoded;
-      const auto attachments = attachment_block.write(make_wctx(afsa_bufs));
+      copy.skb1.bytes = std::move(*encoded);
+      auto attachments =
+        attachment_block.write(detail::make_sequence_sink(sequence_block.sequences, afsa_bufs));
       if (!attachments)
         return std::unexpected{attachments.error()};
-      copy.ska1.bytes = *attachments;
+      copy.ska1.bytes = std::move(*attachments);
     }
 
     // the skeleton's .anim files: AFSA + AFSB sections. NOTE: a paired
@@ -463,7 +424,9 @@ namespace wowlib::formats::m2
       bool has_skel = false;
       if constexpr (V >= m2_chunked_container)
       {
-        has_skel = !this->shell.skeleton_fdid.empty();
+        // the SAME engagement predicate the read path uses — a stored SKID of
+        // 0 must not flip a non-skel model into a skel-based write
+        has_skel = detail::skeleton_engaged(this->shell.skeleton_fdid);
         if (has_skel)
           sequences = &this->skel.sequence_block.sequences;
       }
@@ -474,16 +437,7 @@ namespace wowlib::formats::m2
       // requests the file whenever the flags say so).
       std::map<std::uint32_t, FileBuffer> afm2_bufs;
       const auto make_sink = [sequences](std::map<std::uint32_t, FileBuffer>& bufs) {
-        OffsetWriteContext ctx;
-        ctx.sequence_sink = [sequences, &bufs](std::size_t i) -> FileBuffer* {
-          if (i >= sequences->size())
-            return nullptr;
-          const auto& s = (*sequences)[i];
-          if (!detail::owns_anim_file(s))
-            return nullptr;
-          return &bufs[detail::anim_key(s.id, s.variation_index)];
-        };
-        return ctx;
+        return detail::make_sequence_sink(*sequences, bufs);
       };
       auto bytes = data.write(make_sink(afm2_bufs));
       if (!bytes)
@@ -529,7 +483,7 @@ namespace wowlib::formats::m2
         // rebuild the shell around the re-encoded image: satellites write
         // first so their fresh FileDataIDs land in the reference chunks
         M2File<V> shell = this->shell;
-        shell.md21.bytes = *bytes;
+        shell.md21.bytes = std::move(*bytes);
 
         // .bone files (fdids land in the skeleton for skel-based models)
         std::vector<std::uint32_t> bone_fdids;
@@ -580,14 +534,14 @@ namespace wowlib::formats::m2
           std::map<std::uint32_t, FileBuffer> afsa_bufs;
           std::map<std::uint32_t, FileBuffer> afsb_bufs;
           {
-            const auto encoded = this->skel.bone_block.write(make_sink(afsb_bufs));
+            auto encoded = this->skel.bone_block.write(make_sink(afsb_bufs));
             if (!encoded)
               return std::unexpected{encoded.error()};
-            skel_copy.skb1.bytes = *encoded;
-            const auto attachments = this->skel.attachment_block.write(make_sink(afsa_bufs));
+            skel_copy.skb1.bytes = std::move(*encoded);
+            auto attachments = this->skel.attachment_block.write(make_sink(afsa_bufs));
             if (!attachments)
               return std::unexpected{attachments.error()};
-            skel_copy.ska1.bytes = *attachments;
+            skel_copy.ska1.bytes = std::move(*attachments);
           }
 
           skel_copy.anim_fdids.clear();

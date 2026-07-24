@@ -1,9 +1,10 @@
 #pragma once
 
 /** @file
-    Internal satellite-I/O helpers shared by the M2 family's translation
-    units (m2.cpp, skel.cpp): naming conventions, the .anim window cache and
-    the sequence-ownership predicate. Not part of the public surface. */
+    Internal satellite-I/O helpers shared by the M2 family's fs-level
+    read/write definitions (formats/m2/io.hpp): naming conventions, the
+    .anim window cache, the sequence-ownership predicates and the shared
+    per-sequence resolution factories. Not part of the public surface. */
 
 #include <cstring>
 #include <format>
@@ -17,6 +18,7 @@
 #include <wowlib/core/buffer.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
+#include <wowlib/formats/common/offsets.hpp>
 #include <wowlib/formats/m2/body/records/shell.hpp>
 #include <wowlib/formats/m2/body/records/sequence.hpp>
 
@@ -152,6 +154,68 @@ namespace wowlib::formats::m2::detail
     std::function<Result<FileBuffer>(std::uint16_t, std::uint16_t)> loader_;
     std::map<std::uint32_t, std::optional<FileBuffer>> files_;
   };
+
+  /** Whether a shell/skeleton SKID reference chunk actually engages a
+      skeleton — files may carry the chunk with a stored 0 meaning "none",
+      and read/write must agree on the predicate (a mismatch would convert
+      such a model into a broken skel-based one on round-trip). */
+  inline bool skeleton_engaged(std::span<const std::uint32_t> skeleton_fdid)
+  {
+    return !skeleton_fdid.empty() && skeleton_fdid.front() != 0;
+  }
+
+  /** The per-sequence base resolver every M2-family read path shares:
+      sequence @a i's inner arrays resolve against @a inline_base when its
+      data is inline, the EMPTY span when it is an alias (stale records are
+      never chased — see sequence_is_alias), or the matching .anim window
+      otherwise. The alias-datablock policy lives here ONCE for the
+      monolithic, chunked and skeleton decode paths alike.
+      @param sequences   the sequence table driving the flags; taken by
+                         reference — it may still be mid-decode when the
+                         context is built, the resolver reads it lazily.
+      @param cache       the .anim window cache.
+      @param inline_base the buffer inline sequence data resolves against.
+      @param window      the .anim chunk the tracks live in (afm2/afsa/afsb).
+      @return the resolver to install as OffsetReadContext::sequence_base. */
+  template <typename Sequence>
+  auto make_sequence_base(const std::vector<Sequence>& sequences, AnimCache& cache,
+                          std::span<const std::byte> inline_base, std::uint32_t window)
+  {
+    return [&sequences, &cache, inline_base,
+            window](std::size_t i) -> std::span<const std::byte> {
+      if (i >= sequences.size())
+        return inline_base;
+      const Sequence& s = sequences[i];
+      if (sequence_is_alias(s.flags))
+        return {};  // aliases own no data; their stored records are stale
+      if (!owns_anim_file(s))
+        return inline_base;
+      return cache.window(s.id, s.variation_index, window);
+    };
+  }
+
+  /** The per-sequence sink resolver every M2-family write path shares: an
+      external sequence @a i's data lands in its own per-(id, variation)
+      buffer in @a bufs; inline sequences (and aliases, whose flags never
+      mark them external) stay in the entity image.
+      @param sequences the sequence table driving the flags.
+      @param bufs      the per-sequence buffers, keyed by anim_key().
+      @return a write context with the sink installed. */
+  template <typename Sequence>
+  OffsetWriteContext make_sequence_sink(const std::vector<Sequence>& sequences,
+                                        std::map<std::uint32_t, FileBuffer>& bufs)
+  {
+    OffsetWriteContext ctx;
+    ctx.sequence_sink = [&sequences, &bufs](std::size_t i) -> FileBuffer* {
+      if (i >= sequences.size())
+        return nullptr;
+      const Sequence& s = sequences[i];
+      if (!owns_anim_file(s))
+        return nullptr;
+      return &bufs[anim_key(s.id, s.variation_index)];
+    };
+    return ctx;
+  }
 
   /** Append one fourcc+size+payload chunk to @a out (assembling .anim
       files). */

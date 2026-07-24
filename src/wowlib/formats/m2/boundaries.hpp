@@ -51,7 +51,7 @@ namespace wowlib::formats::m2
   inline constexpr ClientVersion m2_chunked_only{8, 0, 1, 0};
 
   /** The MD20 format_version wowlib writes for @a v — the value the client
-      era itself exports (wowdev.wiki/M2#Versions): vanilla 256, TBC 263,
+      era itself exports (wowdev.wiki/M2, the Versions section): vanilla 256, TBC 263,
       WotLK 264, Cata through WoD 272, Legion+ 274.
       @param v the targeted client version.
       @return the wire version number. */
