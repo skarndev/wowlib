@@ -1,8 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstring>
 #include <format>
+#include <fstream>
 #include <map>
+#include <random>
 #include <span>
 #include <string>
 #include <vector>
@@ -90,7 +93,9 @@ namespace
       REQUIRE(r.has_value());
     }
     CHECK(model.data.magic == md20_magic);
-    CHECK(model.data.format_version == 264);
+    constexpr auto era = m2_wire_version_range(V);
+    CHECK(model.data.format_version >= era.first);
+    CHECK(model.data.format_version <= era.second);
     CHECK(model.data.num_skin_profiles == model.skins.size());
 
     // rewrite the body, splitting external sequences back out per index
@@ -178,4 +183,88 @@ TEST_CASE("3.3.5a M2s re-read equal after a canonical rewrite",
     ++verified;
   }
   CHECK(verified >= 6);
+}
+
+TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
+          "[integration][formats][m2]")
+{
+  const auto clients = tests::require_clients_dir();
+  const auto listfile = tests::require_listfile();
+
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::casc_client_name,
+                                  .version = versions::shadowlands,
+                                  .listfile_csv = listfile});
+  REQUIRE(fs.has_value());
+
+  // sample models from the community listfile
+  std::vector<std::pair<std::uint32_t, std::string>> models;
+  {
+    std::ifstream in{listfile};
+    REQUIRE(in.good());
+    std::string line;
+    while (std::getline(in, line))
+    {
+      if (!line.empty() && line.back() == '\r')
+        line.pop_back();
+      const auto sep = line.find(';');
+      if (sep == std::string::npos)
+        continue;
+      std::string path = line.substr(sep + 1);
+      if (!path.ends_with(".m2"))
+        continue;
+      models.emplace_back(static_cast<std::uint32_t>(std::stoul(line.substr(0, sep))),
+                          std::move(path));
+    }
+  }
+  REQUIRE(models.size() > 100);
+
+  std::mt19937 rng{20260724};  // fixed seed: reproducible sample
+  std::shuffle(models.begin(), models.end(), rng);
+
+  int verified = 0;
+  int skel_skipped = 0;
+  int unreadable = 0;
+  for (const auto& [fdid, path] : models)
+  {
+    if (verified >= 25)
+      break;
+    const FileKey key{path, FileDataID{fdid}};
+    const auto bytes = fs->read_file(key);
+    if (!bytes)
+    {
+      ++unreadable;  // encrypted or absent from this install
+      continue;
+    }
+
+    // the chunked shell itself keeps the chunk-framework byte-perfect
+    // guarantee (MD21 preserved verbatim on a plain shell round-trip)
+    std::uint32_t lead = 0;
+    if (bytes->size() >= 4)
+      std::memcpy(&lead, bytes->data(), 4);
+    if (lead != md20_magic)
+    {
+      M2File<versions::shadowlands> shell;
+      {
+        const auto r = shell.read(std::span<const std::byte>{*bytes});
+        INFO(path << ": " << (r ? std::string{} : r.error().message));
+        REQUIRE(r.has_value());
+      }
+      const auto shell_bytes = shell.write();
+      REQUIRE(shell_bytes.has_value());
+      if (*shell_bytes != *bytes)
+        FAIL(std::format("{}: shell rewrite is not byte-identical ({} vs {} bytes)", path,
+                         shell_bytes->size(), bytes->size()));
+      if (!shell.skeleton_fdid.empty() && shell.skeleton_fdid.front() != 0)
+      {
+        ++skel_skipped;  // .skel baking lands in stage 3b
+        continue;
+      }
+    }
+
+    roundtrip_m2<versions::shadowlands>(*fs, key, path);
+    ++verified;
+  }
+  WARN(std::format("9.2.7 sample: {} verified, {} skel-based skipped, {} unreadable", verified,
+                   skel_skipped, unreadable));
+  CHECK(verified >= 15);
 }

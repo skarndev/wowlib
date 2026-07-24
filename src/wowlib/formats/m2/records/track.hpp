@@ -195,4 +195,15 @@ namespace wowlib::formats::m2::records
 
     bool operator==(const FBlock&) const = default;
   };
+
+  /** A partial track (Legion+ EXP2 alpha cutoffs): normalized fixed16 times
+      plus values, sequence-independent. */
+  template <typename T>
+  struct M2PartTrack
+  {
+    std::vector<fixed16> times;
+    std::vector<T> values;
+
+    bool operator==(const M2PartTrack&) const = default;
+  };
 }

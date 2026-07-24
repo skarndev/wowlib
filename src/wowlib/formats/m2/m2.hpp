@@ -15,6 +15,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
+#include <wowlib/formats/m2/chunked.hpp>
 #include <wowlib/formats/m2/data.hpp>
 #include <wowlib/formats/m2/skin.hpp>
 
@@ -71,6 +72,34 @@ namespace wowlib::formats::m2
 
       bool operator==(const AssemblySkins&) const = default;
     };
+
+    /** Legion+ assembly members: the chunked shell and the satellites it
+        references. */
+    template <ClientVersion V>
+    struct AssemblyLegion
+    {
+      [[
+        =welder::doc(R"(The chunked .m2 shell: satellite chunks (FileDataIDs,
+                        extended particles, parent overrides) plus preserved
+                        unknown chunks. Its MD21 blob is the on-disk image;
+                        `data` is the decoded form — write() re-encodes data
+                        into it and refreshes the FileDataID chunks.)")]]
+      M2File<V> shell{};
+
+      [[
+        =welder::mark::no_reassign,
+        =welder::doc("The LOD-band skins (the SFID entries beyond "
+                     "num_skin_profiles), in band order.")]]
+      std::vector<Skin<V>> lod_skins;
+
+      [[
+        =welder::doc("The referenced .phys file bytes (PFID), baked in "
+                     "verbatim — structured physics is a follow-up "
+                     "milestone. Inline physics (PFDC) stays on the shell.")]]
+      ChunkBlob phys;
+
+      bool operator==(const AssemblyLegion&) const = default;
+    };
   }
 
   /** A whole M2 model for one client version: the MD20 body plus every
@@ -91,7 +120,9 @@ namespace wowlib::formats::m2
         external sequence data baked in. A written model is canonical-layout
         and re-reads equal (no byte-perfect guarantee for offset formats).
         See https://wowdev.wiki/M2.)")
-  ]] M2 : M2Base, slot<V, m2_per_sequence_timelines, detail::AssemblySkins<V>>
+  ]] M2 : M2Base,
+          slot<V, m2_per_sequence_timelines, detail::AssemblySkins<V>>,
+          slot<V, m2_chunked_container, detail::AssemblyLegion<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -150,6 +181,14 @@ namespace wowlib::formats::m2
   X(Dragonflight, dragonflight)                                                                    \
   X(TheWarWithin, tww)
 
+/** The subset with the chunked shell (M2File<V> exists Legion+ only). */
+#define WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(X)                                                      \
+  X(Legion, legion)                                                                                \
+  X(Bfa, bfa)                                                                                      \
+  X(Shadowlands, shadowlands)                                                                      \
+  X(Dragonflight, dragonflight)                                                                    \
+  X(TheWarWithin, tww)
+
 namespace wowlib::formats::m2
 {
 #define WOWLIB_M2_ALIAS(Suffix, version_)                                                          \
@@ -161,6 +200,10 @@ namespace wowlib::formats::m2
 #define WOWLIB_M2_SKIN_ALIAS(Suffix, version_) using Skin##Suffix = Skin<versions::version_>;
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_SKIN_ALIAS)
 #undef WOWLIB_M2_SKIN_ALIAS
+
+#define WOWLIB_M2_FILE_ALIAS(Suffix, version_) using M2File##Suffix = M2File<versions::version_>;
+  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_FILE_ALIAS)
+#undef WOWLIB_M2_FILE_ALIAS
 
   namespace detail
   {
@@ -195,6 +238,10 @@ namespace wowlib::formats::m2
 #define WOWLIB_M2_SKIN_EXTERN(Suffix, version_) extern template struct Skin<versions::version_>;
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_SKIN_EXTERN)
 #undef WOWLIB_M2_SKIN_EXTERN
+
+#define WOWLIB_M2_FILE_EXTERN(Suffix, version_) extern template struct M2File<versions::version_>;
+  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_FILE_EXTERN)
+#undef WOWLIB_M2_FILE_EXTERN
 }
 
 namespace wowlib::formats
@@ -212,4 +259,9 @@ namespace wowlib::formats
   extern template struct OffsetFile<m2::Skin<versions::version_>>;
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_EXTERN_SKIN_SERIALIZER)
 #undef WOWLIB_M2_EXTERN_SKIN_SERIALIZER
+
+#define WOWLIB_M2_EXTERN_FILE_SERIALIZER(Suffix, version_)                                         \
+  extern template struct ChunkedFile<m2::M2File<versions::version_>>;
+  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_EXTERN_FILE_SERIALIZER)
+#undef WOWLIB_M2_EXTERN_FILE_SERIALIZER
 }

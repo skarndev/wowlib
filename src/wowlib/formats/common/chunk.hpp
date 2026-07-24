@@ -25,6 +25,8 @@ namespace wowlib::formats
   {
     std::uint32_t fourcc = 0;     /**< The id as scanned (memcpy'd host u32). */
     std::vector<std::byte> bytes; /**< The payload, verbatim. */
+
+    bool operator==(const UnknownChunk&) const = default;
   };
 
   /** One chunk encounter in file order — the write path replays the journal to
@@ -40,6 +42,8 @@ namespace wowlib::formats
     /** Which occurrence of the member this was (repeated chunks), or the index
         into unknown for member == -1. */
     std::uint32_t occurrence = 0;
+
+    bool operator==(const JournalEntry&) const = default;
   };
 
   /** Round-trip bookkeeping common to every chunked entity: the encounter
@@ -50,6 +54,8 @@ namespace wowlib::formats
     [[=welder::mark::exclude]] std::vector<JournalEntry> journal;
     [[=welder::mark::exclude]] std::vector<UnknownChunk> unknown;
     [[=welder::mark::exclude]] std::vector<std::byte> trailing;
+
+    bool operator==(const ChunkExtras&) const = default;
   };
 
   /** The serialization face of a chunked entity, mixed in CRTP-style: an
@@ -71,6 +77,8 @@ namespace wowlib::formats
     [[=welder::doc("Serialize this entity."),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write() const;
+
+    bool operator==(const ChunkedFile&) const = default;
   };
 
   struct [[
@@ -114,6 +122,8 @@ namespace wowlib::formats
     {
       return bytes.size();
     }
+
+    bool operator==(const ChunkBlob&) const = default;
   };
 
   /** Storage for a chunk that may appear up to N times in one entity (MOTV
