@@ -73,13 +73,22 @@ namespace wowlib::formats::m2::detail
   inline constexpr std::uint32_t afsa_magic = four_cc("AFSA", FourCCEndian::forward);
   inline constexpr std::uint32_t afsb_magic = four_cc("AFSB", FourCCEndian::forward);
 
+  /** Whether @a flags mark an alias sequence (0x40): it owns NO track data —
+      the client resolves it by following alias_next. Files still carry stale
+      array records for aliases (dead offsets, junk values, potentially out of
+      bounds), so readers must never chase them and writers emit empty
+      records. */
+  constexpr bool sequence_is_alias(std::uint32_t flags)
+  {
+    return (flags & 0x40u) != 0;
+  }
+
   /** Whether sequence @a s owns an external .anim file: its data is
-      low-priority (0x130 clear) and it is no alias (aliases resolve to
-      another sequence's data). */
+      low-priority (0x130 clear) and it is no alias. */
   template <typename Sequence>
   bool owns_anim_file(const Sequence& s)
   {
-    return records::sequence_data_external(s.flags) && (s.flags & 0x40u) == 0;
+    return records::sequence_data_external(s.flags) && !sequence_is_alias(s.flags);
   }
 
   /** The AFID FileDataID for a sequence, 0 when unlisted. */

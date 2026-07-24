@@ -61,6 +61,8 @@ namespace wowlib::formats::m2
         if (i >= seqs.size())
           return inline_base;
         const auto& s = seqs[i];
+        if (detail::sequence_is_alias(s.flags))
+          return {};  // aliases own no data; their stored records are stale
         if (!detail::owns_anim_file(s))
           return inline_base;
         return cache.window(s.id, s.variation_index, window);

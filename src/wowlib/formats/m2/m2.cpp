@@ -94,6 +94,8 @@ namespace wowlib::formats::m2
         if (i >= self.data.sequences.size())
           return main;
         const auto& s = self.data.sequences[i];
+        if (detail::sequence_is_alias(s.flags))
+          return {};  // aliases own no data; their stored records are stale
         if (!detail::owns_anim_file(s))
           return main;
         return cache.window(s.id, s.variation_index, detail::afm2_magic);
@@ -161,6 +163,8 @@ namespace wowlib::formats::m2
         if (i >= sequences->size())
           return md21;
         const auto& s = (*sequences)[i];
+        if (detail::sequence_is_alias(s.flags))
+          return {};  // aliases own no data; their stored records are stale
         if (!detail::owns_anim_file(s))
           return md21;
         return cache.window(s.id, s.variation_index, detail::afm2_magic);
