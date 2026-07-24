@@ -189,10 +189,13 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
     wire struct that carries the bits, via `ENUM_CHUNK` (enum → (FourCC, struct), e.g.
     `PolyFlags → (MOPY, SMOPoly)`; templated structs alias, `WMOGroupHeader → SMOGroupHeader`).
   - Wire integer widths: nanobind flattens every `std::uintN_t`/`std::intN_t` to Python
-    `int`, so the on-disk size is parsed back from the chunk sources (`_struct_int_fields`)
-    and the rendered signatures re-annotated `int → Annotated[int, uint32]` (arrays →
-    `list[Annotated[int, uint8]]`, signed → `int16`). This runs in `on_post_page`, not
-    `on_page_content` — the `int` type is an unresolved autoref until then.
+    `int`, so the on-disk size is parsed back from source and the rendered signatures
+    re-annotated `int → Annotated[int, uint32]` (arrays → `list[Annotated[int, uint8]]`,
+    signed → `int16`). Chunk pages read wire-struct fields (`_struct_int_fields` →
+    `_annotate_int_widths`); the fields page reads entity members' element type
+    (`_annotate_entity_int_widths`, handling both scalar `mver` and the `list[int]`
+    that `_coerce_vectors` produces for opaque int vectors). Both run in `on_post_page`
+    — the `int` type is an unresolved autoref until then.
 
 ## Reflection findings (gcc 16.1, `-freflection`)
 

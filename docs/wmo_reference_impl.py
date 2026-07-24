@@ -579,6 +579,20 @@ _INT_SPAN = '<span title="int">int</span>'
 _INT_FIELDS_CACHE: dict[str, dict[str, dict[str, tuple[bool, int]]]] = {}
 
 
+def _width_label(unsigned: bool, bits: int) -> str:
+    """The wmo-int marker span rendered inside Annotated[int, …]."""
+    label = f"{'u' if unsigned else ''}int{bits}"
+    title = f"{'unsigned ' if unsigned else 'signed '}{bits}-bit integer on the wire"
+    return f'<span class="wmo-int" title="{title}">{label}</span>'
+
+
+def _int_width(elem: str) -> tuple[bool, int] | None:
+    """(unsigned, bits) for a fixed-width C++ integer type name (uint16_t), else
+    None (StringBlock, ChunkBlob, a wire struct, float, …)."""
+    m = re.fullmatch(r"(u?)int(8|16|32|64)_t", elem or "")
+    return (m.group(1) == "u", int(m.group(2))) if m else None
+
+
 def _struct_int_fields(side: str) -> dict[str, dict[str, tuple[bool, int]]]:
     """{C++ struct name: {field: (unsigned, bits)}} for the side's chunk wire structs.
     Struct regions run from one struct/enum opening brace to the next; the member
@@ -628,12 +642,40 @@ def _annotate_int_widths(html_out: str, side: str) -> str:
         info = ints.get(_cpp_struct(m["cls"]), {}).get(m["field"])
         if not info or _INT_SPAN not in m["sig"]:
             return m.group(0)
-        unsigned, bits = info
-        label = f"{'u' if unsigned else ''}int{bits}"
-        title = f"{'unsigned ' if unsigned else 'signed '}{bits}-bit integer on the wire"
-        ann = (f'Annotated[{_INT_SPAN}, '
-               f'<span class="wmo-int" title="{title}">{label}</span>]')
+        ann = f'Annotated[{_INT_SPAN}, {_width_label(*info)}]'
         return m["pre"] + m["sig"].replace(_INT_SPAN, ann, 1) + m["end"]
+
+    return pat.sub(repl, html_out)
+
+
+def _annotate_entity_int_widths(html_out: str, base: str) -> str:
+    """Fields page: annotate the entity chunk members whose (element) type is a
+    fixed-width integer. Scalars (mver) render as `<span title="int">int</span>`;
+    opaque int vectors have already been coerced to plain `list[int]` by
+    _coerce_vectors (this must run after it), so both forms are handled."""
+    root, group = _entity_fields()
+    pat = re.compile(
+        r'(?P<pre><h(?P<lvl>[1-6]) id="wowlib\.formats\.wmo\.(?P<side>root|group)\.'
+        r'(?:WMORoot|WMOGroupBody|WMOGroup)' + _SUFFIX_ALT + r'\.(?P<field>\w+)"[^>]*>'
+        r'.*?</h(?P=lvl)>\s*<div class="[^"]*doc-signature[^"]*">)(?P<sig>.*?)(?P<end></div>)',
+        re.DOTALL)
+
+    def repl(m):
+        f = (root if m["side"] == "root" else group).get(m["field"])
+        if not f:
+            return m.group(0)
+        w = _int_width(f["elem"])
+        if not w:
+            return m.group(0)
+        label = _width_label(*w)
+        sig = m["sig"]
+        if _INT_SPAN in sig:                                   # scalar int (mver)
+            sig = sig.replace(_INT_SPAN, f'Annotated[{_INT_SPAN}, {label}]', 1)
+        elif "list[int]" in sig:                              # coerced int vector
+            sig = sig.replace("list[int]", f'list[Annotated[int, {label}]]', 1)
+        else:
+            return m.group(0)
+        return m["pre"] + sig + m["end"]
 
     return pat.sub(repl, html_out)
 
@@ -795,6 +837,7 @@ def on_post_page(output, page, config, **kwargs):
         if src in CHUNK_PAGES:
             output = _annotate_int_widths(output, CHUNK_PAGES[src])
         if src == TARGET_PAGE:
+            output = _annotate_entity_int_widths(output, _base_prefix(page))
             output = _XREF_NAME_RE.sub(rf"\1\2{_VERSION_PLACEHOLDER}\3", output)
     except re.error:
         return output
