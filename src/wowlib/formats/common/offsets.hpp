@@ -31,6 +31,8 @@ namespace wowlib::formats
       bookkeeping to store. */
   struct OffsetBase
   {
+    // excluded: the parameter type is this unwelded base, not the entity
+    [[=welder::mark::exclude]]
     bool operator==(const OffsetBase&) const = default;
   };
 
@@ -117,6 +119,7 @@ namespace wowlib::formats
       return false;
     }
 
+    [[=welder::mark::exclude]]
     bool operator==(const OffsetFile&) const = default;
   };
 }

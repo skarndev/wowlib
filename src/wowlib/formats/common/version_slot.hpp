@@ -22,6 +22,8 @@ namespace wowlib::formats
   template <class Trait>
   struct absent
   {
+    // excluded from bindings: the parameter type is this unwelded base
+    [[=welder::mark::exclude]]
     bool operator==(const absent&) const = default;
   };
 

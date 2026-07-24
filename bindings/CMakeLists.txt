@@ -37,7 +37,8 @@ if(WOWLIB_BUILD_PYTHON)
     python/errors.cpp
     python/buffers.cpp
     python/fs.cpp
-    python/formats/wmo.cpp)
+    python/formats/wmo.cpp
+    python/formats/m2.cpp)
   # python/ for the quoted glue includes; the binary dir for the generated
   # wowlib.opaque.hpp, and a dependency so it is emitted before the module compiles.
   target_include_directories(wowlib_py PRIVATE
@@ -107,6 +108,8 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
            ${_wowlib_stubs}/wowlib/formats/wmo/root/chunks.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/group/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/group/chunks.pyi
+           ${_wowlib_stubs}/wowlib/formats/m2/__init__.pyi
+           ${_wowlib_stubs}/wowlib/formats/m2/records.pyi
     PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)

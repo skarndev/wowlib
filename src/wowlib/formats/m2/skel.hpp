@@ -35,6 +35,26 @@ namespace wowlib::fs
 
 namespace wowlib::formats::m2
 {
+  /** The version-agnostic base of every Skeleton<V> (welded as "Skeleton").
+
+      This empty base exists ENTIRELY for the language bindings: a common
+      welded supertype for the per-version Skeleton* classes (isinstance,
+      Skeleton.for_version(expansion)). No role in the C++ API.
+
+      @see https://wowdev.wiki/M2/.skel */
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld_as("Skeleton"),
+    =welder::doc(R"(
+        A shared model skeleton (.skel, Legion 7.3+), abstract over the client
+        version. Construct a concrete version with
+        Skeleton.for_version(expansion); the per-version Skeleton* classes are
+        subclasses. See https://wowdev.wiki/M2/.skel.)")
+  ]] SkeletonBase
+  {
+    bool operator==(const SkeletonBase&) const = default;
+  };
+
   /** A shared model skeleton (.skel, 7.3+): the bones, attachments and
       sequences a skel-based model moved out of its MD20 image, plus the
       satellite ids. Load with read(fs, key) — it follows the SKPD parent
@@ -55,7 +75,7 @@ namespace wowlib::formats::m2
         A shared model skeleton (.skel, Legion 7.3+): bones, attachments and
         sequences for skel-based models, shareable between models via the
         parent link. See https://wowdev.wiki/M2/.skel.)")
-  ]] Skeleton : ChunkedFile<Skeleton<V>>
+  ]] Skeleton : ChunkedFile<Skeleton<V>>, SkeletonBase
   {
     static constexpr ClientVersion version = V;
 

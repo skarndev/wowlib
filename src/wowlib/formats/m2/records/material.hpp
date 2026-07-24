@@ -17,8 +17,6 @@
 
 namespace wowlib::formats::m2::records
 {
-  /** A global model vertex; skins reference these through their local
-      lookups. Model space is Z-up. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("An M2 vertex: position, 4-bone weights/indices, normal and "
@@ -35,7 +33,6 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2Vertex) == 48);
 
-  /** M2Material::flags bits. */
   enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("M2Material render flags.")
@@ -50,7 +47,6 @@ namespace wowlib::formats::m2::records
                                  "custom elements.")]] = 0x800
   };
 
-  /** Render flags plus blending mode, referenced from skin batches. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("An M2 material: render flags (see MaterialFlags) and the "
@@ -64,51 +60,66 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2Material) == 4);
 
-  /** A texture definition: type 0 references the filename (pre-8.0; TXID
-      FileDataIDs replace it), non-zero types are runtime-substituted
-      component textures (skin, hair, monster skins, ...). */
-  struct M2Texture
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A texture definition: type 0 references the filename (TXID "
+                 "FileDataIDs replace it in 8.0+); non-zero types are runtime component "
+                 "slots (skin, hair, monster skins, ...).")
+  ]] M2Texture
   {
-    std::uint32_t type = 0;  /**< 0 = filename-referenced, else a component slot. */
-    std::uint32_t flags = 0; /**< 0x1 wrap X, 0x2 wrap Y. */
-    std::string filename;    /**< For type 0; the serializer writes the NUL inside the count. */
+    [[=welder::doc("0 = filename-referenced, else a component slot.")]]
+    std::uint32_t type = 0;
+    [[=welder::doc("0x1 wrap X, 0x2 wrap Y.")]]
+    std::uint32_t flags = 0;
+    [[=welder::doc("For type 0; the serializer writes the NUL inside the count.")]]
+    std::string filename;
 
     bool operator==(const M2Texture&) const = default;
   };
 
-  /** Vertex-color + alpha animation pair (GEOA equivalent), referenced from
-      skin batches by color index. */
   template <ClientVersion V>
-  struct M2Color
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A vertex color + alpha animation pair, referenced from skin batches "
+                 "by color index.")
+  ]] M2Color
   {
-    M2Track<C3Vector, V> color{};  /**< RGB vertex color. */
-    M2Track<fixed16, V> alpha{};   /**< 0 transparent .. 0x7FFF opaque. */
+    [[=welder::doc("RGB vertex color.")]]
+    M2Track<C3Vector, V> color{};
+    [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
+    M2Track<fixed16, V> alpha{};
 
     bool operator==(const M2Color&) const = default;
   };
 
-  /** A global texture weight (transparency) track. */
   template <ClientVersion V>
-  struct M2TextureWeight
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A global texture weight (transparency) track.")
+  ]] M2TextureWeight
   {
     M2Track<fixed16, V> weight{};
 
     bool operator==(const M2TextureWeight&) const = default;
   };
 
-  /** Pre-WotLK texture flipbook slot — never observed engaged in files. */
   template <ClientVersion V>
-  struct M2TextureFlipbook
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
+  ]] M2TextureFlipbook
   {
     M2Track<std::uint16_t, V> frames{};
 
     bool operator==(const M2TextureFlipbook&) const = default;
   };
 
-  /** A UV animation: the keyframes feed the texture transform matrix
-      (rotation pivots at texture center 0.5, 0.5). */
   template <ClientVersion V>
-  struct M2TextureTransform
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A UV animation: translation/rotation/scaling keyframes for the "
+                 "texture matrix (rotation pivots at texture center 0.5, 0.5).")
+  ]] M2TextureTransform
   {
     M2Track<C3Vector, V> translation{};
     M2Track<C4Quaternion, V> rotation{};

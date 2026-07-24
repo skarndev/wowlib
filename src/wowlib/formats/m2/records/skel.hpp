@@ -22,9 +22,11 @@
 
 namespace wowlib::formats::m2::records
 {
-  /** The SKL1 payload: the skeleton's identity. */
   template <ClientVersion V>
-  struct SkelHeader : OffsetFile<SkelHeader<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The SKL1 payload: the skeleton's identity.")
+  ]] SkelHeader : OffsetFile<SkelHeader<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -40,9 +42,12 @@ namespace wowlib::formats::m2::records
     bool operator==(const SkelHeader&) const = default;
   };
 
-  /** The SKS1 payload: the sequence set that moved out of the model. */
   template <ClientVersion V>
-  struct SkelSequences : OffsetFile<SkelSequences<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The SKS1 payload: the sequence set that moved out of the "
+                 "model.")
+  ]] SkelSequences : OffsetFile<SkelSequences<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -71,11 +76,13 @@ namespace wowlib::formats::m2::records
     bool operator==(const SkelSequences&) const = default;
   };
 
-  /** The SKB1 payload: the bones that moved out of the model. External
-      sequences' track data lives in the .anim files' AFSB chunks — decode
-      through the offset contexts, not straight off the chunk. */
   template <ClientVersion V>
-  struct SkelBones : OffsetFile<SkelBones<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The SKB1 payload: the bones that moved out of the model "
+                 "(external sequences' track data lives in the .anim AFSB "
+                 "chunks).")
+  ]] SkelBones : OffsetFile<SkelBones<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -96,10 +103,13 @@ namespace wowlib::formats::m2::records
     bool operator==(const SkelBones&) const = default;
   };
 
-  /** The SKA1 payload: the attachments that moved out of the model. External
-      sequences' track data lives in the .anim files' AFSA chunks. */
   template <ClientVersion V>
-  struct SkelAttachments : OffsetFile<SkelAttachments<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The SKA1 payload: the attachments that moved out of the "
+                 "model (external sequences' track data lives in the .anim "
+                 "AFSA chunks).")
+  ]] SkelAttachments : OffsetFile<SkelAttachments<V>>
   {
     static constexpr ClientVersion version = V;
 

@@ -77,18 +77,18 @@ TEST_CASE("MD20 header image sizes match the client eras", "[formats][m2]")
 TEST_CASE("skin files carry the magic ahead of the flattened profile", "[formats][m2]")
 {
   Skin<wk> skin;
-  skin.vertices = {0, 1, 2};
-  skin.indices = {0, 1, 2};
-  skin.bones = {{0, 0, 0, 0}, {1, 0, 0, 0}, {2, 0, 0, 0}};
+  skin.profile.vertices = {0, 1, 2};
+  skin.profile.indices = {0, 1, 2};
+  skin.profile.bones = {{0, 0, 0, 0}, {1, 0, 0, 0}, {2, 0, 0, 0}};
   M2SkinSection<wk> section;
   section.vertex_count = 3;
   section.index_count = 3;
   section.bone_count = 1;
-  skin.submeshes = {section};
+  skin.profile.submeshes = {section};
   M2Batch batch;
   batch.texture_count = 1;
-  skin.batches = {batch};
-  skin.bone_count_max = 64;
+  skin.profile.batches = {batch};
+  skin.profile.bone_count_max = 64;
 
   auto bytes = skin.write();
   REQUIRE(bytes.has_value());

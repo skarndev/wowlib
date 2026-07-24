@@ -1,0 +1,35 @@
+"""Type-resolution cases for the M2 facade, checked by pytest-mypy-testing
+against the installed wowlib stubs. Functions with no `# R:`/`# E:` comments
+assert a clean type-check (no diagnostics)."""
+
+import pytest
+
+import wowlib
+from wowlib.formats import m2
+
+
+@pytest.mark.mypy_testing
+def mypy_for_version_narrows_to_the_concrete_class() -> None:
+    reveal_type(m2.M2.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.m2.M2Wotlk
+
+
+@pytest.mark.mypy_testing
+def mypy_subset_family_narrows_too() -> None:
+    reveal_type(m2.Skeleton.for_version(wowlib.Expansion.Legion))  # R: wowlib.formats.m2.SkeletonLegion
+
+
+@pytest.mark.mypy_testing
+def mypy_convert_narrows_on_the_target_literal() -> None:
+    model = m2.M2.for_version(wowlib.Expansion.Wotlk)
+    reveal_type(model.convert(wowlib.Expansion.Cata))  # R: wowlib.formats.m2.M2Cata
+
+
+@pytest.mark.mypy_testing
+def mypy_anym2_widening_type_checks_clean() -> None:
+    s: m2.AnyM2 = m2.M2.for_version(wowlib.Expansion.Shadowlands)
+
+
+@pytest.mark.mypy_testing
+def mypy_records_bind_versioned_concretes() -> None:
+    bone = m2.records.M2CompBoneWotlk()
+    reveal_type(bone.parent_bone)  # R: int

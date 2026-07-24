@@ -182,16 +182,43 @@ containing nested arrays) fall out naturally.
   character models served are non-skel; only lightforged exercises 3b, keep
   an eye out on a retail 9.2.7+ install later. Suite 86/86.
 
-## Stage 4 (next): bindings + docs
+## Stage 4a landed (2026-07-24): Python bindings
 
-Follow the WMO recipe (formats-architecture.md §recipe + bindings-notes.md):
-def_family calls per version-differing family (M2Data/Skin/M2File/Skeleton/
-M2 + record templates via aliases), M2Base verbs on the base (for_version/
-read/write/convert, nb::sig merged overloads), AnyM2 union, opaque vectors
-(no_reassign already annotated), naming hook keeps M2/FDID acronyms, docs
-site fields page markers + categories, check.py/check.lua extensions, stub
-patterns; supported_versions already in m2/convert.hpp. Also still open:
-span-based M2::read parse overload for buffer-driven Python reads.
+The whole M2 surface welds (~350 classes; see bindings-notes.md "Gotchas
+learned (M2 facade)" for every rule this taught: instantiable trait
+primaries, excluded base operator==, payload OffsetFile explicit
+instantiation, subset-family facade guards, opaque_extra removal). Key
+shapes:
+- Records welded as CONCRETE per-version classes (no family bases /
+  for_version on records — construct `records.M2CompBoneWotlk()` directly);
+  aliases in m2.hpp X-macros ordered tracks → records → satellites →
+  assembly (welded NSDMI defaults convert eagerly at registration).
+- Member docs converted /**< */ → welder::doc across records (welded-entity
+  doc policy); class doxygen folded into the weld doc() and removed.
+- Skin<V> switched from profile INHERITANCE to a `profile` MEMBER (identical
+  wire layout — inline record): a welded M2SkinProfile base would have been
+  a second welded base beside SkinBase (nanobind allows one).
+- Facade: for_version/isinstance/AnyX on M2/M2Data/Skin/M2File/Skeleton
+  bases; read/write(fs,key) + convert on M2Base; read/write on SkeletonBase;
+  stub_patterns.nb grew the five AnyM2* entries; stubs OUTPUT +=
+  formats/m2/{__init__,records}.pyi.
+- tests/python/test_m2_facade.py (13 cases: subset eras, unions, version-
+  gated members, synthetic byte round-trip through Python) + typing/
+  test_m2_facade.mypy-testing (narrowing). 88/88 with clients.
+- GOTCHA: the .venv editable install (scikit-build meta-finder,
+  _editable_skbc_wowlib.pth) SHADOWS PYTHONPATH — refresh site-packages'
+  wowlib.abi3.so + wowlib-stubs/ from build/bindings after rebuilding, or
+  imports test the stale module.
+
+## Stage 4b (remaining): docs site + polish
+
+- docs: an M2 fields reference page in the WMO style (docs/wmo_reference.py
+  parses since/until badges textually — an m2 sibling would read data.hpp +
+  records), records wire pages via mkdocstrings, containers page untouched.
+- span+satellites parse API for buffer-driven Python reads (M2Base.read
+  currently fs-only, documented).
+- Record-family bases/for_version if ergonomics ever demand; Lua target when
+  reinstated; real convert_step ladders (m2/convert.hpp scaffold ready).
 
 ## Naming
 

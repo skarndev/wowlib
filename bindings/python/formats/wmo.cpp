@@ -251,11 +251,12 @@ namespace wowlib_py::formats::wmo
     // Runtime AnyX union aliases (importable TypeAliases; stubgen renders them
     // natively — see def_any_alias). Each lands on the submodule that owns its
     // concretes. A new Expansion grows every union with no edit here.
-    def_any_alias(wmo, "WMO");
-    def_any_alias(root, "WMORoot");
-    def_any_alias(group, "WMOGroup");
-    def_any_alias(group, "WMOGroupBody");
-    def_any_alias(group_chunks, "WMOGroupHeader");
-    def_any_alias(group_chunks, "WMOBatch");
+    def_any_alias<wowlib::formats::wmo::WMO>(wmo, "WMO");
+    def_any_alias<wowlib::formats::wmo::root::WMORoot>(root, "WMORoot");
+    def_any_alias<wowlib::formats::wmo::group::WMOGroup>(group, "WMOGroup");
+    def_any_alias<wowlib::formats::wmo::group::WMOGroupBody>(group, "WMOGroupBody");
+    def_any_alias<wowlib::formats::wmo::group::chunks::SMOGroupHeader>(group_chunks,
+                                                                       "WMOGroupHeader");
+    def_any_alias<wowlib::formats::wmo::group::chunks::SMOBatch>(group_chunks, "WMOBatch");
   }
 }

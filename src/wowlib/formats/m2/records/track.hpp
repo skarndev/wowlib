@@ -26,8 +26,6 @@
 
 namespace wowlib::formats::m2::records
 {
-  /** An inclusive index/timestamp range (pre-WotLK track slicing, sequence
-      replay bounds). */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("An inclusive u32 range: pre-WotLK track interpolation "
@@ -41,7 +39,6 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2Range) == 8);
 
-  /** An extent box plus bounding-sphere radius (sequence/model bounds). */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A bounding volume: axis-aligned extent plus sphere radius.")
@@ -54,7 +51,6 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2Bounds) == 28);
 
-  /** One global-sequence upper timestamp. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A global-loop entry: the timestamp a global sequence wraps at.")
@@ -66,8 +62,6 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2Loop) == 4);
 
-  /** A quaternion compressed to signed 16-bit components (TBC+ bone
-      rotations); (32767, 32767, 32767, 65535-as-signed) is identity. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A quaternion compressed to i16 x, y, z, w (TBC+ bone "
@@ -83,7 +77,6 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2CompQuat) == 8);
 
-  /** A min/max vector pair (particle tumble ranges). */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A model-space box: minimum and maximum corner vectors.")
@@ -96,11 +89,12 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2Box) == 24);
 
-  /** A spline keyframe: the value plus its incoming/outgoing tangents
-      (hermite/bezier interpolated tracks — cameras). Trivially copyable when
-      T is. */
   template <typename T>
-  struct M2SplineKey
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A spline keyframe: the value plus incoming/outgoing tangents "
+                 "(bezier/hermite camera tracks).")
+  ]] M2SplineKey
   {
     T value{};
     T in_tan{};
@@ -119,15 +113,17 @@ namespace wowlib::formats::m2::records
   template <typename T, ClientVersion V>
   struct M2Track;
 
-  /** Pre-WotLK: one global timeline, interpolation_ranges slicing it per
-      sequence (sequences reference it by their global start/end
-      timestamps). */
   template <typename T, ClientVersion V>
     requires (V < m2_per_sequence_timelines)
-  struct M2Track<T, V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("An animation track, pre-WotLK layout: one global timeline with "
+                 "per-sequence interpolation ranges.")
+  ]] M2Track<T, V>
   {
     std::uint16_t interpolation_type = 0;
-    std::uint16_t global_sequence = 0xFFFF; /**< -1: none. */
+    [[=welder::doc("-1: none.")]]
+    std::uint16_t global_sequence = 0xFFFF;
     std::vector<M2Range> interpolation_ranges;
     std::vector<std::uint32_t> timestamps;
     std::vector<T> values;
@@ -135,15 +131,17 @@ namespace wowlib::formats::m2::records
     bool operator==(const M2Track&) const = default;
   };
 
-  /** WotLK+: one timestamp/value array per sequence; a sequence with
-      `(flags & 0x130) == 0` keeps these in its .anim file (the offset I/O
-      contexts route them). */
   template <typename T, ClientVersion V>
     requires (V >= m2_per_sequence_timelines)
-  struct M2Track<T, V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("An animation track, WotLK+ layout: one timestamp/value array per "
+                 "sequence; an external sequence keeps its arrays in the .anim file.")
+  ]] M2Track<T, V>
   {
     std::uint16_t interpolation_type = 0;
-    std::uint16_t global_sequence = 0xFFFF; /**< -1: none. */
+    [[=welder::doc("-1: none.")]]
+    std::uint16_t global_sequence = 0xFFFF;
 
     [[=formats::sequence_data]]
     std::vector<std::vector<std::uint32_t>> timestamps;
@@ -161,7 +159,10 @@ namespace wowlib::formats::m2::records
 
   template <ClientVersion V>
     requires (V < m2_per_sequence_timelines)
-  struct M2TrackBase<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A timestamp-only event track, pre-WotLK layout (every key fires).")
+  ]] M2TrackBase<V>
   {
     std::uint16_t interpolation_type = 0;
     std::uint16_t global_sequence = 0xFFFF;
@@ -173,7 +174,10 @@ namespace wowlib::formats::m2::records
 
   template <ClientVersion V>
     requires (V >= m2_per_sequence_timelines)
-  struct M2TrackBase<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A timestamp-only event track, WotLK+ layout (every key fires).")
+  ]] M2TrackBase<V>
   {
     std::uint16_t interpolation_type = 0;
     std::uint16_t global_sequence = 0xFFFF;
@@ -184,11 +188,12 @@ namespace wowlib::formats::m2::records
     bool operator==(const M2TrackBase&) const = default;
   };
 
-  /** The header-less "fake" animation block (WotLK+ particle color/alpha/
-      scale/UV ramps): sequence-independent short timestamps plus keys,
-      always pointing at inline data. */
   template <typename T>
-  struct FBlock
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The header-less 'fake' animation block: sequence-independent u16 "
+                 "timestamps plus keys (WotLK+ particle ramps).")
+  ]] FBlock
   {
     std::vector<std::uint16_t> timestamps;
     std::vector<T> keys;
@@ -196,10 +201,12 @@ namespace wowlib::formats::m2::records
     bool operator==(const FBlock&) const = default;
   };
 
-  /** A partial track (Legion+ EXP2 alpha cutoffs): normalized fixed16 times
-      plus values, sequence-independent. */
   template <typename T>
-  struct M2PartTrack
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A partial track: normalized fixed16 times plus values (Legion+ EXP2 "
+                 "alpha cutoffs).")
+  ]] M2PartTrack
   {
     std::vector<fixed16> times;
     std::vector<T> values;

@@ -170,7 +170,15 @@ namespace wowlib::formats::m2
 namespace wowlib::formats
 {
 #define WOWLIB_M2_INSTANTIATE_SKELETON_SERIALIZER(Suffix, version_)                                \
-  template struct ChunkedFile<m2::Skeleton<versions::version_>>;
+  template struct ChunkedFile<m2::Skeleton<versions::version_>>;                                   \
+  template struct OffsetFile<m2::records::SkelHeader<versions::version_>>;                         \
+  template struct OffsetFile<m2::records::SkelSequences<versions::version_>>;                      \
+  template struct OffsetFile<m2::records::SkelBones<versions::version_>>;                          \
+  template struct OffsetFile<m2::records::SkelAttachments<versions::version_>>;                    \
+  template struct OffsetFile<m2::records::Exp2Data<versions::version_>>;                           \
+  template struct OffsetFile<m2::records::PabcData<versions::version_>>;                           \
+  template struct OffsetFile<m2::records::PsbcData<versions::version_>>;                           \
+  template struct OffsetFile<m2::records::Pgd1Data<versions::version_>>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_INSTANTIATE_SKELETON_SERIALIZER)
 #undef WOWLIB_M2_INSTANTIATE_SKELETON_SERIALIZER
 

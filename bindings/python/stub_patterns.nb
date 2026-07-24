@@ -42,3 +42,18 @@ wowlib.Error$:
         code: str
         native_error: int
 
+
+wowlib.formats.m2.AnyM2$:
+    AnyM2 = M2Vanilla | M2Tbc | M2Wotlk | M2Cata | M2Mop | M2Wod | M2Legion | M2Bfa | M2Shadowlands | M2Dragonflight | M2TheWarWithin
+
+wowlib.formats.m2.AnyM2Data$:
+    AnyM2Data = M2DataVanilla | M2DataTbc | M2DataWotlk | M2DataCata | M2DataMop | M2DataWod | M2DataLegion | M2DataBfa | M2DataShadowlands | M2DataDragonflight | M2DataTheWarWithin
+
+wowlib.formats.m2.AnySkin$:
+    AnySkin = SkinWotlk | SkinCata | SkinMop | SkinWod | SkinLegion | SkinBfa | SkinShadowlands | SkinDragonflight | SkinTheWarWithin
+
+wowlib.formats.m2.AnyM2File$:
+    AnyM2File = M2FileLegion | M2FileBfa | M2FileShadowlands | M2FileDragonflight | M2FileTheWarWithin
+
+wowlib.formats.m2.AnySkeleton$:
+    AnySkeleton = SkeletonLegion | SkeletonBfa | SkeletonShadowlands | SkeletonDragonflight | SkeletonTheWarWithin

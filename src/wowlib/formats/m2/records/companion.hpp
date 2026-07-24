@@ -49,9 +49,11 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2ExtendedParticleSimple) == 12);
 
-  /** One EXP2 record: the EXPT parameters plus the per-lifetime alpha-cutoff
-      ramp. */
-  struct M2ExtendedParticle
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("An EXP2 record: the EXPT parameters plus the per-lifetime "
+                 "alpha-cutoff ramp.")
+  ]] M2ExtendedParticle
   {
     float z_source = 0;
     float color_mult = 1;
@@ -79,10 +81,12 @@ namespace wowlib::formats::m2::records
   };
   static_assert(sizeof(M2LightDetail) == 12);
 
-  /** The EXP2 chunk payload: one offset-addressed array of extended particle
-      records (same count as the model's particle emitters). */
   template <ClientVersion V>
-  struct Exp2Data : OffsetFile<Exp2Data<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The EXP2 chunk payload: extended particle records, one per "
+                 "particle emitter.")
+  ]] Exp2Data : OffsetFile<Exp2Data<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -98,10 +102,12 @@ namespace wowlib::formats::m2::records
     bool operator==(const Exp2Data&) const = default;
   };
 
-  /** The PABC chunk payload: the parent-model sequence-id blacklist
-      ("BlacklistAnimData"). */
   template <ClientVersion V>
-  struct PabcData : OffsetFile<PabcData<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The PABC chunk payload: the parent-model sequence-id "
+                 "blacklist ('BlacklistAnimData').")
+  ]] PabcData : OffsetFile<PabcData<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -118,9 +124,11 @@ namespace wowlib::formats::m2::records
     bool operator==(const PabcData&) const = default;
   };
 
-  /** The PSBC chunk payload: parent sequence bounds. */
   template <ClientVersion V>
-  struct PsbcData : OffsetFile<PsbcData<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The PSBC chunk payload: parent sequence bounds.")
+  ]] PsbcData : OffsetFile<PsbcData<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -136,9 +144,12 @@ namespace wowlib::formats::m2::records
     bool operator==(const PsbcData&) const = default;
   };
 
-  /** The PGD1 chunk payload: per-particle-emitter geoset assignments. */
   template <ClientVersion V>
-  struct Pgd1Data : OffsetFile<Pgd1Data<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("The PGD1 chunk payload: per-particle-emitter geoset "
+                 "assignments.")
+  ]] Pgd1Data : OffsetFile<Pgd1Data<V>>
   {
     static constexpr ClientVersion version = V;
 

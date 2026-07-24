@@ -55,6 +55,8 @@ namespace wowlib::formats
     [[=welder::mark::exclude]] std::vector<UnknownChunk> unknown;
     [[=welder::mark::exclude]] std::vector<std::byte> trailing;
 
+    // excluded: the parameter type is this unwelded base, not the entity
+    [[=welder::mark::exclude]]
     bool operator==(const ChunkExtras&) const = default;
   };
 
@@ -78,6 +80,7 @@ namespace wowlib::formats
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write() const;
 
+    [[=welder::mark::exclude]]
     bool operator==(const ChunkedFile&) const = default;
   };
 

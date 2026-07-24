@@ -61,9 +61,22 @@ namespace wowlib::formats::m2
 
   namespace detail
   {
+    // The trait primaries are EMPTY and unconstrained: the binding walk
+    // completes absent<Trait>'s template argument even for the versions a
+    // slot leaves inactive, so an out-of-era instantiation must be valid —
+    // the members live in constrained partial specializations instead.
+
     /** WotLK+ assembly members: the external .skin LOD views baked in. */
     template <ClientVersion V>
     struct AssemblySkins
+    {
+      [[=welder::mark::exclude]]
+      bool operator==(const AssemblySkins&) const = default;
+    };
+
+    template <ClientVersion V>
+      requires (V >= m2_per_sequence_timelines)
+    struct AssemblySkins<V>
     {
       [[
         =welder::mark::no_reassign,
@@ -72,6 +85,7 @@ namespace wowlib::formats::m2
                         match — write() validates.)")]]
       std::vector<Skin<V>> skins;
 
+      [[=welder::mark::exclude]]
       bool operator==(const AssemblySkins&) const = default;
     };
 
@@ -79,6 +93,14 @@ namespace wowlib::formats::m2
         references. */
     template <ClientVersion V>
     struct AssemblyLegion
+    {
+      [[=welder::mark::exclude]]
+      bool operator==(const AssemblyLegion&) const = default;
+    };
+
+    template <ClientVersion V>
+      requires (V >= m2_chunked_container)
+    struct AssemblyLegion<V>
     {
       [[
         =welder::doc(R"(The chunked .m2 shell: satellite chunks (FileDataIDs,
@@ -114,6 +136,7 @@ namespace wowlib::formats::m2
                      "skel-based), in variant order.")]]
       std::vector<BoneFile> bone_files;
 
+      [[=welder::mark::exclude]]
       bool operator==(const AssemblyLegion&) const = default;
     };
   }
@@ -205,23 +228,83 @@ namespace wowlib::formats::m2
   X(Dragonflight, dragonflight)                                                                    \
   X(TheWarWithin, tww)
 
+// The bindings surface: welder welds a class-template instantiation through a
+// namespace-scope alias, whose identifier is the target-language name. Alias
+// DECLARATION ORDER IS REGISTRATION ORDER, and welded NSDMI defaults convert
+// eagerly at registration — so tracks alias before the records whose members
+// default them, records before the entities, satellites before the assembly.
+namespace wowlib::formats::m2::records
+{
+  // element/ramp types with no version axis, named once
+  using M2SplineKeyC3Vector = M2SplineKey<C3Vector>;
+  using M2SplineKeyFloat = M2SplineKey<float>;
+  using FBlockC3Vector = FBlock<C3Vector>;
+  using FBlockC2Vector = FBlock<C2Vector>;
+  using FBlockFixed16 = FBlock<fixed16>;
+  using FBlockUInt16 = FBlock<std::uint16_t>;
+  using M2PartTrackFixed16 = M2PartTrack<fixed16>;
+
+#define WOWLIB_M2_RECORD_ALIAS(Suffix, version_)                                                   \
+  using M2TrackC3Vector##Suffix = M2Track<C3Vector, versions::version_>;                           \
+  using M2TrackC4Quaternion##Suffix = M2Track<C4Quaternion, versions::version_>;                   \
+  using M2TrackCompQuat##Suffix = M2Track<M2CompQuat, versions::version_>;                         \
+  using M2TrackFloat##Suffix = M2Track<float, versions::version_>;                                 \
+  using M2TrackFixed16##Suffix = M2Track<fixed16, versions::version_>;                             \
+  using M2TrackUInt8##Suffix = M2Track<std::uint8_t, versions::version_>;                          \
+  using M2TrackUInt16##Suffix = M2Track<std::uint16_t, versions::version_>;                        \
+  using M2TrackSplineC3Vector##Suffix = M2Track<M2SplineKey<C3Vector>, versions::version_>;        \
+  using M2TrackSplineFloat##Suffix = M2Track<M2SplineKey<float>, versions::version_>;              \
+  using M2EventTrack##Suffix = M2TrackBase<versions::version_>;                                    \
+  using M2Sequence##Suffix = M2Sequence<versions::version_>;                                       \
+  using M2CompBone##Suffix = M2CompBone<versions::version_>;                                       \
+  using M2Color##Suffix = M2Color<versions::version_>;                                             \
+  using M2TextureWeight##Suffix = M2TextureWeight<versions::version_>;                             \
+  using M2TextureFlipbook##Suffix = M2TextureFlipbook<versions::version_>;                         \
+  using M2TextureTransform##Suffix = M2TextureTransform<versions::version_>;                       \
+  using M2Attachment##Suffix = M2Attachment<versions::version_>;                                   \
+  using M2Event##Suffix = M2Event<versions::version_>;                                             \
+  using M2Light##Suffix = M2Light<versions::version_>;                                             \
+  using M2Camera##Suffix = M2Camera<versions::version_>;                                           \
+  using M2Ribbon##Suffix = M2Ribbon<versions::version_>;                                           \
+  using M2Particle##Suffix = M2Particle<versions::version_>;                                       \
+  using M2SkinSection##Suffix = M2SkinSection<versions::version_>;                                 \
+  using M2SkinProfile##Suffix = M2SkinProfile<versions::version_>;
+  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_RECORD_ALIAS)
+#undef WOWLIB_M2_RECORD_ALIAS
+
+#define WOWLIB_M2_CHUNKED_RECORD_ALIAS(Suffix, version_)                                           \
+  using SkelHeader##Suffix = SkelHeader<versions::version_>;                                       \
+  using SkelSequences##Suffix = SkelSequences<versions::version_>;                                 \
+  using SkelBones##Suffix = SkelBones<versions::version_>;                                         \
+  using SkelAttachments##Suffix = SkelAttachments<versions::version_>;                             \
+  using Exp2Data##Suffix = Exp2Data<versions::version_>;                                           \
+  using PabcData##Suffix = PabcData<versions::version_>;                                           \
+  using PsbcData##Suffix = PsbcData<versions::version_>;                                           \
+  using Pgd1Data##Suffix = Pgd1Data<versions::version_>;
+  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_CHUNKED_RECORD_ALIAS)
+#undef WOWLIB_M2_CHUNKED_RECORD_ALIAS
+}
+
 namespace wowlib::formats::m2
 {
-#define WOWLIB_M2_ALIAS(Suffix, version_)                                                          \
-  using M2Data##Suffix = M2Data<versions::version_>;                                               \
-  using M2##Suffix = M2<versions::version_>;
-  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_ALIAS)
-#undef WOWLIB_M2_ALIAS
+#define WOWLIB_M2_DATA_ALIAS(Suffix, version_) using M2Data##Suffix = M2Data<versions::version_>;
+  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_DATA_ALIAS)
+#undef WOWLIB_M2_DATA_ALIAS
 
 #define WOWLIB_M2_SKIN_ALIAS(Suffix, version_) using Skin##Suffix = Skin<versions::version_>;
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_SKIN_ALIAS)
 #undef WOWLIB_M2_SKIN_ALIAS
 
 #define WOWLIB_M2_FILE_ALIAS(Suffix, version_)                                                     \
-  using M2File##Suffix = M2File<versions::version_>;                                              \
+  using M2File##Suffix = M2File<versions::version_>;                                               \
   using Skeleton##Suffix = Skeleton<versions::version_>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_FILE_ALIAS)
 #undef WOWLIB_M2_FILE_ALIAS
+
+  // the assembly last: its NSDMI defaults name M2Data/M2File/Skeleton values
+#define WOWLIB_M2_ASSEMBLY_ALIAS(Suffix, version_) using M2##Suffix = M2<versions::version_>;
+  WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_ASSEMBLY_ALIAS)
+#undef WOWLIB_M2_ASSEMBLY_ALIAS
 
   namespace detail
   {
@@ -287,4 +370,19 @@ namespace wowlib::formats
 #undef WOWLIB_M2_EXTERN_FILE_SERIALIZER
 
   extern template struct ChunkedFile<m2::BoneFile>;
+
+  // The payload offset entities are welded (their whole read/write surface
+  // binds), so every overload needs a definition even where the library only
+  // exercises the context forms.
+#define WOWLIB_M2_EXTERN_PAYLOAD_SERIALIZER(Suffix, version_)                                      \
+  extern template struct OffsetFile<m2::records::SkelHeader<versions::version_>>;                 \
+  extern template struct OffsetFile<m2::records::SkelSequences<versions::version_>>;              \
+  extern template struct OffsetFile<m2::records::SkelBones<versions::version_>>;                  \
+  extern template struct OffsetFile<m2::records::SkelAttachments<versions::version_>>;            \
+  extern template struct OffsetFile<m2::records::Exp2Data<versions::version_>>;                   \
+  extern template struct OffsetFile<m2::records::PabcData<versions::version_>>;                   \
+  extern template struct OffsetFile<m2::records::PsbcData<versions::version_>>;                   \
+  extern template struct OffsetFile<m2::records::Pgd1Data<versions::version_>>;
+  WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_EXTERN_PAYLOAD_SERIALIZER)
+#undef WOWLIB_M2_EXTERN_PAYLOAD_SERIALIZER
 }

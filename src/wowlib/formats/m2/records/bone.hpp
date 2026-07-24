@@ -15,8 +15,6 @@
 
 namespace wowlib::formats::m2::records
 {
-  /** M2CompBone::flags bits. Wire fields stay plain ints; test with
-      has_flag(). */
   enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("M2CompBone flags: parent-transform exemptions, billboarding "
@@ -39,38 +37,53 @@ namespace wowlib::formats::m2::records
   template <ClientVersion V>
   struct M2CompBone;
 
-  /** Vanilla (v256/257): raw-quaternion rotations, no name CRC. */
   template <ClientVersion V>
     requires (V < m2_compressed_bones)
-  struct M2CompBone<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
+  ]] M2CompBone<V>
   {
-    std::int32_t key_bone_id = -1;  /**< Key-bone-lookup back reference, -1 if none. */
-    std::uint32_t flags = 0;        /**< See BoneFlags. */
-    std::int16_t parent_bone = -1;  /**< Parent bone index, -1 for roots. */
-    std::uint16_t submesh_id = 0;   /**< Mesh part id. */
+    [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
+    std::int32_t key_bone_id = -1;
+    [[=welder::doc("See BoneFlags.")]]
+    std::uint32_t flags = 0;
+    [[=welder::doc("Parent bone index, -1 for roots.")]]
+    std::int16_t parent_bone = -1;
+    [[=welder::doc("Mesh part id.")]]
+    std::uint16_t submesh_id = 0;
     M2Track<C3Vector, V> translation{};
     M2Track<C4Quaternion, V> rotation{};
     M2Track<C3Vector, V> scale{};
-    C3Vector pivot{};               /**< The bone's pivot point. */
+    [[=welder::doc("The bone's pivot point.")]]
+    C3Vector pivot{};
 
     bool operator==(const M2CompBone&) const = default;
   };
 
-  /** TBC+: compressed-quaternion rotations plus the debug name CRC (the
-      track era inside follows the entity version). */
   template <ClientVersion V>
     requires (V >= m2_compressed_bones)
-  struct M2CompBone<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A bone (TBC+): compressed-quaternion rotations plus the debug name "
+                 "CRC; the track era inside follows the entity version.")
+  ]] M2CompBone<V>
   {
-    std::int32_t key_bone_id = -1;    /**< Key-bone-lookup back reference, -1 if none. */
-    std::uint32_t flags = 0;          /**< See BoneFlags. */
-    std::int16_t parent_bone = -1;    /**< Parent bone index, -1 for roots. */
-    std::uint16_t submesh_id = 0;     /**< Mesh part id. */
-    std::uint32_t bone_name_crc = 0;  /**< CRC of the authoring bone name (debug only). */
+    [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
+    std::int32_t key_bone_id = -1;
+    [[=welder::doc("See BoneFlags.")]]
+    std::uint32_t flags = 0;
+    [[=welder::doc("Parent bone index, -1 for roots.")]]
+    std::int16_t parent_bone = -1;
+    [[=welder::doc("Mesh part id.")]]
+    std::uint16_t submesh_id = 0;
+    [[=welder::doc("CRC of the authoring bone name (debug only).")]]
+    std::uint32_t bone_name_crc = 0;
     M2Track<C3Vector, V> translation{};
     M2Track<M2CompQuat, V> rotation{};
     M2Track<C3Vector, V> scale{};
-    C3Vector pivot{};                 /**< The bone's pivot point. */
+    [[=welder::doc("The bone's pivot point.")]]
+    C3Vector pivot{};
 
     bool operator==(const M2CompBone&) const = default;
   };

@@ -40,6 +40,7 @@
 #include "formats/repeated_caster.hpp"
 
 #include "errors.hpp"
+#include "formats/m2.hpp"
 #include "formats/wmo.hpp"
 #include "fs.hpp"
 #include "naming.hpp"
@@ -55,15 +56,12 @@
 // suppresses <nanobind/stl/vector.h>'s copy caster only for these types, so the two
 // by_value-marked vectors (WMO::groups, WMOGroupBody::batches) still convert by copy.
 #include "wowlib.opaque.hpp"
-// Manual opaque registration the generator's scan misses (std::vector<C2Vector>,
-// nested inside Repeated<> so never discovered directly) — makes texcoords bind
-// zero-copy as list[VectorC2Vector]. Same slot as the generated header.
-#include "formats/opaque_extra.hpp"
 
 WELDER_MODULE(wowlib, nanobind,
               welder::welder<welder::rods::nanobind::rod<>, wowlib_py::wowlib_python_naming>)
 {
   wowlib_py::register_errors(module);
   wowlib_py::formats::wmo::register_facade(module);
+  wowlib_py::formats::m2::register_facade(module);
   wowlib_py::fs::register_filesystem_protocol(module);
 }

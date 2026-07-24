@@ -28,6 +28,26 @@ namespace wowlib::formats::m2
 {
   using namespace wowlib::formats::m2::records;
 
+  /** The version-agnostic base of every M2File<V> (welded as "M2File").
+
+      This empty base exists ENTIRELY for the language bindings: a common
+      welded supertype for the per-version M2File* classes (isinstance,
+      M2File.for_version(expansion)). No role in the C++ API.
+
+      @see https://wowdev.wiki/M2#Chunks */
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld_as("M2File"),
+    =welder::doc(R"(
+        A chunked .m2 shell (Legion+), abstract over the client version.
+        Construct a concrete version with M2File.for_version(expansion); the
+        per-version M2File* classes are subclasses. See
+        https://wowdev.wiki/M2#Chunks.)")
+  ]] M2FileBase
+  {
+    bool operator==(const M2FileBase&) const = default;
+  };
+
   /** The chunked .m2 shell for one Legion+ client version. Reading is
       chunk-order independent and journaled, so an untouched shell rewrites
       byte-for-byte (the chunk-framework guarantee applies to the SHELL; the
@@ -37,7 +57,13 @@ namespace wowlib::formats::m2
       @see https://wowdev.wiki/M2#Chunks */
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
-  struct M2File : ChunkedFile<M2File<V>>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        The chunked .m2 shell for one Legion+ client version: the MD21 image
+        blob plus the satellite chunks. An untouched shell rewrites
+        byte-for-byte. See https://wowdev.wiki/M2#Chunks.)")
+  ]] M2File : ChunkedFile<M2File<V>>, M2FileBase
   {
     static constexpr ClientVersion version = V;
 

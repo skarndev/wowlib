@@ -52,6 +52,16 @@ namespace wowlib_py
     return std::string{base} + std::string{wowlib::enum_name(x)};
   }
 
+  /** @brief Whether family @p F instantiates for expansion @p X.
+
+      Constrained families exclude early eras (Skin is WotLK+, M2File and
+      Skeleton are Legion+); naming an excluded specialization inside the
+      requires-expression is a substitution failure, not an error. Every
+      facade walk guards on this so subset families skip the missing
+      expansions instead of tripping their constraints. */
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
+  concept family_has = requires { typename F<wowlib::to_client_version(X)>; };
+
   /** @brief A bare, default-constructed @c F instance for expansion @p X.
 
       Hoisted out of the @c for_version loop bodies: gcc 16 refuses to instantiate
@@ -71,11 +81,12 @@ namespace wowlib_py
     template for (constexpr auto e : expansion_enumerators)
     {
       constexpr wowlib::Expansion X = [:e:];
-      if (!found && expansion == X)
-      {
-        result = make_one<F, ([:e:])>();
-        found = true;
-      }
+      if constexpr (family_has<F, X>)
+        if (!found && expansion == X)
+        {
+          result = make_one<F, ([:e:])>();
+          found = true;
+        }
     }
     if (!found)
       throw nb::value_error("no wowlib instantiation for that expansion");
@@ -112,7 +123,8 @@ namespace wowlib_py
   void def_for_version(nb::handle base, std::string_view base_name)
   {
     template for (constexpr auto e : expansion_enumerators)
-      def_for_version_overload<F, ([:e:])>(base, base_name);
+      if constexpr (family_has<F, ([:e:])>)
+        def_for_version_overload<F, ([:e:])>(base, base_name);
     nb::cpp_function(
       [](wowlib::Expansion expansion) { return make_for_version<F>(expansion); },
       nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
@@ -132,16 +144,22 @@ namespace wowlib_py
       nanobind's stubgen renders it as @c "AnyX: @c TypeAlias @c = @c WMOVanilla @c
       | @c ..." on its own — no PATTERN_FILE entry, one fewer coupling point.
 
+      @tparam F the family class template — subset families (constrained to
+              later eras) fold only the expansions they instantiate for.
       @param module the submodule that owns the concrete classes and receives the
              alias (each family lives beside its own concretes).
       @param base_name the family base name, e.g. @c "WMO" → binds @c AnyWMO. */
-  inline void def_any_alias(nb::module_ module, std::string_view base_name)
+  template <template <wowlib::ClientVersion> class F>
+  void def_any_alias(nb::module_ module, std::string_view base_name)
   {
     nb::object alias;
     template for (constexpr auto e : expansion_enumerators)
     {
-      nb::object concrete = module.attr(concrete_name(base_name, [:e:]).c_str());
-      alias = alias.is_valid() ? nb::object(alias | concrete) : concrete;
+      if constexpr (family_has<F, ([:e:])>)
+      {
+        nb::object concrete = module.attr(concrete_name(base_name, [:e:]).c_str());
+        alias = alias.is_valid() ? nb::object(alias | concrete) : concrete;
+      }
     }
     module.attr(("Any" + std::string{base_name}).c_str()) = alias;
   }

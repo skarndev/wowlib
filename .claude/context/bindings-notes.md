@@ -189,6 +189,41 @@ Lua notes below describe the intended shape for when that target returns):
   `IsUserdata`), so including the caster headers before WELDER_MODULE is what
   satisfies it — no trust_bindable hatches needed.
 
+## Gotchas learned (M2 facade, 2026-07-24)
+- **The walk completes `absent<Trait>`'s template argument** even for versions a
+  slot leaves inactive — a version-slot TRAIT template must therefore be valid to
+  instantiate for EVERY version. Traits whose members are constrained templates
+  (AssemblySkins' Skin, AssemblyLegion's M2File/Skeleton) use an EMPTY
+  unconstrained primary + a constrained partial specialization carrying the
+  members (m2.hpp detail::Assembly*).
+- **Defaulted `operator==` on an unwelded base needs `mark::exclude`**: it
+  flattens into the welded derived class and welder binds it, but its parameter
+  type is the unwelded base → bindability assert. Excluded on ChunkExtras,
+  ChunkedFile, OffsetBase, OffsetFile, absent<>, and every M2 trait struct.
+  Welded classes keep their own defaulted == (that's Python `__eq__`).
+- **A welded entity's whole method surface must LINK**: the skel/companion
+  payload offset entities only ever ran their context read/write overloads in
+  the library, so the plain `read(span)`/`write()` symbols welder binds were
+  undefined at link — the OffsetFile<payload> instantiations are now explicit
+  (m2.hpp externs + skel.cpp).
+- **formats/opaque_extra.hpp is GONE**: M2's FBlock<C2Vector> made the generator
+  discover `std::vector<C2Vector>` directly, so the manual stopgap became a
+  duplicate NB_MAKE_OPAQUE. WMO texcoords still bind zero-copy through the
+  generated wrapper.
+- **Subset families** (Skin WotLK+, M2File/Skeleton Legion+): facade.hpp's
+  `family_has<F, X>` concept guards every expansion walk (for_version overloads,
+  the runtime fallback, def_any_alias — now templated on F; AnyX folds only the
+  existing eras). def_any_alias's old untyped signature is gone — WMO call sites
+  pass the family template.
+- **M2 exposes NO buffer-parse read on the Python base** (unlike WMO): an offset
+  model pulls satellites during read, so only the (FileSystem, FileKey) form is
+  complete; a span+satellites parse API is a follow-up. Skeleton gets its own
+  read/write verbs on SkeletonBase (shared .skel files serialize standalone).
+- The M2 welded surface is BIG (~350 classes: 9 track combos + M2TrackBase and
+  ~14 record families × versions, via m2.hpp's records alias X-macros — ordered
+  tracks → records → satellites → assembly because welded NSDMI defaults convert
+  eagerly at registration). wowlib_module.cpp now takes ~8-10 min to compile.
+
 ## Gotchas learned
 - Types with only excluded/private ctors: welder static-asserts unless a ctor is
   explicitly `mark::exclude`d (factory-only surface must be declared, not

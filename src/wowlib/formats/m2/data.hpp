@@ -63,6 +63,27 @@ namespace wowlib::formats::m2
     ChunkedAnimFiles [[=welder::doc("The .anim files are chunked (Legion+).")]] = 0x2000
   };
 
+  /** The version-agnostic base of every M2Data<V> (welded as "M2Data").
+
+      This empty base exists ENTIRELY for the language bindings: it gives the
+      per-version M2Data* classes a common welded supertype so binding users
+      can write version-agnostic code (isinstance,
+      M2Data.for_version(expansion)). It has no role in the C++ API, where you
+      use the concrete M2Data<V>.
+
+      @see https://wowdev.wiki/M2 */
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld_as("M2Data"),
+    =welder::doc(R"(
+        An MD20 model body, abstract over the client version. Construct a
+        concrete version with M2Data.for_version(expansion); the per-version
+        M2Data* classes are subclasses. See https://wowdev.wiki/M2.)")
+  ]] M2DataBase
+  {
+    bool operator==(const M2DataBase&) const = default;
+  };
+
   namespace detail
   {
     // --- version-range trait bases (unwelded) ---------------------------------
@@ -94,6 +115,7 @@ namespace wowlib::formats::m2
         =welder::doc("Texture flipbooks (pre-WotLK; never seen engaged).")]]
       std::vector<M2TextureFlipbook<V>> texture_flipbooks;
 
+      [[=welder::mark::exclude]]
       bool operator==(const DataPreWotlk&) const = default;
     };
 
@@ -108,6 +130,7 @@ namespace wowlib::formats::m2
                      "skins on write.")]]
       std::uint32_t num_skin_profiles = 0;
 
+      [[=welder::mark::exclude]]
       bool operator==(const DataWotlk&) const = default;
     };
 
@@ -122,6 +145,7 @@ namespace wowlib::formats::m2
                      "only under global flag 0x8 (TBC+).")]]
       std::vector<std::uint16_t> texture_combiner_combos;
 
+      [[=welder::mark::exclude]]
       bool operator==(const DataTbc&) const = default;
     };
   }
@@ -134,11 +158,18 @@ namespace wowlib::formats::m2
       @tparam V the client version this body targets.
       @see https://wowdev.wiki/M2 */
   template <ClientVersion V>
-  struct M2Data : OffsetFile<M2Data<V>>,
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        An MD20 model body for one client version: header scalars plus every
+        offset-addressed block, decoded. A version's class carries ONLY the
+        members that version defines. See https://wowdev.wiki/M2.)")
+  ]] M2Data : OffsetFile<M2Data<V>>,
                   slot<V, ClientVersion{0, 0, 0, 0}, detail::DataPreWotlk<V>,
                        m2_per_sequence_timelines>,
                   slot<V, m2_per_sequence_timelines, detail::DataWotlk>,
-                  slot<V, m2_compressed_bones, detail::DataTbc>
+                  slot<V, m2_compressed_bones, detail::DataTbc>,
+                  M2DataBase
   {
     static constexpr ClientVersion version = V;
 

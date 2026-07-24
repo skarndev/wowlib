@@ -20,24 +20,36 @@
 
 namespace wowlib::formats::m2::records
 {
-  /** A ribbon (trail) emitter. The priority/color-index tail arrived with
-      WotLK — the members simply do not exist on earlier versions' wire. */
   template <ClientVersion V>
-  struct M2Ribbon
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A ribbon (trail) emitter; the priority/color-index tail exists "
+                 "WotLK+.")
+  ]] M2Ribbon
   {
-    std::uint32_t ribbon_id = 0xFFFFFFFF; /**< Always -1 in known files. */
-    std::uint32_t bone_index = 0;         /**< The bone the ribbon trails from. */
-    C3Vector position{};                  /**< Relative to that bone. */
-    std::vector<std::uint16_t> texture_indices;  /**< Into the model's textures. */
-    std::vector<std::uint16_t> material_indices; /**< Into the model's materials. */
+    [[=welder::doc("Always -1 in known files.")]]
+    std::uint32_t ribbon_id = 0xFFFFFFFF;
+    [[=welder::doc("The bone the ribbon trails from.")]]
+    std::uint32_t bone_index = 0;
+    [[=welder::doc("Relative to that bone.")]]
+    C3Vector position{};
+    [[=welder::doc("Into the model's textures.")]]
+    std::vector<std::uint16_t> texture_indices;
+    [[=welder::doc("Into the model's materials.")]]
+    std::vector<std::uint16_t> material_indices;
     M2Track<C3Vector, V> color{};
-    M2Track<fixed16, V> alpha{};          /**< 0 transparent .. 0x7FFF opaque. */
+    [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
+    M2Track<fixed16, V> alpha{};
     M2Track<float, V> height_above{};
     M2Track<float, V> height_below{};
-    float edges_per_second = 0;           /**< Quad emission rate. */
-    float edge_lifetime = 0;              /**< Seconds a quad stays around. */
-    float gravity = 0;                    /**< Sinks/rises the ribbon over time. */
-    std::uint16_t texture_rows = 0;       /**< Flipbook tiling. */
+    [[=welder::doc("Quad emission rate.")]]
+    float edges_per_second = 0;
+    [[=welder::doc("Seconds a quad stays around.")]]
+    float edge_lifetime = 0;
+    [[=welder::doc("Sinks/rises the ribbon over time.")]]
+    float gravity = 0;
+    [[=welder::doc("Flipbook tiling.")]]
+    std::uint16_t texture_rows = 0;
     std::uint16_t texture_cols = 0;
     M2Track<std::uint16_t, V> tex_slot{};
     M2Track<std::uint8_t, V> visibility{};
@@ -61,8 +73,6 @@ namespace wowlib::formats::m2::records
     bool operator==(const M2Ribbon&) const = default;
   };
 
-  /** One 6.9 fixed-point 2D vector (Cata+ particle multi-texture scroll
-      parameters), stored raw. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("A 2D vector of 6.9 fixed-point values (raw u16 storage).")
@@ -78,25 +88,35 @@ namespace wowlib::formats::m2::records
   template <ClientVersion V>
   struct M2Particle;
 
-  /** Vanilla (v256/257): wide u16 blending/emitter header, static
-      color/scale/UV ramps, a single spin value. */
   template <ClientVersion V>
     requires (V < m2_compressed_bones)
-  struct M2Particle<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A particle emitter, vanilla layout: wide u16 blending/emitter header, "
+                 "static color/scale/UV ramps, a single spin value.")
+  ]] M2Particle<V>
   {
-    std::uint32_t particle_id = 0xFFFFFFFF; /**< Always -1 in known files. */
-    std::uint32_t flags = 0;                /**< See wowdev's particle flag table. */
-    C3Vector position{};                    /**< Relative to the bone. */
+    [[=welder::doc("Always -1 in known files.")]]
+    std::uint32_t particle_id = 0xFFFFFFFF;
+    [[=welder::doc("See wowdev's particle flag table.")]]
+    std::uint32_t flags = 0;
+    [[=welder::doc("Relative to the bone.")]]
+    C3Vector position{};
     std::uint16_t bone_id = 0;
     std::uint16_t texture_id = 0;
-    std::string geometry_model_filename;    /**< Spawns model particles when set. */
-    std::string recursion_model_filename;   /**< Child emitters come from this model. */
+    [[=welder::doc("Spawns model particles when set.")]]
+    std::string geometry_model_filename;
+    [[=welder::doc("Child emitters come from this model.")]]
+    std::string recursion_model_filename;
     std::uint16_t blending_type = 0;
-    std::uint16_t emitter_type = 0;         /**< 1 plane, 2 sphere, 3 spline, 4 bone. */
+    [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
+    std::uint16_t emitter_type = 0;
     std::uint8_t particle_type = 0;
-    std::uint8_t head_or_tail = 0;          /**< 0 head, 1 tail, 2 both. */
+    [[=welder::doc("0 head, 1 tail, 2 both.")]]
+    std::uint8_t head_or_tail = 0;
     std::int16_t priority_plane = 0;
-    std::uint16_t rows = 0;                 /**< Flipbook tiling. */
+    [[=welder::doc("Flipbook tiling.")]]
+    std::uint16_t rows = 0;
     std::uint16_t columns = 0;
     M2Track<float, V> emission_speed{};
     M2Track<float, V> speed_variation{};
@@ -108,9 +128,12 @@ namespace wowlib::formats::m2::records
     M2Track<float, V> emission_area_width{};
     M2Track<float, V> emission_area_length{};
     M2Track<float, V> z_source{};
-    float mid_point = 0;                    /**< Parametric middle of the lifespan. */
-    std::array<CImVector, 3> color_values{};      /**< Start/middle/end BGRA multiply. */
-    std::array<float, 3> scale_values{};          /**< Start/middle/end scale. */
+    [[=welder::doc("Parametric middle of the lifespan.")]]
+    float mid_point = 0;
+    [[=welder::doc("Start/middle/end BGRA multiply.")]]
+    std::array<CImVector, 3> color_values{};
+    [[=welder::doc("Start/middle/end scale.")]]
+    std::array<float, 3> scale_values{};
     std::array<std::uint16_t, 3> lifespan_uv_anim{};
     std::array<std::uint16_t, 3> decay_uv_anim{};
     std::array<std::int16_t, 2> tail_uv_anim{};
@@ -121,41 +144,56 @@ namespace wowlib::formats::m2::records
     CRange twinkle_scale{};
     float inherit_velocity_scale = 0;
     float drag = 0;
-    float spin = 0;                         /**< 1.0 = one full turn over the lifetime. */
-    M2Box tumble{};                         /**< Angular velocity bounds (model particles). */
-    C3Vector wind_vector{};                 /**< Static wind, unless DynamicWind flag. */
+    [[=welder::doc("1.0 = one full turn over the lifetime.")]]
+    float spin = 0;
+    [[=welder::doc("Angular velocity bounds (model particles).")]]
+    M2Box tumble{};
+    [[=welder::doc("Static wind, unless DynamicWind flag.")]]
+    C3Vector wind_vector{};
     float wind_time = 0;
     float follow_speed1 = 0;
     float follow_scale1 = 0;
     float follow_speed2 = 0;
     float follow_scale2 = 0;
-    std::vector<C3Vector> spline_points;    /**< Spline emitter path. */
-    M2Track<std::uint8_t, V> enabled_in{};  /**< Bool track: emitter active. */
+    [[=welder::doc("Spline emitter path.")]]
+    std::vector<C3Vector> spline_points;
+    [[=welder::doc("Bool track: emitter active.")]]
+    M2Track<std::uint8_t, V> enabled_in{};
 
     bool operator==(const M2Particle&) const = default;
   };
 
-  /** TBC (v262/263): the blending/emitter pair packs into bytes beside the
-      new ParticleColor.dbc index; ramps still static, tracks still on the
-      global timeline. */
   template <ClientVersion V>
     requires (V >= m2_compressed_bones && V < m2_per_sequence_timelines)
-  struct M2Particle<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A particle emitter, TBC layout: byte-packed blending/emitter beside "
+                 "the ParticleColor.dbc index; ramps still static.")
+  ]] M2Particle<V>
   {
-    std::uint32_t particle_id = 0xFFFFFFFF; /**< Always -1 in known files. */
-    std::uint32_t flags = 0;                /**< See wowdev's particle flag table. */
-    C3Vector position{};                    /**< Relative to the bone. */
+    [[=welder::doc("Always -1 in known files.")]]
+    std::uint32_t particle_id = 0xFFFFFFFF;
+    [[=welder::doc("See wowdev's particle flag table.")]]
+    std::uint32_t flags = 0;
+    [[=welder::doc("Relative to the bone.")]]
+    C3Vector position{};
     std::uint16_t bone_id = 0;
     std::uint16_t texture_id = 0;
-    std::string geometry_model_filename;    /**< Spawns model particles when set. */
-    std::string recursion_model_filename;   /**< Child emitters come from this model. */
+    [[=welder::doc("Spawns model particles when set.")]]
+    std::string geometry_model_filename;
+    [[=welder::doc("Child emitters come from this model.")]]
+    std::string recursion_model_filename;
     std::uint8_t blending_type = 0;
-    std::uint8_t emitter_type = 0;          /**< 1 plane, 2 sphere, 3 spline, 4 bone. */
-    std::uint16_t particle_color_index = 0; /**< ParticleColor.dbc row selector (0/11/12/13). */
+    [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
+    std::uint8_t emitter_type = 0;
+    [[=welder::doc("ParticleColor.dbc row selector (0/11/12/13).")]]
+    std::uint16_t particle_color_index = 0;
     std::uint8_t particle_type = 0;
-    std::uint8_t head_or_tail = 0;          /**< 0 head, 1 tail, 2 both. */
+    [[=welder::doc("0 head, 1 tail, 2 both.")]]
+    std::uint8_t head_or_tail = 0;
     std::int16_t priority_plane = 0;
-    std::uint16_t rows = 0;                 /**< Flipbook tiling. */
+    [[=welder::doc("Flipbook tiling.")]]
+    std::uint16_t rows = 0;
     std::uint16_t columns = 0;
     M2Track<float, V> emission_speed{};
     M2Track<float, V> speed_variation{};
@@ -167,9 +205,12 @@ namespace wowlib::formats::m2::records
     M2Track<float, V> emission_area_width{};
     M2Track<float, V> emission_area_length{};
     M2Track<float, V> z_source{};
-    float mid_point = 0;                    /**< Parametric middle of the lifespan. */
-    std::array<CImVector, 3> color_values{};      /**< Start/middle/end BGRA multiply. */
-    std::array<float, 3> scale_values{};          /**< Start/middle/end scale. */
+    [[=welder::doc("Parametric middle of the lifespan.")]]
+    float mid_point = 0;
+    [[=welder::doc("Start/middle/end BGRA multiply.")]]
+    std::array<CImVector, 3> color_values{};
+    [[=welder::doc("Start/middle/end scale.")]]
+    std::array<float, 3> scale_values{};
     std::array<std::uint16_t, 3> lifespan_uv_anim{};
     std::array<std::uint16_t, 3> decay_uv_anim{};
     std::array<std::int16_t, 2> tail_uv_anim{};
@@ -180,41 +221,56 @@ namespace wowlib::formats::m2::records
     CRange twinkle_scale{};
     float inherit_velocity_scale = 0;
     float drag = 0;
-    float spin = 0;                         /**< 1.0 = one full turn over the lifetime. */
-    M2Box tumble{};                         /**< Angular velocity bounds (model particles). */
-    C3Vector wind_vector{};                 /**< Static wind, unless DynamicWind flag. */
+    [[=welder::doc("1.0 = one full turn over the lifetime.")]]
+    float spin = 0;
+    [[=welder::doc("Angular velocity bounds (model particles).")]]
+    M2Box tumble{};
+    [[=welder::doc("Static wind, unless DynamicWind flag.")]]
+    C3Vector wind_vector{};
     float wind_time = 0;
     float follow_speed1 = 0;
     float follow_scale1 = 0;
     float follow_speed2 = 0;
     float follow_scale2 = 0;
-    std::vector<C3Vector> spline_points;    /**< Spline emitter path. */
-    M2Track<std::uint8_t, V> enabled_in{};  /**< Bool track: emitter active. */
+    [[=welder::doc("Spline emitter path.")]]
+    std::vector<C3Vector> spline_points;
+    [[=welder::doc("Bool track: emitter active.")]]
+    M2Track<std::uint8_t, V> enabled_in{};
 
     bool operator==(const M2Particle&) const = default;
   };
 
-  /** WotLK through MoP/WoD pre-multitex (v264..271 layouts; our grid: wotlk
-      only): FBlock color/alpha/scale/UV ramps, lifespan/emission variation,
-      four spin fields. 476 wire bytes. */
   template <ClientVersion V>
     requires (V >= m2_per_sequence_timelines && V < m2_multitex_particles)
-  struct M2Particle<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A particle emitter, WotLK-era layout (476 wire bytes): FBlock ramps, "
+                 "lifespan/emission variation, four spin fields.")
+  ]] M2Particle<V>
   {
-    std::uint32_t particle_id = 0xFFFFFFFF; /**< Always -1 in known files. */
-    std::uint32_t flags = 0;                /**< See wowdev's particle flag table. */
-    C3Vector position{};                    /**< Relative to the bone. */
+    [[=welder::doc("Always -1 in known files.")]]
+    std::uint32_t particle_id = 0xFFFFFFFF;
+    [[=welder::doc("See wowdev's particle flag table.")]]
+    std::uint32_t flags = 0;
+    [[=welder::doc("Relative to the bone.")]]
+    C3Vector position{};
     std::uint16_t bone_id = 0;
     std::uint16_t texture_id = 0;
-    std::string geometry_model_filename;    /**< Spawns model particles when set. */
-    std::string recursion_model_filename;   /**< Child emitters come from this model. */
+    [[=welder::doc("Spawns model particles when set.")]]
+    std::string geometry_model_filename;
+    [[=welder::doc("Child emitters come from this model.")]]
+    std::string recursion_model_filename;
     std::uint8_t blending_type = 0;
-    std::uint8_t emitter_type = 0;          /**< 1 plane, 2 sphere, 3 spline, 4 bone. */
-    std::uint16_t particle_color_index = 0; /**< ParticleColor.dbc row selector (0/11/12/13). */
+    [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
+    std::uint8_t emitter_type = 0;
+    [[=welder::doc("ParticleColor.dbc row selector (0/11/12/13).")]]
+    std::uint16_t particle_color_index = 0;
     std::uint8_t particle_type = 0;
-    std::uint8_t head_or_tail = 0;          /**< 0 head, 1 tail, 2 both. */
+    [[=welder::doc("0 head, 1 tail, 2 both.")]]
+    std::uint8_t head_or_tail = 0;
     std::int16_t priority_plane = 0;
-    std::uint16_t rows = 0;                 /**< Flipbook tiling. */
+    [[=welder::doc("Flipbook tiling.")]]
+    std::uint16_t rows = 0;
     std::uint16_t columns = 0;
     M2Track<float, V> emission_speed{};
     M2Track<float, V> speed_variation{};
@@ -222,16 +278,19 @@ namespace wowlib::formats::m2::records
     M2Track<float, V> horizontal_range{};
     M2Track<float, V> gravity{};
     M2Track<float, V> lifespan{};
-    float lifespan_variation = 0;           /**< + lifespan_variation * random(-1, 1). */
+    [[=welder::doc("+ lifespan_variation * random(-1, 1).")]]
+    float lifespan_variation = 0;
     M2Track<float, V> emission_rate{};
     float emission_rate_variation = 0;
     M2Track<float, V> emission_area_width{};
     M2Track<float, V> emission_area_length{};
     M2Track<float, V> z_source{};
-    FBlock<C3Vector> color_track{};         /**< Usually 3 keys: start/middle/end. */
+    [[=welder::doc("Usually 3 keys: start/middle/end.")]]
+    FBlock<C3Vector> color_track{};
     FBlock<fixed16> alpha_track{};
     FBlock<C2Vector> scale_track{};
-    C2Vector scale_vary{};                  /**< Random per-particle scale variation. */
+    [[=welder::doc("Random per-particle scale variation.")]]
+    C2Vector scale_vary{};
     FBlock<std::uint16_t> head_uv_anim{};
     FBlock<std::uint16_t> tail_uv_anim{};
     float tail_length = 0;
@@ -240,44 +299,60 @@ namespace wowlib::formats::m2::records
     CRange twinkle_scale{};
     float inherit_velocity_scale = 0;
     float drag = 0;
-    float base_spin = 0;                    /**< Initial quad rotation. */
+    [[=welder::doc("Initial quad rotation.")]]
+    float base_spin = 0;
     float base_spin_variation = 0;
-    float spin_speed = 0;                   /**< Quad rotation per second. */
+    [[=welder::doc("Quad rotation per second.")]]
+    float spin_speed = 0;
     float spin_speed_variation = 0;
-    M2Box tumble{};                         /**< Angular velocity bounds (model particles). */
-    C3Vector wind_vector{};                 /**< Static wind, unless DynamicWind flag. */
+    [[=welder::doc("Angular velocity bounds (model particles).")]]
+    M2Box tumble{};
+    [[=welder::doc("Static wind, unless DynamicWind flag.")]]
+    C3Vector wind_vector{};
     float wind_time = 0;
     float follow_speed1 = 0;
     float follow_scale1 = 0;
     float follow_speed2 = 0;
     float follow_scale2 = 0;
-    std::vector<C3Vector> spline_points;    /**< Spline emitter path. */
-    M2Track<std::uint8_t, V> enabled_in{};  /**< Bool track: emitter active. */
+    [[=welder::doc("Spline emitter path.")]]
+    std::vector<C3Vector> spline_points;
+    [[=welder::doc("Bool track: emitter active.")]]
+    M2Track<std::uint8_t, V> enabled_in{};
 
     bool operator==(const M2Particle&) const = default;
   };
 
-  /** Cata+ (v272+): multi-texture particles — the texture id becomes a
-      3x5-bit selector under flag 0x10000000, multiTexScale replaces
-      particleType/headOrTail, and the scroll parameters trail the record.
-      492 wire bytes. */
   template <ClientVersion V>
     requires (V >= m2_multitex_particles)
-  struct M2Particle<V>
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("A particle emitter (Cata+, 492 wire bytes): multi-textured — packed "
+                 "texture ids, multiTexScale, trailing scroll parameters.")
+  ]] M2Particle<V>
   {
-    std::uint32_t particle_id = 0xFFFFFFFF; /**< Always -1 in known files. */
-    std::uint32_t flags = 0;                /**< See wowdev's particle flag table. */
-    C3Vector position{};                    /**< Relative to the bone. */
+    [[=welder::doc("Always -1 in known files.")]]
+    std::uint32_t particle_id = 0xFFFFFFFF;
+    [[=welder::doc("See wowdev's particle flag table.")]]
+    std::uint32_t flags = 0;
+    [[=welder::doc("Relative to the bone.")]]
+    C3Vector position{};
     std::uint16_t bone_id = 0;
-    std::uint16_t texture_id = 0;           /**< 3x5-bit texture ids under the MultiTexture flag. */
-    std::string geometry_model_filename;    /**< Spawns model particles when set. */
-    std::string recursion_model_filename;   /**< Child emitters come from this model. */
+    [[=welder::doc("3x5-bit texture ids under the MultiTexture flag.")]]
+    std::uint16_t texture_id = 0;
+    [[=welder::doc("Spawns model particles when set.")]]
+    std::string geometry_model_filename;
+    [[=welder::doc("Child emitters come from this model.")]]
+    std::string recursion_model_filename;
     std::uint8_t blending_type = 0;
-    std::uint8_t emitter_type = 0;          /**< 1 plane, 2 sphere, 3 spline, 4 bone. */
-    std::uint16_t particle_color_index = 0; /**< ParticleColor.dbc row selector (0/11/12/13). */
-    std::array<std::int8_t, 2> multi_tex_scale{}; /**< 2.5 fixed-point per extra layer. */
+    [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
+    std::uint8_t emitter_type = 0;
+    [[=welder::doc("ParticleColor.dbc row selector (0/11/12/13).")]]
+    std::uint16_t particle_color_index = 0;
+    [[=welder::doc("2.5 fixed-point per extra layer.")]]
+    std::array<std::int8_t, 2> multi_tex_scale{};
     std::int16_t priority_plane = 0;
-    std::uint16_t rows = 0;                 /**< Flipbook tiling. */
+    [[=welder::doc("Flipbook tiling.")]]
+    std::uint16_t rows = 0;
     std::uint16_t columns = 0;
     M2Track<float, V> emission_speed{};
     M2Track<float, V> speed_variation{};
@@ -285,16 +360,19 @@ namespace wowlib::formats::m2::records
     M2Track<float, V> horizontal_range{};
     M2Track<float, V> gravity{};
     M2Track<float, V> lifespan{};
-    float lifespan_variation = 0;           /**< + lifespan_variation * random(-1, 1). */
+    [[=welder::doc("+ lifespan_variation * random(-1, 1).")]]
+    float lifespan_variation = 0;
     M2Track<float, V> emission_rate{};
     float emission_rate_variation = 0;
     M2Track<float, V> emission_area_width{};
     M2Track<float, V> emission_area_length{};
     M2Track<float, V> z_source{};
-    FBlock<C3Vector> color_track{};         /**< Usually 3 keys: start/middle/end. */
+    [[=welder::doc("Usually 3 keys: start/middle/end.")]]
+    FBlock<C3Vector> color_track{};
     FBlock<fixed16> alpha_track{};
     FBlock<C2Vector> scale_track{};
-    C2Vector scale_vary{};                  /**< Random per-particle scale variation. */
+    [[=welder::doc("Random per-particle scale variation.")]]
+    C2Vector scale_vary{};
     FBlock<std::uint16_t> head_uv_anim{};
     FBlock<std::uint16_t> tail_uv_anim{};
     float tail_length = 0;
@@ -303,21 +381,29 @@ namespace wowlib::formats::m2::records
     CRange twinkle_scale{};
     float inherit_velocity_scale = 0;
     float drag = 0;
-    float base_spin = 0;                    /**< Initial quad rotation. */
+    [[=welder::doc("Initial quad rotation.")]]
+    float base_spin = 0;
     float base_spin_variation = 0;
-    float spin_speed = 0;                   /**< Quad rotation per second. */
+    [[=welder::doc("Quad rotation per second.")]]
+    float spin_speed = 0;
     float spin_speed_variation = 0;
-    M2Box tumble{};                         /**< Angular velocity bounds (model particles). */
-    C3Vector wind_vector{};                 /**< Static wind, unless DynamicWind flag. */
+    [[=welder::doc("Angular velocity bounds (model particles).")]]
+    M2Box tumble{};
+    [[=welder::doc("Static wind, unless DynamicWind flag.")]]
+    C3Vector wind_vector{};
     float wind_time = 0;
     float follow_speed1 = 0;
     float follow_scale1 = 0;
     float follow_speed2 = 0;
     float follow_scale2 = 0;
-    std::vector<C3Vector> spline_points;    /**< Spline emitter path. */
-    M2Track<std::uint8_t, V> enabled_in{};  /**< Bool track: emitter active. */
-    std::array<M2Vec2FP69, 2> multi_tex_scroll_mid{};   /**< Per extra layer. */
-    std::array<M2Vec2FP69, 2> multi_tex_scroll_range{}; /**< Per extra layer. */
+    [[=welder::doc("Spline emitter path.")]]
+    std::vector<C3Vector> spline_points;
+    [[=welder::doc("Bool track: emitter active.")]]
+    M2Track<std::uint8_t, V> enabled_in{};
+    [[=welder::doc("Per extra layer.")]]
+    std::array<M2Vec2FP69, 2> multi_tex_scroll_mid{};
+    [[=welder::doc("Per extra layer.")]]
+    std::array<M2Vec2FP69, 2> multi_tex_scroll_range{};
 
     bool operator==(const M2Particle&) const = default;
   };
