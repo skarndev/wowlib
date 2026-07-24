@@ -130,9 +130,10 @@ namespace wowlib::formats::wmo::root
 
     [[
       =chunk("MOSB"),
+      =until(ClientVersion{8, 1, 0, 27826}),
       =formats::optional,
-      =welder::doc(R"(Skybox filename (MOSB); raw bytes — files pad it to 4-byte
-                      alignment.)")]]
+      =welder::doc(R"(Skybox filename (MOSB; pre-8.1); raw bytes — files pad it to
+                      4-byte alignment. Replaced by skybox_fdid (MOSI) in 8.1+.)")]]
     ChunkBlob skybox_name;
 
     [[

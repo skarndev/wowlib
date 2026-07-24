@@ -218,19 +218,22 @@ def _version_label(major: int, minor: int, patch: int) -> str:
 
 def _range_html(since: tuple | None, until: tuple | None, base: str) -> str:
     """A coloured availability range. A field present in every supported version
-    (no since/until) gets NO badge — only version-restricted fields are tagged."""
+    (no since/until) gets NO badge — only version-restricted fields are tagged.
+    since = introduced (open-ended, arrow); until = removed at that exact version
+    (bounded, plain bar) — the removal point is shown as-is (mid-expansion aware),
+    never `until.major - 1`, which mis-renders a mid-expansion boundary."""
     if since is None and until is None:
         return ""
-    if since is not None and until is None:
+    if until is None:                                    # introduced, present onward
         start = _pill(since[0], _version_label(*since[:3]), base)
         return f'<span class="wmo-range">{start}<span class="wmo-bar wmo-bar--open"></span></span>'
-    if since is None:
-        end = max(1, until[0] - 1)
-        return (f'<span class="wmo-range">{_pill(1, "Vanilla", base)}'
-                f'<span class="wmo-bar"></span>{_pill(end, EXPANSIONS[end][1], base)}</span>')
-    end = max(since[0], until[0] - 1)
-    return (f'<span class="wmo-range">{_pill(since[0], _version_label(*since[:3]), base)}'
-            f'<span class="wmo-bar"></span>{_pill(end, EXPANSIONS[end][1], base)}</span>')
+    # removed at `until` (exclusive): bounded range ending at the removal version
+    start = (_pill(since[0], _version_label(*since[:3]), base) if since
+             else _pill(1, "Vanilla", base))
+    removed = _pill(until[0], _version_label(*until[:3]), base)
+    title = f"removed in {_version_label(*until[:3])}"
+    return (f'<span class="wmo-range" title="{title}">{start}'
+            f'<span class="wmo-bar"></span>{removed}</span>')
 
 
 def _cc_html(cc: str) -> str:
