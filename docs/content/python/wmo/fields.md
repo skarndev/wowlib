@@ -14,6 +14,33 @@ stand out. The badges are generated from the C++ sources, so they cannot drift.
 
 <!-- wmo-legend -->
 
+## Version-agnostic unions
+
+Each family exposes an `Any…` **type alias** — the union of all its per-version
+classes, bound as a real `types.UnionType` on its module (importable, and usable in
+`isinstance` on Python ≥ 3.10). It is the runtime return type of
+`for_version(expansion: Expansion)` and the natural annotation when your code
+handles any version:
+
+```python
+from wowlib.formats.wmo.root import AnyWMORoot   # WMORootVanilla | … | WMORootTheWarWithin
+
+def process(root: AnyWMORoot) -> None:
+    ...
+
+root = WMORoot.for_version(pick_expansion())     # statically typed as AnyWMORoot
+```
+
+| Alias | Module | Union of |
+|---|---|---|
+| `AnyWMO` | `wowlib.formats.wmo` | every `WMO⟨version⟩` |
+| `AnyWMORoot` | `wowlib.formats.wmo.root` | every `WMORoot⟨version⟩` |
+| `AnyWMOGroup` | `wowlib.formats.wmo.group` | every `WMOGroup⟨version⟩` |
+| `AnyWMOGroupBody` | `wowlib.formats.wmo.group` | every `WMOGroupBody⟨version⟩` |
+
+The versioned chunk structs follow the same pattern — `AnyWMOGroupHeader` and
+`AnyWMOBatch` in `wowlib.formats.wmo.group.chunks`.
+
 ## Root file
 
 The root file holds everything shared across a WMO's groups — materials, doodads,

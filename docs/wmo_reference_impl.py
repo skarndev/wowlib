@@ -356,6 +356,44 @@ def _base_prefix(page) -> str:
     return "../" * (stem.count("/") + 1) if stem else ""
 
 
+# griffe drops for_version: nanobind's stubgen emits it as all-@overload with no
+# primary implementation, so griffe registers no member and mkdocstrings renders
+# nothing. It is the key method of every family base, so inject a proper method entry
+# (mkdocstrings' own markup) after each base class's docstring.
+_FORVER_RE = re.compile(
+    r'(<h3 id="(wowlib\.formats\.wmo\.(?:root|group)\.(?:WMOGroupBody|WMOGroup|WMORoot))"'
+    r' class="doc doc-heading">.*?<div class="doc doc-contents[^"]*">\s*<p>.*?</p>)',
+    re.DOTALL)
+
+
+def _forver_block(hid: str, cls: str) -> str:
+    generic = html.escape(cls + _VERSION_PLACEHOLDER)
+    return (
+        '<div class="doc doc-object doc-function">'
+        f'<h4 id="{hid}.for_version" class="doc doc-heading">'
+        '<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code> '
+        '<span class="doc doc-object-name doc-function-name">for_version</span> '
+        '<span class="doc doc-labels"><small class="doc doc-label doc-label-staticmethod">'
+        '<code>staticmethod</code></small></span>'
+        f'<a href="#{hid}.for_version" class="headerlink" title="Permanent link">&para;</a></h4>'
+        '<div class="language-python doc-signature highlight"><pre><code>'
+        f'for_version(expansion: Expansion) -&gt; {generic}</code></pre></div>'
+        '<div class="doc doc-contents">'
+        f'<p>Construct the concrete <code>{cls}</code> for a client version — the abstract '
+        f'<code>{cls}</code> is never instantiated directly. The return type narrows per '
+        'expansion (a typed overload per <code>Expansion</code> member), so '
+        f'<code>for_version(Expansion.Wotlk)</code> returns a <code>{cls}Wotlk</code>; a '
+        f'runtime <code>Expansion</code> value yields the <code>Any{cls}</code> union.</p>'
+        '</div></div>')
+
+
+def _inject_for_version(html_out: str) -> str:
+    def repl(m):
+        hid = m.group(2)
+        return m.group(1) + _forver_block(hid, hid.rsplit(".", 1)[-1])
+    return _FORVER_RE.sub(repl, html_out)
+
+
 def _augment_fields(html_out: str, base: str) -> str:
     root, group = _entity_fields()
     classes = "|".join(REPR_CLASS.values())
@@ -380,7 +418,7 @@ def _augment_fields(html_out: str, base: str) -> str:
     generic = rf"\1\2{_VERSION_PLACEHOLDER}\3"
     for rx in (_CLASSNAME_RE, _SIG_NAME_RE):
         html_out = rx.sub(generic, html_out)
-    return html_out
+    return _inject_for_version(html_out)
 
 
 def _rewrite_toc(items) -> None:
