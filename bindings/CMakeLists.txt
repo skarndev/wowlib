@@ -109,7 +109,10 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
            ${_wowlib_stubs}/wowlib/formats/wmo/group/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/group/chunks.pyi
            ${_wowlib_stubs}/wowlib/formats/m2/__init__.pyi
-           ${_wowlib_stubs}/wowlib/formats/m2/records.pyi
+           ${_wowlib_stubs}/wowlib/formats/m2/body/__init__.pyi
+           ${_wowlib_stubs}/wowlib/formats/m2/body/records.pyi
+           ${_wowlib_stubs}/wowlib/formats/m2/skin.pyi
+           ${_wowlib_stubs}/wowlib/formats/m2/bone.pyi
     PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py)

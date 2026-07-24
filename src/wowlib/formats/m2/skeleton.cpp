@@ -1,4 +1,4 @@
-#include <wowlib/formats/m2/skel.hpp>
+#include <wowlib/formats/m2/skeleton.hpp>
 
 #include <format>
 #include <map>
@@ -8,7 +8,7 @@
 
 #include <wowlib/formats/common/offset_serializer.hpp>
 #include <wowlib/formats/m2/m2.hpp>
-#include <wowlib/formats/m2/satellite_io.hpp>
+#include <wowlib/formats/m2/detail/satellite_io.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
 namespace wowlib::formats::m2
@@ -173,16 +173,16 @@ namespace wowlib::formats
 {
 #define WOWLIB_M2_INSTANTIATE_SKELETON_SERIALIZER(Suffix, version_)                                \
   template struct ChunkedFile<m2::Skeleton<versions::version_>>;                                   \
-  template struct OffsetFile<m2::records::SkelHeader<versions::version_>>;                         \
-  template struct OffsetFile<m2::records::SkelSequences<versions::version_>>;                      \
-  template struct OffsetFile<m2::records::SkelBones<versions::version_>>;                          \
-  template struct OffsetFile<m2::records::SkelAttachments<versions::version_>>;                    \
-  template struct OffsetFile<m2::records::Exp2Data<versions::version_>>;                           \
-  template struct OffsetFile<m2::records::PabcData<versions::version_>>;                           \
-  template struct OffsetFile<m2::records::PsbcData<versions::version_>>;                           \
-  template struct OffsetFile<m2::records::Pgd1Data<versions::version_>>;
+  template struct OffsetFile<m2::SkelHeader<versions::version_>>;                         \
+  template struct OffsetFile<m2::SkelSequences<versions::version_>>;                      \
+  template struct OffsetFile<m2::SkelBones<versions::version_>>;                          \
+  template struct OffsetFile<m2::SkelAttachments<versions::version_>>;                    \
+  template struct OffsetFile<m2::body::records::Exp2Data<versions::version_>>;                           \
+  template struct OffsetFile<m2::body::records::PabcData<versions::version_>>;                           \
+  template struct OffsetFile<m2::body::records::PsbcData<versions::version_>>;                           \
+  template struct OffsetFile<m2::body::records::Pgd1Data<versions::version_>>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_INSTANTIATE_SKELETON_SERIALIZER)
 #undef WOWLIB_M2_INSTANTIATE_SKELETON_SERIALIZER
 
-  template struct ChunkedFile<m2::BoneFile>;
+  template struct ChunkedFile<m2::bone::BoneFile>;
 }

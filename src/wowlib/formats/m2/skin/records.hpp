@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 skin-profile records (namespace wowlib::formats::m2::records): the LOD
+    M2 skin-profile records (namespace wowlib::formats::m2::skin): the LOD
     view onto the model — local vertex/index/bone lookups, submeshes and
     render batches. Pre-WotLK the profiles sit embedded in the MD20 header;
     WotLK+ each profile is its own .skin file (see m2::skin::Skin). The
@@ -17,9 +17,9 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/track.hpp>
+#include <wowlib/formats/m2/body/records/track.hpp>
 
-namespace wowlib::formats::m2::records
+namespace wowlib::formats::m2::skin
 {
   template <ClientVersion V>
   struct M2SkinSection;

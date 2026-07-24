@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 skeleton records (namespace wowlib::formats::m2::records): M2CompBone
+    M2 skeleton records (namespace wowlib::formats::m2::body::records): M2CompBone
     across its eras. Bones are offset records — their transform tracks nest
     per-sequence arrays behind M2Array references (WotLK+). */
 
@@ -11,9 +11,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/track.hpp>
+#include <wowlib/formats/m2/body/records/track.hpp>
 
-namespace wowlib::formats::m2::records
+namespace wowlib::formats::m2::body::records
 {
   enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),

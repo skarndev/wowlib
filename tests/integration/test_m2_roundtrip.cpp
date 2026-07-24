@@ -119,7 +119,7 @@ namespace
         if (i >= gate_sequences->size())
           return nullptr;
         const auto& s = (*gate_sequences)[i];
-        if (!records::sequence_data_external(s.flags) || (s.flags & 0x40u) != 0)
+        if (!body::records::sequence_data_external(s.flags) || (s.flags & 0x40u) != 0)
           return nullptr;
         return &anim_out[i];
       };
@@ -148,11 +148,11 @@ namespace
     if constexpr (requires { model.skel; })
       if (has_skel)
       {
-        records::SkelBones<V> bones_back;
+        SkelBones<V> bones_back;
         resplit_roundtrip(model.skel.bone_block, bones_back, "SKB1");
-        records::SkelAttachments<V> attachments_back;
+        SkelAttachments<V> attachments_back;
         resplit_roundtrip(model.skel.attachment_block, attachments_back, "SKA1");
-        records::SkelSequences<V> sequences_back;
+        SkelSequences<V> sequences_back;
         resplit_roundtrip(model.skel.sequence_block, sequences_back, "SKS1");
       }
 

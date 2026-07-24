@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The MD20 body entity (namespace wowlib::formats::m2): M2Data — the
+    The MD20 body entity (namespace wowlib::formats::m2::body): M2Data — the
     client's own name for the offset-addressed model payload. Pre-Legion this
     IS the .m2 file; Legion+ it is the MD21 chunk's content (offsets stay
     relative to the image either way, which is exactly what OffsetFile
@@ -26,17 +26,17 @@
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/bone.hpp>
-#include <wowlib/formats/m2/records/effects.hpp>
-#include <wowlib/formats/m2/records/material.hpp>
-#include <wowlib/formats/m2/records/scene.hpp>
-#include <wowlib/formats/m2/records/sequence.hpp>
-#include <wowlib/formats/m2/records/skin.hpp>
-#include <wowlib/formats/m2/records/track.hpp>
+#include <wowlib/formats/m2/body/records/bone.hpp>
+#include <wowlib/formats/m2/body/records/effects.hpp>
+#include <wowlib/formats/m2/body/records/material.hpp>
+#include <wowlib/formats/m2/body/records/scene.hpp>
+#include <wowlib/formats/m2/body/records/sequence.hpp>
+#include <wowlib/formats/m2/skin/records.hpp>
+#include <wowlib/formats/m2/body/records/track.hpp>
 
-namespace wowlib::formats::m2
+namespace wowlib::formats::m2::body
 {
-  using namespace wowlib::formats::m2::records;
+  using namespace wowlib::formats::m2::body::records;
 
   /** The MD20 leading magic, as memcpy'd from disk. */
   inline constexpr std::uint32_t md20_magic = 0x3032444D;  // "MD20"
@@ -107,7 +107,7 @@ namespace wowlib::formats::m2
         =welder::mark::no_reassign,
         =welder::doc("The skin profiles (LOD views), embedded in the model "
                      "pre-WotLK; WotLK+ moves them to .skin files.")]]
-      std::vector<M2SkinProfile<V>> skin_profiles;
+      std::vector<skin::M2SkinProfile<V>> skin_profiles;
 
       [[
         =until(m2_per_sequence_timelines),

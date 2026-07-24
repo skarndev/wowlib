@@ -10,7 +10,7 @@
 #include <string_view>
 
 #include <wowlib/formats/common/offset_serializer.hpp>
-#include <wowlib/formats/m2/satellite_io.hpp>
+#include <wowlib/formats/m2/detail/satellite_io.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
 namespace wowlib::formats::m2
@@ -493,16 +493,16 @@ namespace wowlib::formats::m2
   }
 
 #define WOWLIB_M2_INSTANTIATE(Suffix, version_)                                                    \
-  template struct M2Data<versions::version_>;                                                      \
+  template struct body::M2Data<versions::version_>;                                                      \
   template struct M2<versions::version_>;
   WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_INSTANTIATE)
 #undef WOWLIB_M2_INSTANTIATE
 
-#define WOWLIB_M2_INSTANTIATE_SKIN(Suffix, version_) template struct Skin<versions::version_>;
+#define WOWLIB_M2_INSTANTIATE_SKIN(Suffix, version_) template struct skin::Skin<versions::version_>;
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_INSTANTIATE_SKIN)
 #undef WOWLIB_M2_INSTANTIATE_SKIN
 
-#define WOWLIB_M2_INSTANTIATE_FILE(Suffix, version_) template struct M2File<versions::version_>;
+#define WOWLIB_M2_INSTANTIATE_FILE(Suffix, version_) template struct body::M2File<versions::version_>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_INSTANTIATE_FILE)
 #undef WOWLIB_M2_INSTANTIATE_FILE
 }
@@ -510,17 +510,17 @@ namespace wowlib::formats::m2
 namespace wowlib::formats
 {
 #define WOWLIB_M2_INSTANTIATE_SERIALIZER(Suffix, version_)                                         \
-  template struct OffsetFile<m2::M2Data<versions::version_>>;
+  template struct OffsetFile<m2::body::M2Data<versions::version_>>;
   WOWLIB_M2_FOR_EACH_VERSION(WOWLIB_M2_INSTANTIATE_SERIALIZER)
 #undef WOWLIB_M2_INSTANTIATE_SERIALIZER
 
 #define WOWLIB_M2_INSTANTIATE_SKIN_SERIALIZER(Suffix, version_)                                    \
-  template struct OffsetFile<m2::Skin<versions::version_>>;
+  template struct OffsetFile<m2::skin::Skin<versions::version_>>;
   WOWLIB_M2_FOR_EACH_SKIN_VERSION(WOWLIB_M2_INSTANTIATE_SKIN_SERIALIZER)
 #undef WOWLIB_M2_INSTANTIATE_SKIN_SERIALIZER
 
 #define WOWLIB_M2_INSTANTIATE_FILE_SERIALIZER(Suffix, version_)                                    \
-  template struct ChunkedFile<m2::M2File<versions::version_>>;
+  template struct ChunkedFile<m2::body::M2File<versions::version_>>;
   WOWLIB_M2_FOR_EACH_CHUNKED_VERSION(WOWLIB_M2_INSTANTIATE_FILE_SERIALIZER)
 #undef WOWLIB_M2_INSTANTIATE_FILE_SERIALIZER
 }

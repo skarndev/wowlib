@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    Legion+ companion-chunk records (namespace wowlib::formats::m2::records):
+    Legion+ companion-chunk records (namespace wowlib::formats::m2::body::records):
     the payload types of the chunked .m2 shell's satellite chunks (AFID
     entries, extended-particle blocks, parent-model overrides). The FourCCs of
     these chunks are NOT reversed on disk, unlike every other WoW format. */
@@ -14,9 +14,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/offsets.hpp>
-#include <wowlib/formats/m2/records/track.hpp>
+#include <wowlib/formats/m2/body/records/track.hpp>
 
-namespace wowlib::formats::m2::records
+namespace wowlib::formats::m2::body::records
 {
   /** One AFID entry: which FileDataID serves a sequence's .anim data. */
   struct [[

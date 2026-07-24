@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 effect-emitter records (namespace wowlib::formats::m2::records):
+    M2 effect-emitter records (namespace wowlib::formats::m2::body::records):
     ribbon emitters and the particle emitters — the format's most
     layout-turbulent record, in four eras (vanilla statics, late-TBC packed
     header, WotLK FBlock ramps + four spin fields, Cata+ multi-texturing). */
@@ -16,9 +16,9 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/track.hpp>
+#include <wowlib/formats/m2/body/records/track.hpp>
 
-namespace wowlib::formats::m2::records
+namespace wowlib::formats::m2::body::records
 {
   template <ClientVersion V>
   struct [[

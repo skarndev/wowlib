@@ -6,12 +6,15 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/offset_serializer.hpp>
-#include <wowlib/formats/m2/data.hpp>
-#include <wowlib/formats/m2/skin.hpp>
+#include <wowlib/formats/m2/body/data.hpp>
+#include <wowlib/formats/m2/skin/skin.hpp>
 
 using namespace wowlib;
 using namespace wowlib::formats;
 using namespace wowlib::formats::m2;
+using namespace wowlib::formats::m2::body;
+using namespace wowlib::formats::m2::body::records;
+using namespace wowlib::formats::m2::skin;
 using formats::detail::wire_size;
 
 namespace

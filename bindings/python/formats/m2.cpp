@@ -227,22 +227,25 @@ namespace wowlib_py::formats::m2
   {
     nb::module_ formats = nb::cast<nb::module_>(module.attr("formats"));
     nb::module_ m2 = nb::cast<nb::module_>(formats.attr("m2"));
+    // the per-family submodules mirror the C++ namespaces (m2::body, m2::skin)
+    nb::module_ body = nb::cast<nb::module_>(m2.attr("body"));
+    nb::module_ skin = nb::cast<nb::module_>(m2.attr("skin"));
 
     def_for_version<wowlib::formats::m2::M2>(m2.attr("M2"), "M2");
-    def_for_version<wowlib::formats::m2::M2Data>(m2.attr("M2Data"), "M2Data");
-    def_for_version<wowlib::formats::m2::Skin>(m2.attr("Skin"), "Skin");
-    def_for_version<wowlib::formats::m2::M2File>(m2.attr("M2File"), "M2File");
+    def_for_version<wowlib::formats::m2::M2Data>(body.attr("M2Data"), "M2Data");
+    def_for_version<wowlib::formats::m2::Skin>(skin.attr("Skin"), "Skin");
+    def_for_version<wowlib::formats::m2::M2File>(body.attr("M2File"), "M2File");
     def_for_version<wowlib::formats::m2::Skeleton>(m2.attr("Skeleton"), "Skeleton");
 
     def_m2_ops(m2.attr("M2"));
     def_skeleton_ops(m2.attr("Skeleton"));
 
-    // Runtime AnyX union aliases (importable TypeAliases); the subset
-    // families fold only the expansions they exist for.
+    // Runtime AnyX union aliases (importable TypeAliases) on the family's own
+    // submodule; the subset families fold only the expansions they exist for.
     def_any_alias<wowlib::formats::m2::M2>(m2, "M2");
-    def_any_alias<wowlib::formats::m2::M2Data>(m2, "M2Data");
-    def_any_alias<wowlib::formats::m2::Skin>(m2, "Skin");
-    def_any_alias<wowlib::formats::m2::M2File>(m2, "M2File");
+    def_any_alias<wowlib::formats::m2::M2Data>(body, "M2Data");
+    def_any_alias<wowlib::formats::m2::Skin>(skin, "Skin");
+    def_any_alias<wowlib::formats::m2::M2File>(body, "M2File");
     def_any_alias<wowlib::formats::m2::Skeleton>(m2, "Skeleton");
   }
 }

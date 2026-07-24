@@ -116,21 +116,43 @@ namespace wowlib::formats
 
 // The m2 namespace likewise first opens AFTER the common wire primitives (its
 // records carry NSDMI defaults of common types — C3Vector pivots, CAaBox
-// bounds) and after wmo, fixing the submodule weld order.
+// bounds) and after wmo, fixing the submodule weld order. Within m2 the
+// sub-namespaces mirror the directory tree (body with its records, skin,
+// bone); they pre-declare before m2's own entities so every record welds
+// before the entities that name them as NSDMI defaults.
 namespace wowlib::formats
 {
   namespace
   [[=welder::doc(R"(
-      The M2 model format: the M2 assembly (body + baked satellite files) and
-      its per-version classes, with the record wire structs in the records
-      submodule. The pre-declaration order is the submodule weld order — the
-      records weld before the entities that name them as NSDMI defaults.)")]]
+      The M2 model format: the M2 assembly (the MD20 body plus every baked
+      satellite file) and the shared Skeleton entity, with the per-family
+      submodules mirroring the C++ layout (body, body.records, skin, bone).)")]]
   m2
   {
     namespace
-    [[=welder::doc("M2 record structs (sequences, bones, tracks, textures, "
-                   "cameras, emitters, skin sections) and their flag enums.")]]
-    records
+    [[=welder::doc("The MD20 model body (M2Data) and the Legion+ chunked .m2 "
+                   "shell (M2File) with their per-version classes.")]]
+    body
+    {
+      namespace
+      [[=welder::doc("M2 body record structs (sequences, bones, tracks, "
+                     "textures, cameras, emitters, shell chunk payloads) and "
+                     "their flag enums.")]]
+      records
+      {
+      }
+    }
+
+    namespace
+    [[=welder::doc("The external LOD view entity (.skin file, WotLK+) and the "
+                   "skin profile records (submeshes, render batches).")]]
+    skin
+    {
+    }
+
+    namespace
+    [[=welder::doc("The .bone facial-pose file entity (WoD+).")]]
+    bone
     {
     }
   }

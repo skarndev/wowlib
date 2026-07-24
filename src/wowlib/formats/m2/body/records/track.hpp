@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The M2 animation vocabulary (namespace wowlib::formats::m2::records): the
+    The M2 animation vocabulary (namespace wowlib::formats::m2::body::records): the
     small wire primitives (M2Range, M2Bounds, M2Loop, M2CompQuat, M2Box,
     M2SplineKey) and the track types every animated record embeds. Tracks are
     offset records — the serializer recurses into them inline at the record
@@ -24,7 +24,7 @@
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 
-namespace wowlib::formats::m2::records
+namespace wowlib::formats::m2::body::records
 {
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),

@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The Legion+ chunked .m2 shell (namespace wowlib::formats::m2): M2File —
+    The Legion+ chunked .m2 shell (namespace wowlib::formats::m2::body): M2File —
     the on-disk chunk stream that wraps the MD20 image (MD21) beside the
     satellite chunks (FileDataID references, extended particle data,
     parent-model overrides, inline physics). Chunk ids are NOT reversed on
@@ -22,11 +22,11 @@
 #include <wowlib/formats/common/chunk.hpp>
 #include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/companion.hpp>
+#include <wowlib/formats/m2/body/records/shell.hpp>
 
-namespace wowlib::formats::m2
+namespace wowlib::formats::m2::body
 {
-  using namespace wowlib::formats::m2::records;
+  using namespace wowlib::formats::m2::body::records;
 
   /** The version-agnostic base of every M2File<V> (welded as "M2File").
 

@@ -2,7 +2,7 @@
 
 /** @file
     M2 geometry, texture and material records (namespace
-    wowlib::formats::m2::records): the global vertex, the texture definitions
+    wowlib::formats::m2::body::records): the global vertex, the texture definitions
     and their animated color/weight/transform companions. */
 
 #include <array>
@@ -13,9 +13,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/track.hpp>
+#include <wowlib/formats/m2/body/records/track.hpp>
 
-namespace wowlib::formats::m2::records
+namespace wowlib::formats::m2::body::records
 {
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),

@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The .bone entity (namespace wowlib::formats::m2), WoD+: a tiny chunked
+    The .bone entity (namespace wowlib::formats::m2::bone), WoD+: a tiny chunked
     file (with a raw u32 prelude) carrying facial-pose bone offset matrices —
     one file per variant of the FacePose (808) sequence, referenced by BFID. */
 
@@ -15,7 +15,7 @@
 #include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/common/types.hpp>
 
-namespace wowlib::formats::m2
+namespace wowlib::formats::m2::bone
 {
   /** The .bone raw prelude: a version marker, always 1 so far. */
   struct [[

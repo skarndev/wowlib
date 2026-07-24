@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The external .skin file entity (namespace wowlib::formats::m2), WotLK+:
+    The external .skin file entity (namespace wowlib::formats::m2::skin), WotLK+:
     the 'SKIN' magic followed by one M2SkinProfile — held as an inline member,
     so the wire layout is byte-identical to the embedded pre-WotLK profiles
     while the entity keeps a single welded facade base. Offsets are relative
@@ -14,9 +14,9 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/offsets.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/skin.hpp>
+#include <wowlib/formats/m2/skin/records.hpp>
 
-namespace wowlib::formats::m2
+namespace wowlib::formats::m2::skin
 {
   /** The .skin leading magic, as memcpy'd from disk. */
   inline constexpr std::uint32_t skin_magic = 0x4E494B53;  // "SKIN"
@@ -65,7 +65,7 @@ namespace wowlib::formats::m2
 
     [[=welder::doc("The LOD view's tables (local lookups, submeshes, "
                    "batches).")]]
-    records::M2SkinProfile<V> profile{};
+    M2SkinProfile<V> profile{};
 
     bool operator==(const Skin&) const = default;
   };

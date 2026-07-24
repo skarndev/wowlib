@@ -1,8 +1,9 @@
 """The M2 versioned-format facade (formats/m2.cpp): the five family bases
 (M2, M2Data, Skin, M2File, Skeleton) with for_version + native inheritance,
 the era-subset behavior of the satellite families (Skin is WotLK+, M2File and
-Skeleton Legion+), the record classes under formats.m2.records, and a
-synthetic body round-trip through read()/write() bytes."""
+Skeleton Legion+), the record classes under the per-family submodules
+(formats.m2.body.records, formats.m2.skin), and a synthetic body round-trip
+through read()/write() bytes."""
 
 import types
 
@@ -10,8 +11,11 @@ import pytest
 
 import wowlib
 from wowlib.formats import m2 as m2_mod
+from wowlib.formats.m2 import body as body_mod
+from wowlib.formats.m2 import bone as bone_mod
+from wowlib.formats.m2 import skin as skin_mod
 
-records_mod = m2_mod.records
+records_mod = body_mod.records
 
 X = wowlib.Expansion
 
@@ -30,42 +34,52 @@ def test_concrete_natively_inherits_the_base(fresh_m2):
     assert isinstance(fresh_m2, m2_mod.M2)
 
 
+def test_submodules_mirror_the_cpp_namespaces():
+    assert body_mod.__name__ == "wowlib.formats.m2.body"
+    assert skin_mod.__name__ == "wowlib.formats.m2.skin"
+    assert bone_mod.__name__ == "wowlib.formats.m2.bone"
+    assert records_mod.__name__ == "wowlib.formats.m2.body.records"
+    assert hasattr(bone_mod, "BoneFile")
+
+
 def test_body_defaults_carry_the_wire_versions():
-    assert m2_mod.M2Data.for_version(X.Vanilla).format_version == 256
-    assert m2_mod.M2Data.for_version(X.Wotlk).format_version == 264
-    assert m2_mod.M2Data.for_version(X.Shadowlands).format_version == 274
+    assert body_mod.M2Data.for_version(X.Vanilla).format_version == 256
+    assert body_mod.M2Data.for_version(X.Wotlk).format_version == 264
+    assert body_mod.M2Data.for_version(X.Shadowlands).format_version == 274
 
 
 def test_version_gated_members_do_not_exist_off_era():
-    vanilla = m2_mod.M2Data.for_version(X.Vanilla)
-    wotlk = m2_mod.M2Data.for_version(X.Wotlk)
+    vanilla = body_mod.M2Data.for_version(X.Vanilla)
+    wotlk = body_mod.M2Data.for_version(X.Wotlk)
     assert hasattr(vanilla, "skin_profiles")
     assert not hasattr(vanilla, "num_skin_profiles")
     assert hasattr(wotlk, "num_skin_profiles")
     assert not hasattr(wotlk, "skin_profiles")
 
 
-@pytest.mark.parametrize("family, first", [
-    ("Skin", X.Wotlk),
-    ("M2File", X.Legion),
-    ("Skeleton", X.Legion),
+@pytest.mark.parametrize("module, family, first", [
+    ("skin", "Skin", X.Wotlk),
+    ("body", "M2File", X.Legion),
+    ("m2", "Skeleton", X.Legion),
 ])
-def test_subset_families_reject_earlier_eras(family, first):
-    base = getattr(m2_mod, family)
+def test_subset_families_reject_earlier_eras(module, family, first):
+    mod = {"m2": m2_mod, "body": body_mod, "skin": skin_mod}[module]
+    base = getattr(mod, family)
     assert isinstance(base.for_version(first), base)
     with pytest.raises(ValueError):
         base.for_version(X.Vanilla)
 
 
-@pytest.mark.parametrize("alias, count", [
-    ("AnyM2", 11),
-    ("AnyM2Data", 11),
-    ("AnySkin", 9),
-    ("AnyM2File", 5),
-    ("AnySkeleton", 5),
+@pytest.mark.parametrize("module, alias, count", [
+    ("m2", "AnyM2", 11),
+    ("body", "AnyM2Data", 11),
+    ("skin", "AnySkin", 9),
+    ("body", "AnyM2File", 5),
+    ("m2", "AnySkeleton", 5),
 ])
-def test_anyx_unions_fold_only_existing_eras(alias, count):
-    union = getattr(m2_mod, alias)
+def test_anyx_unions_fold_only_existing_eras(module, alias, count):
+    mod = {"m2": m2_mod, "body": body_mod, "skin": skin_mod}[module]
+    union = getattr(mod, alias)
     assert isinstance(union, types.UnionType)
     assert len(union.__args__) == count
 
@@ -76,6 +90,10 @@ def test_records_bind_under_their_submodule():
     seq = records_mod.M2SequenceWotlk()
     seq.duration = 2000
     assert seq.duration == 2000
+    profile = skin_mod.M2SkinProfileWotlk()
+    assert profile.bone_count_max == 0
+    header = m2_mod.SkelHeaderLegion()
+    assert header.flags == 0x100
 
 
 def test_tracks_expose_per_sequence_arrays():
@@ -87,7 +105,7 @@ def test_tracks_expose_per_sequence_arrays():
 
 
 def test_synthetic_body_roundtrips_through_bytes():
-    model = m2_mod.M2Data.for_version(X.Wotlk)
+    model = body_mod.M2Data.for_version(X.Wotlk)
     model.name = "python_test"
     seq = records_mod.M2SequenceWotlk()
     seq.duration = 1000
@@ -98,7 +116,7 @@ def test_synthetic_body_roundtrips_through_bytes():
     model.materials.append(material)
 
     blob = model.write()
-    back = m2_mod.M2Data.for_version(X.Wotlk)
+    back = body_mod.M2Data.for_version(X.Wotlk)
     back.read(blob)
     assert back.name == "python_test"
     assert len(back.sequences) == 1

@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 scene records (namespace wowlib::formats::m2::records): attachments,
+    M2 scene records (namespace wowlib::formats::m2::body::records): attachments,
     events, lights and cameras — the non-geometry model furniture. */
 
 #include <cstdint>
@@ -10,9 +10,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/records/track.hpp>
+#include <wowlib/formats/m2/body/records/track.hpp>
 
-namespace wowlib::formats::m2::records
+namespace wowlib::formats::m2::body::records
 {
   template <ClientVersion V>
   struct [[
