@@ -347,3 +347,25 @@ Supersedes the naming/layout notes above (kept as history):
   INLINE at the bottom of m2.hpp, skeleton.hpp and wmo.hpp; convert/parse
   consumers get them along with the entity. formats/m2/io.hpp and
   formats/wmo/io.hpp are gone.
+
+## Third sweep (2026-07-25 follow-up)
+
+- **`wire_order` is GONE** (user: string blobs are hard to maintain). The
+  offset serializer's walk (offset_file.hpp `offset_order`) is now: the
+  entity's OWN members in declaration order, with each trait-base member
+  spliced in right after the own member its `=wire_after("name")` annotation
+  names (new spec in annotations.hpp; the name interns via
+  `std::define_static_string` — annotations must be structural, string_view
+  is not). Consteval-checked both ways (unanchored base member / anchor naming
+  no own member). A pure "own members then traits" walk CANNOT work — the
+  MD20 header interleaves trait members mid-struct — which is why anchors
+  carry the position. M2Root now has 5 anchors instead of the 41-name array;
+  declaration order == wire order for the own members (keep it that way).
+- **Chunked payload records canonicalized** (chunked/records.hpp): Exp2Data/
+  PabcData/PsbcData/Pgd1Data moved to `record::detail` + canonicalizing
+  aliases over `m2_chunk_payload_pivots` (RENAMED from m2_skeleton_pivots;
+  empty — one range) × m2_chunked_versions, like the Skel* payloads. Before,
+  `M2ChunkedFile<V>` dragged an UNWELDED `Exp2Data<V>` per shell version:
+  BfA+ shells exposed raw C++ template names in the stubs and would have
+  thrown unregistered-type on property access. Rule: any versioned member
+  type on a versioned entity must go through a canonicalizing alias.

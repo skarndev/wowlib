@@ -47,7 +47,7 @@
 namespace wowlib::formats::m2
 {
   // --- .skel chunk payload records ------------------------------------------
-  // Stable across the whole chunked era (m2_skeleton_pivots is empty): each
+  // Stable across the whole chunked era (m2_chunk_payload_pivots is empty): each
   // family canonicalizes to a single Legion instantiation.
 
   namespace detail
@@ -164,19 +164,19 @@ namespace wowlib::formats::m2
   /** The SKL1 payload — canonicalizing face of detail::SkelHeader. */
   template <ClientVersion V>
   using SkelHeader =
-    detail::SkelHeader<canonical_version(V, m2_skeleton_pivots, m2_chunked_versions)>;
+    detail::SkelHeader<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
   /** The SKS1 payload — canonicalizing face of detail::SkelSequences. */
   template <ClientVersion V>
   using SkelSequences =
-    detail::SkelSequences<canonical_version(V, m2_skeleton_pivots, m2_chunked_versions)>;
+    detail::SkelSequences<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
   /** The SKB1 payload — canonicalizing face of detail::SkelBones. */
   template <ClientVersion V>
   using SkelBones =
-    detail::SkelBones<canonical_version(V, m2_skeleton_pivots, m2_chunked_versions)>;
+    detail::SkelBones<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
   /** The SKA1 payload — canonicalizing face of detail::SkelAttachments. */
   template <ClientVersion V>
   using SkelAttachments =
-    detail::SkelAttachments<canonical_version(V, m2_skeleton_pivots, m2_chunked_versions)>;
+    detail::SkelAttachments<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
 
   /** The SKPD payload: the parent-skeleton link used for de-duplication
       (e.g. lightforgeddraeneimale -> draeneimale_hd; the child shares the
@@ -357,13 +357,13 @@ namespace wowlib::formats::m2
   }
 
   /** A shared model skeleton — the canonicalizing face of detail::Skeleton:
-      the whole chunked era is one range (m2_skeleton_pivots is empty), so a
+      the whole chunked era is one range (m2_chunk_payload_pivots is empty), so a
       SINGLE instantiation serves Legion through the latest release.
       Pre-Legion versions stay a substitution failure. */
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
   using Skeleton =
-    detail::Skeleton<canonical_version(V, m2_skeleton_pivots, m2_chunked_versions)>;
+    detail::Skeleton<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
 }
 
 // --- fs-level read/write definitions (inline for the same implicit-

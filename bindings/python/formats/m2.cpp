@@ -247,7 +247,7 @@ namespace wowlib_py::formats::m2
                                fm2::m2_skin_versions);
     def_for_version<fm2::M2ChunkedFile>(chunked.attr("M2ChunkedFile"), "M2ChunkedFile",
                                         fm2::m2_file_pivots, fm2::m2_chunked_versions);
-    def_for_version<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton", fm2::m2_skeleton_pivots,
+    def_for_version<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton", fm2::m2_chunk_payload_pivots,
                                    fm2::m2_chunked_versions);
 
     def_m2_ops(m2.attr("M2"));
@@ -260,7 +260,7 @@ namespace wowlib_py::formats::m2
     def_any_alias<fm2::Skin>(skin, "Skin", fm2::m2_skin_pivots, fm2::m2_skin_versions);
     def_any_alias<fm2::M2ChunkedFile>(chunked, "M2ChunkedFile", fm2::m2_file_pivots,
                                       fm2::m2_chunked_versions);
-    def_any_alias<fm2::Skeleton>(m2, "Skeleton", fm2::m2_skeleton_pivots,
+    def_any_alias<fm2::Skeleton>(m2, "Skeleton", fm2::m2_chunk_payload_pivots,
                                  fm2::m2_chunked_versions);
   }
 }

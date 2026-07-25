@@ -30,12 +30,13 @@
     - any other class type           -> an inline record: its members recurse
                                         at the current cursor (M2Track).
 
-    Wire walk order is declaration/flatten order, overridable by an
-    authoritative `static constexpr wire_order` array of member names — needed
-    once version-gated members live in conditionally-inherited trait bases,
-    whose flatten order is by-trait, not the interleaved wire order. Writes
-    always produce the canonical relayout (image first, then data blocks
-    depth-first in wire order, 16-byte aligned). */
+    Wire walk order is the entity's own declaration order; a version-gated
+    member living in a conditionally-inherited trait base carries
+    `=wire_after("member")` naming the own member it follows on the wire, and
+    is spliced in right there (flatten order is by-trait, never the
+    interleaved wire order). Writes always produce the canonical relayout
+    (image first, then data blocks depth-first in wire order, 16-byte
+    aligned). */
 
 #include <meta>
 
@@ -186,35 +187,57 @@ namespace wowlib::formats
       std::is_class_v<T> && !std::is_trivially_copyable_v<T> && !is_vector_v<T>
       && !is_wire_string_v<T>;
 
-    /** The member indices (into members_of<T>) in wire-walk order. When @a T
-        declares `static constexpr wire_order` (an array of member-name
-        string_views), members follow it; names that match no member are
-        skipped (they belong to other versions' trait slots), but every member
-        @a T does have must be listed exactly once (asserted). Without a
-        wire_order, declaration/flatten order applies. */
+    /** The first wire_after anchor on @a member, if any. */
+    consteval std::optional<wire_after_spec> wire_anchor_of(std::meta::info member)
+    {
+      auto anns = std::meta::annotations_of_with_type(member, ^^wire_after_spec);
+      if (anns.empty())
+        return std::nullopt;
+      return std::meta::extract<wire_after_spec>(anns[0]);
+    }
+
+    /** The member indices (into members_of<T>) in wire-walk order: @a T's OWN
+        members in declaration order, each followed by the trait-base members
+        anchored to it with `=wire_after("name")`.
+
+        A member flattened in from a (conditionally-inherited version-trait)
+        base cannot keep its flatten position — bases flatten by-trait, never
+        the interleaved wire order — so each names the own member it follows on
+        the wire and is spliced right after it (several members on one anchor
+        keep their flatten order; in practice they are mutually exclusive
+        version twins). Consteval-checked both ways: a base member without an
+        anchor, and an anchor naming no own member, are errors. */
     template <typename T>
     consteval auto offset_order()
     {
       constexpr auto members = members_of<T>();
+      auto own = std::meta::nonstatic_data_members_of(
+        ^^T, std::meta::access_context::unchecked());
+      auto is_own = [&](std::meta::info m) {
+        for (auto o : own)
+          if (o == m)
+            return true;
+        return false;
+      };
+      for (std::size_t i = 0; i < members.size(); ++i)
+        if (!is_own(members[i]) && !wire_anchor_of(members[i]).has_value())
+          throw "an offset entity's trait-base member needs =wire_after(\"own member\")";
       std::vector<std::size_t> order;
-      if constexpr (requires { T::wire_order; })
+      for (auto o : own)
       {
-        std::vector<bool> used(members.size(), false);
-        for (std::string_view name : T::wire_order)
-          for (std::size_t i = 0; i < members.size(); ++i)
-            if (!used[i] && std::meta::has_identifier(members[i])
-                && std::meta::identifier_of(members[i]) == name)
-            {
-              order.push_back(i);
-              used[i] = true;
-              break;
-            }
-        if (order.size() != members.size())
-          throw "wire_order must list every data member exactly once";
-      }
-      else
         for (std::size_t i = 0; i < members.size(); ++i)
-          order.push_back(i);
+          if (members[i] == o)
+            order.push_back(i);
+        if (!std::meta::has_identifier(o))
+          continue;
+        for (std::size_t i = 0; i < members.size(); ++i)
+          if (!is_own(members[i]))
+            if (auto a = wire_anchor_of(members[i]);
+                a && a->view() == std::meta::identifier_of(o))
+              order.push_back(i);
+      }
+      if (order.size() != members.size())
+        throw "a wire_after anchor names no own member of the entity";
       return std::define_static_array(order);
     }
 

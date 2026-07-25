@@ -8,9 +8,10 @@
     serializes against).
 
     Version-gated members live in conditionally-inherited trait slots
-    (root::detail); the authoritative `wire_order` puts them back at their
-    interleaved wire positions. A version's M2Root carries ONLY the members
-    that version defines — setting an absent one is a compile error. */
+    (root::detail); each carries `=wire_after("member")` naming the own member
+    it follows, which puts it back at its interleaved wire position. A
+    version's M2Root carries ONLY the members that version defines — setting
+    an absent one is a compile error. */
 
 #include <array>
 #include <cstdint>
@@ -87,8 +88,8 @@ namespace wowlib::formats::m2::root
   namespace detail
   {
     // --- version-range trait bases (unwelded) ---------------------------------
-    // One struct per availability range; wire_order (not flatten order) fixes
-    // their interleaved positions in the header.
+    // One struct per availability range; each member's wire_after anchor (not
+    // flatten order) fixes its interleaved position in the header.
 
     /** Pre-WotLK members: the embedded skin profiles and the vanilla/TBC-only
         lookup blocks. */
@@ -97,6 +98,7 @@ namespace wowlib::formats::m2::root
     {
       [[
         =until(m2_per_sequence_timelines),
+        =wire_after("sequence_lookups"),
         =welder::mark::no_reassign,
         =welder::doc("Playable-animation fallbacks, one per AnimationData.dbc "
                      "id (pre-WotLK).")]]
@@ -104,6 +106,7 @@ namespace wowlib::formats::m2::root
 
       [[
         =until(m2_per_sequence_timelines),
+        =wire_after("vertices"),
         =welder::mark::no_reassign,
         =welder::doc("The skin profiles (LOD views), embedded in the model "
                      "pre-WotLK; WotLK+ moves them to .skin files.")]]
@@ -111,6 +114,7 @@ namespace wowlib::formats::m2::root
 
       [[
         =until(m2_per_sequence_timelines),
+        =wire_after("texture_weights"),
         =welder::mark::no_reassign,
         =welder::doc("Texture flipbooks (pre-WotLK; never seen engaged).")]]
       std::vector<M2TextureFlipbook<V>> texture_flipbooks;
@@ -125,6 +129,7 @@ namespace wowlib::formats::m2::root
     {
       [[
         =since(m2_per_sequence_timelines),
+        =wire_after("vertices"),
         =welder::mark::exclude,
         =welder::doc("How many .skin files (LOD views) belong to the model "
                      "(WotLK+). A derived wire field: the M2 assembly's "
@@ -142,6 +147,7 @@ namespace wowlib::formats::m2::root
       [[
         =since(m2_compressed_bones),
         =gated_by(0x8),
+        =wire_after("particle_emitters"),
         =welder::mark::no_reassign,
         =welder::doc("Second-texture material override combos; on the wire "
                      "only under global flag 0x8 (TBC+).")]]
@@ -178,22 +184,6 @@ namespace wowlib::formats::m2::root
                   M2RootBase
   {
     static constexpr ClientVersion version = V;
-
-    /** The authoritative wire order of every member across all versions —
-        names absent from a version's flatten are skipped. */
-    static constexpr std::array<std::string_view, 41> wire_order{
-      "magic", "format_version", "name", "global_flags",
-      "global_loops", "sequences", "sequence_lookups", "playable_animation_lookup",
-      "bones", "key_bone_lookup", "vertices", "skin_profiles", "num_skin_profiles",
-      "colors", "textures", "texture_weights", "texture_flipbooks",
-      "texture_transforms", "replacable_texture_lookup", "materials",
-      "bone_lookup_table", "texture_lookup_table", "texture_mapping_lookup_table",
-      "transparency_lookup_table", "texture_transforms_lookup_table",
-      "bounding_box", "bounding_sphere_radius", "collision_box",
-      "collision_sphere_radius", "collision_triangles", "collision_vertices",
-      "collision_normals", "attachments", "attachment_lookup_table", "events",
-      "lights", "cameras", "camera_lookup_table", "ribbon_emitters",
-      "particle_emitters", "texture_combiner_combos"};
 
     [[=welder::mark::exclude,
       =welder::doc("The leading magic, 'MD20' — constant on every model; "

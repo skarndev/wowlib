@@ -56,7 +56,7 @@ namespace
     /** Pre-boundary-only members (conditionally inherited). */
     struct ModelOld
     {
-      [[=until(boundary)]]
+      [[=until(boundary), =wire_after("name")]]
       std::vector<std::uint32_t> old_refs;
 
       bool operator==(const ModelOld&) const = default;
@@ -65,7 +65,7 @@ namespace
     /** Post-boundary-only members (conditionally inherited). */
     struct ModelNew
     {
-      [[=since(boundary)]]
+      [[=since(boundary), =wire_after("records")]]
       std::vector<std::uint64_t> new_refs;
 
       bool operator==(const ModelNew&) const = default;
@@ -79,12 +79,9 @@ namespace
   {
     static constexpr ClientVersion version = V;
 
-    // The authoritative wire order: interleaves the trait members between the
-    // primary members, proving flatten order does not leak onto the wire.
-    static constexpr std::array<std::string_view, 8> wire_order{
-      "magic", "format_version", "global_flags", "name",
-      "old_refs", "records", "new_refs", "combos"};
-
+    // Wire order = own declaration order; the trait members' wire_after
+    // anchors interleave them (old_refs after name, new_refs after records),
+    // proving flatten order does not leak onto the wire.
     std::uint32_t magic = 0x3244544D;  // 'MTD2'
     std::uint32_t format_version = 264;
     std::uint32_t global_flags = 0;
@@ -162,7 +159,8 @@ TEST_CASE("offset entity round-trips all member kinds", "[formats][offset]")
   CHECK(back == m);
 }
 
-TEST_CASE("wire_order interleaves trait members at their wire positions", "[formats][offset]")
+TEST_CASE("wire_after anchors interleave trait members at their wire positions",
+          "[formats][offset]")
 {
   const auto m = sample_model<old_v>();
   auto bytes = m.write();

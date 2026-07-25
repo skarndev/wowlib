@@ -14,6 +14,7 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/offset_file.hpp>
+#include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::formats::m2::chunked::record
@@ -99,6 +100,11 @@ namespace wowlib::formats::m2::chunked::record
   };
   static_assert(sizeof(M2LightDetail) == 12);
 
+  namespace detail
+  {
+  // The annotated payload layouts; instantiate through the canonicalizing
+  // aliases below, never directly — every chunked-era version maps to the
+  // Legion instantiation, so all shells share one welded class per payload.
   template <ClientVersion V>
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
@@ -183,4 +189,30 @@ namespace wowlib::formats::m2::chunked::record
 
     bool operator==(const Pgd1Data&) const = default;
   };
+  }
+
+  // --- canonicalizing faces of the payload templates --------------------------
+  // The whole chunked era is one range (m2_chunk_payload_pivots is empty), so
+  // every client version collapses to the Legion instantiation — without this,
+  // each shell version would drag its own (unwelded) payload type along.
+
+  /** The EXP2 chunk payload; see detail::Exp2Data. */
+  template <ClientVersion V>
+  using Exp2Data =
+    detail::Exp2Data<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+
+  /** The PABC chunk payload; see detail::PabcData. */
+  template <ClientVersion V>
+  using PabcData =
+    detail::PabcData<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+
+  /** The PSBC chunk payload; see detail::PsbcData. */
+  template <ClientVersion V>
+  using PsbcData =
+    detail::PsbcData<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+
+  /** The PGD1 chunk payload; see detail::Pgd1Data. */
+  template <ClientVersion V>
+  using Pgd1Data =
+    detail::Pgd1Data<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
 }

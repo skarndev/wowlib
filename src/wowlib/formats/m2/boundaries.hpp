@@ -180,7 +180,7 @@ namespace wowlib::formats::m2
 
   /** Skeleton and its chunk payloads plus the shell payload records: stable
       across the whole chunked era — no pivots, one instantiation. */
-  inline constexpr std::array<ClientVersion, 0> m2_skeleton_pivots{};
+  inline constexpr std::array<ClientVersion, 0> m2_chunk_payload_pivots{};
 
   /** The M2 assembly: the union of the body, skin and stream pivots plus the
       bare-MD20 read gate (m2_chunked_only). */

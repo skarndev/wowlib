@@ -38,7 +38,10 @@
     structs carry none. The serializer and the bindings read the same specs, so
     version activity has a single source of truth. */
 
+#include <meta>
+
 #include <cstdint>
+#include <string_view>
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
@@ -103,6 +106,17 @@ namespace wowlib::formats
     {
       std::uint32_t mask;
     };
+
+    /** Stored form of `wire_after` (offset entities): the trait-base member's
+        wire position — right after the named own member of the entity. The
+        name is interned via define_static_string (annotations must be
+        structural; std::string_view is not). */
+    struct wire_after_spec
+    {
+      const char* name;
+
+      constexpr std::string_view view() const { return name; }
+    };
   }
 
   /** Declare the chunk a member maps to.
@@ -154,4 +168,15 @@ namespace wowlib::formats
       member must precede it in wire order.
       @param mask the flag bits that engage the member. */
   consteval detail::gated_by_spec gated_by(std::uint32_t mask) { return {mask}; }
+
+  /** Anchor a version-trait member at its wire position: the offset serializer
+      walks the entity's OWN members in declaration order and splices each
+      trait-base member right after the own member named here. Required on
+      every member an offset entity inherits from a conditionally-inherited
+      trait base — flatten order is by-trait, never the interleaved wire order.
+      @param name the own member this one follows on the wire. */
+  consteval detail::wire_after_spec wire_after(std::string_view name)
+  {
+    return {std::define_static_string(name)};
+  }
 }

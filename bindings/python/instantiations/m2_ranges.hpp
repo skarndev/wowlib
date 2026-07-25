@@ -250,8 +250,8 @@ namespace wowlib::formats::m2
                   "WOWLIB_M2_RANGES_FILE drifted from m2_file_pivots");
     inline constexpr std::array m2_chunk_payload_rows{
       WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_chunk_payload_rows, m2_skeleton_pivots, m2_chunked_versions),
-                  "WOWLIB_M2_RANGES_CHUNK_PAYLOADS drifted from m2_skeleton_pivots");
+    static_assert(ranges_valid(m2_chunk_payload_rows, m2_chunk_payload_pivots, m2_chunked_versions),
+                  "WOWLIB_M2_RANGES_CHUNK_PAYLOADS drifted from m2_chunk_payload_pivots");
     inline constexpr std::array m2_assembly_rows{WOWLIB_M2_RANGES_ASSEMBLY(WOWLIB_M2_RANGE_ROW)};
     static_assert(ranges_valid(m2_assembly_rows, m2_assembly_pivots, m2_versions),
                   "WOWLIB_M2_RANGES_ASSEMBLY drifted from m2_assembly_pivots");
