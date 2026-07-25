@@ -20,7 +20,7 @@
 
       [[
         =chunk("MODI"),
-        =since(ClientVersion{8, 1, 0, 27826}),
+        =since(builds::TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Doodad FileDataIDs (MODI, 8.1+).")]]
@@ -33,7 +33,8 @@
 
     Annotations appear only on entity primary-template members, with
     non-dependent arguments (a member's since()/until() carries the exact client
-    version the chunk appeared/vanished at, as wowdev.wiki documents it) — wire
+    version the chunk appeared/vanished at, as wowdev.wiki documents it, spelled
+    through the named build constants of core/client_builds.hpp) — wire
     structs carry none. The serializer and the bindings read the same specs, so
     version activity has a single source of truth. */
 

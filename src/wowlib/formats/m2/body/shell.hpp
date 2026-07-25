@@ -19,6 +19,7 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/chunk.hpp>
 #include <wowlib/formats/common/serializer.hpp>
@@ -83,7 +84,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("PFID", FourCCEndian::forward),
-      =since(ClientVersion{7, 0, 1, 20740}),
+      =since(builds::LegionAlpha),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc(".phys FileDataID (PFID); 0 or 1 entries.")]]
@@ -91,7 +92,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("SFID", FourCCEndian::forward),
-      =since(ClientVersion{7, 0, 1, 20740}),
+      =since(builds::LegionAlpha),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc(".skin FileDataIDs (SFID): num_skin_profiles view entries, "
@@ -100,7 +101,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("AFID", FourCCEndian::forward),
-      =since(ClientVersion{7, 0, 1, 20740}),
+      =since(builds::LegionAlpha),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc(".anim FileDataIDs (AFID), one per external (animation, "
@@ -109,7 +110,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("BFID", FourCCEndian::forward),
-      =since(ClientVersion{7, 0, 1, 20740}),
+      =since(builds::LegionAlpha),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc(".bone FileDataIDs (BFID), one per FacePose variant.")]]
@@ -117,7 +118,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("TXAC", FourCCEndian::forward),
-      =since(ClientVersion{7, 0, 0, 0}),
+      =since(builds::Legion),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Texture transform flags (TXAC), one 2-byte record per "
@@ -126,7 +127,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("EXPT", FourCCEndian::forward),
-      =since(ClientVersion{7, 0, 0, 0}),
+      =since(builds::Legion),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Extended particle parameters (EXPT), one per emitter; "
@@ -135,7 +136,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("EXP2", FourCCEndian::forward),
-      =since(ClientVersion{7, 3, 0, 24500}),
+      =since(builds::ShadowsOfArgus_24500),
       =formats::optional,
       =welder::doc("Extended particle parameters with alpha-cutoff ramps "
                    "(EXP2), one per emitter.")]]
@@ -143,14 +144,14 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("PABC", FourCCEndian::forward),
-      =since(ClientVersion{7, 3, 0, 24500}),
+      =since(builds::ShadowsOfArgus_24500),
       =formats::optional,
       =welder::doc("Parent-model sequence blacklist (PABC).")]]
     PabcData<V> parent_sequence_blacklist{};
 
     [[
       =chunk("PADC", FourCCEndian::forward),
-      =since(ClientVersion{7, 3, 0, 24500}),
+      =since(builds::ShadowsOfArgus_24500),
       =formats::optional,
       =welder::doc("Parent texture weights (PADC); offset-based track "
                    "payload kept verbatim.")]]
@@ -158,14 +159,14 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("PSBC", FourCCEndian::forward),
-      =since(ClientVersion{7, 3, 0, 24500}),
+      =since(builds::ShadowsOfArgus_24500),
       =formats::optional,
       =welder::doc("Parent sequence bounds (PSBC).")]]
     PsbcData<V> parent_sequence_bounds{};
 
     [[
       =chunk("PEDC", FourCCEndian::forward),
-      =since(ClientVersion{7, 3, 0, 24500}),
+      =since(builds::ShadowsOfArgus_24500),
       =formats::optional,
       =welder::doc("Parent event data (PEDC); offset-based track payload "
                    "kept verbatim.")]]
@@ -173,7 +174,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("SKID", FourCCEndian::forward),
-      =since(ClientVersion{7, 3, 0, 24500}),
+      =since(builds::ShadowsOfArgus_24500),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc(".skel FileDataID (SKID); 0 or 1 entries.")]]
@@ -181,7 +182,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("TXID", FourCCEndian::forward),
-      =since(ClientVersion{8, 0, 1, 26629}),
+      =since(builds::BfaBeta),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Texture FileDataIDs (TXID), replacing the in-image "
@@ -190,14 +191,14 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("LDV1", FourCCEndian::forward),
-      =since(ClientVersion{8, 0, 1, 26629}),
+      =since(builds::BfaBeta),
       =formats::optional,
       =welder::doc("LOD data (LDV1); layout partially known, kept verbatim.")]]
     ChunkBlob lod_data;
 
     [[
       =chunk("RPID", FourCCEndian::forward),
-      =since(ClientVersion{8, 1, 0, 27826}),
+      =since(builds::TidesOfVengeance),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Recursive (child-emitter) particle model FileDataIDs "
@@ -206,7 +207,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("GPID", FourCCEndian::forward),
-      =since(ClientVersion{8, 1, 0, 27826}),
+      =since(builds::TidesOfVengeance),
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Geometry particle model FileDataIDs (GPID), one per "
@@ -215,7 +216,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("WFV1", FourCCEndian::forward),
-      =since(ClientVersion{8, 2, 0, 30080}),
+      =since(builds::RiseOfAzshara),
       =formats::optional,
       =welder::doc("Waterfall render path v1 (WFV1); undocumented, kept "
                    "verbatim.")]]
@@ -223,7 +224,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("WFV2", FourCCEndian::forward),
-      =since(ClientVersion{8, 2, 0, 30080}),
+      =since(builds::RiseOfAzshara),
       =formats::optional,
       =welder::doc("Waterfall render path v2 (WFV2); undocumented, kept "
                    "verbatim.")]]
@@ -231,7 +232,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("PGD1", FourCCEndian::forward),
-      =since(ClientVersion{8, 2, 0, 30080}),
+      =since(builds::RiseOfAzshara),
       =formats::optional,
       =welder::doc("Particle geoset data (PGD1), one geoset per emitter "
                    "(wowdev dates it to the 1.13.2.30172 classic build — "
@@ -240,7 +241,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("WFV3", FourCCEndian::forward),
-      =since(ClientVersion{9, 0, 1, 33978}),
+      =since(builds::ShadowlandsAlpha_33978),
       =formats::optional,
       =welder::doc("Waterfall render path v3 (WFV3); shader parameter block, "
                    "kept verbatim.")]]
@@ -248,7 +249,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("PFDC", FourCCEndian::forward),
-      =since(ClientVersion{9, 0, 1, 33978}),
+      =since(builds::ShadowlandsAlpha_33978),
       =formats::optional,
       =welder::doc("Inline physics (PFDC): a whole .phys image plus "
                    "alignment padding, kept verbatim (structured PHYS is a "
@@ -257,7 +258,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("EDGF", FourCCEndian::forward),
-      =since(ClientVersion{9, 0, 1, 33978}),
+      =since(builds::ShadowlandsAlpha_33978),
       =formats::optional,
       =welder::doc("Edge fade data (EDGF), applied to batches with flags2 "
                    "0x8; kept verbatim.")]]
@@ -265,7 +266,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("NERF", FourCCEndian::forward),
-      =since(ClientVersion{9, 0, 1, 33978}),
+      =since(builds::ShadowlandsAlpha_33978),
       =formats::optional,
       =welder::doc("Distance-based model alpha attenuation coefficients "
                    "(NERF); kept verbatim.")]]
@@ -273,7 +274,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("DETL", FourCCEndian::forward),
-      =since(ClientVersion{9, 0, 1, 34365}),
+      =since(builds::ShadowlandsAlpha_34365),
       =formats::optional,
       =welder::doc("Per-light detail overrides (DETL), kept verbatim: real "
                    "9.x files carry 16-byte records where wowdev documents "
@@ -282,7 +283,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("DBOC", FourCCEndian::forward),
-      =since(ClientVersion{9, 0, 1, 33978}),
+      =since(builds::ShadowlandsAlpha_33978),
       =formats::optional,
       =welder::doc("DBOC; undocumented (16 or 32 bytes seen), kept "
                    "verbatim.")]]
@@ -290,14 +291,14 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("AFRA", FourCCEndian::forward),
-      =since(ClientVersion{10, 0, 0, 0}),
+      =since(builds::Dragonflight),
       =formats::optional,
       =welder::doc("AFRA (Dragonflight+); not yet observed, kept verbatim.")]]
     ChunkBlob afra;
 
     [[
       =chunk("PCOL", FourCCEndian::forward),
-      =since(ClientVersion{11, 1, 7, 60520}),
+      =since(builds::LegacyOfArathor),
       =formats::optional,
       =welder::doc("Player-housing collision mesh (PCOL); offset-based "
                    "layout, kept verbatim.")]]
@@ -305,7 +306,7 @@ namespace wowlib::formats::m2::body
 
     [[
       =chunk("DPIV", FourCCEndian::forward),
-      =since(ClientVersion{11, 1, 7, 60520}),
+      =since(builds::LegacyOfArathor),
       =formats::optional,
       =welder::doc("DPIV; undocumented, kept verbatim.")]]
     ChunkBlob dpiv;

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <utility>
 
+#include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/version_range.hpp>
 
@@ -21,7 +22,7 @@ namespace wowlib::formats::m2
       particle header packs blendingType/emitterType into bytes next to the
       new particleColorIndex (late-TBC v262 on the wire; TBC's last minor
       2.4.3 writes v263, so the whole tbc target is past it). */
-  inline constexpr ClientVersion m2_compressed_bones{2, 0, 0, 0};
+  inline constexpr ClientVersion m2_compressed_bones = builds::TheBurningCrusade;
 
   /** WotLK (v264): every M2Track nests one timestamp/value array per
       sequence (the vanilla single timeline with interpolation ranges is
@@ -29,28 +30,28 @@ namespace wowlib::formats::m2
       timestamps, skin profiles move out to .skin files and low-priority
       sequences to .anim files, particles gain the FBlock color/scale tracks
       and the four spin fields, ribbons their priority-plane tail. */
-  inline constexpr ClientVersion m2_per_sequence_timelines{3, 0, 0, 0};
+  inline constexpr ClientVersion m2_per_sequence_timelines = builds::WrathOfTheLichKing;
 
   /** Cata (v272): particles turn multi-textured (492-byte record: texture id
       bitfield, multiTexScale replacing particleType/headOrTail, the
       multiTexScroll tail) and cameras trade the static diagonal FOV for a
       spline track. */
-  inline constexpr ClientVersion m2_multitex_particles{4, 0, 0, 0};
+  inline constexpr ClientVersion m2_multitex_particles = builds::Cataclysm;
 
   /** WoD (6.0.1): M2Sequence's u32 blendTime splits into the
       blendTimeIn/blendTimeOut pair. */
-  inline constexpr ClientVersion m2_split_blend_times{6, 0, 0, 0};
+  inline constexpr ClientVersion m2_split_blend_times = builds::WarlordsOfDraenor;
 
   /** Legion (7.0.1.20740): the on-disk .m2 becomes a chunked file — the MD20
       image moves into the MD21 chunk (offsets stay relative to the image)
       joined by the companion chunks (PFID/SFID/AFID/…, forward fourccs). */
-  inline constexpr ClientVersion m2_chunked_container{7, 0, 1, 20740};
+  inline constexpr ClientVersion m2_chunked_container = builds::LegionAlpha;
 
   /** BfA (8.0.1): the chunked container is universal — Legion clients still
       served leftover raw MD20 models, but from 8.0 on none exist, so BfA+
       reads treat a bare MD20 magic as a version mismatch instead of falling
       back to the monolithic path. */
-  inline constexpr ClientVersion m2_chunked_only{8, 0, 1, 0};
+  inline constexpr ClientVersion m2_chunked_only = builds::BattleForAzeroth;
 
   /** The MD20 format_version wowlib writes for @a v — the value the client
       era itself exports (wowdev.wiki/M2, the Versions section): vanilla 256, TBC 263,
@@ -168,14 +169,14 @@ namespace wowlib::formats::m2
       range. Canonicalized over m2_chunked_versions. */
   inline constexpr std::array m2_file_pivots{
     m2_chunked_container,
-    ClientVersion{7, 3, 0, 24500},   // EXP2/PABC/PADC/PSBC/PEDC/SKID
-    ClientVersion{8, 0, 1, 26629},   // TXID/LDV1
-    ClientVersion{8, 1, 0, 27826},   // RPID/GPID
-    ClientVersion{8, 2, 0, 30080},   // WFV1/WFV2/PGD1
-    ClientVersion{9, 0, 1, 33978},   // WFV3/PFDC/EDGF/NERF/DBOC
-    ClientVersion{9, 0, 1, 34365},   // DETL
-    ClientVersion{10, 0, 0, 0},      // AFRA
-    ClientVersion{11, 1, 7, 60520}}; // PCOL/DPIV
+    builds::ShadowsOfArgus_24500,   // EXP2/PABC/PADC/PSBC/PEDC/SKID
+    builds::BfaBeta,   // TXID/LDV1
+    builds::TidesOfVengeance,   // RPID/GPID
+    builds::RiseOfAzshara,   // WFV1/WFV2/PGD1
+    builds::ShadowlandsAlpha_33978,   // WFV3/PFDC/EDGF/NERF/DBOC
+    builds::ShadowlandsAlpha_34365,   // DETL
+    builds::Dragonflight,      // AFRA
+    builds::LegacyOfArathor}; // PCOL/DPIV
 
   /** Skeleton and its chunk payloads plus the shell payload records: stable
       across the whole chunked era — no pivots, one instantiation. */
@@ -186,8 +187,8 @@ namespace wowlib::formats::m2
   inline constexpr std::array m2_assembly_pivots{
     m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,
     m2_split_blend_times, m2_chunked_container, m2_chunked_only,
-    ClientVersion{7, 3, 0, 24500},  ClientVersion{8, 0, 1, 26629},
-    ClientVersion{8, 1, 0, 27826},  ClientVersion{8, 2, 0, 30080},
-    ClientVersion{9, 0, 1, 33978},  ClientVersion{9, 0, 1, 34365},
-    ClientVersion{10, 0, 0, 0},     ClientVersion{11, 1, 7, 60520}};
+    builds::ShadowsOfArgus_24500,  builds::BfaBeta,
+    builds::TidesOfVengeance,  builds::RiseOfAzshara,
+    builds::ShadowlandsAlpha_33978,  builds::ShadowlandsAlpha_34365,
+    builds::Dragonflight,     builds::LegacyOfArathor};
 }

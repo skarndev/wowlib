@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <vector>
 
+#include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/chunk.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
@@ -85,7 +86,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MORB"),
-        =since(ClientVersion{4, 0, 0, 0}),
+        =since(builds::Cataclysm),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Triangle-strip batch overrides (MORB, Cata+); same count as
@@ -94,7 +95,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOTA"),
-        =since(ClientVersion{4, 0, 0, 0}),
+        =since(builds::Cataclysm),
         =formats::optional,
         =welder::doc(R"(Tangent arrays (MOTA, Cata+); offset-based layout, kept
                         opaque.)")]]
@@ -102,7 +103,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOBS"),
-        =since(ClientVersion{4, 0, 0, 0}),
+        =since(builds::Cataclysm),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Shadow batches (MOBS, Cata+).")]]
@@ -114,7 +115,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MDAL"),
-        =since(ClientVersion{6, 0, 0, 0}),
+        =since(builds::WarlordsOfDraenor),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Ambient color override (MDAL, WoD+); a single color in
@@ -123,7 +124,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOPL"),
-        =since(ClientVersion{6, 0, 0, 0}),
+        =since(builds::WarlordsOfDraenor),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Terrain-cutting planes (MOPL, WoD+); requires the
@@ -136,7 +137,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MOPB"),
-        =since(ClientVersion{7, 0, 1, 20740}),
+        =since(builds::LegionAlpha),
         =formats::optional,
         =welder::doc(R"(Prepass batches (MOPB, Legion+); undocumented 24-byte
                         records, kept opaque.)")]]
@@ -144,7 +145,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOLS"),
-        =since(ClientVersion{7, 0, 1, 20740}),
+        =since(builds::LegionAlpha),
         =formats::optional,
         =welder::doc(R"(Spot lights (MOLS, Legion+); undocumented 56-byte records,
                         kept opaque.)")]]
@@ -152,7 +153,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOLP"),
-        =since(ClientVersion{7, 0, 1, 20740}),
+        =since(builds::LegionAlpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Point lights (MOLP, Legion+).")]]
@@ -164,7 +165,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MLSS"),
-        =since(ClientVersion{8, 1, 0, 27826}),
+        =since(builds::TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Spot-light sets (MLSS, 8.1+): (first, count) ranges into MOLS
@@ -173,7 +174,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MLSP"),
-        =since(ClientVersion{8, 1, 0, 27826}),
+        =since(builds::TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Point-light sets (MLSP, 8.1+): (first, count) ranges into
@@ -182,7 +183,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MLSK"),
-        =since(ClientVersion{8, 1, 0, 27826}),
+        =since(builds::TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Point-light animation sets (MLSK, 8.1+): (first, count)
@@ -191,7 +192,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOP2"),
-        =since(ClientVersion{8, 1, 0, 27826}),
+        =since(builds::TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Animated point lights (MOP2, 8.1+).")]]
@@ -203,7 +204,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MPVR"),
-        =since(ClientVersion{8, 3, 0, 33775}),
+        =since(builds::VisionsOfNzoth_33775),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Particulate volume references (MPVR, 8.3+) into the root's MPVD.")]]
@@ -215,7 +216,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MOVX"),
-        =since(ClientVersion{9, 0, 1, 33978}),
+        =since(builds::ShadowlandsAlpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(32-bit triangle vertex indices (MOVX, ~9.0+; the large-mesh
@@ -224,7 +225,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MAVR"),
-        =since(ClientVersion{9, 0, 1, 33978}),
+        =since(builds::ShadowlandsAlpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Ambient volume references (MAVR, 9.0+) into the root's MAVD.")]]
@@ -232,7 +233,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MBVR"),
-        =since(ClientVersion{9, 0, 1, 33978}),
+        =since(builds::ShadowlandsAlpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Box volume references (MBVR, 9.0+) into the root's MBVD.")]]
@@ -240,7 +241,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MFVR"),
-        =since(ClientVersion{9, 0, 1, 33978}),
+        =since(builds::ShadowlandsAlpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Fog volume references (MFVR, 9.0+) into the root's MFOG and
@@ -249,7 +250,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MNLR"),
-        =since(ClientVersion{9, 0, 1, 33978}),
+        =since(builds::ShadowlandsAlpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("New-light references (MNLR, 9.0+) into the root's MNLD.")]]
@@ -261,7 +262,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MOGX"),
-        =since(ClientVersion{10, 0, 0, 46181}),
+        =since(builds::DragonflightAlpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Query face start (MOGX, 10.0+): the base subtracted from a
@@ -270,7 +271,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MPY2"),
-        =since(ClientVersion{10, 0, 0, 46181}),
+        =since(builds::DragonflightAlpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Per-triangle material info v2 (MPY2, 10.0+; replaces MOPY).")]]
@@ -278,7 +279,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOQG"),
-        =since(ClientVersion{10, 0, 0, 46181}),
+        =since(builds::DragonflightAlpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Per-polygon ground types (MOQG, 10.0+), indexed by polygon
@@ -313,13 +314,13 @@ namespace wowlib::formats::wmo::group
           See https://wowdev.wiki/WMO.)")
     ]] WMOGroupBody
       : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase,
-        slot<V, ClientVersion{4, 0, 0, 0}, GroupBodyCata>,
-        slot<V, ClientVersion{6, 0, 0, 0}, GroupBodyWod>,
-        slot<V, ClientVersion{7, 0, 1, 20740}, GroupBodyLegion>,
-        slot<V, ClientVersion{8, 1, 0, 27826}, GroupBody81>,
-        slot<V, ClientVersion{8, 3, 0, 33775}, GroupBody83>,
-        slot<V, ClientVersion{9, 0, 1, 33978}, GroupBody90>,
-        slot<V, ClientVersion{10, 0, 0, 46181}, GroupBody100>
+        slot<V, builds::Cataclysm, GroupBodyCata>,
+        slot<V, builds::WarlordsOfDraenor, GroupBodyWod>,
+        slot<V, builds::LegionAlpha, GroupBodyLegion>,
+        slot<V, builds::TidesOfVengeance, GroupBody81>,
+        slot<V, builds::VisionsOfNzoth_33775, GroupBody83>,
+        slot<V, builds::ShadowlandsAlpha_33978, GroupBody90>,
+        slot<V, builds::DragonflightAlpha, GroupBody100>
     {
       static constexpr ClientVersion version = V;
 

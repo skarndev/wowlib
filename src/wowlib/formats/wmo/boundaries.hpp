@@ -14,6 +14,7 @@
 #include <array>
 #include <cstdint>
 
+#include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/version_range.hpp>
 
@@ -24,11 +25,11 @@ namespace wowlib::formats::wmo
 
   /** Legion 7.0.1.20740: SMOBatch's culling-box prelude gives way to a large
       (uint16) material id. A layout pivot for SMOBatch. */
-  inline constexpr ClientVersion wmo_batch_large_material{7, 0, 1, 20740};
+  inline constexpr ClientVersion wmo_batch_large_material = builds::LegionAlpha;
 
   /** 9.2.0.42423: the unused u32 at MOGP+0x40 becomes the two split-group
       indices. A layout pivot for SMOGroupHeader. */
-  inline constexpr ClientVersion wmo_split_groups{9, 2, 0, 42423};
+  inline constexpr ClientVersion wmo_split_groups = builds::EternitysEnd;
 
   // --- version grid and per-family canonicalization pivots ------------------
   //
@@ -57,26 +58,26 @@ namespace wowlib::formats::wmo
       root file carries (GFID/MOUV/MOSI/MODI/the volume family/new lights/
       M3 materials). */
   inline constexpr std::array wmo_root_pivots{
-    ClientVersion{7, 0, 1, 20740}, ClientVersion{7, 3, 0, 24473},
-    ClientVersion{8, 1, 0, 27826}, ClientVersion{8, 3, 0, 32044},
-    ClientVersion{9, 0, 1, 33978}, ClientVersion{9, 1, 0, 39015},
-    ClientVersion{11, 0, 0, 54210}, ClientVersion{11, 1, 0, 58221}};
+    builds::LegionAlpha, builds::ShadowsOfArgus_24473,
+    builds::TidesOfVengeance, builds::VisionsOfNzoth_32044,
+    builds::ShadowlandsAlpha_33978, builds::ChainsOfDomination,
+    builds::TheWarWithinAlpha, builds::Undermined};
 
   /** WMOGroupBody / WMOGroup: every trait-slot boundary and chunk build the
       group files carry, plus the two wire-layout pivots above. */
   inline constexpr std::array wmo_group_pivots{
-    ClientVersion{4, 0, 0, 0},      ClientVersion{6, 0, 0, 0},
-    wmo_batch_large_material,       ClientVersion{8, 1, 0, 27826},
-    ClientVersion{8, 3, 0, 33775},  ClientVersion{9, 0, 1, 33978},
-    wmo_split_groups,               ClientVersion{10, 0, 0, 46181}};
+    builds::Cataclysm,      builds::WarlordsOfDraenor,
+    wmo_batch_large_material,       builds::TidesOfVengeance,
+    builds::VisionsOfNzoth_33775,  builds::ShadowlandsAlpha_33978,
+    wmo_split_groups,               builds::DragonflightAlpha};
 
   /** The WMO assembly: the union of the root and group pivots. */
   inline constexpr std::array wmo_assembly_pivots{
-    ClientVersion{4, 0, 0, 0},      ClientVersion{6, 0, 0, 0},
-    wmo_batch_large_material,       ClientVersion{7, 3, 0, 24473},
-    ClientVersion{8, 1, 0, 27826},  ClientVersion{8, 3, 0, 32044},
-    ClientVersion{8, 3, 0, 33775},  ClientVersion{9, 0, 1, 33978},
-    ClientVersion{9, 1, 0, 39015},  wmo_split_groups,
-    ClientVersion{10, 0, 0, 46181}, ClientVersion{11, 0, 0, 54210},
-    ClientVersion{11, 1, 0, 58221}};
+    builds::Cataclysm,      builds::WarlordsOfDraenor,
+    wmo_batch_large_material,       builds::ShadowsOfArgus_24473,
+    builds::TidesOfVengeance,  builds::VisionsOfNzoth_32044,
+    builds::VisionsOfNzoth_33775,  builds::ShadowlandsAlpha_33978,
+    builds::ChainsOfDomination,  wmo_split_groups,
+    builds::DragonflightAlpha, builds::TheWarWithinAlpha,
+    builds::Undermined};
 }
