@@ -126,6 +126,37 @@ Every fixed-width integer wire member now renders `Annotated[int, uintN]`
   TXAC field annotates through it. `_apply_int_width` is the shared applier.
 - Genuinely skipped: computed getter properties (SMODoodadDef.name_index) — not
   stored wire fields, so no size.
+- Still bare (out of scope, pre-existing): the `common`/`core`/`entities` pages
+  are plain mkdocstrings dumps with no StructPage/headers, so CArgb/fixed16/
+  ClientVersion ints show no width. Register those as int-width StructPages if
+  ever wanted.
+
+### 2026-07-25 third batch: WMO page split + M2 value-template collapse
+- **WMO now mirrors M2's page layout**: `entity.md` (the compound WMO class),
+  `root.md` (renamed from fields.md, WMORoot only), `group.md` (WMOGroup +
+  WMOGroupBody). Each Side carries `page=`; forver/generic_pages/elem_links
+  keyed per page. See the WMO config.
+- **Value-template record families collapse** (`_records_families`,
+  `_emit_merged_members`, StructPage.value_templates): M2Track, FBlock,
+  M2SplineKey, M2PartTrack are C++ templates over a value type T that welder
+  mangles into ~25 class names. The records page documents each base ONCE under
+  a hand-written `### Base⟨value⟩` markdown heading (id `module.Base`), its value
+  member(s) shown as the generic `⟨value⟩` (`_genericize_value_members` replaces
+  the sole leaf link in the value member's rendered signature, post-coercion);
+  only the CANONICAL value variant (first in stub order) renders, the rest are
+  dropped. The era (version) axis of M2Track still merges per-member with badges
+  — `_emit_merged_members` derives the era span from the class RANGE suffix via
+  split_range_suffix (NOT cls[len(stem):], which for a vt family holds the value
+  part too).
+- **Generic-type references** (`_render_value_template_refs`, on_post_page,
+  BEFORE _retarget_class_refs and the xref genericization): a reference to any
+  concrete instance (M2TrackSplineC3VectorWotlkPlus) rewrites to `Base[Value]`
+  with both parts linked and recursion for nested templates
+  (`M2Track[M2SplineKey[C3Vector]]`). Value suffix → display via the format's
+  `value_alias` (CompQuat→M2CompQuat, Fixed16→fixed16, Spline*→M2SplineKey*,
+  Float/UIntN→float/int). GOTCHA: the rewriter is format-agnostic —
+  `_vt_registry`/`_vt_value_alias` merge ALL formats — because it ran per-format
+  and the WMO pass (empty value_alias) was consuming M2 refs before M2's pass.
 
 ## Key details / gotchas
 - **welder filter resolution** (build.py `find_welder_filter`): `$WOWLIB_WELDER_FILTER`

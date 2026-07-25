@@ -225,6 +225,33 @@ SHELL_SIDE = fr.Side(
     sort_key=None,                    # declaration order == chunk write order
 )
 
+# --- value-templated record families ------------------------------------------
+# M2Track, FBlock, M2SplineKey and M2PartTrack are C++ templates over a value
+# type T (M2Track<C4Quaternion, V>, FBlock<uint16>, …). welder mangles the value
+# into the class name (M2TrackC4QuaternionWotlkPlus), so the stubs carry ~25
+# near-identical classes. The docs collapse them: each base documents ONCE, its
+# value member(s) shown as the generic ⟨value⟩; a reference to a concrete
+# instance renders as `Base[Value]`, both parts falling through to their docs.
+# Value keyed by the member(s) typed on T.
+VALUE_TEMPLATES = {
+    "M2Track": {"values"},
+    "FBlock": {"keys"},
+    "M2SplineKey": {"value", "in_tan", "out_tan"},
+    "M2PartTrack": {"values"},
+}
+# The welded value suffix -> the type token shown in `Base[Value]`. A suffix that
+# already names a documented type (C3Vector, C4Quaternion, Fixed16) maps to
+# itself; the rest are spelled out — CompQuat is the M2CompQuat record, Spline*
+# are M2SplineKey instances (rendered recursively), and Float/UIntN are the
+# Python scalars the value collapses to.
+VALUE_ALIAS = {
+    "CompQuat": "M2CompQuat",
+    "Fixed16": "fixed16",                    # welded name is lower-case fixed16
+    "SplineC3Vector": "M2SplineKeyC3Vector",
+    "SplineFloat": "M2SplineKeyFloat",
+    "Float": "float", "UInt8": "int", "UInt16": "int",
+}
+
 # --- the record pages ---------------------------------------------------------
 # All three record surfaces share records.md; each carries its own module id and
 # int-width headers. No owner backlinks (the M2 body is offset-addressed — a
@@ -238,6 +265,7 @@ RECORDS_BODY = fr.StructPage(
     # template; the value-typed M2Track variants (M2TrackC3Vector, …) resolve
     # to M2Track by prefix, so only this rename needs spelling out.
     struct_alias={"M2EventTrack": "M2TrackBase"},
+    value_templates=VALUE_TEMPLATES,
     dedup_marker="<!-- m2-records-body -->",
 )
 
@@ -299,6 +327,7 @@ FORMAT = fr.Format(
         ),
     },
     struct_pages=(RECORDS_BODY, RECORDS_CHUNKED, RECORDS_SKIN, RECORDS_SKEL),
+    value_alias=VALUE_ALIAS,
     # Entity families referenced from vector annotations (M2.skins,
     # Skeleton.parent_link, …) link to their family page, not a records page.
     elem_links={

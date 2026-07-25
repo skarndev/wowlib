@@ -16,6 +16,12 @@ badge-less member is identical in every version. Wire integer fields show
 their on-disk width (`Annotated[int, uint16]`), generated from the C++
 sources.
 
+The animation-track types — **`M2Track`**, **`FBlock`**, **`M2SplineKey`** and
+**`M2PartTrack`** — are templates over a *value type*, so they document once as
+`Base⟨value⟩`, their value member shown generically. A record that uses one
+refers to it as `M2Track[C4Quaternion]`, both parts linking through to their
+own documentation.
+
 ## Body records
 
 The records the MD20 body's vectors are made of, from

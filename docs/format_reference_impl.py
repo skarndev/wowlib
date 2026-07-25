@@ -74,6 +74,7 @@ _EXP_ALT = "(?:" + "|".join(EXP_SUFFIXES) + ")"
 _SUFFIX_ALT = f"(?:{_EXP_ALT}(?:To{_EXP_ALT}|Plus)?)"
 _RANGE_RE = re.compile(f"({_EXP_ALT})(?:To({_EXP_ALT})|(Plus))?$")
 _VERSION_PLACEHOLDER = "⟨version⟩"
+_VALUE_PLACEHOLDER = "⟨value⟩"
 
 
 def split_range_suffix(name: str) -> tuple[str, str] | None:
@@ -183,6 +184,8 @@ class StructPage:
     dedup_marker: str | None = None           # page marker for the deduplicated
                                               # family listing (None -> the page
                                               # dumps the module itself)
+    value_templates: dict[str, set[str]] = dc_field(default_factory=dict)  # base ->
+                                              # value member names (M2Track: {values})
     _classes: set[str] | None = dc_field(default=None, repr=False)
     _ints: dict | None = dc_field(default=None, repr=False)
     _reps: dict | None = dc_field(default=None, repr=False)
@@ -233,6 +236,8 @@ class Format:
     forver: dict[str, tuple[tuple[str, str, str], ...]]
     struct_pages: tuple[StructPage, ...]
     elem_links: dict[str, tuple[str, str]] = dc_field(default_factory=dict)
+    value_alias: dict[str, str] = dc_field(default_factory=dict)  # welded value
+                                              # suffix -> Base[Value] display token
     _anchors: dict | None = dc_field(default=None, repr=False)
     _res: dict | None = dc_field(default=None, repr=False)
 
@@ -1111,6 +1116,9 @@ def _era_words(suffix: str) -> str:
 # by _records_markdown (markdown phase), consumed by _augment_record_badges
 # (content phase of the same page/build).
 _RECORD_BADGES: dict[str, dict[str, tuple]] = {}
+# page -> {heading id} of value-template value members, whose rendered value type
+# is rewritten to the generic ⟨value⟩ (post-page phase, after vector coercion).
+_RECORD_VALUE_MEMBERS: dict[str, set[str]] = {}
 
 
 def _suffix_span(suffix: str) -> tuple[int, int | None]:
@@ -1130,20 +1138,140 @@ def _directive(sp: StructPage, target: str, level: int, extra: str = "") -> str:
             f"      heading_level: {level}" + extra)
 
 
+def _vt_base(name: str, bases) -> str | None:
+    """The value-template base ``name`` is an instance of (M2TrackC4Quaternion ->
+    M2Track), or None. Bases do not prefix one another, so a plain prefix test
+    with a non-empty value remainder suffices."""
+    for b in bases:
+        if name.startswith(b) and len(name) > len(b):
+            return b
+    return None
+
+
+def _records_families(sp: StructPage):
+    """The page's render families, in stub order. Each is
+    ("plain", stem, [(rank, name)]) — a normal version family — or
+    ("vt", base, value, [(rank, name)]) — a value template collapsed to its
+    CANONICAL value variant (the first value seen), whose value member(s) the
+    caller shows generically. All other value variants are dropped (identical
+    but for the value member)."""
+    bases = set(sp.value_templates)
+    order: list = []
+    plain: dict[str, list] = {}
+    vt: dict[str, dict[str, list]] = {}
+    for name, _block in _stub_class_blocks(sp.stub):
+        if sp.names_filter and not sp.names_filter(name):
+            continue
+        base = _vt_base(name, bases)
+        if base:
+            split = split_range_suffix(name)
+            value = (split[0] if split else name)[len(base):]
+            rank = range_rank(split[1]) if split else -1
+            if base not in vt:
+                order.append(("vt", base))
+            vt.setdefault(base, {}).setdefault(value, []).append((rank, name))
+        else:
+            split = split_range_suffix(name)
+            stem, rank = (split[0], range_rank(split[1])) if split else (name, -1)
+            if stem not in plain:
+                order.append(("plain", stem))
+            plain.setdefault(stem, []).append((rank, name))
+    out = []
+    for kind, key in order:
+        if kind == "plain":
+            out.append(("plain", key, sorted(plain[key])))
+        else:
+            canon = next(iter(vt[key]))            # first value variant, stub order
+            out.append(("vt", key, canon, sorted(vt[key][canon])))
+    return out
+
+
+def _emit_merged_members(sp, blocks, badges, out, stem, fam, value_members):
+    """Emit the per-member era-merged directives for one family (the shared body
+    of a plain multi-era family and a value-template family). Each member renders
+    once per distinct layout, badged when not family-wide; a member in
+    ``value_members`` is recorded so its value type renders as the generic
+    ⟨value⟩."""
+    classes = [cls for _r, cls in fam]
+    props_of = {cls: _class_props(blocks[cls]) for cls in classes}
+    order = list(props_of[classes[-1]].keys())
+    for cls in reversed(classes[:-1]):             # splice older-only members in
+        prev = None
+        for name in props_of[cls]:
+            if name in order:
+                prev = name
+                continue
+            order.insert(order.index(prev) + 1 if prev is not None else 0, name)
+            prev = name
+    vgen = _RECORD_VALUE_MEMBERS.setdefault(sp.page, set())
+    for name in order:
+        variants: list[dict] = []
+        prev_had = False
+        for cls in classes:
+            got = props_of[cls].get(name)
+            if got is None:
+                prev_had = False
+                continue
+            if prev_had and variants[-1]["ann"] == got[0]:
+                variants[-1]["classes"].append(cls)
+            else:
+                variants.append({"ann": got[0], "classes": [cls]})
+            prev_had = True
+        family_wide = (len(variants) == 1
+                       and len(variants[0]["classes"]) == len(classes))
+        for var in variants:
+            cls = var["classes"][-1]
+            out.append(_directive(sp, f"{cls}.{name}", 4))
+            if name in value_members:
+                vgen.add(f"{sp.module}.{cls}.{name}")
+            if family_wide:
+                continue
+            # The era span from the class RANGE suffix (a value-template family is
+            # keyed on its base, so cls[len(stem):] would include the value part).
+            first_split = split_range_suffix(var["classes"][0])
+            last_split = split_range_suffix(var["classes"][-1])
+            if not first_split or not last_split:
+                continue                     # a value axis with no version axis
+            first, _last = _suffix_span(first_split[1])
+            _first, last = _suffix_span(last_split[1])
+            badges[f"{sp.module}.{cls}.{name}"] = (
+                (first, 0, 0), (last + 1, 0, 0) if last is not None else None)
+
+
+def _class_docstring(block: str) -> str:
+    """The class-level docstring of a stub class block (the first triple-quoted
+    string before any member), whitespace-collapsed."""
+    m = re.match(r'class [^\n]*:\s*"""(.*?)"""', block, re.S)
+    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+
+
 def _records_markdown(sp: StructPage) -> str:
     """The deduplicated record listing behind a struct page's dedup marker,
     mirroring how wowdev documents a versioned struct: ONE merged member walk
-    per family. The family heading + docstring render from the latest-version
-    representative (displayed generically); below it every (member, layout)
-    renders exactly once — from the newest class that declares it — wearing an
-    expansion-range badge when it is not family-wide (a member whose type
-    changed across eras appears as adjacent per-era entries, each badged).
-    Ranges derive from which era classes declare the member, so they cannot
-    drift from the bindings."""
+    per family. A normal family's heading + docstring render from the latest
+    representative (shown generically); a value-template family (M2Track,
+    FBlock, …) collapses its ~10 welded value variants into ONE listing under a
+    hand-written `Base⟨value⟩` heading, its value member(s) shown generically.
+    Below either, every (member, layout) renders exactly once — from the newest
+    class that declares it — badged when not family-wide. Ranges derive from
+    which era classes declare the member, so they cannot drift."""
     blocks = dict(_stub_class_blocks(sp.stub))
     badges = _RECORD_BADGES.setdefault(sp.page, {})
     out: list[str] = []
-    for stem, fam in _family_groups(sp).items():
+    for fam_desc in _records_families(sp):
+        if fam_desc[0] == "vt":
+            _, base, value, fam = fam_desc
+            doc = _class_docstring(blocks[fam[-1][1]])
+            out.append(f"### {base}{_VALUE_PLACEHOLDER} {{#{sp.module}.{base}}}")
+            if doc:
+                out.append(doc)
+            out.append(f"*A template over the value type; the value member(s) "
+                       f"below hold `{_VALUE_PLACEHOLDER}`. Referenced as e.g. "
+                       f"`{base}[C4Quaternion]`.*")
+            _emit_merged_members(sp, blocks, badges, out, base, fam,
+                                 sp.value_templates[base])
+            continue
+        _, stem, fam = fam_desc
         rep_rank, rep = fam[-1]
         if rep_rank < 0:                     # unversioned: plain full listing
             out.append(_directive(sp, rep, 3))
@@ -1154,46 +1282,7 @@ def _records_markdown(sp: StructPage) -> str:
                        f"({_era_words(rep[len(stem):])}).*")
             continue
         out.append(_directive(sp, rep, 3, "\n      members: false"))
-        classes = [cls for _r, cls in fam]
-        props_of = {cls: _class_props(blocks[cls]) for cls in classes}
-        # Merged member order: the newest layout's order, with members that
-        # exist only in older layouts spliced in after the member they follow
-        # in their own class.
-        order = list(props_of[rep].keys())
-        for cls in reversed(classes[:-1]):
-            prev = None
-            for name in props_of[cls]:
-                if name in order:
-                    prev = name
-                    continue
-                order.insert(order.index(prev) + 1 if prev is not None else 0, name)
-                prev = name
-        for name in order:
-            # Split the family into runs of identical annotation: one entry per
-            # distinct layout of the member.
-            variants: list[dict] = []
-            prev_had = False
-            for cls in classes:
-                got = props_of[cls].get(name)
-                if got is None:
-                    prev_had = False
-                    continue
-                if prev_had and variants[-1]["ann"] == got[0]:
-                    variants[-1]["classes"].append(cls)
-                else:
-                    variants.append({"ann": got[0], "classes": [cls]})
-                prev_had = True
-            family_wide = (len(variants) == 1
-                           and len(variants[0]["classes"]) == len(classes))
-            for var in variants:
-                cls = var["classes"][-1]
-                out.append(_directive(sp, f"{cls}.{name}", 4))
-                if family_wide:
-                    continue
-                first, _last = _suffix_span(var["classes"][0][len(stem):])
-                _first, last = _suffix_span(var["classes"][-1][len(stem):])
-                badges[f"{sp.module}.{cls}.{name}"] = (
-                    (first, 0, 0), (last + 1, 0, 0) if last is not None else None)
+        _emit_merged_members(sp, blocks, badges, out, stem, fam, set())
     return "\n\n".join(out)
 
 
@@ -1215,6 +1304,115 @@ def _augment_record_badges(html_out: str, sp: StructPage, base: str) -> str:
         return f'{m["open"]}{m["inner"]}<span class="wmo-tags">{tags}</span>{m["close"]}'
 
     return _HEADING_RE.sub(repl, html_out)
+
+
+# --- value-template genericization + generic-type references -------------------
+# The value member's rendered type is the canonical value: a coerced list chain
+# (list[list[<a>C3Vector</a>]]) or a scalar autoref (<a>C3Vector</a>) — the ONE
+# link/type-name span in the signature. Replace it with the ⟨value⟩ placeholder.
+_SIG_LEAF_RE = re.compile(
+    r'<a\b[^>]*class="autorefs[^"]*"[^>]*>[^<]+</a>'
+    r'|<span title="[^"]*">[A-Za-z_][\w.]*</span>')
+
+
+def _genericize_value_members(output: str, page: str) -> str:
+    """Rewrite the value member(s) of every collapsed value-template family on
+    ``page`` to hold the generic ⟨value⟩ (run after vector coercion, so the leaf
+    is the sole link/type-span inside the rendered signature)."""
+    ids = _RECORD_VALUE_MEMBERS.get(page)
+    if not ids:
+        return output
+    pat = re.compile(
+        r'(<h[1-6] id="(?P<hid>[\w.]+)"[^>]*>(?:(?!</h[1-6]>).)*?</h[1-6]>\s*'
+        r'<div class="[^"]*doc-signature[^"]*">)(?P<sig>.*?)(?P<end></div>)', re.DOTALL)
+
+    def repl(m):
+        if m["hid"] not in ids:
+            return m.group(0)
+        sig = _SIG_LEAF_RE.sub(
+            lambda _m: f'<span class="doc-value-t">{_VALUE_PLACEHOLDER}</span>',
+            m["sig"], count=1)
+        return m.group(1) + sig + m["end"]
+
+    return pat.sub(repl, output)
+
+
+def _vt_registry() -> dict[str, tuple[str, str, set[str]]]:
+    """base -> (page, module, value members) for every value-template family
+    declared across the loaded formats' struct pages."""
+    reg: dict[str, tuple[str, str, set[str]]] = {}
+    for fmt in formats():
+        for sp in fmt.struct_pages:
+            for base, members in sp.value_templates.items():
+                reg.setdefault(base, (sp.page, sp.module, members))
+    return reg
+
+
+def _vt_value_alias() -> dict[str, str]:
+    """The value-suffix aliases merged across formats (value templates are one
+    format's concern today, but the reference rewriter is format-agnostic)."""
+    merged: dict[str, str] = {}
+    for fmt in formats():
+        merged.update(fmt.value_alias)
+    return merged
+
+
+def _vt_split(name: str, reg: dict) -> tuple[str, str] | None:
+    """(base, value suffix) if ``name`` is a value-template instance, else None.
+    The range suffix, if any (M2TrackC3VectorWotlkPlus), is dropped — every era
+    of one value renders as the same Base[Value]."""
+    base = _vt_base(name, reg)
+    if not base:
+        return None
+    split = split_range_suffix(name)
+    core = split[0] if split else name
+    return (base, core[len(base):]) if len(core) > len(base) else None
+
+
+def _type_token_html(token: str, value_alias: dict, reg: dict, base_url: str) -> str:
+    """Render a value token as linked HTML: a nested value template recurses
+    (M2SplineKeyC3Vector -> M2SplineKey[C3Vector]), a documented struct links,
+    a Python builtin (float/int) stays plain."""
+    vt = _vt_split(token, reg)
+    if vt:
+        return _vt_ref_html(vt[0], vt[1], value_alias, reg, base_url)
+    if token in ("int", "float", "bool", "str"):
+        return token
+    return _elem_html(token, base_url)          # links known structs, else plain text
+
+
+def _vt_ref_html(base: str, value: str, value_alias: dict, reg: dict,
+                 base_url: str) -> str:
+    """`Base[Value]` HTML: Base links to its collapsed family doc, Value to its
+    own (recursively)."""
+    page, module, _members = reg[base]
+    href = f"{base_url}{_page_url(page)}#{module}.{base}"
+    base_html = f'<a class="autorefs autorefs-internal" href="{href}">{base}</a>'
+    value_html = _type_token_html(value_alias.get(value, value), value_alias, reg, base_url)
+    return f"{base_html}[{value_html}]"
+
+
+def _render_value_template_refs(output: str, base_url: str) -> str:
+    """Rewrite every reference to a concrete value-template class (a resolved
+    autoref link or an unresolved title span) into the generic `Base[Value]`
+    form, so the ~25 welded permutations read as the four templates they are."""
+    reg = _vt_registry()
+    if not reg:
+        return output
+    value_alias = _vt_value_alias()
+    alt = "|".join(re.escape(b) for b in sorted(reg, key=len, reverse=True))
+    ref_re = re.compile(
+        r'<a\b[^>]*>(?P<a>(?:' + alt + r')[A-Za-z0-9]*)</a>'
+        r'|<span title="[^"]*">(?P<s>(?:' + alt + r')[A-Za-z0-9]*)</span>')
+
+    def repl(m):
+        name = m["a"] or m["s"]
+        vt = _vt_split(name, reg)
+        if not vt:
+            return m.group(0)
+        return _vt_ref_html(vt[0], vt[1], value_alias, reg, base_url)
+
+    return ref_re.sub(repl, output)
 
 
 # --- fields-page markdown generation ------------------------------------------
@@ -1364,10 +1562,16 @@ def on_post_page(output, page, config, **kwargs):
     becomes `<span title="int">int</span>` here, so the width pass must run now.
     """
     src = page.file.src_uri
+    base = _base_prefix(page)
     try:
         if src.startswith("python/"):
-            output = _coerce_vectors(output, _base_prefix(page))
-            output = _retarget_class_refs(output, _base_prefix(page))
+            output = _coerce_vectors(output, base)
+            # vt refs BEFORE _retarget_class_refs and the xref genericization:
+            # a dropped value variant (M2TrackSplineC3Vector…) would otherwise be
+            # retargeted to a now-missing anchor or genericized to ⟨version⟩.
+            output = _render_value_template_refs(output, base)
+            output = _retarget_class_refs(output, base)
+            output = _genericize_value_members(output, src)
             output = _strip_empty_type_columns(output)
     except re.error:
         return output
