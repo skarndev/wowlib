@@ -233,9 +233,13 @@ def run_mkdocs(action: str, api_dir: Path) -> None:
         # (the format_reference.py shim reloads the engine + configs on each
         # rebuild).
         for extra in ("format_reference_impl.py", "wmo_reference_config.py",
-                      "m2_reference_config.py", "wmo_wowdev_anchors.json",
-                      "m2_wowdev_anchors.json"):
+                      "m2_reference_config.py", "common_reference_config.py",
+                      "wmo_wowdev_anchors.json", "m2_wowdev_anchors.json"):
             cmd += ["--watch", str(DOCS_DIR / extra)]
+        # Also watch the .pyi stub tree: the Python API is rendered from it, so a
+        # bindings rebuild (regenerating stubs) must re-render — otherwise serve
+        # keeps serving the previous stubs' classes/signatures.
+        cmd += ["--watch", str(REPO_ROOT / STUBS_REL)]
         log("serving at http://127.0.0.1:8000/ (guide + Python API live-reload; "
             "the C++ reference is a snapshot)")
     res = subprocess.run(cmd, env=env, cwd=REPO_ROOT)
