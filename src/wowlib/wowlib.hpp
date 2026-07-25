@@ -177,7 +177,7 @@ namespace wowlib::formats
 #include <wowlib/formats/wmo/convert.hpp>
 #include <wowlib/formats/m2/convert.hpp>
 
-// The fs-level read/write definitions (implicit instantiation — the library
-// ships no explicit instantiations; see formats/*/io.hpp).
-#include <wowlib/formats/wmo/io.hpp>
-#include <wowlib/formats/m2/io.hpp>
+// The format entities carry their fs-level read/write definitions inline
+// (implicit instantiation — the library ships no explicit instantiations).
+#include <wowlib/formats/wmo/wmo.hpp>
+#include <wowlib/formats/m2/m2.hpp>

@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <wowlib/formats/common/offset_serializer.hpp>
-#include <wowlib/formats/m2/io.hpp>
+#include <wowlib/formats/m2/m2.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
 #include "integration_env.hpp"

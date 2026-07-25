@@ -13,7 +13,7 @@
     WOWLIB_M2_FOR_EACH_*VERSION X-macros the welded aliases use — neither
     the two sides nor the version list can drift. */
 
-#include <wowlib/formats/m2/io.hpp>
+#include <wowlib/formats/m2/m2.hpp>
 
 #include "instantiations/m2_ranges.hpp"
 

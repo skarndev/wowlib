@@ -20,6 +20,11 @@
 
 #include <array>
 #include <cstdint>
+#include <format>
+#include <optional>
+#include <set>
+#include <span>
+#include <string>
 #include <vector>
 
 #include <welder/vocabulary.hpp>
@@ -35,12 +40,10 @@
 #include <wowlib/formats/m2/root/record/scene.hpp>
 #include <wowlib/formats/m2/root/record/sequence.hpp>
 #include <wowlib/formats/m2/chunked/records.hpp>
+#include <wowlib/formats/m2/satellites.hpp>
+#include <wowlib/fs/filesystem.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::fs
-{
-  class FileSystem;
-}
 
 namespace wowlib::formats::m2
 {
@@ -359,4 +362,128 @@ namespace wowlib::formats::m2
     requires (V >= m2_chunked_container)
   using Skeleton =
     detail::Skeleton<canonical_version(V, m2_skeleton_pivots, m2_chunked_versions)>;
+}
+
+// --- fs-level read/write definitions (inline for the same implicit-
+// instantiation reason as m2.hpp's) -------------------------------------------
+namespace wowlib::formats::m2
+{
+  template <ClientVersion V>
+    requires (V >= m2_chunked_container)
+  Result<void> detail::Skeleton<V>::read(fs::FileSystem& fs, const FileKey& key)
+  {
+    const auto bytes = fs.read_file(key);
+    if (!bytes)
+      return std::unexpected{bytes.error()};
+
+    *this = Skeleton{};
+    if (auto r = ChunkedFile<Skeleton<V>>::read(std::span<const std::byte>{*bytes}); !r)
+      return r;
+
+    // A child skeleton shares the parent's satellite ids (only the *FID
+    // chunks are shared — the child keeps its own SK*1 data). One hop, per
+    // every known example; a missing parent degrades to inline-only decode.
+    if (!parent_link.empty() && parent_link.front().parent_skel_file_id != 0)
+      if (auto pbytes = fs.read_file(FileKey{FileDataID{parent_link.front().parent_skel_file_id}}))
+      {
+        Skeleton<V> parent;
+        if (parent.ChunkedFile<Skeleton<V>>::read(std::span<const std::byte>{*pbytes}))
+        {
+          parent_anim_fdids = parent.anim_fdids;
+          parent_bone_fdids = parent.bone_fdids;
+        }
+      }
+
+    // name fallback for satellites without FileDataID entries
+    std::optional<SatellitePaths> paths;
+    if (const FileKey resolved = fs.resolve(key); resolved.path)
+      paths.emplace(*resolved.path);
+
+    AnimCache cache{[&, paths](SequenceKey seq) -> Result<FileBuffer> {
+      const std::uint32_t fdid = AnimCache::afid_lookup(effective_anim_fdids(), seq);
+      if (fdid != 0)
+        return fs.read_file(FileKey{FileDataID{fdid}});
+      if (paths)
+        return fs.read_file(FileKey{paths->anim(seq)});
+      return make_error(ErrorCode::FileNotFound, "no AFID entry and no path");
+    }};
+
+    const auto make_ctx = [&](std::span<const std::byte> inline_base, std::uint32_t target) {
+      OffsetReadContext ctx;
+      ctx.sequence_base = cache.sequence_base(sequence_block.sequences, inline_base, target);
+      return ctx;
+    };
+
+    if (!skb1.bytes.empty())
+    {
+      const std::span<const std::byte> base{skb1.bytes};
+      if (auto r = bone_block.read(base, make_ctx(base, AnimCache::afsb_magic)); !r)
+        return make_error(r.error().code, std::format("SKB1: {}", r.error().message),
+                          r.error().native_error);
+    }
+    if (!ska1.bytes.empty())
+    {
+      const std::span<const std::byte> base{ska1.bytes};
+      if (auto r = attachment_block.read(base, make_ctx(base, AnimCache::afsa_magic)); !r)
+        return make_error(r.error().code, std::format("SKA1: {}", r.error().message),
+                          r.error().native_error);
+    }
+    // the blobs stay as read: an untouched skeleton written at chunk level
+    // remains byte-perfect; the fs write path re-encodes them from the
+    // typed blocks.
+    return {};
+  }
+
+  template <ClientVersion V>
+    requires (V >= m2_chunked_container)
+  Result<void> detail::Skeleton<V>::write(fs::FileSystem& fs, const FileKey& key) const
+  {
+    const FileKey resolved = fs.resolve(key);
+    if (!resolved.path)
+      return make_error(ErrorCode::PathNotResolvable,
+                        "saving a skeleton needs a path for the key");
+    const SatellitePaths paths{*resolved.path};
+
+    Skeleton<V> copy = *this;
+
+    // re-encode the bone/attachment blocks, splitting external sequences
+    // into per-sequence AFSB/AFSA buffers
+    AnimBuffers afsa_bufs;
+    AnimBuffers afsb_bufs;
+    {
+      auto encoded = bone_block.write(afsb_bufs.sink(sequence_block.sequences));
+      if (!encoded)
+        return std::unexpected{encoded.error()};
+      copy.skb1.bytes = std::move(*encoded);
+      auto attachments = attachment_block.write(afsa_bufs.sink(sequence_block.sequences));
+      if (!attachments)
+        return std::unexpected{attachments.error()};
+      copy.ska1.bytes = std::move(*attachments);
+    }
+
+    // the skeleton's .anim files: AFSA + AFSB sections. NOTE: a paired
+    // model's AFM2 (event) section is not represented here — the owning
+    // M2's write is the full-fidelity save path.
+    copy.anim_fdids.clear();
+    for (const SequenceKey seq : AnimBuffers::merged_keys({&afsa_bufs, &afsb_bufs}))
+    {
+      FileBuffer file;
+      afsa_bufs.append_chunk_to(file, AnimCache::afsa_magic, seq);
+      afsb_bufs.append_chunk_to(file, AnimCache::afsb_magic, seq);
+      const auto r = fs.add_file(paths.anim(seq), file);
+      if (!r)
+        return make_error(r.error().code,
+                          std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
+                                      r.error().message),
+                          r.error().native_error);
+      copy.anim_fdids.push_back({seq.id, seq.variation, r->value});
+    }
+
+    const auto bytes = copy.ChunkedFile<Skeleton<V>>::write();
+    if (!bytes)
+      return std::unexpected{bytes.error()};
+    if (auto r = fs.add_file(*resolved.path, *bytes); !r)
+      return std::unexpected{r.error()};
+    return {};
+  }
 }

@@ -22,7 +22,7 @@ namespace wowlib::formats::m2
       particle header packs blendingType/emitterType into bytes next to the
       new particleColorIndex (late-TBC v262 on the wire; TBC's last minor
       2.4.3 writes v263, so the whole tbc target is past it). */
-  inline constexpr ClientVersion m2_compressed_bones = builds::TheBurningCrusade;
+  inline constexpr ClientVersion m2_compressed_bones = builds::TBC;
 
   /** WotLK (v264): every M2Track nests one timestamp/value array per
       sequence (the vanilla single timeline with interpolation ranges is
@@ -30,28 +30,28 @@ namespace wowlib::formats::m2
       timestamps, skin profiles move out to .skin files and low-priority
       sequences to .anim files, particles gain the FBlock color/scale tracks
       and the four spin fields, ribbons their priority-plane tail. */
-  inline constexpr ClientVersion m2_per_sequence_timelines = builds::WrathOfTheLichKing;
+  inline constexpr ClientVersion m2_per_sequence_timelines = builds::WotLK;
 
   /** Cata (v272): particles turn multi-textured (492-byte record: texture id
       bitfield, multiTexScale replacing particleType/headOrTail, the
       multiTexScroll tail) and cameras trade the static diagonal FOV for a
       spline track. */
-  inline constexpr ClientVersion m2_multitex_particles = builds::Cataclysm;
+  inline constexpr ClientVersion m2_multitex_particles = builds::Cata;
 
   /** WoD (6.0.1): M2Sequence's u32 blendTime splits into the
       blendTimeIn/blendTimeOut pair. */
-  inline constexpr ClientVersion m2_split_blend_times = builds::WarlordsOfDraenor;
+  inline constexpr ClientVersion m2_split_blend_times = builds::WoD;
 
   /** Legion (7.0.1.20740): the on-disk .m2 becomes a chunked file — the MD20
       image moves into the MD21 chunk (offsets stay relative to the image)
       joined by the companion chunks (PFID/SFID/AFID/…, forward fourccs). */
-  inline constexpr ClientVersion m2_chunked_container = builds::LegionAlpha;
+  inline constexpr ClientVersion m2_chunked_container = builds::Legion_Alpha;
 
   /** BfA (8.0.1): the chunked container is universal — Legion clients still
       served leftover raw MD20 models, but from 8.0 on none exist, so BfA+
       reads treat a bare MD20 magic as a version mismatch instead of falling
       back to the monolithic path. */
-  inline constexpr ClientVersion m2_chunked_only = builds::BattleForAzeroth;
+  inline constexpr ClientVersion m2_chunked_only = builds::BfA;
 
   /** The MD20 format_version wowlib writes for @a v — the value the client
       era itself exports (wowdev.wiki/M2, the Versions section): vanilla 256, TBC 263,
@@ -169,14 +169,14 @@ namespace wowlib::formats::m2
       range. Canonicalized over m2_chunked_versions. */
   inline constexpr std::array m2_file_pivots{
     m2_chunked_container,
-    builds::ShadowsOfArgus_24500,   // EXP2/PABC/PADC/PSBC/PEDC/SKID
-    builds::BfaBeta,   // TXID/LDV1
-    builds::TidesOfVengeance,   // RPID/GPID
-    builds::RiseOfAzshara,   // WFV1/WFV2/PGD1
-    builds::ShadowlandsAlpha_33978,   // WFV3/PFDC/EDGF/NERF/DBOC
-    builds::ShadowlandsAlpha_34365,   // DETL
-    builds::Dragonflight,      // AFRA
-    builds::LegacyOfArathor}; // PCOL/DPIV
+    builds::Legion_ShadowsOfArgus_24500,   // EXP2/PABC/PADC/PSBC/PEDC/SKID
+    builds::BfA_Beta,   // TXID/LDV1
+    builds::BfA_TidesOfVengeance,   // RPID/GPID
+    builds::BfA_RiseOfAzshara,   // WFV1/WFV2/PGD1
+    builds::SL_Alpha_33978,   // WFV3/PFDC/EDGF/NERF/DBOC
+    builds::SL_Alpha_34365,   // DETL
+    builds::DF,      // AFRA
+    builds::TWW_LegacyOfArathor}; // PCOL/DPIV
 
   /** Skeleton and its chunk payloads plus the shell payload records: stable
       across the whole chunked era — no pivots, one instantiation. */
@@ -187,8 +187,8 @@ namespace wowlib::formats::m2
   inline constexpr std::array m2_assembly_pivots{
     m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,
     m2_split_blend_times, m2_chunked_container, m2_chunked_only,
-    builds::ShadowsOfArgus_24500,  builds::BfaBeta,
-    builds::TidesOfVengeance,  builds::RiseOfAzshara,
-    builds::ShadowlandsAlpha_33978,  builds::ShadowlandsAlpha_34365,
-    builds::Dragonflight,     builds::LegacyOfArathor};
+    builds::Legion_ShadowsOfArgus_24500,  builds::BfA_Beta,
+    builds::BfA_TidesOfVengeance,  builds::BfA_RiseOfAzshara,
+    builds::SL_Alpha_33978,  builds::SL_Alpha_34365,
+    builds::DF,     builds::TWW_LegacyOfArathor};
 }

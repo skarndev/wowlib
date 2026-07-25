@@ -2,7 +2,7 @@
 
 /** @file
     The M2 family's satellite-file vocabulary (namespace wowlib::formats::m2),
-    shared by the fs-level read/write definitions in formats/m2/io.hpp:
+    shared by the fs-level read/write definitions in m2.hpp and skeleton.hpp:
 
     - SequenceKey — the (animation id, variation) identity every .anim naming
       convention and AFID entry keys on;
@@ -258,7 +258,7 @@ namespace wowlib::formats::m2
     static void append_chunk(FileBuffer& out, std::uint32_t fourcc,
                              std::span<const std::byte> payload)
     {
-      const std::uint32_t size = static_cast<std::uint32_t>(payload.size());
+      const auto size = static_cast<std::uint32_t>(payload.size());
       const std::size_t at = out.size();
       out.resize(at + 8);
       std::memcpy(out.data() + at, &fourcc, 4);

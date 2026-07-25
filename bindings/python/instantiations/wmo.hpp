@@ -13,7 +13,7 @@
     WOWLIB_WMO_FOR_EACH_VERSION X-macro the welded aliases use — neither
     the two sides nor the version list can drift. */
 
-#include <wowlib/formats/wmo/io.hpp>
+#include <wowlib/formats/wmo/wmo.hpp>
 
 #include "instantiations/wmo_ranges.hpp"
 

@@ -20,7 +20,7 @@
 
       [[
         =chunk("MODI"),
-        =since(builds::TidesOfVengeance),
+        =since(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Doodad FileDataIDs (MODI, 8.1+).")]]

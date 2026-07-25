@@ -334,7 +334,16 @@ Supersedes the naming/layout notes above (kept as history):
   predicates became WELDED METHODS on every M2Sequence era variant:
   `is_alias()`, `owns_anim_file()`.
 - **Named build constants** (`core/client_builds.hpp`, wowlib::builds):
-  every =since()/=until() and pivot-list version spells a patch name
-  (LegionAlpha 7.0.1.20740, TidesOfVengeance 8.1.0.27826, LegacyOfArathor
-  11.1.7.60520, era markers Cataclysm/Legion/... at build 0). Disambiguate
-  same-patch builds with _NNNNN suffix (ShadowsOfArgus_24473/_24500).
+  every =since()/=until() and pivot-list version spells an
+  EXPANSION-PREFIXED patch name — short community expansion names
+  (TBC/WotLK/Cata/WoD/Legion/BfA/SL/DF/TWW) as era markers at build 0, and
+  `<Expansion>_<PatchTitle>` for exact builds (Legion_Alpha 7.0.1.20740,
+  BfA_TidesOfVengeance 8.1.0.27826, TWW_LegacyOfArathor 11.1.7.60520).
+  Disambiguate same-patch builds with the build number
+  (Legion_ShadowsOfArgus_24473/_24500). User: bare patch titles were too
+  hard to place in an expansion; NO long expansion names.
+- **No io.hpp anywhere** (user: order-dependent includes, no use case for a
+  template head without its defs): the fs-level read/write definitions are
+  INLINE at the bottom of m2.hpp, skeleton.hpp and wmo.hpp; convert/parse
+  consumers get them along with the entity. formats/m2/io.hpp and
+  formats/wmo/io.hpp are gone.

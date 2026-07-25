@@ -252,11 +252,12 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
   ({wmo,m2}.hpp extern declarations included by every binding TU; one .cpp
   per format expands the matrix, parallel to the welder walk). Library
   consumers implicitly instantiate exactly the versions they use.
-- **fs-level read/write definitions live in formats/{wmo,m2}/io.hpp** (the
-  old wmo.cpp/m2.cpp/skeleton.cpp are gone; the wowlib static lib is core+fs
-  only). io.hpp is separate from wmo.hpp/m2.hpp so parse-only consumers skip
-  the fs::FileSystem dependency; wowlib.hpp includes it. Tests exercising
-  fs verbs include io.hpp. X-macros + consteval version-coverage checks stay
+- **fs-level read/write definitions live INLINE at the bottom of the entity
+  headers** (m2.hpp, skeleton.hpp, wmo.hpp; the separate io.hpp headers were
+  dissolved 2026-07-25 — user: order-dependent includes with no use case for
+  a template head without its definitions). The library ships NO explicit
+  instantiations; every consumer TU implicitly instantiates exactly the
+  versions it uses. X-macros + consteval version-coverage checks stay
   in the library headers.
 - **Derived wire counts** (2026-07-24, survey-grounded: 1983 3.3.5a + 8146
   9.2.7 roots): write_entity invokes an optional entity hook

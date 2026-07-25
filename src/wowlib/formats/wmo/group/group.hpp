@@ -86,7 +86,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MORB"),
-        =since(builds::Cataclysm),
+        =since(builds::Cata),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Triangle-strip batch overrides (MORB, Cata+); same count as
@@ -95,7 +95,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOTA"),
-        =since(builds::Cataclysm),
+        =since(builds::Cata),
         =formats::optional,
         =welder::doc(R"(Tangent arrays (MOTA, Cata+); offset-based layout, kept
                         opaque.)")]]
@@ -103,7 +103,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOBS"),
-        =since(builds::Cataclysm),
+        =since(builds::Cata),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Shadow batches (MOBS, Cata+).")]]
@@ -115,7 +115,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MDAL"),
-        =since(builds::WarlordsOfDraenor),
+        =since(builds::WoD),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Ambient color override (MDAL, WoD+); a single color in
@@ -124,7 +124,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOPL"),
-        =since(builds::WarlordsOfDraenor),
+        =since(builds::WoD),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Terrain-cutting planes (MOPL, WoD+); requires the
@@ -137,7 +137,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MOPB"),
-        =since(builds::LegionAlpha),
+        =since(builds::Legion_Alpha),
         =formats::optional,
         =welder::doc(R"(Prepass batches (MOPB, Legion+); undocumented 24-byte
                         records, kept opaque.)")]]
@@ -145,7 +145,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOLS"),
-        =since(builds::LegionAlpha),
+        =since(builds::Legion_Alpha),
         =formats::optional,
         =welder::doc(R"(Spot lights (MOLS, Legion+); undocumented 56-byte records,
                         kept opaque.)")]]
@@ -153,7 +153,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOLP"),
-        =since(builds::LegionAlpha),
+        =since(builds::Legion_Alpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Point lights (MOLP, Legion+).")]]
@@ -165,7 +165,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MLSS"),
-        =since(builds::TidesOfVengeance),
+        =since(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Spot-light sets (MLSS, 8.1+): (first, count) ranges into MOLS
@@ -174,7 +174,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MLSP"),
-        =since(builds::TidesOfVengeance),
+        =since(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Point-light sets (MLSP, 8.1+): (first, count) ranges into
@@ -183,7 +183,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MLSK"),
-        =since(builds::TidesOfVengeance),
+        =since(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Point-light animation sets (MLSK, 8.1+): (first, count)
@@ -192,7 +192,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOP2"),
-        =since(builds::TidesOfVengeance),
+        =since(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Animated point lights (MOP2, 8.1+).")]]
@@ -204,7 +204,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MPVR"),
-        =since(builds::VisionsOfNzoth_33775),
+        =since(builds::BfA_VisionsOfNzoth_33775),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Particulate volume references (MPVR, 8.3+) into the root's MPVD.")]]
@@ -216,7 +216,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MOVX"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(32-bit triangle vertex indices (MOVX, ~9.0+; the large-mesh
@@ -225,7 +225,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MAVR"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Ambient volume references (MAVR, 9.0+) into the root's MAVD.")]]
@@ -233,7 +233,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MBVR"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Box volume references (MBVR, 9.0+) into the root's MBVD.")]]
@@ -241,7 +241,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MFVR"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Fog volume references (MFVR, 9.0+) into the root's MFOG and
@@ -250,7 +250,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MNLR"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("New-light references (MNLR, 9.0+) into the root's MNLD.")]]
@@ -262,7 +262,7 @@ namespace wowlib::formats::wmo::group
     {
       [[
         =chunk("MOGX"),
-        =since(builds::DragonflightAlpha),
+        =since(builds::DF_Alpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Query face start (MOGX, 10.0+): the base subtracted from a
@@ -271,7 +271,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MPY2"),
-        =since(builds::DragonflightAlpha),
+        =since(builds::DF_Alpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Per-triangle material info v2 (MPY2, 10.0+; replaces MOPY).")]]
@@ -279,7 +279,7 @@ namespace wowlib::formats::wmo::group
 
       [[
         =chunk("MOQG"),
-        =since(builds::DragonflightAlpha),
+        =since(builds::DF_Alpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Per-polygon ground types (MOQG, 10.0+), indexed by polygon
@@ -314,13 +314,13 @@ namespace wowlib::formats::wmo::group
           See https://wowdev.wiki/WMO.)")
     ]] WMOGroupBody
       : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase,
-        slot<V, builds::Cataclysm, GroupBodyCata>,
-        slot<V, builds::WarlordsOfDraenor, GroupBodyWod>,
-        slot<V, builds::LegionAlpha, GroupBodyLegion>,
-        slot<V, builds::TidesOfVengeance, GroupBody81>,
-        slot<V, builds::VisionsOfNzoth_33775, GroupBody83>,
-        slot<V, builds::ShadowlandsAlpha_33978, GroupBody90>,
-        slot<V, builds::DragonflightAlpha, GroupBody100>
+        slot<V, builds::Cata, GroupBodyCata>,
+        slot<V, builds::WoD, GroupBodyWod>,
+        slot<V, builds::Legion_Alpha, GroupBodyLegion>,
+        slot<V, builds::BfA_TidesOfVengeance, GroupBody81>,
+        slot<V, builds::BfA_VisionsOfNzoth_33775, GroupBody83>,
+        slot<V, builds::SL_Alpha_33978, GroupBody90>,
+        slot<V, builds::DF_Alpha, GroupBody100>
     {
       static constexpr ClientVersion version = V;
 

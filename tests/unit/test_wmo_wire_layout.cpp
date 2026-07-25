@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <utility>
 
-#include <wowlib/formats/wmo/io.hpp>
+#include <wowlib/formats/wmo/wmo.hpp>
 
 using namespace wowlib;
 using namespace wowlib::formats;

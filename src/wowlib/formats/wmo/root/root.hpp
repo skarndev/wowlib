@@ -72,7 +72,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("GFID"),
-        =since(builds::LegionAlpha),
+        =since(builds::Legion_Alpha),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Group file FileDataIDs (GFID, Legion+), in group order;
@@ -85,7 +85,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MOUV"),
-        =since(builds::ShadowsOfArgus_24473),
+        =since(builds::Legion_ShadowsOfArgus_24473),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Texture-coordinate translation animations (MOUV, 7.3+), one
@@ -98,7 +98,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MOSB"),
-        =until(builds::TidesOfVengeance),
+        =until(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::doc(R"(Skybox filename (MOSB; pre-8.1); raw bytes — files pad it to
                         4-byte alignment. Replaced by skybox_fdid (MOSI) in 8.1+.)")]]
@@ -114,7 +114,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MOTX"),
-        =until(builds::VisionsOfNzoth_32044),
+        =until(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
         =welder::doc(R"(Texture filenames (MOTX); the material texture fields index
                         into this block. Pre-8.1 it is the primary reference; in
@@ -125,7 +125,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MODN"),
-        =until(builds::VisionsOfNzoth_32044),
+        =until(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
         =welder::doc(R"(Doodad (M2) filenames (MODN); MODD entries index into this
                         block. Pre-8.1 primary, 8.1/8.2 fallback (see textures).
@@ -139,7 +139,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MOSI"),
-        =since(builds::TidesOfVengeance),
+        =since(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Skybox FileDataID (MOSI, 8.1+).")]]
@@ -147,7 +147,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MODI"),
-        =since(builds::TidesOfVengeance),
+        =since(builds::BfA_TidesOfVengeance),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Doodad FileDataIDs (MODI, 8.1+; replaces doodad_names).")]]
@@ -159,7 +159,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MDDI"),
-        =since(builds::VisionsOfNzoth_32044),
+        =since(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Per-doodad color multipliers (MDDI, 8.3+), applied to the
@@ -168,7 +168,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MPVD"),
-        =since(builds::VisionsOfNzoth_32044),
+        =since(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
         =welder::doc(R"(Particulate volume data (MPVD, 8.3+); undocumented layout,
                         kept opaque.)")]]
@@ -176,7 +176,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MAVG"),
-        =since(builds::VisionsOfNzoth_32044),
+        =since(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Global ambient volumes (MAVG, 8.3+); position and radii are
@@ -185,7 +185,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MAVD"),
-        =since(builds::VisionsOfNzoth_32044),
+        =since(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Ambient volumes (MAVD, 8.3+), overriding the header ambient
@@ -194,7 +194,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MBVD"),
-        =since(builds::VisionsOfNzoth_32044),
+        =since(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Box ambient volumes (MBVD, 8.3+); read only when MAVG/MAVD is
@@ -207,7 +207,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MFED"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Fog extra data (MFED, 9.0+); same count as MFOG.")]]
@@ -215,7 +215,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MGI2"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Group info v2 (MGI2, 9.0+); same count as MOGI, overrides LOD
@@ -224,7 +224,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MNLD"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Dynamic lights (MNLD, 9.0+): torch fires, window light
@@ -233,7 +233,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MDDL"),
-        =since(builds::ShadowlandsAlpha_33978),
+        =since(builds::SL_Alpha_33978),
         =formats::optional,
         =welder::doc(R"(Detail (ground-effect) doodad layers (MDDL, 9.0+);
                         variable-length RLE layout, kept opaque.)")]]
@@ -245,7 +245,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MOLV"),
-        =since(builds::ChainsOfDomination),
+        =since(builds::SL_ChainsOfDomination),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Directional-gradient light extensions (MOLV, 9.1+); entries
@@ -258,7 +258,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MOM3"),
-        =since(builds::TheWarWithinAlpha),
+        =since(builds::TWW_Alpha),
         =formats::optional,
         =welder::doc(R"(M3 materials (MOM3, 11.0+); when present, MOMT is ignored. An
                         m3SI blob, kept opaque.)")]]
@@ -270,7 +270,7 @@ namespace wowlib::formats::wmo::root
     {
       [[
         =chunk("MOPE"),
-        =since(builds::Undermined),
+        =since(builds::TWW_Undermined),
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Portal extra data (MOPE, 11.1+).")]]
@@ -307,16 +307,16 @@ namespace wowlib::formats::wmo::root
           https://wowdev.wiki/WMO.)")
     ]] WMORoot
       : ChunkedFile<WMORoot<V>>, WMORootBase,
-        slot<V, builds::LegionAlpha, RootLegion>,
-        slot<V, builds::ShadowsOfArgus_24473, Root73>,
-        slot<V, ClientVersion{0, 0, 0, 0}, RootPre81, builds::TidesOfVengeance>,
-        slot<V, ClientVersion{0, 0, 0, 0}, RootPre83, builds::VisionsOfNzoth_32044>,
-        slot<V, builds::TidesOfVengeance, Root81>,
-        slot<V, builds::VisionsOfNzoth_32044, Root83>,
-        slot<V, builds::ShadowlandsAlpha_33978, Root90>,
-        slot<V, builds::ChainsOfDomination, Root91>,
-        slot<V, builds::TheWarWithinAlpha, Root110>,
-        slot<V, builds::Undermined, Root111>
+        slot<V, builds::Legion_Alpha, RootLegion>,
+        slot<V, builds::Legion_ShadowsOfArgus_24473, Root73>,
+        slot<V, ClientVersion{0, 0, 0, 0}, RootPre81, builds::BfA_TidesOfVengeance>,
+        slot<V, ClientVersion{0, 0, 0, 0}, RootPre83, builds::BfA_VisionsOfNzoth_32044>,
+        slot<V, builds::BfA_TidesOfVengeance, Root81>,
+        slot<V, builds::BfA_VisionsOfNzoth_32044, Root83>,
+        slot<V, builds::SL_Alpha_33978, Root90>,
+        slot<V, builds::SL_ChainsOfDomination, Root91>,
+        slot<V, builds::TWW_Alpha, Root110>,
+        slot<V, builds::TWW_Undermined, Root111>
     {
       static constexpr ClientVersion version = V;
 
