@@ -4,12 +4,12 @@ Data + small functions only. M2 has two field surfaces ("sides") with different
 kinds:
 
   * the **MD20 body** (`M2Root`, root/root.hpp) is an OFFSET entity — no
-    per-member FourCC chunks; the authoritative `wire_order` array fixes the
-    member positions (version-gated members live in detail:: trait slots), so
-    its fields page section shows plain field listings with expansion badges
-    only. `=since()`/`=until()` here reference the NAMED boundary constants
-    from boundaries.hpp (m2_per_sequence_timelines, …), resolved via
-    parse_version_constants.
+    per-member FourCC chunks; wire order is the struct's own declaration order
+    with trait-slot members spliced in at their `=wire_after("name")` anchors,
+    so its fields page section shows plain field listings with expansion
+    badges only. `=since()`/`=until()` here reference the NAMED boundary
+    constants from boundaries.hpp (m2_per_sequence_timelines, …), resolved
+    via parse_version_constants.
   * the **Legion+ chunked shell** (`M2ChunkedFile`, chunked/chunked.hpp) is a real chunk
     stream (forward FourCCs, unlike every other WoW chunk format), so its
     members carry FourCC badges linking wowdev.wiki/M2 plus since() badges.
@@ -162,13 +162,24 @@ _WIRE_ORDER_CACHE: list[str] | None = None
 
 
 def _wire_order() -> list[str]:
-    """M2Root's authoritative `wire_order` member-name array (the offset-entity
-    equivalent of a chunk_order table)."""
+    """M2Root's wire order, rebuilt the way the serializer walks it: the
+    struct's OWN members in declaration order, each followed by the trait
+    members whose `=wire_after("name")` anchors it (see offset_file.hpp's
+    offset_order)."""
     global _WIRE_ORDER_CACHE
     if _WIRE_ORDER_CACHE is None:
         txt = BODY_HPP.read_text(encoding="utf-8")
-        m = re.search(r"wire_order\s*\{(.*?)\}", txt, re.DOTALL)
-        _WIRE_ORDER_CACHE = re.findall(r'"([^"]+)"', m.group(1)) if m else []
+        traits = fr.parse_members(
+            fr.slice_text(txt, "namespace detail", "]] M2Root :"), consts=_consts())
+        own = fr.parse_members(
+            fr.slice_text(txt, "]] M2Root :", None), consts=_consts())
+        order: list[str] = []
+        for f in own:
+            if f["name"] == "version":     # the struct-head parse artifact
+                continue
+            order.append(f["name"])
+            order.extend(t["name"] for t in traits if t.get("after") == f["name"])
+        _WIRE_ORDER_CACHE = order
     return _WIRE_ORDER_CACHE
 
 
@@ -266,7 +277,7 @@ FORMAT = fr.Format(
     sides=(BODY_SIDE, SHELL_SIDE),
     wowdev_page="M2",
     anchors_file="m2_wowdev_anchors.json",
-    name_re=r"(?:M2|Skeleton|Skin|Skel)[A-Za-z0-9]*?",
+    name_re=r"(?:M2|Skeleton|Skin|Skel|Exp2|Pabc|Psbc|Pgd1)[A-Za-z0-9]*?",
     generic_pages=frozenset({"python/m2/entities.md", "python/m2/records.md"}),
     forver={
         "python/m2/root.md": (

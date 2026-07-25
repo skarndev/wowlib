@@ -232,4 +232,12 @@ FORMAT = fr.Format(
         ),
     },
     struct_pages=(ROOT_CHUNKS, GROUP_CHUNKS),
+    # Entity families referenced from property annotations (WMO.root, WMO.groups,
+    # WMOGroup.body) — the concrete versioned classes render nowhere, so the
+    # links retarget to the family bases documented on the fields page.
+    elem_links={
+        "WMORoot": ("python/wmo/fields.md", "wowlib.formats.wmo.root"),
+        "WMOGroup": ("python/wmo/fields.md", "wowlib.formats.wmo.group"),
+        "WMOGroupBody": ("python/wmo/fields.md", "wowlib.formats.wmo.group"),
+    },
 )

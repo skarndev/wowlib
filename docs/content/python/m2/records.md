@@ -7,11 +7,14 @@ skin-profile tables and the `.skel` chunk payloads. Records are concrete
 per-version classes (`M2CompBoneWotlk`, `M2SequenceCata`, …): construct the
 one matching your model's version directly.
 
-To keep the reference readable, each record **family documents once**: the
-listing shows the family's latest layout under the generic `⟨version⟩` name,
-and a *Version layouts* note spells out exactly how earlier clients differ
-(members added, dropped or retyped). Wire integer fields show their on-disk
-width (`Annotated[int, uint16]`), generated from the C++ sources.
+To keep the reference readable, each record **family documents once**, the way
+wowdev.wiki lists a versioned struct: one merged member walk under the generic
+`⟨version⟩` name. A member carries an **expansion-range badge** when it does
+not exist across the family's whole range; a member whose layout changed
+appears once per era, each entry badged with the clients it covers — a
+badge-less member is identical in every version. Wire integer fields show
+their on-disk width (`Annotated[int, uint16]`), generated from the C++
+sources.
 
 ## Body records
 

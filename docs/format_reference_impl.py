@@ -379,6 +379,7 @@ def parse_members(text: str, consts: dict[str, tuple] | None = None,
         toks = re.findall(r"[A-Za-z_]\w*", re.sub(r"\{[^}]*\}", "", decl.split("=")[0]))
         if not toks:
             continue
+        after_m = re.search(r'wire_after\("([^"]+)"\)', attrs)
         out.append({
             "name": toks[-1],
             "cc": cc_m.group(1) if cc_m else (header_cc if is_header else ""),
@@ -386,6 +387,7 @@ def parse_members(text: str, consts: dict[str, tuple] | None = None,
             "until": _version_ref(attrs, "until", consts),
             "elem": _elem_name(decl, name=toks[-1]),
             "container": "formats::container" in attrs,
+            "after": after_m.group(1) if after_m else None,
         })
     return out
 
@@ -567,6 +569,47 @@ def _coerce_vectors(html_out: str, base: str) -> str:
         elem = _vector_elements().get(m.group(1))
         return f"list[{_elem_html(elem, base)}]" if elem is not None else m.group(0)
     return _VEC_SPAN_RE.sub(sub, _VEC_LINK_RE.sub(sub, html_out))
+
+
+def _class_redirect(name: str) -> tuple[str, str, str] | None:
+    """(page, module, anchor class) for a versioned class that renders nowhere
+    under its own name: a concrete entity-family class (M2RootLegionPlus behind
+    M2.root) redirects to its family base's page, a deduplicated record sibling
+    to its family's representative."""
+    split = split_range_suffix(name)
+    if not split:
+        return None
+    stem = split[0]
+    for fmt in formats():
+        if stem in fmt.elem_links:
+            page, module = fmt.elem_links[stem]
+            return page, module, stem
+        for sp in fmt.struct_pages:
+            if sp.dedup_marker and name in sp.classes():
+                rep = sp.anchor_class(name)
+                if rep != name:
+                    return sp.page, sp.module, rep
+    return None
+
+
+# An autoref mkdocstrings could not resolve ends up as a bare title-span.
+_UNRESOLVED_SPAN_RE = re.compile(r'<span title="[^"]*">([A-Za-z0-9_]+)</span>')
+
+
+def _retarget_class_refs(output: str, base: str) -> str:
+    """Turn unresolved class references into links to the family's rendered
+    documentation, displayed generically: nanobind annotates properties with
+    CONCRETE versioned classes (M2.root -> M2RootLegionPlus), which since the
+    generic-page restructure render nowhere under their own name."""
+    def sub(m):
+        target = _class_redirect(m.group(1))
+        if target is None:
+            return m.group(0)
+        page, module, cls = target
+        href = f"{base}{_page_url(page)}#{module}.{cls}"
+        return (f'<a class="autorefs autorefs-internal" href="{href}">'
+                f"{_generic_name(m.group(1))}</a>")
+    return _UNRESOLVED_SPAN_RE.sub(sub, output)
 
 
 # --- badge rendering ----------------------------------------------------------
@@ -909,21 +952,6 @@ def _annotate_entity_int_widths(html_out: str, fmt: Format, src: str) -> str:
 
 
 # --- deduplicated record-page markdown generation -----------------------------
-def _display_type(ann: str) -> str:
-    """A stub return annotation rendered for prose: module paths stripped,
-    opaque Vector wrappers coerced to list[element], versioned names shown
-    generically. Subscripted annotations (list[…]) recurse per part."""
-    ann = ann.strip()
-    m = re.fullmatch(r"(\w+)\[(.+)\]", ann)
-    if m:
-        return f"{m.group(1)}[{_display_type(m.group(2))}]"
-    last = ann.split(".")[-1]
-    vec = _vector_elements().get(last)
-    if vec is not None:
-        return f"list[{_generic_name(vec)}]"
-    return _generic_name(last)
-
-
 def _era_words(suffix: str) -> str:
     """A range suffix in words: "Wotlk" -> "WotLK only", "VanillaToTbc" ->
     "Vanilla – TBC", "CataPlus" -> "Cata+"."""
@@ -938,55 +966,114 @@ def _era_words(suffix: str) -> str:
     return f"{first} only"
 
 
+# page -> {heading id: (since, until)} for the merged record listings — filled
+# by _records_markdown (markdown phase), consumed by _augment_record_badges
+# (content phase of the same page/build).
+_RECORD_BADGES: dict[str, dict[str, tuple]] = {}
+
+
+def _suffix_span(suffix: str) -> tuple[int, int | None]:
+    """(first major, last major — None when open-ended) a range suffix covers."""
+    m = _RANGE_RE.match(suffix)
+    first = EXP_SUFFIXES.index(m.group(1)) + 1
+    if m.group(3):
+        return first, None
+    last = EXP_SUFFIXES.index(m.group(2)) + 1 if m.group(2) else first
+    return first, last
+
+
+def _directive(sp: StructPage, target: str, level: int, extra: str = "") -> str:
+    return (f"::: {sp.module}.{target}\n    options:\n"
+            "      show_root_heading: true\n"
+            "      show_root_toc_entry: true\n"
+            f"      heading_level: {level}" + extra)
+
+
 def _records_markdown(sp: StructPage) -> str:
-    """The deduplicated record listing behind a struct page's dedup marker: one
-    fully rendered class per family — the latest-version representative,
-    displayed generically — followed, for a versioned family, by a "Version
-    layouts" note spelling out how each earlier era differs (added, dropped and
-    retyped members, with the added members' docstrings), so the shared 90%% of
-    a record documents once instead of per instantiation."""
+    """The deduplicated record listing behind a struct page's dedup marker,
+    mirroring how wowdev documents a versioned struct: ONE merged member walk
+    per family. The family heading + docstring render from the latest-version
+    representative (displayed generically); below it every (member, layout)
+    renders exactly once — from the newest class that declares it — wearing an
+    expansion-range badge when it is not family-wide (a member whose type
+    changed across eras appears as adjacent per-era entries, each badged).
+    Ranges derive from which era classes declare the member, so they cannot
+    drift from the bindings."""
     blocks = dict(_stub_class_blocks(sp.stub))
+    badges = _RECORD_BADGES.setdefault(sp.page, {})
     out: list[str] = []
     for stem, fam in _family_groups(sp).items():
         rep_rank, rep = fam[-1]
-        out.append(f"::: {sp.module}.{rep}\n    options:\n"
-                   "      show_root_heading: true\n"
-                   "      show_root_toc_entry: true\n"
-                   "      heading_level: 3")
-        if rep_rank < 0:
-            continue                       # unversioned: nothing to annotate
-        rep_era = _era_words(rep[len(stem):])
-        if len(fam) == 1:
-            out.append(f"*One layout across its whole range ({rep_era}).*")
+        if rep_rank < 0:                     # unversioned: plain full listing
+            out.append(_directive(sp, rep, 3))
             continue
-        rep_props = _class_props(blocks[rep])
-        diffs: list[str] = []
-        for _rank, name in fam[:-1]:
-            props = _class_props(blocks[name])
-            era = _era_words(name[len(stem):])
-            added = [p for p in props if p not in rep_props]
-            dropped = [p for p in rep_props if p not in props]
-            retyped = [p for p in props
-                       if p in rep_props and props[p][0] != rep_props[p][0]]
-            bits = []
-            if added:
-                bits.append("adds " + "; ".join(
-                    f"`{p}: {_display_type(props[p][0])}`"
-                    + (f" — {props[p][1]}" if props[p][1] else "")
-                    for p in added))
-            if dropped:
-                bits.append("drops " + ", ".join(f"`{p}`" for p in dropped))
-            if retyped:
-                bits.append("retypes " + "; ".join(
-                    f"`{p}` to `{_display_type(props[p][0])}` (from "
-                    f"`{_display_type(rep_props[p][0])}`)" for p in retyped))
-            diffs.append(f"- **{era}** — {'; '.join(bits) if bits else 'same layout'}.")
-        adm = ['!!! info "Version layouts"',
-               f"    The listing above is the **{rep_era}** layout; earlier "
-               "clients differ:", ""]
-        adm += [f"    {line}" for line in diffs]
-        out.append("\n".join(adm))
+        if len(fam) == 1:
+            out.append(_directive(sp, rep, 3))
+            out.append(f"*One layout across its whole range "
+                       f"({_era_words(rep[len(stem):])}).*")
+            continue
+        out.append(_directive(sp, rep, 3, "\n      members: false"))
+        classes = [cls for _r, cls in fam]
+        props_of = {cls: _class_props(blocks[cls]) for cls in classes}
+        # Merged member order: the newest layout's order, with members that
+        # exist only in older layouts spliced in after the member they follow
+        # in their own class.
+        order = list(props_of[rep].keys())
+        for cls in reversed(classes[:-1]):
+            prev = None
+            for name in props_of[cls]:
+                if name in order:
+                    prev = name
+                    continue
+                order.insert(order.index(prev) + 1 if prev is not None else 0, name)
+                prev = name
+        for name in order:
+            # Split the family into runs of identical annotation: one entry per
+            # distinct layout of the member.
+            variants: list[dict] = []
+            prev_had = False
+            for cls in classes:
+                got = props_of[cls].get(name)
+                if got is None:
+                    prev_had = False
+                    continue
+                if prev_had and variants[-1]["ann"] == got[0]:
+                    variants[-1]["classes"].append(cls)
+                else:
+                    variants.append({"ann": got[0], "classes": [cls]})
+                prev_had = True
+            family_wide = (len(variants) == 1
+                           and len(variants[0]["classes"]) == len(classes))
+            for var in variants:
+                cls = var["classes"][-1]
+                out.append(_directive(sp, f"{cls}.{name}", 4))
+                if family_wide:
+                    continue
+                first, _last = _suffix_span(var["classes"][0][len(stem):])
+                _first, last = _suffix_span(var["classes"][-1][len(stem):])
+                badges[f"{sp.module}.{cls}.{name}"] = (
+                    (first, 0, 0), (last + 1, 0, 0) if last is not None else None)
     return "\n\n".join(out)
+
+
+def _augment_record_badges(html_out: str, sp: StructPage, base: str) -> str:
+    """Inject the expansion-range badges _records_markdown computed onto the
+    merged member headings of a deduplicated record page."""
+    badges = _RECORD_BADGES.get(sp.page)
+    if not badges:
+        return html_out
+
+    def repl(m):
+        r = badges.get(m["hid"])
+        # several StructPages share one records page; skip already-tagged rows
+        if not r or 'class="wmo-tags"' in m["inner"]:
+            return m.group(0)
+        tags = _range_html(r[0], r[1], base)
+        if not tags:
+            return m.group(0)
+        return f'{m["open"]}{m["inner"]}<span class="wmo-tags">{tags}</span>{m["close"]}'
+
+    return _HEADING_RE.sub(repl, html_out)
 
 
 # --- fields-page markdown generation ------------------------------------------
@@ -1113,6 +1200,8 @@ def on_page_content(html_out, page, config, files, **kwargs):
             for sp in fmt.struct_pages:
                 if sp.page == src and (sp.owner_side or sp.enum_chunk):
                     html_out = _augment_chunks(html_out, fmt, sp, base)
+                if sp.page == src and sp.dedup_marker:
+                    html_out = _augment_record_badges(html_out, sp, base)
         except (OSError, KeyError, re.error):
             continue
     return html_out
@@ -1137,6 +1226,7 @@ def on_post_page(output, page, config, **kwargs):
     try:
         if src.startswith("python/"):
             output = _coerce_vectors(output, _base_prefix(page))
+            output = _retarget_class_refs(output, _base_prefix(page))
             output = _strip_empty_type_columns(output)
     except re.error:
         return output

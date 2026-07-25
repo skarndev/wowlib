@@ -74,6 +74,30 @@ the earlier representative-version mkdocstrings pages (entity/root/group); the
   (`cmake --build build/bindings --target wowlib_pyi`) before doc builds pick
   docstring changes up.
 
+### 2026-07-25 follow-up sweep
+- **Records pages mirror wowdev's versioned-struct style** (`_records_markdown`
+  v2): per family ONE merged member walk — heading + docstring from the
+  latest-version rep (`members: false`), then each (member, layout) rendered
+  once from the newest class declaring it, wearing an inclusive
+  expansion-range badge when not family-wide (retyped members appear as
+  adjacent per-era entries). Ranges derive from stub presence + class-range
+  suffixes (`_suffix_span`); `_RECORD_BADGES` carries them from the markdown
+  phase to `_augment_record_badges` (content phase). The old "Version layouts"
+  admonition is gone.
+- **`_retarget_class_refs`** (on_post_page, all python/ pages): unresolved
+  autoref spans naming versioned classes that render nowhere (nanobind
+  annotates properties with CONCRETE classes — M2.root -> M2RootLegionPlus)
+  become links to the family's page, display generic. Targets come from
+  elem_links stems (now also on the WMO config: WMORoot/WMOGroup/WMOGroupBody)
+  and dedup pages' `anchor_class`. m2 `name_re` grew Exp2|Pabc|Psbc|Pgd1 so
+  those payload names genericize too.
+- **StringBlock + ChunkBlob documented on common.md** ("Chunk payload
+  containers" section, module `wowlib.formats`) — blob/string annotations now
+  autoref-resolve there.
+- The M2 body field order on root.md is rebuilt the serializer's way
+  (declaration order + `wire_after` splices — `_wire_order()` in the m2
+  config parses the anchors; the wire_order array no longer exists).
+
 ## Key details / gotchas
 - **welder filter resolution** (build.py `find_welder_filter`): `$WOWLIB_WELDER_FILTER`
   → pinned FetchContent checkout (`build/*/_deps/welder-src/tools/…`, matches the
