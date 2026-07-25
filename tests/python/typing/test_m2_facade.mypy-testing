@@ -6,7 +6,7 @@ import pytest
 
 import wowlib
 from wowlib.formats import m2
-from wowlib.formats.m2 import body, skin
+from wowlib.formats.m2 import root, skin
 
 
 @pytest.mark.mypy_testing
@@ -31,13 +31,13 @@ def mypy_anym2_widening_type_checks_clean() -> None:
 
 
 @pytest.mark.mypy_testing
-def mypy_body_family_narrows_in_its_submodule() -> None:
-    reveal_type(body.M2Data.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.m2.body.M2DataWotlk
+def mypy_root_family_narrows_in_its_submodule() -> None:
+    reveal_type(root.M2Root.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.m2.root.M2RootWotlk
 
 
 @pytest.mark.mypy_testing
 def mypy_records_bind_versioned_concretes() -> None:
-    bone = body.records.M2CompBoneWotlkPlus()
+    bone = root.record.M2CompBoneWotlkPlus()
     reveal_type(bone.parent_bone)  # R: int
 
 

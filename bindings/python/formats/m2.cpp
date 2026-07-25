@@ -230,8 +230,10 @@ namespace wowlib_py::formats::m2
   {
     nb::module_ formats = nb::cast<nb::module_>(module.attr("formats"));
     nb::module_ m2 = nb::cast<nb::module_>(formats.attr("m2"));
-    // the per-family submodules mirror the C++ namespaces (m2::body, m2::skin)
-    nb::module_ body = nb::cast<nb::module_>(m2.attr("body"));
+    // the per-family submodules mirror the C++ namespaces (m2::root,
+    // m2::chunked, m2::skin)
+    nb::module_ root = nb::cast<nb::module_>(m2.attr("root"));
+    nb::module_ chunked = nb::cast<nb::module_>(m2.attr("chunked"));
     nb::module_ skin = nb::cast<nb::module_>(m2.attr("skin"));
 
     // every family hands the facade its canonicalization pivots + grid, so
@@ -239,12 +241,12 @@ namespace wowlib_py::formats::m2
     // welded alias tables produce
     namespace fm2 = wowlib::formats::m2;
     def_for_version<fm2::M2>(m2.attr("M2"), "M2", fm2::m2_assembly_pivots, fm2::m2_versions);
-    def_for_version<fm2::M2Data>(body.attr("M2Data"), "M2Data", fm2::m2_data_pivots,
+    def_for_version<fm2::M2Root>(root.attr("M2Root"), "M2Root", fm2::m2_data_pivots,
                                  fm2::m2_versions);
     def_for_version<fm2::Skin>(skin.attr("Skin"), "Skin", fm2::m2_skin_pivots,
                                fm2::m2_skin_versions);
-    def_for_version<fm2::M2File>(body.attr("M2File"), "M2File", fm2::m2_file_pivots,
-                                 fm2::m2_chunked_versions);
+    def_for_version<fm2::M2ChunkedFile>(chunked.attr("M2ChunkedFile"), "M2ChunkedFile",
+                                        fm2::m2_file_pivots, fm2::m2_chunked_versions);
     def_for_version<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton", fm2::m2_skeleton_pivots,
                                    fm2::m2_chunked_versions);
 
@@ -254,9 +256,10 @@ namespace wowlib_py::formats::m2
     // Runtime AnyX union aliases (importable TypeAliases) on the family's own
     // submodule; the subset families fold only the expansions they exist for.
     def_any_alias<fm2::M2>(m2, "M2", fm2::m2_assembly_pivots, fm2::m2_versions);
-    def_any_alias<fm2::M2Data>(body, "M2Data", fm2::m2_data_pivots, fm2::m2_versions);
+    def_any_alias<fm2::M2Root>(root, "M2Root", fm2::m2_data_pivots, fm2::m2_versions);
     def_any_alias<fm2::Skin>(skin, "Skin", fm2::m2_skin_pivots, fm2::m2_skin_versions);
-    def_any_alias<fm2::M2File>(body, "M2File", fm2::m2_file_pivots, fm2::m2_chunked_versions);
+    def_any_alias<fm2::M2ChunkedFile>(chunked, "M2ChunkedFile", fm2::m2_file_pivots,
+                                      fm2::m2_chunked_versions);
     def_any_alias<fm2::Skeleton>(m2, "Skeleton", fm2::m2_skeleton_pivots,
                                  fm2::m2_chunked_versions);
   }

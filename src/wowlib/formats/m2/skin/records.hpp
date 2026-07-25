@@ -17,7 +17,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::formats::m2::skin
 {

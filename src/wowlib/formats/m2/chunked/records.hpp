@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    Legion+ companion-chunk records (namespace wowlib::formats::m2::body::records):
+    Legion+ companion-chunk records (namespace wowlib::formats::m2::chunked::record):
     the payload types of the chunked .m2 shell's satellite chunks (AFID
     entries, extended-particle blocks, parent-model overrides). The FourCCs of
     these chunks are NOT reversed on disk, unlike every other WoW format. */
@@ -14,9 +14,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/offsets.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::body::records
+namespace wowlib::formats::m2::chunked::record
 {
   /** One AFID entry: which FileDataID serves a sequence's .anim data. */
   struct [[
@@ -58,7 +58,7 @@ namespace wowlib::formats::m2::body::records
     float z_source = 0;
     float color_mult = 1;
     float alpha_mult = 1;
-    M2PartTrack<fixed16> alpha_cutoff{};
+    root::record::M2PartTrack<fixed16> alpha_cutoff{};
 
     bool operator==(const M2ExtendedParticle&) const = default;
   };
@@ -134,7 +134,7 @@ namespace wowlib::formats::m2::body::records
 
     [[=welder::mark::no_reassign,
       =welder::doc("Parent sequence bounds, one per parent sequence.")]]
-    std::vector<M2Bounds> parent_sequence_bounds;
+    std::vector<root::record::M2Bounds> parent_sequence_bounds;
 
     /** Chunk engagement: shadow OffsetFile's always-false empty() so the
         optional chunk is emitted only when data is present. */

@@ -15,6 +15,8 @@
 
 #include <wowlib/formats/m2/io.hpp>
 
+#include "instantiations/m2_ranges.hpp"
+
 #define WOWLIB_INSTANTIATION_KEYWORD extern template
 #include "instantiations/m2_matrix.inl"
 #undef WOWLIB_INSTANTIATION_KEYWORD

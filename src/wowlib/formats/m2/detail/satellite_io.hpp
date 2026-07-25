@@ -19,8 +19,8 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/offsets.hpp>
-#include <wowlib/formats/m2/body/records/shell.hpp>
-#include <wowlib/formats/m2/body/records/sequence.hpp>
+#include <wowlib/formats/m2/chunked/records.hpp>
+#include <wowlib/formats/m2/root/record/sequence.hpp>
 
 namespace wowlib::formats::m2::detail
 {
@@ -90,14 +90,14 @@ namespace wowlib::formats::m2::detail
   template <typename Sequence>
   bool owns_anim_file(const Sequence& s)
   {
-    return body::records::sequence_data_external(s.flags) && !sequence_is_alias(s.flags);
+    return root::record::sequence_data_external(s.flags) && !sequence_is_alias(s.flags);
   }
 
   /** The AFID FileDataID for a sequence, 0 when unlisted. */
-  inline std::uint32_t afid_lookup(std::span<const body::records::AnimFileEntry> entries,
+  inline std::uint32_t afid_lookup(std::span<const chunked::record::AnimFileEntry> entries,
                                    std::uint16_t id, std::uint16_t sub)
   {
-    for (const body::records::AnimFileEntry& e : entries)
+    for (const chunked::record::AnimFileEntry& e : entries)
       if (e.anim_id == id && e.sub_anim_id == sub)
         return e.file_id;
     return 0;

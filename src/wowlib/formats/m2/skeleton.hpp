@@ -31,11 +31,11 @@
 #include <wowlib/formats/common/offsets.hpp>
 #include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/bone.hpp>
-#include <wowlib/formats/m2/body/records/scene.hpp>
-#include <wowlib/formats/m2/body/records/sequence.hpp>
-#include <wowlib/formats/m2/body/records/shell.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/bone.hpp>
+#include <wowlib/formats/m2/root/record/scene.hpp>
+#include <wowlib/formats/m2/root/record/sequence.hpp>
+#include <wowlib/formats/m2/chunked/records.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::fs
 {
@@ -81,14 +81,14 @@ namespace wowlib::formats::m2
 
     [[=welder::mark::no_reassign,
       =welder::doc("Global-sequence loop lengths.")]]
-    std::vector<body::records::M2Loop> global_loops;
+    std::vector<root::record::M2Loop> global_loops;
 
     [[=welder::mark::no_reassign,
       =welder::doc("The animation sequences.")]]
-    std::vector<body::records::M2Sequence<V>> sequences;
+    std::vector<root::record::M2Sequence<V>> sequences;
 
     [[=welder::mark::no_reassign,
-      =welder::doc("Animation-id hash table (see M2Data.sequence_lookups).")]]
+      =welder::doc("Animation-id hash table (see M2Root.sequence_lookups).")]]
     std::vector<std::int16_t> sequence_lookups;
 
     [[=welder::doc("Unknown trailing bytes; always zero so far.")]]
@@ -116,7 +116,7 @@ namespace wowlib::formats::m2
 
     [[=welder::mark::no_reassign,
       =welder::doc("The bones.")]]
-    std::vector<body::records::M2CompBone<V>> bones;
+    std::vector<root::record::M2CompBone<V>> bones;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Key-bone lookup: key bone slot -> bone index, -1 if none.")]]
@@ -143,7 +143,7 @@ namespace wowlib::formats::m2
 
     [[=welder::mark::no_reassign,
       =welder::doc("The attachment points.")]]
-    std::vector<body::records::M2Attachment<V>> attachments;
+    std::vector<root::record::M2Attachment<V>> attachments;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Attachment lookup: attachment id -> index.")]]
@@ -279,7 +279,7 @@ namespace wowlib::formats::m2
       =welder::mark::no_reassign,
       =welder::doc(".anim FileDataIDs (AFID); absent on child skeletons, "
                    "which share the parent's (see parent_anim_fdids).")]]
-    std::vector<body::records::AnimFileEntry> anim_fdids;
+    std::vector<chunked::record::AnimFileEntry> anim_fdids;
 
     [[
       =chunk("BFID", FourCCEndian::forward),
@@ -302,7 +302,7 @@ namespace wowlib::formats::m2
       =welder::mark::no_reassign,
       =welder::doc("The parent's AFID entries when this skeleton is a child "
                    "(filled by read(fs, key); not part of this file).")]]
-    std::vector<body::records::AnimFileEntry> parent_anim_fdids;
+    std::vector<chunked::record::AnimFileEntry> parent_anim_fdids;
 
     [[
       =welder::mark::no_reassign,
@@ -314,7 +314,7 @@ namespace wowlib::formats::m2
         parent's when this skeleton is a child without its own. */
     [[=welder::doc("The effective AFID entries: own when present, else the "
                    "parent's.")]]
-    const std::vector<body::records::AnimFileEntry>& effective_anim_fdids() const
+    const std::vector<chunked::record::AnimFileEntry>& effective_anim_fdids() const
     {
       return anim_fdids.empty() ? parent_anim_fdids : anim_fdids;
     }

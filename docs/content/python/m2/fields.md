@@ -1,11 +1,11 @@
 # M2 fields & versions
 
 An M2 model body is version-parametric: the layout differs by client version,
-which wowlib models as one `M2Data<version>` per expansion (Python:
-`M2DataWotlk`, `M2DataShadowlands`, …). Rather than repeat eleven near-identical
+which wowlib models as one `M2Root<version>` per expansion (Python:
+`M2RootWotlk`, `M2RootShadowlands`, …). Rather than repeat eleven near-identical
 class listings, this page documents the **generic model** — the version-agnostic
-base plus the per-version layout, shown generically as `M2Data⟨version⟩` /
-`M2File⟨version⟩`. The field set is identical across every expansion; only which
+base plus the per-version layout, shown generically as `M2Root⟨version⟩` /
+`M2ChunkedFile⟨version⟩`. The field set is identical across every expansion; only which
 fields are *active* varies, shown by the badges.
 
 A field whose availability is **version-restricted** carries an expansion badge;
@@ -26,34 +26,34 @@ handles any version:
 | Alias | Module | Union of |
 |---|---|---|
 | `AnyM2` | `wowlib.formats.m2` | every `M2⟨version⟩` |
-| `AnyM2Data` | `wowlib.formats.m2.body` | every `M2Data⟨version⟩` |
-| `AnyM2File` | `wowlib.formats.m2.body` | every Legion+ `M2File⟨version⟩` |
+| `AnyM2Root` | `wowlib.formats.m2.root` | every `M2Root⟨version⟩` |
+| `AnyM2ChunkedFile` | `wowlib.formats.m2.root` | every Legion+ `M2ChunkedFile⟨version⟩` |
 | `AnySkin` | `wowlib.formats.m2.skin` | every WotLK+ `Skin⟨version⟩` |
 | `AnySkeleton` | `wowlib.formats.m2` | every Legion+ `Skeleton⟨version⟩` |
 
 ## MD20 body
 
-The model payload — the client's own `M2Data`. Unlike the chunked formats it is
+The model payload — the client's own `M2Root`. Unlike the chunked formats it is
 **offset-addressed**: fields carry no FourCC; their wire positions come from the
 entity's canonical `wire_order`, which is also the order they are listed in
 below. Pre-Legion this *is* the `.m2` file; Legion+ it is the content of the
-shell's `MD21` chunk. `M2Data` is the abstract base; the per-version layout
-below is shown generically as `M2Data⟨version⟩`.
+shell's `MD21` chunk. `M2Root` is the abstract base; the per-version layout
+below is shown generically as `M2Root⟨version⟩`.
 
 Two wire fields are managed for you and hidden from Python: the leading `MD20`
 magic, and WotLK+'s `num_skin_profiles` (stamped from the assembly's
 `skins` vector on write).
 
-::: wowlib.formats.m2.body.M2Data
+::: wowlib.formats.m2.root.M2Root
     options:
       heading_level: 3
       show_root_toc_entry: true
 
-<!-- m2-body-fields -->
+<!-- m2-root-fields -->
 
 ### Global flags
 
-::: wowlib.formats.m2.body.GlobalFlags
+::: wowlib.formats.m2.root.GlobalFlags
     options:
       heading_level: 4
       show_root_toc_entry: true
@@ -67,7 +67,7 @@ extended particle data, parent-model overrides, inline physics. Chunk ids are
 carries its chunk **FourCC** (linking to wowdev.wiki); an untouched shell
 rewrites byte-for-byte.
 
-::: wowlib.formats.m2.body.M2File
+::: wowlib.formats.m2.root.M2ChunkedFile
     options:
       heading_level: 3
       show_root_toc_entry: true

@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 animation-sequence records (namespace wowlib::formats::m2::body::records):
+    M2 animation-sequence records (namespace wowlib::formats::m2::root::record):
     M2Sequence across its three layout eras, the sequence flags, and the
     pre-WotLK playable-animation fallback entry. All trivially copyable —
     they memcpy straight out of their blocks. */
@@ -13,9 +13,9 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::body::records
+namespace wowlib::formats::m2::root::record
 {
   enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),

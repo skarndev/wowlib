@@ -421,9 +421,9 @@ namespace wowlib::formats::m2
 
       // stamp the derived skin count into the freshly written image — the
       // baked skins vector is the source of truth (num_skin_profiles is a
-      // hidden wire field, see M2Data)
+      // hidden wire field, see M2Root)
       {
-        constexpr std::size_t count_at = wire_offset_of<M2Data<V>>("num_skin_profiles");
+        constexpr std::size_t count_at = wire_offset_of<M2Root<V>>("num_skin_profiles");
         const auto count = static_cast<std::uint32_t>(this->skins.size());
         std::memcpy(bytes->data() + count_at, &count, sizeof count);
       }
@@ -458,7 +458,7 @@ namespace wowlib::formats::m2
       {
         // rebuild the chunk stream around the re-encoded image: satellites
         // write first so their fresh FileDataIDs land in the reference chunks
-        M2File<V> stream = this->chunks;
+        M2ChunkedFile<V> stream = this->chunks;
         stream.md21.bytes = std::move(*bytes);
 
         // .bone files (fdids land in the skeleton for skel-based models)

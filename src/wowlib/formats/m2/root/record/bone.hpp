@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 skeleton records (namespace wowlib::formats::m2::body::records): M2CompBone
+    M2 skeleton records (namespace wowlib::formats::m2::root::record): M2CompBone
     across its eras. Bones are offset records — their transform tracks nest
     per-sequence arrays behind M2Array references (WotLK+). */
 
@@ -11,9 +11,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::body::records
+namespace wowlib::formats::m2::root::record
 {
   enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),
@@ -56,9 +56,9 @@ namespace wowlib::formats::m2::body::records
       std::int16_t parent_bone = -1;
       [[=welder::doc("Mesh part id.")]]
       std::uint16_t submesh_id = 0;
-      records::M2Track<C3Vector, V> translation{};
-      records::M2Track<C4Quaternion, V> rotation{};
-      records::M2Track<C3Vector, V> scale{};
+      record::M2Track<C3Vector, V> translation{};
+      record::M2Track<C4Quaternion, V> rotation{};
+      record::M2Track<C3Vector, V> scale{};
       [[=welder::doc("The bone's pivot point.")]]
       C3Vector pivot{};
 
@@ -83,9 +83,9 @@ namespace wowlib::formats::m2::body::records
       std::uint16_t submesh_id = 0;
       [[=welder::doc("CRC of the authoring bone name (debug only).")]]
       std::uint32_t bone_name_crc = 0;
-      records::M2Track<C3Vector, V> translation{};
-      records::M2Track<M2CompQuat, V> rotation{};
-      records::M2Track<C3Vector, V> scale{};
+      record::M2Track<C3Vector, V> translation{};
+      record::M2Track<M2CompQuat, V> rotation{};
+      record::M2Track<C3Vector, V> scale{};
       [[=welder::doc("The bone's pivot point.")]]
       C3Vector pivot{};
 

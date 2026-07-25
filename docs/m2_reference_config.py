@@ -3,18 +3,18 @@
 Data + small functions only. M2 has two field surfaces ("sides") with different
 kinds:
 
-  * the **MD20 body** (`M2Data`, body/data.hpp) is an OFFSET entity — no
+  * the **MD20 body** (`M2Root`, root/root.hpp) is an OFFSET entity — no
     per-member FourCC chunks; the authoritative `wire_order` array fixes the
     member positions (version-gated members live in detail:: trait slots), so
     its fields page section shows plain field listings with expansion badges
     only. `=since()`/`=until()` here reference the NAMED boundary constants
     from boundaries.hpp (m2_per_sequence_timelines, …), resolved via
     parse_version_constants.
-  * the **Legion+ chunked shell** (`M2File`, body/shell.hpp) is a real chunk
+  * the **Legion+ chunked shell** (`M2ChunkedFile`, chunked/chunked.hpp) is a real chunk
     stream (forward FourCCs, unlike every other WoW chunk format), so its
     members carry FourCC badges linking wowdev.wiki/M2 plus since() badges.
 
-The record modules (body.records, skin, the Skel* chunk payloads) are dumped by
+The record modules (root.record, skin, the Skel* chunk payloads) are dumped by
 mkdocstrings on records.md; the engine re-annotates their wire integer widths
 from the C++ headers listed here.
 """
@@ -26,11 +26,11 @@ import re
 import format_reference_impl as fr
 
 M2_SRC = fr.REPO_ROOT / "src/wowlib/formats/m2"
-BODY_HPP = M2_SRC / "body/data.hpp"
-SHELL_HPP = M2_SRC / "body/shell.hpp"
+BODY_HPP = M2_SRC / "root/root.hpp"
+SHELL_HPP = M2_SRC / "chunked/chunked.hpp"
 BOUNDARIES_HPP = M2_SRC / "boundaries.hpp"
 RECORD_HEADERS = tuple(
-    M2_SRC / "body/records" / f"{fn}.hpp"
+    M2_SRC / "root/record" / f"{fn}.hpp"
     for fn in ("bone", "effects", "material", "scene", "sequence", "shell", "track"))
 
 # --- version boundary constants -----------------------------------------------
@@ -130,14 +130,14 @@ _FIELDS_CACHE: dict[str, dict] = {}
 
 
 def _body_fields() -> dict[str, dict]:
-    """M2Data members: the detail:: trait slots (version-gated) plus the struct's
+    """M2Root members: the detail:: trait slots (version-gated) plus the struct's
     own members — the slice from `namespace detail` to end-of-file covers both.
     The excluded wire fields (magic, num_skin_profiles) never parse: their
     annotations carry welder::mark::exclude, matching their absence in Python."""
     if "body" not in _FIELDS_CACHE:
         text = fr.slice_text(BODY_HPP.read_text(encoding="utf-8"), "namespace detail", None)
         fields = {f["name"]: f for f in fr.parse_members(text, consts=_consts())}
-        # The struct-head annotation block ([[=welder::weld…]] M2Data : bases…)
+        # The struct-head annotation block ([[=welder::weld…]] M2Root : bases…)
         # parses as a spurious member named after the first `;` inside the body
         # (the `version` constant); it is not a wire field, drop it.
         fields.pop("version", None)
@@ -146,10 +146,10 @@ def _body_fields() -> dict[str, dict]:
 
 
 def _shell_fields() -> dict[str, dict]:
-    """M2File chunk members, in declaration order (the shell has no chunk_order
+    """M2ChunkedFile chunk members, in declaration order (the shell has no chunk_order
     table — reading is chunk-order independent, writing follows declaration)."""
     if "shell" not in _FIELDS_CACHE:
-        text = fr.slice_text(SHELL_HPP.read_text(encoding="utf-8"), "]] M2File :", None)
+        text = fr.slice_text(SHELL_HPP.read_text(encoding="utf-8"), "]] M2ChunkedFile :", None)
         _FIELDS_CACHE["shell"] = {f["name"]: f for f in
                                   fr.parse_members(text, consts=_consts())}
         _FIELDS_CACHE["shell"].pop("version", None)
@@ -160,7 +160,7 @@ _WIRE_ORDER_CACHE: list[str] | None = None
 
 
 def _wire_order() -> list[str]:
-    """M2Data's authoritative `wire_order` member-name array (the offset-entity
+    """M2Root's authoritative `wire_order` member-name array (the offset-entity
     equivalent of a chunk_order table)."""
     global _WIRE_ORDER_CACHE
     if _WIRE_ORDER_CACHE is None:
@@ -178,31 +178,31 @@ def _body_rank(f) -> int:
 # --- the sides ----------------------------------------------------------------
 BODY_SIDE = fr.Side(
     key="body", kind="offset",
-    marker="<!-- m2-body-fields -->",
-    module="wowlib.formats.m2.body",
-    badge_classes=("M2Data",), width_classes=("M2Data",),
-    class_prefix="M2Data",
+    marker="<!-- m2-root-fields -->",
+    module="wowlib.formats.m2.root",
+    badge_classes=("M2Root",), width_classes=("M2Root",),
+    class_prefix="M2Root",
     # Latest version = largest field set; the pre-WotLK-only members
     # (skin_profiles, playable_animation_lookup, texture_flipbooks) render from
-    # the last class that has them (M2DataTbc), via the engine's removed-field
+    # the last class that has them (M2RootTbc), via the engine's removed-field
     # resolution.
-    repr_class="M2DataLegionPlus",
-    stub="wowlib/formats/m2/body/__init__.pyi",
+    repr_class="M2RootLegionPlus",
+    stub="wowlib/formats/m2/root/__init__.pyi",
     parse_fields=_body_fields,
     categorize=lambda f: BODY_FIELD_CATEGORY.get(f["name"]),
     category_order=BODY_CATEGORY_ORDER, category_blurbs=BODY_CATEGORY_BLURB,
-    anchor="m2-body",
+    anchor="m2-root",
     sort_key=_body_rank,
 )
 
 SHELL_SIDE = fr.Side(
     key="shell", kind="chunked",
     marker="<!-- m2-shell-fields -->",
-    module="wowlib.formats.m2.body",
-    badge_classes=("M2File",), width_classes=("M2File",),
-    class_prefix="M2File",
-    repr_class="M2FileTheWarWithin",
-    stub="wowlib/formats/m2/body/__init__.pyi",
+    module="wowlib.formats.m2.root",
+    badge_classes=("M2ChunkedFile",), width_classes=("M2ChunkedFile",),
+    class_prefix="M2ChunkedFile",
+    repr_class="M2ChunkedFileTheWarWithin",
+    stub="wowlib/formats/m2/root/__init__.pyi",
     parse_fields=_shell_fields,
     categorize=lambda f: SHELL_FOURCC_CATEGORY.get(f["cc"]),
     category_order=SHELL_CATEGORY_ORDER, category_blurbs=SHELL_CATEGORY_BLURB,
@@ -216,8 +216,8 @@ SHELL_SIDE = fr.Side(
 # record maps to a field, not a chunk) and no enum->chunk table.
 RECORDS_BODY = fr.StructPage(
     page="python/m2/records.md",
-    module="wowlib.formats.m2.body.records",
-    stub="wowlib/formats/m2/body/records.pyi",
+    module="wowlib.formats.m2.root.record",
+    stub="wowlib/formats/m2/root/record.pyi",
     headers=RECORD_HEADERS,
 )
 
@@ -252,10 +252,10 @@ FORMAT = fr.Format(
     generic_pages=frozenset({"python/m2/fields.md", "python/m2/entities.md"}),
     forver={
         "python/m2/fields.md": (
-            ("wowlib.formats.m2.body.M2Data", "M2Data", "Wotlk"),
+            ("wowlib.formats.m2.root.M2Root", "M2Root", "Wotlk"),
             # The chunked shell only exists Legion+, so the example narrows to
             # a version its family actually has.
-            ("wowlib.formats.m2.body.M2File", "M2File", "Legion"),
+            ("wowlib.formats.m2.chunked.M2ChunkedFile", "M2ChunkedFile", "Legion"),
         ),
         "python/m2/entities.md": (
             ("wowlib.formats.m2.M2", "M2", "Wotlk"),
@@ -272,7 +272,7 @@ FORMAT = fr.Format(
         "Skin": ("python/m2/entities.md", "wowlib.formats.m2.skin"),
         "BoneFile": ("python/m2/entities.md", "wowlib.formats.m2.bone"),
         "BoneFilePrelude": ("python/m2/entities.md", "wowlib.formats.m2.bone"),
-        "M2Data": ("python/m2/fields.md", "wowlib.formats.m2.body"),
-        "M2File": ("python/m2/fields.md", "wowlib.formats.m2.body"),
+        "M2Root": ("python/m2/fields.md", "wowlib.formats.m2.root"),
+        "M2ChunkedFile": ("python/m2/fields.md", "wowlib.formats.m2.root"),
     },
 )

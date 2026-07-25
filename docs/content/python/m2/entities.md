@@ -8,7 +8,7 @@ base plus a representative per-version class, shown generically as
 supports. Construct a concrete version with `for_version(expansion)`;
 `read`/`write` speak the filesystem gateway.
 
-The MD20 body (`M2Data`) and the Legion+ chunked shell (`M2File`) are the
+The MD20 body (`M2Root`) and the Legion+ chunked shell (`M2ChunkedFile`) are the
 assembly's two halves; their field-by-field reference, with expansion and
 FourCC badges, lives on **[Fields & versions](fields.md)**.
 
@@ -61,13 +61,13 @@ documented with the other [records](records.md).
 The per-version body and shell classes render here for completeness; their
 fields are documented on [Fields & versions](fields.md).
 
-::: wowlib.formats.m2.body.M2DataLegionPlus
+::: wowlib.formats.m2.root.M2RootLegionPlus
     options:
       heading_level: 3
       show_root_toc_entry: true
       members: false
 
-::: wowlib.formats.m2.body.M2FileTheWarWithin
+::: wowlib.formats.m2.root.M2ChunkedFileTheWarWithin
     options:
       heading_level: 3
       show_root_toc_entry: true

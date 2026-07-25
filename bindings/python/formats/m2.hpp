@@ -4,7 +4,7 @@
     @brief Registration entry point for the M2 versioned-format facade.
 
     Mirrors src/wowlib/formats/m2/: for_version on every family base (M2,
-    M2Data, Skin, M2File, Skeleton — the last three are era-subset families),
+    M2Root, Skin, M2ChunkedFile, Skeleton — the last three are era-subset families),
     the read/write/convert verbs on M2Base, the read/write verbs on
     SkeletonBase (skeletons are first-class shared entities), and the AnyX
     runtime union aliases. Called once from the module body after the welding

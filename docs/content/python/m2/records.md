@@ -11,11 +11,11 @@ on-disk width (`Annotated[int, uint16]`), generated from the C++ sources.
 ## Body records
 
 The records the MD20 body's vectors are made of, from
-`wowlib.formats.m2.body.records`: tracks and timestamps, sequences, bones,
+`wowlib.formats.m2.root.record`: tracks and timestamps, sequences, bones,
 materials, scene objects (attachments, events, lights, cameras), the emitters
 and the chunked-shell payload records (`AnimFileEntry`, `Exp2Data`, …).
 
-::: wowlib.formats.m2.body.records
+::: wowlib.formats.m2.root.record
     options:
       show_root_heading: false
       show_root_toc_entry: false

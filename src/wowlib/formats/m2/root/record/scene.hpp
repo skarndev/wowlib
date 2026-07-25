@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 scene records (namespace wowlib::formats::m2::body::records): attachments,
+    M2 scene records (namespace wowlib::formats::m2::root::record): attachments,
     events, lights and cameras — the non-geometry model furniture. */
 
 #include <cstdint>
@@ -10,9 +10,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::body::records
+namespace wowlib::formats::m2::root::record
 {
 namespace detail
   {
@@ -33,7 +33,7 @@ namespace detail
       [[=welder::doc("Relative to the bone, typically its pivot.")]]
       C3Vector position{};
       [[=welder::doc("Bool track: animate the attached model.")]]
-      records::M2Track<std::uint8_t, V> animate_attached{};
+      record::M2Track<std::uint8_t, V> animate_attached{};
 
       bool operator==(const M2Attachment&) const = default;
     };
@@ -54,7 +54,7 @@ namespace detail
       [[=welder::doc("Relative to the bone.")]]
       C3Vector position{};
       [[=welder::doc("Timestamp-only track: each key fires the event.")]]
-      records::M2TrackBase<V> enabled{};
+      record::M2TrackBase<V> enabled{};
 
       bool operator==(const M2Event&) const = default;
     };
@@ -71,13 +71,13 @@ namespace detail
       std::int16_t bone = -1;
       [[=welder::doc("Relative to the bone, if any.")]]
       C3Vector position{};
-      records::M2Track<C3Vector, V> ambient_color{};
-      records::M2Track<float, V> ambient_intensity{};
-      records::M2Track<C3Vector, V> diffuse_color{};
-      records::M2Track<float, V> diffuse_intensity{};
-      records::M2Track<float, V> attenuation_start{};
-      records::M2Track<float, V> attenuation_end{};
-      records::M2Track<std::uint8_t, V> visibility{};
+      record::M2Track<C3Vector, V> ambient_color{};
+      record::M2Track<float, V> ambient_intensity{};
+      record::M2Track<C3Vector, V> diffuse_color{};
+      record::M2Track<float, V> diffuse_intensity{};
+      record::M2Track<float, V> attenuation_start{};
+      record::M2Track<float, V> attenuation_end{};
+      record::M2Track<std::uint8_t, V> visibility{};
 
       bool operator==(const M2Light&) const = default;
     };
@@ -99,12 +99,12 @@ namespace detail
       float fov = 0;
       float far_clip = 0;
       float near_clip = 0;
-      records::M2Track<M2SplineKey<C3Vector>, V> positions{};
+      record::M2Track<M2SplineKey<C3Vector>, V> positions{};
       C3Vector position_base{};
-      records::M2Track<M2SplineKey<C3Vector>, V> target_position{};
+      record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
       C3Vector target_position_base{};
       [[=welder::doc("0 .. 2*pi.")]]
-      records::M2Track<M2SplineKey<float>, V> roll{};
+      record::M2Track<M2SplineKey<float>, V> roll{};
 
       bool operator==(const M2Camera&) const = default;
     };
@@ -120,14 +120,14 @@ namespace detail
       std::uint32_t type = 0;
       float far_clip = 0;
       float near_clip = 0;
-      records::M2Track<M2SplineKey<C3Vector>, V> positions{};
+      record::M2Track<M2SplineKey<C3Vector>, V> positions{};
       C3Vector position_base{};
-      records::M2Track<M2SplineKey<C3Vector>, V> target_position{};
+      record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
       C3Vector target_position_base{};
       [[=welder::doc("0 .. 2*pi.")]]
-      records::M2Track<M2SplineKey<float>, V> roll{};
+      record::M2Track<M2SplineKey<float>, V> roll{};
       [[=welder::doc("Diagonal field of view, radians.")]]
-      records::M2Track<M2SplineKey<float>, V> fov{};
+      record::M2Track<M2SplineKey<float>, V> fov{};
 
       bool operator==(const M2Camera&) const = default;
     };

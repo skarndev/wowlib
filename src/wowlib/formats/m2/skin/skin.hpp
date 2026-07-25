@@ -44,7 +44,7 @@ namespace wowlib::formats::m2::skin
 
   /** One external LOD view of a model ("{model}0N.skin", or SFID FileDataIDs
       in Legion+). Only exists WotLK+ — earlier clients embed the profiles in
-      the MD20 header (M2Data.skin_profiles), with the identical layout minus
+      the MD20 header (M2Root.skin_profiles), with the identical layout minus
       the magic.
       @tparam V the client version this skin targets.
       @see https://wowdev.wiki/M2/.skin */

@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    M2 effect-emitter records (namespace wowlib::formats::m2::body::records):
+    M2 effect-emitter records (namespace wowlib::formats::m2::root::record):
     ribbon emitters and the particle emitters — the format's most
     layout-turbulent record, in four eras (vanilla statics, late-TBC packed
     header, WotLK FBlock ramps + four spin fields, Cata+ multi-texturing). */
@@ -16,9 +16,9 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::body::records
+namespace wowlib::formats::m2::root::record
 {
 namespace detail
   {
@@ -41,11 +41,11 @@ namespace detail
       std::vector<std::uint16_t> texture_indices;
       [[=welder::doc("Into the model's materials.")]]
       std::vector<std::uint16_t> material_indices;
-      records::M2Track<C3Vector, V> color{};
+      record::M2Track<C3Vector, V> color{};
       [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
-      records::M2Track<fixed16, V> alpha{};
-      records::M2Track<float, V> height_above{};
-      records::M2Track<float, V> height_below{};
+      record::M2Track<fixed16, V> alpha{};
+      record::M2Track<float, V> height_above{};
+      record::M2Track<float, V> height_below{};
       [[=welder::doc("Quad emission rate.")]]
       float edges_per_second = 0;
       [[=welder::doc("Seconds a quad stays around.")]]
@@ -55,8 +55,8 @@ namespace detail
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t texture_rows = 0;
       std::uint16_t texture_cols = 0;
-      records::M2Track<std::uint16_t, V> tex_slot{};
-      records::M2Track<std::uint8_t, V> visibility{};
+      record::M2Track<std::uint16_t, V> tex_slot{};
+      record::M2Track<std::uint8_t, V> visibility{};
 
       [[
         =since(m2_per_sequence_timelines),
@@ -134,16 +134,16 @@ namespace detail
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
       std::uint16_t columns = 0;
-      records::M2Track<float, V> emission_speed{};
-      records::M2Track<float, V> speed_variation{};
-      records::M2Track<float, V> vertical_range{};
-      records::M2Track<float, V> horizontal_range{};
-      records::M2Track<float, V> gravity{};
-      records::M2Track<float, V> lifespan{};
-      records::M2Track<float, V> emission_rate{};
-      records::M2Track<float, V> emission_area_width{};
-      records::M2Track<float, V> emission_area_length{};
-      records::M2Track<float, V> z_source{};
+      record::M2Track<float, V> emission_speed{};
+      record::M2Track<float, V> speed_variation{};
+      record::M2Track<float, V> vertical_range{};
+      record::M2Track<float, V> horizontal_range{};
+      record::M2Track<float, V> gravity{};
+      record::M2Track<float, V> lifespan{};
+      record::M2Track<float, V> emission_rate{};
+      record::M2Track<float, V> emission_area_width{};
+      record::M2Track<float, V> emission_area_length{};
+      record::M2Track<float, V> z_source{};
       [[=welder::doc("Parametric middle of the lifespan.")]]
       float mid_point = 0;
       [[=welder::doc("Start/middle/end BGRA multiply.")]]
@@ -174,7 +174,7 @@ namespace detail
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;
       [[=welder::doc("Bool track: emitter active.")]]
-      records::M2Track<std::uint8_t, V> enabled_in{};
+      record::M2Track<std::uint8_t, V> enabled_in{};
 
       bool operator==(const M2Particle&) const = default;
     };
@@ -211,16 +211,16 @@ namespace detail
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
       std::uint16_t columns = 0;
-      records::M2Track<float, V> emission_speed{};
-      records::M2Track<float, V> speed_variation{};
-      records::M2Track<float, V> vertical_range{};
-      records::M2Track<float, V> horizontal_range{};
-      records::M2Track<float, V> gravity{};
-      records::M2Track<float, V> lifespan{};
-      records::M2Track<float, V> emission_rate{};
-      records::M2Track<float, V> emission_area_width{};
-      records::M2Track<float, V> emission_area_length{};
-      records::M2Track<float, V> z_source{};
+      record::M2Track<float, V> emission_speed{};
+      record::M2Track<float, V> speed_variation{};
+      record::M2Track<float, V> vertical_range{};
+      record::M2Track<float, V> horizontal_range{};
+      record::M2Track<float, V> gravity{};
+      record::M2Track<float, V> lifespan{};
+      record::M2Track<float, V> emission_rate{};
+      record::M2Track<float, V> emission_area_width{};
+      record::M2Track<float, V> emission_area_length{};
+      record::M2Track<float, V> z_source{};
       [[=welder::doc("Parametric middle of the lifespan.")]]
       float mid_point = 0;
       [[=welder::doc("Start/middle/end BGRA multiply.")]]
@@ -251,7 +251,7 @@ namespace detail
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;
       [[=welder::doc("Bool track: emitter active.")]]
-      records::M2Track<std::uint8_t, V> enabled_in{};
+      record::M2Track<std::uint8_t, V> enabled_in{};
 
       bool operator==(const M2Particle&) const = default;
     };
@@ -288,19 +288,19 @@ namespace detail
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
       std::uint16_t columns = 0;
-      records::M2Track<float, V> emission_speed{};
-      records::M2Track<float, V> speed_variation{};
-      records::M2Track<float, V> vertical_range{};
-      records::M2Track<float, V> horizontal_range{};
-      records::M2Track<float, V> gravity{};
-      records::M2Track<float, V> lifespan{};
+      record::M2Track<float, V> emission_speed{};
+      record::M2Track<float, V> speed_variation{};
+      record::M2Track<float, V> vertical_range{};
+      record::M2Track<float, V> horizontal_range{};
+      record::M2Track<float, V> gravity{};
+      record::M2Track<float, V> lifespan{};
       [[=welder::doc("+ lifespan_variation * random(-1, 1).")]]
       float lifespan_variation = 0;
-      records::M2Track<float, V> emission_rate{};
+      record::M2Track<float, V> emission_rate{};
       float emission_rate_variation = 0;
-      records::M2Track<float, V> emission_area_width{};
-      records::M2Track<float, V> emission_area_length{};
-      records::M2Track<float, V> z_source{};
+      record::M2Track<float, V> emission_area_width{};
+      record::M2Track<float, V> emission_area_length{};
+      record::M2Track<float, V> z_source{};
       [[=welder::doc("Usually 3 keys: start/middle/end.")]]
       FBlock<C3Vector> color_track{};
       FBlock<fixed16> alpha_track{};
@@ -333,7 +333,7 @@ namespace detail
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;
       [[=welder::doc("Bool track: emitter active.")]]
-      records::M2Track<std::uint8_t, V> enabled_in{};
+      record::M2Track<std::uint8_t, V> enabled_in{};
 
       bool operator==(const M2Particle&) const = default;
     };
@@ -370,19 +370,19 @@ namespace detail
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
       std::uint16_t columns = 0;
-      records::M2Track<float, V> emission_speed{};
-      records::M2Track<float, V> speed_variation{};
-      records::M2Track<float, V> vertical_range{};
-      records::M2Track<float, V> horizontal_range{};
-      records::M2Track<float, V> gravity{};
-      records::M2Track<float, V> lifespan{};
+      record::M2Track<float, V> emission_speed{};
+      record::M2Track<float, V> speed_variation{};
+      record::M2Track<float, V> vertical_range{};
+      record::M2Track<float, V> horizontal_range{};
+      record::M2Track<float, V> gravity{};
+      record::M2Track<float, V> lifespan{};
       [[=welder::doc("+ lifespan_variation * random(-1, 1).")]]
       float lifespan_variation = 0;
-      records::M2Track<float, V> emission_rate{};
+      record::M2Track<float, V> emission_rate{};
       float emission_rate_variation = 0;
-      records::M2Track<float, V> emission_area_width{};
-      records::M2Track<float, V> emission_area_length{};
-      records::M2Track<float, V> z_source{};
+      record::M2Track<float, V> emission_area_width{};
+      record::M2Track<float, V> emission_area_length{};
+      record::M2Track<float, V> z_source{};
       [[=welder::doc("Usually 3 keys: start/middle/end.")]]
       FBlock<C3Vector> color_track{};
       FBlock<fixed16> alpha_track{};
@@ -415,7 +415,7 @@ namespace detail
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;
       [[=welder::doc("Bool track: emitter active.")]]
-      records::M2Track<std::uint8_t, V> enabled_in{};
+      record::M2Track<std::uint8_t, V> enabled_in{};
       [[=welder::doc("Per extra layer.")]]
       std::array<M2Vec2FP69, 2> multi_tex_scroll_mid{};
       [[=welder::doc("Per extra layer.")]]

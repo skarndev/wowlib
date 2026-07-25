@@ -6,15 +6,17 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/offset_serializer.hpp>
-#include <wowlib/formats/m2/body/data.hpp>
+#include <wowlib/formats/m2/root/root.hpp>
 #include <wowlib/formats/m2/skin/skin.hpp>
 
 using namespace wowlib;
 using namespace wowlib::formats;
 using namespace wowlib::formats::m2;
-using namespace wowlib::formats::m2::body;
-using namespace wowlib::formats::m2::body::records;
+// NOT `using namespace ...m2::root` — the raw root::M2Root template would
+// make every unqualified M2Root ambiguous against the m2::M2Root alias
+using namespace wowlib::formats::m2::root::record;
 using namespace wowlib::formats::m2::skin;
+using wowlib::formats::m2::root::md20_magic;
 using formats::detail::wire_size;
 
 namespace
@@ -59,20 +61,20 @@ static_assert(wire_size<M2Particle<ca>, ca>() == 492);
 static_assert(wire_size<M2SkinProfile<wk>, wk>() == 44);
 static_assert(wire_size<M2SkinProfile<ca>, ca>() == 52);
 
-static_assert(OffsetEntity<M2Data<wk>>);
+static_assert(OffsetEntity<M2Root<wk>>);
 static_assert(OffsetEntity<Skin<wk>>);
-static_assert(SelfSerializing<M2Data<wk>>);  // the Legion MD21 payload path
+static_assert(SelfSerializing<M2Root<wk>>);  // the Legion MD21 payload path
 
 TEST_CASE("MD20 header image sizes match the client eras", "[formats][m2]")
 {
   // wowdev header layouts: vanilla/TBC 0x144 (324), WotLK+ 0x130 (304).
-  CHECK(formats::detail::entity_image_size(M2Data<va>{}) == 324);
-  CHECK(formats::detail::entity_image_size(M2Data<tb>{}) == 324);
-  CHECK(formats::detail::entity_image_size(M2Data<wk>{}) == 304);
-  CHECK(formats::detail::entity_image_size(M2Data<ca>{}) == 304);
-  CHECK(formats::detail::entity_image_size(M2Data<wo>{}) == 304);
+  CHECK(formats::detail::entity_image_size(M2Root<va>{}) == 324);
+  CHECK(formats::detail::entity_image_size(M2Root<tb>{}) == 324);
+  CHECK(formats::detail::entity_image_size(M2Root<wk>{}) == 304);
+  CHECK(formats::detail::entity_image_size(M2Root<ca>{}) == 304);
+  CHECK(formats::detail::entity_image_size(M2Root<wo>{}) == 304);
 
-  M2Data<tb> gated;
+  M2Root<tb> gated;
   gated.global_flags = 0x8;  // engages texture_combiner_combos
   CHECK(formats::detail::entity_image_size(gated) == 332);
 }
@@ -106,7 +108,7 @@ TEST_CASE("skin files carry the magic ahead of the flattened profile", "[formats
 
 TEST_CASE("a synthetic WotLK body round-trips semantically", "[formats][m2]")
 {
-  M2Data<wk> model;
+  M2Root<wk> model;
   model.name = "unit_test_model";
   model.global_flags = 0;
   model.global_loops = {{1500}};
@@ -152,7 +154,7 @@ TEST_CASE("a synthetic WotLK body round-trips semantically", "[formats][m2]")
 
   auto bytes = model.write();
   REQUIRE(bytes.has_value());
-  M2Data<wk> back;
+  M2Root<wk> back;
   {
     auto r = back.read(*bytes);
     INFO((r ? std::string{} : r.error().message));
@@ -169,7 +171,7 @@ TEST_CASE("a synthetic WotLK body round-trips semantically", "[formats][m2]")
 
 TEST_CASE("a synthetic vanilla body embeds its skin profiles", "[formats][m2]")
 {
-  M2Data<va> model;
+  M2Root<va> model;
   model.name = "vanilla_test";
   M2Sequence<va> stand;
   stand.start_timestamp = 0;
@@ -196,7 +198,7 @@ TEST_CASE("a synthetic vanilla body embeds its skin profiles", "[formats][m2]")
 
   auto bytes = model.write();
   REQUIRE(bytes.has_value());
-  M2Data<va> back;
+  M2Root<va> back;
   {
     auto r = back.read(*bytes);
     INFO((r ? std::string{} : r.error().message));

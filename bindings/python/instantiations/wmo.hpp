@@ -15,6 +15,8 @@
 
 #include <wowlib/formats/wmo/io.hpp>
 
+#include "instantiations/wmo_ranges.hpp"
+
 #define WOWLIB_INSTANTIATION_KEYWORD extern template
 #include "instantiations/wmo_matrix.inl"
 #undef WOWLIB_INSTANTIATION_KEYWORD

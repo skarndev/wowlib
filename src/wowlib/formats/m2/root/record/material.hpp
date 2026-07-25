@@ -2,7 +2,7 @@
 
 /** @file
     M2 geometry, texture and material records (namespace
-    wowlib::formats::m2::body::records): the global vertex, the texture definitions
+    wowlib::formats::m2::root::record): the global vertex, the texture definitions
     and their animated color/weight/transform companions. */
 
 #include <array>
@@ -13,9 +13,9 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::body::records
+namespace wowlib::formats::m2::root::record
 {
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
@@ -89,9 +89,9 @@ namespace detail
     ]] M2Color
     {
       [[=welder::doc("RGB vertex color.")]]
-      records::M2Track<C3Vector, V> color{};
+      record::M2Track<C3Vector, V> color{};
       [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
-      records::M2Track<fixed16, V> alpha{};
+      record::M2Track<fixed16, V> alpha{};
 
       bool operator==(const M2Color&) const = default;
     };
@@ -102,7 +102,7 @@ namespace detail
       =welder::doc("A global texture weight (transparency) track.")
     ]] M2TextureWeight
     {
-      records::M2Track<fixed16, V> weight{};
+      record::M2Track<fixed16, V> weight{};
 
       bool operator==(const M2TextureWeight&) const = default;
     };
@@ -113,7 +113,7 @@ namespace detail
       =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
     ]] M2TextureFlipbook
     {
-      records::M2Track<std::uint16_t, V> frames{};
+      record::M2Track<std::uint16_t, V> frames{};
 
       bool operator==(const M2TextureFlipbook&) const = default;
     };
@@ -125,9 +125,9 @@ namespace detail
                    "texture matrix (rotation pivots at texture center 0.5, 0.5).")
     ]] M2TextureTransform
     {
-      records::M2Track<C3Vector, V> translation{};
-      records::M2Track<C4Quaternion, V> rotation{};
-      records::M2Track<C3Vector, V> scaling{};
+      record::M2Track<C3Vector, V> translation{};
+      record::M2Track<C4Quaternion, V> rotation{};
+      record::M2Track<C3Vector, V> scaling{};
 
       bool operator==(const M2TextureTransform&) const = default;
     };

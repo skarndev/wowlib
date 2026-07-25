@@ -47,14 +47,14 @@ wowlib.Error$:
 wowlib.formats.m2.AnyM2$:
     AnyM2 = M2Vanilla | M2Tbc | M2Wotlk | M2CataToMop | M2Wod | M2Legion | M2Bfa | M2Shadowlands | M2Dragonflight | M2TheWarWithin
 
-wowlib.formats.m2.body.AnyM2Data$:
-    AnyM2Data = M2DataVanilla | M2DataTbc | M2DataWotlk | M2DataCataToMop | M2DataWod | M2DataLegionPlus
+wowlib.formats.m2.root.AnyM2Root$:
+    AnyM2Root = M2RootVanilla | M2RootTbc | M2RootWotlk | M2RootCataToMop | M2RootWod | M2RootLegionPlus
 
 wowlib.formats.m2.skin.AnySkin$:
     AnySkin = SkinWotlk | SkinCataPlus
 
-wowlib.formats.m2.body.AnyM2File$:
-    AnyM2File = M2FileLegion | M2FileBfa | M2FileShadowlands | M2FileDragonflight | M2FileTheWarWithin
+wowlib.formats.m2.chunked.AnyM2ChunkedFile$:
+    AnyM2ChunkedFile = M2ChunkedFileLegion | M2ChunkedFileBfa | M2ChunkedFileShadowlands | M2ChunkedFileDragonflight | M2ChunkedFileTheWarWithin
 
 wowlib.formats.m2.AnySkeleton$:
     AnySkeleton = SkeletonLegionPlus

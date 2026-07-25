@@ -1,14 +1,14 @@
 #pragma once
 
 /** @file
-    The Legion+ chunked .m2 shell (namespace wowlib::formats::m2::body): M2File —
+    The Legion+ chunked .m2 shell (namespace wowlib::formats::m2::chunked): M2ChunkedFile —
     the on-disk chunk stream that wraps the MD20 image (MD21) beside the
     satellite chunks (FileDataID references, extended particle data,
     parent-model overrides, inline physics). Chunk ids are NOT reversed on
     disk, unlike every other WoW chunk format.
 
     MD21 stays a ChunkBlob at this level: its content is the offset-addressed
-    MD20 image, which the M2 assembly decodes into its `root` (M2Data) with
+    MD20 image, which the M2 assembly decodes into its `root` (M2Root) with
     the satellite context (.anim resolution) in hand, then DROPS — the blob
     is transport, not state; a plain chunk-level read still preserves it
     verbatim. Undocumented/unstable payloads stay ChunkBlob too. */
@@ -24,30 +24,30 @@
 #include <wowlib/formats/common/chunk.hpp>
 #include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/shell.hpp>
+#include <wowlib/formats/m2/chunked/records.hpp>
 
-namespace wowlib::formats::m2::body
+namespace wowlib::formats::m2::chunked
 {
-  using namespace wowlib::formats::m2::body::records;
+  using namespace wowlib::formats::m2::chunked::record;
 
-  /** The version-agnostic base of every M2File<V> (welded as "M2File").
+  /** The version-agnostic base of every M2ChunkedFile<V> (welded as "M2ChunkedFile").
 
       This empty base exists ENTIRELY for the language bindings: a common
-      welded supertype for the per-version M2File* classes (isinstance,
-      M2File.for_version(expansion)). No role in the C++ API.
+      welded supertype for the per-version M2ChunkedFile* classes (isinstance,
+      M2ChunkedFile.for_version(expansion)). No role in the C++ API.
 
       @see https://wowdev.wiki/M2#Chunks */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::weld_as("M2File"),
+    =welder::weld_as("M2ChunkedFile"),
     =welder::doc(R"(
         A chunked .m2 shell (Legion+), abstract over the client version.
-        Construct a concrete version with M2File.for_version(expansion); the
-        per-version M2File* classes are subclasses. See
+        Construct a concrete version with M2ChunkedFile.for_version(expansion); the
+        per-version M2ChunkedFile* classes are subclasses. See
         https://wowdev.wiki/M2#Chunks.)")
-  ]] M2FileBase
+  ]] M2ChunkedFileBase
   {
-    bool operator==(const M2FileBase&) const = default;
+    bool operator==(const M2ChunkedFileBase&) const = default;
   };
 
   /** The chunked .m2 shell for one Legion+ client version. Reading is
@@ -55,10 +55,10 @@ namespace wowlib::formats::m2::body
       byte-for-byte (the chunk-framework guarantee applies to the SHELL; the
       MD21 payload inside follows the offset-format semantic guarantee once
       the assembly re-encodes it).
+      Instantiate through the canonicalizing m2::M2ChunkedFile alias, never
+      directly.
       @tparam V the client version this shell targets.
       @see https://wowdev.wiki/M2#Chunks */
-  namespace detail
-  {
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
   struct [[
@@ -67,7 +67,7 @@ namespace wowlib::formats::m2::body
         The chunked .m2 shell for one Legion+ client version: the MD21 image
         blob plus the satellite chunks. An untouched shell rewrites
         byte-for-byte. See https://wowdev.wiki/M2#Chunks.)")
-  ]] M2File : ChunkedFile<M2File<V>>, M2FileBase
+  ]] M2ChunkedFile : ChunkedFile<M2ChunkedFile<V>>, M2ChunkedFileBase
   {
     static constexpr ClientVersion version = V;
 
@@ -311,17 +311,19 @@ namespace wowlib::formats::m2::body
       =welder::doc("DPIV; undocumented, kept verbatim.")]]
     ChunkBlob dpiv;
 
-    bool operator==(const M2File&) const = default;
+    bool operator==(const M2ChunkedFile&) const = default;
   };
-  }
+}
 
-  /** The chunked .m2 stream — the canonicalizing face of detail::M2File:
+namespace wowlib::formats::m2
+{
+  /** The chunked .m2 stream — the canonicalizing face of chunked::M2ChunkedFile:
       every Legion+ version maps to its range's first grid version
       (m2_file_pivots — the active chunk set is constant within a range).
       Pre-Legion versions stay a substitution failure, so the facade's era
       subsetting is unchanged. */
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
-  using M2File =
-    body::detail::M2File<canonical_version(V, m2_file_pivots, m2_chunked_versions)>;
+  using M2ChunkedFile =
+    chunked::M2ChunkedFile<canonical_version(V, m2_file_pivots, m2_chunked_versions)>;
 }

@@ -1,15 +1,15 @@
 #pragma once
 
 /** @file
-    The MD20 body entity (namespace wowlib::formats::m2::body): M2Data — the
+    The MD20 body entity (namespace wowlib::formats::m2::root): M2Root — the
     client's own name for the offset-addressed model payload. Pre-Legion this
     IS the .m2 file; Legion+ it is the MD21 chunk's content (offsets stay
     relative to the image either way, which is exactly what OffsetFile
     serializes against).
 
     Version-gated members live in conditionally-inherited trait slots
-    (m2::detail); the authoritative `wire_order` puts them back at their
-    interleaved wire positions. A version's M2Data carries ONLY the members
+    (root::detail); the authoritative `wire_order` puts them back at their
+    interleaved wire positions. A version's M2Root carries ONLY the members
     that version defines — setting an absent one is a compile error. */
 
 #include <array>
@@ -26,22 +26,22 @@
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
-#include <wowlib/formats/m2/body/records/bone.hpp>
-#include <wowlib/formats/m2/body/records/effects.hpp>
-#include <wowlib/formats/m2/body/records/material.hpp>
-#include <wowlib/formats/m2/body/records/scene.hpp>
-#include <wowlib/formats/m2/body/records/sequence.hpp>
+#include <wowlib/formats/m2/root/record/bone.hpp>
+#include <wowlib/formats/m2/root/record/effects.hpp>
+#include <wowlib/formats/m2/root/record/material.hpp>
+#include <wowlib/formats/m2/root/record/scene.hpp>
+#include <wowlib/formats/m2/root/record/sequence.hpp>
 #include <wowlib/formats/m2/skin/records.hpp>
-#include <wowlib/formats/m2/body/records/track.hpp>
+#include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::body
+namespace wowlib::formats::m2::root
 {
-  using namespace wowlib::formats::m2::body::records;
+  using namespace wowlib::formats::m2::root::record;
 
   /** The MD20 leading magic, as memcpy'd from disk. */
   inline constexpr std::uint32_t md20_magic = 0x3032444D;  // "MD20"
 
-  /** M2Data::global_flags bits. */
+  /** M2Root::global_flags bits. */
   enum class [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("M2 global flags: tilt behavior, the texture-combiner-combo "
@@ -63,25 +63,25 @@ namespace wowlib::formats::m2::body
     ChunkedAnimFiles [[=welder::doc("The .anim files are chunked (Legion+).")]] = 0x2000
   };
 
-  /** The version-agnostic base of every M2Data<V> (welded as "M2Data").
+  /** The version-agnostic base of every M2Root<V> (welded as "M2Root").
 
       This empty base exists ENTIRELY for the language bindings: it gives the
-      per-version M2Data* classes a common welded supertype so binding users
+      per-version M2Root* classes a common welded supertype so binding users
       can write version-agnostic code (isinstance,
-      M2Data.for_version(expansion)). It has no role in the C++ API, where you
-      use the concrete M2Data<V>.
+      M2Root.for_version(expansion)). It has no role in the C++ API, where you
+      use the concrete M2Root<V>.
 
       @see https://wowdev.wiki/M2 */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::weld_as("M2Data"),
+    =welder::weld_as("M2Root"),
     =welder::doc(R"(
         An MD20 model body, abstract over the client version. Construct a
-        concrete version with M2Data.for_version(expansion); the per-version
-        M2Data* classes are subclasses. See https://wowdev.wiki/M2.)")
-  ]] M2DataBase
+        concrete version with M2Root.for_version(expansion); the per-version
+        M2Root* classes are subclasses. See https://wowdev.wiki/M2.)")
+  ]] M2RootBase
   {
-    bool operator==(const M2DataBase&) const = default;
+    bool operator==(const M2RootBase&) const = default;
   };
 
   namespace detail
@@ -152,14 +152,12 @@ namespace wowlib::formats::m2::body
     };
   }
 
-  namespace detail
-  {
   /** The MD20 model body for one client version: header scalars plus every
       offset-addressed block, decoded into vectors. This entity alone is a
       complete pre-WotLK model; later clients pull skins, low-priority
       sequence data, skeleton and physics from satellite files — the M2
       assembly bakes those back in. Instantiate through the canonicalizing
-      body::M2Data alias, never directly.
+      m2::M2Root alias, never directly.
       @tparam V the canonical client version this body targets.
       @see https://wowdev.wiki/M2 */
   template <ClientVersion V>
@@ -169,15 +167,15 @@ namespace wowlib::formats::m2::body
         An MD20 model body for one client version: header scalars plus every
         offset-addressed block, decoded. A version's class carries ONLY the
         members that version defines. See https://wowdev.wiki/M2.)")
-  ]] M2Data : OffsetFile<M2Data<V>>,
-                  // the traits share this namespace (body::detail), so they
-                  // need no qualifier — and a bare detail:: would be
-                  // ambiguous against records::detail via the using-directive
-                  slot<V, ClientVersion{0, 0, 0, 0}, DataPreWotlk<V>,
+  ]] M2Root : OffsetFile<M2Root<V>>,
+                  // root::detail:: (never a bare detail::) — the using-directive
+                  // above imports record::detail, which a bare spelling would
+                  // be ambiguous against
+                  slot<V, ClientVersion{0, 0, 0, 0}, root::detail::DataPreWotlk<V>,
                        m2_per_sequence_timelines>,
-                  slot<V, m2_per_sequence_timelines, DataWotlk>,
-                  slot<V, m2_compressed_bones, DataTbc>,
-                  M2DataBase
+                  slot<V, m2_per_sequence_timelines, root::detail::DataWotlk>,
+                  slot<V, m2_compressed_bones, root::detail::DataTbc>,
+                  M2RootBase
   {
     static constexpr ClientVersion version = V;
 
@@ -340,13 +338,15 @@ namespace wowlib::formats::m2::body
       =welder::doc("Particle emitters.")]]
     std::vector<M2Particle<V>> particle_emitters;
 
-    bool operator==(const M2Data&) const = default;
+    bool operator==(const M2Root&) const = default;
   };
-  }
+}
 
-  /** The MD20 body — the canonicalizing face of detail::M2Data: every client
+namespace wowlib::formats::m2
+{
+  /** The MD20 body — the canonicalizing face of root::M2Root: every client
       version maps to its range's first grid version (m2_data_pivots), so one
       instantiation serves e.g. both Cata and MoP. */
   template <ClientVersion V>
-  using M2Data = body::detail::M2Data<canonical_version(V, m2_data_pivots, m2_versions)>;
+  using M2Root = root::M2Root<canonical_version(V, m2_data_pivots, m2_versions)>;
 }

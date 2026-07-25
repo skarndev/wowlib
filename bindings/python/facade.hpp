@@ -65,7 +65,7 @@ namespace wowlib_py
 
   /** @brief Whether family @p F instantiates for expansion @p X.
 
-      Constrained families exclude early eras (Skin is WotLK+, M2File and
+      Constrained families exclude early eras (Skin is WotLK+, M2ChunkedFile and
       Skeleton are Legion+); naming an excluded specialization inside the
       requires-expression is a substitution failure, not an error. Every
       facade walk guards on this so subset families skip the missing

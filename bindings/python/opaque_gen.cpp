@@ -21,6 +21,12 @@
 
 #include <wowlib/wowlib.hpp>
 
+// The welded per-range alias tables live in the bindings, not the library —
+// without them the walk sees no welded per-version entities and the
+// generator would emit an (almost) empty header.
+#include "instantiations/m2_ranges.hpp"
+#include "instantiations/wmo_ranges.hpp"
+
 namespace wowlib_py
 {
   /** Names opaque container wrappers the wowlib way: `Vector` + the element's

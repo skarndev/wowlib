@@ -6,13 +6,14 @@
     WOWLIB_INSTANTIATION_KEYWORD as `extern template` (declarations for every
     binding TU) and instantiations/m2.cpp as `template` (the one-TU
     definitions), so the two sides can never drift. Explicit instantiations
-    must name the real detail:: templates — an alias template cannot head an
-    explicit instantiation. Deliberately no include guard. */
+    must name the real templates (root::M2Root, chunked::M2ChunkedFile,
+    the detail:: assemblies) — an alias template cannot head an explicit
+    instantiation. Deliberately no include guard. */
 
 namespace wowlib::formats::m2
 {
 #define WOWLIB_M2_DATA_ROW(Suffix, version_)                                                       \
-  WOWLIB_INSTANTIATION_KEYWORD struct body::detail::M2Data<versions::version_>;
+  WOWLIB_INSTANTIATION_KEYWORD struct root::M2Root<versions::version_>;
   WOWLIB_M2_RANGES_DATA(WOWLIB_M2_DATA_ROW)
 #undef WOWLIB_M2_DATA_ROW
 
@@ -27,7 +28,7 @@ namespace wowlib::formats::m2
 #undef WOWLIB_M2_SKIN_ROW
 
 #define WOWLIB_M2_FILE_ROW(Suffix, version_)                                                       \
-  WOWLIB_INSTANTIATION_KEYWORD struct body::detail::M2File<versions::version_>;
+  WOWLIB_INSTANTIATION_KEYWORD struct chunked::M2ChunkedFile<versions::version_>;
   WOWLIB_M2_RANGES_FILE(WOWLIB_M2_FILE_ROW)
 #undef WOWLIB_M2_FILE_ROW
 
@@ -46,7 +47,7 @@ namespace wowlib::formats
   // that expansion to instantiations/m2.cpp. The template ARGUMENTS may (and
   // do) go through the canonicalizing aliases.
 #define WOWLIB_M2_SERIALIZER_ROW(Suffix, version_)                                                 \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::body::M2Data<versions::version_>>;
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::M2Root<versions::version_>>;
   WOWLIB_M2_RANGES_DATA(WOWLIB_M2_SERIALIZER_ROW)
 #undef WOWLIB_M2_SERIALIZER_ROW
 
@@ -56,7 +57,7 @@ namespace wowlib::formats
 #undef WOWLIB_M2_SKIN_SERIALIZER_ROW
 
 #define WOWLIB_M2_FILE_SERIALIZER_ROW(Suffix, version_)                                            \
-  WOWLIB_INSTANTIATION_KEYWORD struct ChunkedFile<m2::body::M2File<versions::version_>>;
+  WOWLIB_INSTANTIATION_KEYWORD struct ChunkedFile<m2::M2ChunkedFile<versions::version_>>;
   WOWLIB_M2_RANGES_FILE(WOWLIB_M2_FILE_SERIALIZER_ROW)
 #undef WOWLIB_M2_FILE_SERIALIZER_ROW
 
@@ -75,10 +76,10 @@ namespace wowlib::formats
   WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelSequences<versions::version_>>;           \
   WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelBones<versions::version_>>;               \
   WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelAttachments<versions::version_>>;         \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::body::records::Exp2Data<versions::version_>>; \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::body::records::PabcData<versions::version_>>; \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::body::records::PsbcData<versions::version_>>; \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::body::records::Pgd1Data<versions::version_>>;
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::Exp2Data<versions::version_>>; \
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::PabcData<versions::version_>>; \
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::PsbcData<versions::version_>>; \
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::Pgd1Data<versions::version_>>;
   WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_PAYLOAD_SERIALIZER_ROW)
 #undef WOWLIB_M2_PAYLOAD_SERIALIZER_ROW
 }

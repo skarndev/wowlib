@@ -119,7 +119,7 @@ namespace
         if (i >= gate_sequences->size())
           return nullptr;
         const auto& s = (*gate_sequences)[i];
-        if (!body::records::sequence_data_external(s.flags) || (s.flags & 0x40u) != 0)
+        if (!root::record::sequence_data_external(s.flags) || (s.flags & 0x40u) != 0)
           return nullptr;
         return &anim_out[i];
       };
@@ -142,7 +142,7 @@ namespace
         FAIL(std::format("{} ({}): reparse diverges at {}", label, what, *d));
     };
 
-    M2Data<V> reparsed;
+    M2Root<V> reparsed;
     resplit_roundtrip(model.root, reparsed, "body");
 
     if constexpr (requires { model.skel; })
@@ -276,7 +276,7 @@ TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
       std::memcpy(&lead, bytes->data(), 4);
     if (lead != md20_magic)
     {
-      M2File<versions::shadowlands> shell;
+      M2ChunkedFile<versions::shadowlands> shell;
       {
         const auto r = shell.read(std::span<const std::byte>{*bytes});
         INFO(path << ": " << (r ? std::string{} : r.error().message));
@@ -299,7 +299,7 @@ TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
       }
       else
       {
-        M2File<versions::shadowlands> shell_back;
+        M2ChunkedFile<versions::shadowlands> shell_back;
         REQUIRE(shell_back.read(std::span<const std::byte>{*shell_bytes}).has_value());
         if (auto d = diff_value(shell_back, shell))
           FAIL(std::format("{}: shell reparse diverges at {}", path, *d));
