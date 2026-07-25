@@ -75,11 +75,13 @@ namespace wowlib::formats
   WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelHeader<versions::version_>>;              \
   WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelSequences<versions::version_>>;           \
   WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelBones<versions::version_>>;               \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelAttachments<versions::version_>>;         \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::Exp2Data<versions::version_>>; \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::PabcData<versions::version_>>; \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::PsbcData<versions::version_>>; \
-  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::Pgd1Data<versions::version_>>;
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::SkelAttachments<versions::version_>>;
   WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_PAYLOAD_SERIALIZER_ROW)
 #undef WOWLIB_M2_PAYLOAD_SERIALIZER_ROW
+
+  // The shell payloads are non-templated (fixed WotLK+ layout) — one each.
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::Exp2Data>;
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::PabcData>;
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::PsbcData>;
+  WOWLIB_INSTANTIATION_KEYWORD struct OffsetFile<m2::chunked::record::Pgd1Data>;
 }

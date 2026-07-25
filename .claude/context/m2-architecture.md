@@ -369,3 +369,18 @@ Supersedes the naming/layout notes above (kept as history):
   BfA+ shells exposed raw C++ template names in the stubs and would have
   thrown unregistered-type on property access. Rule: any versioned member
   type on a versioned entity must go through a canonicalizing alias.
+- **…SUPERSEDED (2026-07-25): those four payloads are now NON-templated.**
+  Their content is version-independent (Exp2Data's M2ExtendedParticle holds
+  the unversioned M2PartTrack; PSBC holds unversioned M2Bounds; PABC/PGD1 are
+  plain u16 arrays) and the chunks only exist Legion+, so any embedded offset
+  structure is fixed at its WotLK+ layout. They dropped the `<V>` template and
+  fix `static constexpr version = versions::legion`; the shell holds them as
+  plain `Exp2Data` (not `Exp2Data<V>`). Removed: the record::detail nesting,
+  the canonicalizing aliases, the WOWLIB_M2_SHELL_RECORD_ALIAS block, and the
+  per-range OffsetFile instantiations (now one each, after the RANGES loop in
+  m2_matrix.inl). Welds as plain `Exp2Data`/etc. — one class, cleaner docs (no
+  LegionPlus suffix). The Skel* payloads STAY templated (SkelSequences/
+  SkelBones/SkelAttachments genuinely embed M2Sequence<V>/M2CompBone<V>/
+  M2Attachment<V>). Refined rule: propagate V only when the content actually
+  varies with it; a Legion+-only payload of version-independent members fixes
+  the version instead.

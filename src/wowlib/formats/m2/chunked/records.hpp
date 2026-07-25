@@ -14,7 +14,6 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/offset_file.hpp>
-#include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::formats::m2::chunked::record
@@ -100,19 +99,21 @@ namespace wowlib::formats::m2::chunked::record
   };
   static_assert(sizeof(M2LightDetail) == 12);
 
-  namespace detail
-  {
-  // The annotated payload layouts; instantiate through the canonicalizing
-  // aliases below, never directly — every chunked-era version maps to the
-  // Legion instantiation, so all shells share one welded class per payload.
-  template <ClientVersion V>
+  // The chunk payloads are NON-templated: their content is version-independent
+  // (M2ExtendedParticle's alpha_cutoff is the unversioned M2PartTrack, PSBC
+  // holds unversioned M2Bounds, the rest are plain int arrays) and the chunks
+  // only exist Legion+, so any embedded offset structure is fixed at its WotLK+
+  // layout. Rather than propagate the shell's V through a type that never uses
+  // it, they fix `version` at versions::legion — one welded class per payload,
+  // no per-shell-version instantiation.
+
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The EXP2 chunk payload: extended particle records, one per "
                  "particle emitter.")
-  ]] Exp2Data : OffsetFile<Exp2Data<V>>
+  ]] Exp2Data : OffsetFile<Exp2Data>
   {
-    static constexpr ClientVersion version = V;
+    static constexpr ClientVersion version = versions::legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Extended particle parameters, one per particle emitter.")]]
@@ -126,14 +127,13 @@ namespace wowlib::formats::m2::chunked::record
     bool operator==(const Exp2Data&) const = default;
   };
 
-  template <ClientVersion V>
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The PABC chunk payload: the parent-model sequence-id "
                  "blacklist ('BlacklistAnimData').")
-  ]] PabcData : OffsetFile<PabcData<V>>
+  ]] PabcData : OffsetFile<PabcData>
   {
-    static constexpr ClientVersion version = V;
+    static constexpr ClientVersion version = versions::legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Replacement parent-sequence lookups: a plain list of "
@@ -148,13 +148,12 @@ namespace wowlib::formats::m2::chunked::record
     bool operator==(const PabcData&) const = default;
   };
 
-  template <ClientVersion V>
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The PSBC chunk payload: parent sequence bounds.")
-  ]] PsbcData : OffsetFile<PsbcData<V>>
+  ]] PsbcData : OffsetFile<PsbcData>
   {
-    static constexpr ClientVersion version = V;
+    static constexpr ClientVersion version = versions::legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Parent sequence bounds, one per parent sequence.")]]
@@ -168,14 +167,13 @@ namespace wowlib::formats::m2::chunked::record
     bool operator==(const PsbcData&) const = default;
   };
 
-  template <ClientVersion V>
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The PGD1 chunk payload: per-particle-emitter geoset "
                  "assignments.")
-  ]] Pgd1Data : OffsetFile<Pgd1Data<V>>
+  ]] Pgd1Data : OffsetFile<Pgd1Data>
   {
-    static constexpr ClientVersion version = V;
+    static constexpr ClientVersion version = versions::legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("The geoset each particle emitter obeys (M2SkinSection "
@@ -189,30 +187,4 @@ namespace wowlib::formats::m2::chunked::record
 
     bool operator==(const Pgd1Data&) const = default;
   };
-  }
-
-  // --- canonicalizing faces of the payload templates --------------------------
-  // The whole chunked era is one range (m2_chunk_payload_pivots is empty), so
-  // every client version collapses to the Legion instantiation — without this,
-  // each shell version would drag its own (unwelded) payload type along.
-
-  /** The EXP2 chunk payload; see detail::Exp2Data. */
-  template <ClientVersion V>
-  using Exp2Data =
-    detail::Exp2Data<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
-
-  /** The PABC chunk payload; see detail::PabcData. */
-  template <ClientVersion V>
-  using PabcData =
-    detail::PabcData<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
-
-  /** The PSBC chunk payload; see detail::PsbcData. */
-  template <ClientVersion V>
-  using PsbcData =
-    detail::PsbcData<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
-
-  /** The PGD1 chunk payload; see detail::Pgd1Data. */
-  template <ClientVersion V>
-  using Pgd1Data =
-    detail::Pgd1Data<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
 }

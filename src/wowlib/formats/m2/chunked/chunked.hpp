@@ -139,14 +139,14 @@ namespace wowlib::formats::m2::chunked
       =formats::optional,
       =welder::doc("Extended particle parameters with alpha-cutoff ramps "
                    "(EXP2), one per emitter.")]]
-    Exp2Data<V> extended_particles2{};
+    Exp2Data extended_particles2{};
 
     [[
       =chunk("PABC", FourCCEndian::forward),
       =since(builds::Legion_ShadowsOfArgus_24500),
       =formats::optional,
       =welder::doc("Parent-model sequence blacklist (PABC).")]]
-    PabcData<V> parent_sequence_blacklist{};
+    PabcData parent_sequence_blacklist{};
 
     [[
       =chunk("PADC", FourCCEndian::forward),
@@ -161,7 +161,7 @@ namespace wowlib::formats::m2::chunked
       =since(builds::Legion_ShadowsOfArgus_24500),
       =formats::optional,
       =welder::doc("Parent sequence bounds (PSBC).")]]
-    PsbcData<V> parent_sequence_bounds{};
+    PsbcData parent_sequence_bounds{};
 
     [[
       =chunk("PEDC", FourCCEndian::forward),
@@ -236,7 +236,7 @@ namespace wowlib::formats::m2::chunked
       =welder::doc("Particle geoset data (PGD1), one geoset per emitter "
                    "(wowdev dates it to the 1.13.2.30172 classic build — "
                    "the 8.2.0 retail era).")]]
-    Pgd1Data<V> particle_geoset_data{};
+    Pgd1Data particle_geoset_data{};
 
     [[
       =chunk("WFV3", FourCCEndian::forward),

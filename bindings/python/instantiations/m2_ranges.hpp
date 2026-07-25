@@ -150,16 +150,8 @@ namespace wowlib::formats::m2::root::record
 #undef WOWLIB_M2_PARTICLE_ALIAS
 }
 
-namespace wowlib::formats::m2::chunked::record
-{
-#define WOWLIB_M2_SHELL_RECORD_ALIAS(Suffix, version_)                                             \
-  using Exp2Data##Suffix = Exp2Data<versions::version_>;                                           \
-  using PabcData##Suffix = PabcData<versions::version_>;                                           \
-  using PsbcData##Suffix = PsbcData<versions::version_>;                                           \
-  using Pgd1Data##Suffix = Pgd1Data<versions::version_>;
-  WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_SHELL_RECORD_ALIAS)
-#undef WOWLIB_M2_SHELL_RECORD_ALIAS
-}
+// Exp2Data/PabcData/PsbcData/Pgd1Data are non-templated (version-independent
+// content, WotLK+-fixed layout) — one welded class each, no per-range aliases.
 
 namespace wowlib::formats::m2::root
 {
