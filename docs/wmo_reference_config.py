@@ -226,7 +226,9 @@ FORMAT = fr.Format(
     sides=(ROOT_SIDE, GROUP_SIDE),
     wowdev_page="WMO",
     anchors_file="wmo_wowdev_anchors.json",
-    name_re=r"WMO[A-Za-z]+?",
+    # `*?` not `+?`: the bare assembly class is "WMO"+version (WMOTheWarWithin)
+    # with NO stem chars between, so a `+` would never let the suffix genericize.
+    name_re=r"WMO[A-Za-z]*?",
     generic_pages=frozenset({"python/wmo/entity.md", "python/wmo/root.md",
                              "python/wmo/group.md"}),
     forver={

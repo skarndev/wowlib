@@ -126,10 +126,21 @@ Every fixed-width integer wire member now renders `Annotated[int, uintN]`
   TXAC field annotates through it. `_apply_int_width` is the shared applier.
 - Genuinely skipped: computed getter properties (SMODoodadDef.name_index) — not
   stored wire fields, so no size.
-- Still bare (out of scope, pre-existing): the `common`/`core`/`entities` pages
-  are plain mkdocstrings dumps with no StructPage/headers, so CArgb/fixed16/
-  ClientVersion ints show no width. Register those as int-width StructPages if
-  ever wanted.
+- The shared-primitive pages get width-only StructPages via a third config,
+  `common_reference_config.py` (registered in FORMAT_MODULES + the reload shim):
+  a MINIMAL Format (empty sides/generic_pages/forver, `name_re=r"(?!)"`) whose
+  struct_pages are COMMON_TYPES (types.hpp → CArgb/C3iVector/fixed16 on
+  common.md) and CORE_TYPES (client_version/file_key/error.hpp → ClientVersion/
+  FileDataID/Error on core.md, module `wowlib`, filtered to those three so the
+  giant top-level stub doesn't bloat cls_alt). The M2 entities page's Skeleton
+  FDID lists + BoneFile ids/version are covered by ENTITY_SKELETON/ENTITY_BONE
+  in the m2 config. Every engine pass but the int-width one no-ops for these.
+- Genuinely bare (accepted): `size()`/`name_index()` getters (size_t/derived,
+  not wire) and the NESTED `StringBlock.Entry.offset` (module `wowlib.formats`,
+  a `Class.Nested.field` path the flat module.class.field matcher can't reach).
+- `WMO` name_re is `WMO[A-Za-z]*?` not `+?`: the bare assembly class is
+  `WMO`+version (WMOTheWarWithin) with no stem chars, so `+` never let the
+  suffix genericize on the entity page.
 
 ### 2026-07-25 third batch: WMO page split + M2 value-template collapse
 - **WMO now mirrors M2's page layout**: `entity.md` (the compound WMO class),

@@ -59,8 +59,10 @@ REPO_ROOT = DOCS_DIR.parent
 STUBS = REPO_ROOT / "build/bindings/bindings/python/stubs"
 
 # The config modules registered with the engine, in elem-link priority order
-# (an element class documented by two formats links to the first).
-FORMAT_MODULES = ("wmo_reference_config", "m2_reference_config")
+# (an element class documented by two formats links to the first). The trailing
+# "common" module carries width-only pages (the shared primitive/core types).
+FORMAT_MODULES = ("wmo_reference_config", "m2_reference_config",
+                  "common_reference_config")
 
 # Version-RANGE suffixes (welded class names): the library instantiates one
 # class per content-permutation range, so a suffix is a plain expansion name

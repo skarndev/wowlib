@@ -26,12 +26,13 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 import format_reference_impl as _impl
 import wmo_reference_config as _wmo
 import m2_reference_config as _m2
+import common_reference_config as _common
 
 log = logging.getLogger("mkdocs.hooks.format_reference")
 
 
 def on_pre_build(config, **kwargs):
-    global _impl, _wmo, _m2
+    global _impl, _wmo, _m2, _common
     # mkdocs saves/restores sys.path around hook import, so this dir isn't on the
     # path by the time we reload — re-add it here (this runs after that restore).
     if _HERE not in sys.path:
@@ -40,6 +41,7 @@ def on_pre_build(config, **kwargs):
         _impl = importlib.reload(_impl)
         _wmo = importlib.reload(_wmo)
         _m2 = importlib.reload(_m2)
+        _common = importlib.reload(_common)
     except Exception as e:  # keep serving the last good version on a bad edit
         log.warning("format_reference reload failed (%s); keeping previous version", e)
 

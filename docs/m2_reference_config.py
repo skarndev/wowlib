@@ -300,6 +300,24 @@ RECORDS_SKEL = fr.StructPage(
     dedup_marker="<!-- m2-records-skel -->",
 )
 
+# Width-only pages: the entity-page members with fixed-width wire ints
+# (Skeleton's FileDataID lists, the .bone file's ids/version) get the same
+# Annotated[int, uintN] treatment as the record structs.
+ENTITY_SKELETON = fr.StructPage(
+    page="python/m2/entities.md",
+    module="wowlib.formats.m2",
+    stub="wowlib/formats/m2/__init__.pyi",
+    headers=(M2_SRC / "skeleton.hpp",),
+    names_filter=lambda n: n.startswith("Skeleton"),
+)
+
+ENTITY_BONE = fr.StructPage(
+    page="python/m2/entities.md",
+    module="wowlib.formats.m2.bone",
+    stub="wowlib/formats/m2/bone.pyi",
+    headers=(M2_SRC / "bone/bone.hpp",),
+)
+
 FORMAT = fr.Format(
     key="m2",
     # M2 splits its field surfaces onto dedicated pages (each Side carries its
@@ -326,7 +344,8 @@ FORMAT = fr.Format(
             ("wowlib.formats.m2.skin.Skin", "Skin", "Wotlk"),
         ),
     },
-    struct_pages=(RECORDS_BODY, RECORDS_CHUNKED, RECORDS_SKIN, RECORDS_SKEL),
+    struct_pages=(RECORDS_BODY, RECORDS_CHUNKED, RECORDS_SKIN, RECORDS_SKEL,
+                  ENTITY_SKELETON, ENTITY_BONE),
     value_alias=VALUE_ALIAS,
     # Entity families referenced from vector annotations (M2.skins,
     # Skeleton.parent_link, …) link to their family page, not a records page.
