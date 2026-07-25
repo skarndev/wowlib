@@ -207,16 +207,17 @@ class StructPage:
 
     def anchor_class(self, name: str) -> str:
         """The class a link to ``name`` should anchor at: on a deduplicated page
-        only each family's representative renders, so a versioned sibling links
-        to its family's representative; elsewhere the class itself."""
+        only one heading per family renders, so a versioned sibling links to its
+        family's anchor (the welded base when the family has one, else the latest
+        representative); elsewhere the class itself."""
         if not self.dedup_marker:
             return name
         if self._reps is None:
             self._reps = {}
             for fam in _family_groups(self).values():
-                rep = fam[-1][1]
+                anchor = _family_anchor(fam)
                 for _rank, cls in fam:
-                    self._reps[cls] = rep
+                    self._reps[cls] = anchor
         return self._reps.get(name, name)
 
 
@@ -442,6 +443,16 @@ def _stub_class_blocks(rel: str) -> list[tuple[str, str]]:
         if m:
             out.append((m.group(1), block))
     return out
+
+
+def _family_anchor(fam: list[tuple[int, str]]) -> str:
+    """The class a deduplicated family renders (and is linked) under: the welded
+    family BASE (rank -1, a generic name like WMOBatch) when the family also has
+    versioned members, otherwise the latest representative (M2 records have no
+    base, so they anchor at their newest concrete version)."""
+    bases = [n for r, n in fam if r < 0]
+    versioned = [n for r, n in fam if r >= 0]
+    return bases[0] if bases and versioned else fam[-1][1]
 
 
 def _family_groups(sp: StructPage) -> dict[str, list[tuple[int, str]]]:
@@ -1274,17 +1285,31 @@ def _records_markdown(sp: StructPage) -> str:
                                  sp.value_templates[base])
             continue
         _, stem, fam = fam_desc
-        rep_rank, rep = fam[-1]
-        if rep_rank < 0:                     # unversioned: plain full listing
-            out.append(_directive(sp, rep, 3))
+        versioned = [(r, n) for r, n in fam if r >= 0]
+        bases = [n for r, n in fam if r < 0]
+        if not versioned:                    # a plain unversioned struct/enum
+            out.append(_directive(sp, fam[-1][1], 3))
             continue
-        if len(fam) == 1:
-            out.append(_directive(sp, rep, 3))
+        if len(versioned) == 1 and not bases:  # exists in one range, no base
+            out.append(_directive(sp, versioned[0][1], 3))
             out.append(f"*One layout across its whole range "
-                       f"({_era_words(rep[len(stem):])}).*")
+                       f"({_era_words(versioned[0][1][len(stem):])}).*")
             continue
-        out.append(_directive(sp, rep, 3, "\n      members: false"))
-        _emit_merged_members(sp, blocks, badges, out, stem, fam, set())
+        # Multi-era, and/or a welded family base. Anchor + heading: a welded base
+        # (WMOBatch) is a version-agnostic name with no suffix to genericize, so
+        # it gets a hand-written `Base⟨version⟩` heading + its own docstring; a
+        # baseless family (M2 records) renders its latest version generically.
+        # Either way only the VERSIONED classes are walked for members (an empty
+        # base would add spurious badges).
+        anchor = _family_anchor(fam)
+        if bases:
+            doc = _class_docstring(blocks.get(anchor, ""))
+            out.append(f"### {anchor}{_VERSION_PLACEHOLDER} {{#{sp.module}.{anchor}}}")
+            if doc:
+                out.append(doc)
+        else:
+            out.append(_directive(sp, anchor, 3, "\n      members: false"))
+        _emit_merged_members(sp, blocks, badges, out, stem, versioned, set())
     return "\n\n".join(out)
 
 

@@ -1,11 +1,10 @@
 # WMO root chunks
 
 The typed wire structs of a WMO **root** file — materials, doodad sets and
-definitions, lights, fog, portals and the header. Each appears below as its own
-entry in the sidebar tree.
+definitions, lights, fog, portals and the header — plus the flag enums their
+fields carry. A struct that changed across client versions **documents once**:
+one merged member walk under its generic `⟨version⟩` name, each member badged
+with the expansion range it belongs to (a badge-less member is identical in
+every version). Wire integer fields show their on-disk width.
 
-::: wowlib.formats.wmo.root.chunks
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      heading_level: 2
+<!-- wmo-root-chunks -->

@@ -205,6 +205,7 @@ ROOT_CHUNKS = fr.StructPage(
     struct_alias=_CPP_STRUCT_ALIAS,
     owner_side=ROOT_SIDE,
     enum_chunk=ENUM_CHUNK,
+    dedup_marker="<!-- wmo-root-chunks -->",
 )
 
 GROUP_CHUNKS = fr.StructPage(
@@ -215,6 +216,7 @@ GROUP_CHUNKS = fr.StructPage(
     struct_alias=_CPP_STRUCT_ALIAS,
     owner_side=GROUP_SIDE,
     enum_chunk=ENUM_CHUNK,
+    dedup_marker="<!-- wmo-group-chunks -->",
 )
 
 FORMAT = fr.Format(
@@ -230,7 +232,8 @@ FORMAT = fr.Format(
     # with NO stem chars between, so a `+` would never let the suffix genericize.
     name_re=r"WMO[A-Za-z]*?",
     generic_pages=frozenset({"python/wmo/entity.md", "python/wmo/root.md",
-                             "python/wmo/group.md"}),
+                             "python/wmo/group.md", "python/wmo/root-chunks.md",
+                             "python/wmo/group-chunks.md"}),
     forver={
         "python/wmo/entity.md": (
             ("wowlib.formats.wmo.WMO", "WMO", "Wotlk"),

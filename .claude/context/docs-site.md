@@ -142,6 +142,22 @@ Every fixed-width integer wire member now renders `Annotated[int, uintN]`
   `WMO`+version (WMOTheWarWithin) with no stem chars, so `+` never let the
   suffix genericize on the entity page.
 
+### WMO chunk pages deduped (2026-07-25)
+The root-chunks/group-chunks pages now dedup versioned wire structs like the M2
+records page (dedup_marker on ROOT_CHUNKS/GROUP_CHUNKS; both pages joined
+generic_pages). Key wrinkle vs M2 records: WMO wire structs have a welded
+FAMILY BASE (bare `WMOBatch`/`WMOGroupHeader` beside the versioned
+`WMOBatchLegionPlus` …), M2 records do not. So `_family_anchor(fam)` returns the
+base (rank -1, already a generic name) when a family has one, else the latest
+rep; `_records_markdown` renders a base-anchored family under a hand-written
+`### Base⟨version⟩ {#module.Base}` heading + the base's docstring (the base has
+no suffix to genericize), and walks ONLY the versioned classes for members (an
+empty base would fabricate spurious badges). `StructPage.anchor_class` uses the
+same `_family_anchor`, so every reference (the group entity's `batches` field,
+the enum→struct backlinks in `_augment_chunks`, cross-page element links) lands
+on `#module.WMOBatch`. Plain unversioned structs (SMOMaterial) and the flag
+enums still render as full single listings.
+
 ### 2026-07-25 third batch: WMO page split + M2 value-template collapse
 - **WMO now mirrors M2's page layout**: `entity.md` (the compound WMO class),
   `root.md` (renamed from fields.md, WMORoot only), `group.md` (WMOGroup +
