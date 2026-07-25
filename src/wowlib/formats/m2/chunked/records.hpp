@@ -13,7 +13,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/offsets.hpp>
+#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::formats::m2::chunked::record
@@ -25,8 +25,11 @@ namespace wowlib::formats::m2::chunked::record
                  "variation) pair; 0 means none.")
   ]] AnimFileEntry
   {
+    [[=welder::doc("AnimationData.dbc id of the sequence.")]]
     std::uint16_t anim_id = 0;
+    [[=welder::doc("The sequence variation index.")]]
     std::uint16_t sub_anim_id = 0;
+    [[=welder::doc("FileDataID of the .anim file; 0 means none.")]]
     std::uint32_t file_id = 0;
 
     bool operator==(const AnimFileEntry&) const = default;
@@ -41,8 +44,12 @@ namespace wowlib::formats::m2::chunked::record
                  "one particle emitter.")
   ]] M2ExtendedParticleSimple
   {
+    [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) to "
+                   "the spawn point.")]]
     float z_source = 0;
+    [[=welder::doc("Multiplied into the particle's diffuse color.")]]
     float color_mult = 1;
+    [[=welder::doc("Multiplied into the particle's opacity.")]]
     float alpha_mult = 1;
 
     bool operator==(const M2ExtendedParticleSimple&) const = default;
@@ -55,9 +62,14 @@ namespace wowlib::formats::m2::chunked::record
                  "alpha-cutoff ramp.")
   ]] M2ExtendedParticle
   {
+    [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) to "
+                   "the spawn point.")]]
     float z_source = 0;
+    [[=welder::doc("Multiplied into the particle's diffuse color.")]]
     float color_mult = 1;
+    [[=welder::doc("Multiplied into the particle's opacity.")]]
     float alpha_mult = 1;
+    [[=welder::doc("Alpha-test threshold sampled by the particle's lifetime.")]]
     root::record::M2PartTrack<fixed16> alpha_cutoff{};
 
     bool operator==(const M2ExtendedParticle&) const = default;
@@ -71,10 +83,16 @@ namespace wowlib::formats::m2::chunked::record
                  "diffuse multiplier (raw half-floats).")
   ]] M2LightDetail
   {
+    [[=welder::doc("Unknown per-light flags.")]]
     std::uint16_t flags = 0;
+    [[=welder::doc("Scale for the shadow RT matrix (raw half-float).")]]
     std::uint16_t scale_half = 0;
+    [[=welder::doc("Multiplier for the light's diffuse color (raw "
+                   "half-float).")]]
     std::uint16_t diffuse_color_mult_half = 0;
+    [[=welder::doc("Unknown.")]]
     std::uint16_t unknown0 = 0;
+    [[=welder::doc("Unknown.")]]
     std::uint32_t unknown1 = 0;
 
     bool operator==(const M2LightDetail&) const = default;

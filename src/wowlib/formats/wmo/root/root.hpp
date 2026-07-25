@@ -19,9 +19,8 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/chunk.hpp>
+#include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
-#include <wowlib/formats/common/serializer.hpp>
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/common/version_slot.hpp>

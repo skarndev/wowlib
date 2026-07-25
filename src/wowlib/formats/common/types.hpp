@@ -31,7 +31,9 @@ namespace wowlib::formats::common
     =welder::doc("A 2D float vector: texture coordinates, UV animation speeds.")
   ]] C2Vector
   {
+    [[=welder::doc("The x component.")]]
     float x = 0;
+    [[=welder::doc("The y component.")]]
     float y = 0;
 
     bool operator==(const C2Vector&) const = default;
@@ -42,7 +44,9 @@ namespace wowlib::formats::common
     =welder::doc("A 2D integer vector.")
   ]] C2iVector
   {
+    [[=welder::doc("The x component.")]]
     std::int32_t x = 0;
+    [[=welder::doc("The y component.")]]
     std::int32_t y = 0;
 
     bool operator==(const C2iVector&) const = default;
@@ -54,8 +58,11 @@ namespace wowlib::formats::common
                  "rotations-as-Euler-degrees in placements.")
   ]] C3Vector
   {
+    [[=welder::doc("The x component.")]]
     float x = 0;
+    [[=welder::doc("The y component.")]]
     float y = 0;
+    [[=welder::doc("The z component.")]]
     float z = 0;
 
     bool operator==(const C3Vector&) const = default;
@@ -66,8 +73,11 @@ namespace wowlib::formats::common
     =welder::doc("A 3D integer vector.")
   ]] C3iVector
   {
+    [[=welder::doc("The x component.")]]
     std::int32_t x = 0;
+    [[=welder::doc("The y component.")]]
     std::int32_t y = 0;
+    [[=welder::doc("The z component.")]]
     std::int32_t z = 0;
 
     bool operator==(const C3iVector&) const = default;
@@ -78,9 +88,13 @@ namespace wowlib::formats::common
     =welder::doc("A 4D float vector.")
   ]] C4Vector
   {
+    [[=welder::doc("The x component.")]]
     float x = 0;
+    [[=welder::doc("The y component.")]]
     float y = 0;
+    [[=welder::doc("The z component.")]]
     float z = 0;
+    [[=welder::doc("The w component.")]]
     float w = 0;
 
     bool operator==(const C4Vector&) const = default;
@@ -93,9 +107,13 @@ namespace wowlib::formats::common
         difference from math libraries that lead with w.)")
   ]] C4Quaternion
   {
+    [[=welder::doc("The x component.")]]
     float x = 0;
+    [[=welder::doc("The y component.")]]
     float y = 0;
+    [[=welder::doc("The z component.")]]
     float z = 0;
+    [[=welder::doc("The w (scalar) component.")]]
     float w = 1;
 
     bool operator==(const C4Quaternion&) const = default;
@@ -106,6 +124,7 @@ namespace wowlib::formats::common
     =welder::doc("A 3x3 matrix as three column C3Vectors.")
   ]] C33Matrix
   {
+    [[=welder::doc("The three columns.")]]
     std::array<C3Vector, 3> columns{};
 
     bool operator==(const C33Matrix&) const = default;
@@ -116,6 +135,7 @@ namespace wowlib::formats::common
     =welder::doc("A 3x4 matrix as four column C3Vectors.")
   ]] C34Matrix
   {
+    [[=welder::doc("The four columns.")]]
     std::array<C3Vector, 4> columns{};
 
     bool operator==(const C34Matrix&) const = default;
@@ -126,6 +146,7 @@ namespace wowlib::formats::common
     =welder::doc("A 4x4 matrix as four column C4Vectors.")
   ]] C44Matrix
   {
+    [[=welder::doc("The four columns.")]]
     std::array<C4Vector, 4> columns{};
 
     bool operator==(const C44Matrix&) const = default;
@@ -136,7 +157,9 @@ namespace wowlib::formats::common
     =welder::doc("A plane as a normal and its signed distance from the origin.")
   ]] C4Plane
   {
+    [[=welder::doc("The plane normal.")]]
     C3Vector normal{};
+    [[=welder::doc("The signed distance from the origin.")]]
     float distance = 0;
 
     bool operator==(const C4Plane&) const = default;
@@ -147,7 +170,9 @@ namespace wowlib::formats::common
     =welder::doc("An axis-aligned bounding box: minimum and maximum corners.")
   ]] CAaBox
   {
+    [[=welder::doc("The minimum corner.")]]
     C3Vector min{};
+    [[=welder::doc("The maximum corner.")]]
     C3Vector max{};
 
     bool operator==(const CAaBox&) const = default;
@@ -158,7 +183,9 @@ namespace wowlib::formats::common
     =welder::doc("An axis-aligned sphere: position and radius.")
   ]] CAaSphere
   {
+    [[=welder::doc("The center position.")]]
     C3Vector position{};
+    [[=welder::doc("The radius.")]]
     float radius = 0;
 
     bool operator==(const CAaSphere&) const = default;
@@ -169,7 +196,9 @@ namespace wowlib::formats::common
     =welder::doc("A float range: minimum and maximum.")
   ]] CRange
   {
+    [[=welder::doc("The minimum.")]]
     float min = 0;
+    [[=welder::doc("The maximum.")]]
     float max = 0;
 
     bool operator==(const CRange&) const = default;
@@ -180,9 +209,13 @@ namespace wowlib::formats::common
     =welder::doc("A color stored as r, g, b, a bytes.")
   ]] CArgb
   {
+    [[=welder::doc("The red component.")]]
     std::uint8_t r = 0;
+    [[=welder::doc("The green component.")]]
     std::uint8_t g = 0;
+    [[=welder::doc("The blue component.")]]
     std::uint8_t b = 0;
+    [[=welder::doc("The alpha component.")]]
     std::uint8_t a = 0;
 
     bool operator==(const CArgb&) const = default;
@@ -194,9 +227,13 @@ namespace wowlib::formats::common
                  "vertex color layout (WMO MOCV, doodad colors).")
   ]] CImVector
   {
+    [[=welder::doc("The blue component.")]]
     std::uint8_t b = 0;
+    [[=welder::doc("The green component.")]]
     std::uint8_t g = 0;
+    [[=welder::doc("The red component.")]]
     std::uint8_t r = 0;
+    [[=welder::doc("The alpha component.")]]
     std::uint8_t a = 0;
 
     bool operator==(const CImVector&) const = default;
@@ -207,6 +244,7 @@ namespace wowlib::formats::common
     =welder::doc("A signed 16-bit fixed-point value with an implicit 0x7FFF scale.")
   ]] fixed16
   {
+    [[=welder::doc("The raw fixed-point integer; value / 0x7FFF is the float.")]]
     std::int16_t value = 0;
 
     [[=welder::getter,

@@ -25,7 +25,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/vector.h>          // the inner std::vector<T> caster
 
-#include <wowlib/formats/common/chunk.hpp>
+#include <wowlib/formats/common/chunked_file.hpp>
 
 namespace nanobind::detail
 {

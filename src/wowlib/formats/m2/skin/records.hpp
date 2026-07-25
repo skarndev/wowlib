@@ -41,9 +41,11 @@ namespace detail
       std::uint16_t level = 0;
       [[=welder::doc("First local vertex.")]]
       std::uint16_t vertex_start = 0;
+      [[=welder::doc("Local vertex count.")]]
       std::uint16_t vertex_count = 0;
       [[=welder::doc("First triangle index.")]]
       std::uint16_t index_start = 0;
+      [[=welder::doc("Triangle index count.")]]
       std::uint16_t index_count = 0;
       [[=welder::doc("Bone-lookup entries used.")]]
       std::uint16_t bone_count = 0;
@@ -51,6 +53,7 @@ namespace detail
       std::uint16_t bone_combo_index = 0;
       [[=welder::doc("Highest bones-per-vertex in the submesh.")]]
       std::uint16_t bone_influences = 0;
+      [[=welder::doc("The bone nearest the submesh center; wowdev leaves it otherwise undescribed.")]]
       std::uint16_t center_bone_index = 0;
       [[=welder::doc("Average vertex position.")]]
       C3Vector center_position{};
@@ -71,9 +74,11 @@ namespace detail
       std::uint16_t level = 0;
       [[=welder::doc("First local vertex.")]]
       std::uint16_t vertex_start = 0;
+      [[=welder::doc("Local vertex count.")]]
       std::uint16_t vertex_count = 0;
       [[=welder::doc("First triangle index.")]]
       std::uint16_t index_start = 0;
+      [[=welder::doc("Triangle index count.")]]
       std::uint16_t index_count = 0;
       [[=welder::doc("Bone-lookup entries used.")]]
       std::uint16_t bone_count = 0;
@@ -81,6 +86,7 @@ namespace detail
       std::uint16_t bone_combo_index = 0;
       [[=welder::doc("Highest bones-per-vertex in the submesh.")]]
       std::uint16_t bone_influences = 0;
+      [[=welder::doc("The bone nearest the submesh center; wowdev leaves it otherwise undescribed.")]]
       std::uint16_t center_bone_index = 0;
       [[=welder::doc("Average vertex position.")]]
       C3Vector center_position{};
@@ -111,9 +117,11 @@ namespace detail
   {
     [[=welder::doc("0x10 static texture, 0x40 transparency quirk, ...")]]
     std::uint8_t flags = 0;
+    [[=welder::doc("Draw-order priority plane.")]]
     std::int8_t priority_plane = 0;
     [[=welder::doc("Pre-Cata: 0 on disk, computed at runtime.")]]
     std::uint16_t shader_id = 0;
+    [[=welder::doc("The submesh this batch renders.")]]
     std::uint16_t skin_section_index = 0;
     [[=welder::doc("BfA+: renamed flags2 (0x2 projected, 0x8 EDGF).")]]
     std::uint16_t geoset_index = 0;
@@ -144,12 +152,17 @@ namespace detail
                  "generate these from the render batches.")
   ]] M2ShadowBatch
   {
+    [[=welder::doc("If auto-generated: the source render batch's flags.")]]
     std::uint8_t flags = 0;
+    [[=welder::doc("If auto-generated: bits derived from the material's flags and blend mode.")]]
     std::uint8_t flags2 = 0;
+    [[=welder::doc("Unknown.")]]
     std::uint16_t unknown1 = 0;
+    [[=welder::doc("The submesh shadowed.")]]
     std::uint16_t submesh_id = 0;
     [[=welder::doc("Already looked up.")]]
     std::uint16_t texture_id = 0;
+    [[=welder::doc("Into the model colors.")]]
     std::uint16_t color_id = 0;
     [[=welder::doc("Already looked up.")]]
     std::uint16_t transparency_id = 0;
@@ -178,7 +191,9 @@ namespace detail
       std::vector<std::array<std::uint8_t, 4>> bones;
       // through the skin:: alias, NOT the sibling detail raw — member types
     // must collapse to the same canonical the welded classes use
+    [[=welder::doc("The submeshes (skin sections).")]]
     std::vector<skin::M2SkinSection<V>> submeshes;
+      [[=welder::doc("The render batches (texture units).")]]
       std::vector<M2Batch> batches;
       [[=welder::doc("Max bones per draw call (21/53/64/256).")]]
       std::uint32_t bone_count_max = 0;

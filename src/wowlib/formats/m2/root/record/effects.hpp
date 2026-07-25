@@ -41,10 +41,14 @@ namespace detail
       std::vector<std::uint16_t> texture_indices;
       [[=welder::doc("Into the model's materials.")]]
       std::vector<std::uint16_t> material_indices;
+      [[=welder::doc("RGB multiplier for the material.")]]
       record::M2Track<C3Vector, V> color{};
       [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
       record::M2Track<fixed16, V> alpha{};
+      [[=welder::doc("Ribbon width above the bone origin.")]]
       record::M2Track<float, V> height_above{};
+      [[=welder::doc("Ribbon width below the bone origin; do not set equal to "
+                     "height_above.")]]
       record::M2Track<float, V> height_below{};
       [[=welder::doc("Quad emission rate.")]]
       float edges_per_second = 0;
@@ -54,8 +58,11 @@ namespace detail
       float gravity = 0;
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t texture_rows = 0;
+      [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t texture_cols = 0;
+      [[=welder::doc("Animated flipbook cell index.")]]
       record::M2Track<std::uint16_t, V> tex_slot{};
+      [[=welder::doc("Bool track: ribbon visible.")]]
       record::M2Track<std::uint8_t, V> visibility{};
 
       [[
@@ -90,7 +97,9 @@ namespace detail
     =welder::doc("A 2D vector of 6.9 fixed-point values (raw u16 storage).")
   ]] M2Vec2FP69
   {
+    [[=welder::doc("Raw 6.9 fixed-point x component.")]]
     std::uint16_t x = 0;
+    [[=welder::doc("Raw 6.9 fixed-point y component.")]]
     std::uint16_t y = 0;
 
     bool operator==(const M2Vec2FP69&) const = default;
@@ -118,31 +127,51 @@ namespace detail
       std::uint32_t flags = 0;
       [[=welder::doc("Relative to the bone.")]]
       C3Vector position{};
+      [[=welder::doc("The bone the emitter attaches to.")]]
       std::uint16_t bone_id = 0;
+      [[=welder::doc("Into the model's textures.")]]
       std::uint16_t texture_id = 0;
       [[=welder::doc("Spawns model particles when set.")]]
       std::string geometry_model_filename;
       [[=welder::doc("Child emitters come from this model.")]]
       std::string recursion_model_filename;
+      [[=welder::doc("Blend mode; see wowdev's blending-type table.")]]
       std::uint16_t blending_type = 0;
       [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
       std::uint16_t emitter_type = 0;
+      [[=welder::doc("Render type; in practice implied by flags and model.")]]
       std::uint8_t particle_type = 0;
       [[=welder::doc("0 head, 1 tail, 2 both.")]]
       std::uint8_t head_or_tail = 0;
+      [[=welder::doc("Render priority plane.")]]
       std::int16_t priority_plane = 0;
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
+      [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t columns = 0;
+      [[=welder::doc("Base emission velocity.")]]
       record::M2Track<float, V> emission_speed{};
+      [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
+      [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
+                     "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
+      [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
+                     "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
+      [[=welder::doc("Gravity; a compressed direction vector under the "
+                     "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
+      [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
+      [[=welder::doc("Particles emitted per second.")]]
       record::M2Track<float, V> emission_rate{};
+      [[=welder::doc("Plane: emission area width; sphere: max radius.")]]
       record::M2Track<float, V> emission_area_width{};
+      [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
+      [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
+                     "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Parametric middle of the lifespan.")]]
       float mid_point = 0;
@@ -150,15 +179,27 @@ namespace detail
       std::array<CImVector, 3> color_values{};
       [[=welder::doc("Start/middle/end scale.")]]
       std::array<float, 3> scale_values{};
+      [[=welder::doc("Head flipbook cells, first half of life "
+                     "(start/middle/end).")]]
       std::array<std::uint16_t, 3> lifespan_uv_anim{};
+      [[=welder::doc("Head flipbook cells, second half of life "
+                     "(start/middle/end).")]]
       std::array<std::uint16_t, 3> decay_uv_anim{};
+      [[=welder::doc("Tail flipbook cells, first half of life (start/end).")]]
       std::array<std::int16_t, 2> tail_uv_anim{};
+      [[=welder::doc("Tail flipbook cells, second half of life (start/end).")]]
       std::array<std::int16_t, 2> tail_decay_uv_anim{};
+      [[=welder::doc("Multiplier to the computed tail length.")]]
       float tail_length = 0;
+      [[=welder::doc("Blinking speed.")]]
       float twinkle_speed = 0;
+      [[=welder::doc("Fraction of the time visible (1.0 = always).")]]
       float twinkle_percent = 0;
+      [[=welder::doc("Min/max random scale variation.")]]
       CRange twinkle_scale{};
+      [[=welder::doc("Scales velocity inherited from the parent particle.")]]
       float inherit_velocity_scale = 0;
+      [[=welder::doc("Speed is multiplied by exp(-drag * t).")]]
       float drag = 0;
       [[=welder::doc("1.0 = one full turn over the lifetime.")]]
       float spin = 0;
@@ -166,10 +207,16 @@ namespace detail
       M2Box tumble{};
       [[=welder::doc("Static wind, unless DynamicWind flag.")]]
       C3Vector wind_vector{};
+      [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
+      [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
+                     "follow by follow_scale1.")]]
       float follow_speed1 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
+      [[=welder::doc("Second point of the emitter-follow ramp.")]]
       float follow_speed2 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed2.")]]
       float follow_scale2 = 0;
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;
@@ -193,33 +240,53 @@ namespace detail
       std::uint32_t flags = 0;
       [[=welder::doc("Relative to the bone.")]]
       C3Vector position{};
+      [[=welder::doc("The bone the emitter attaches to.")]]
       std::uint16_t bone_id = 0;
+      [[=welder::doc("Into the model's textures.")]]
       std::uint16_t texture_id = 0;
       [[=welder::doc("Spawns model particles when set.")]]
       std::string geometry_model_filename;
       [[=welder::doc("Child emitters come from this model.")]]
       std::string recursion_model_filename;
+      [[=welder::doc("Blend mode; see wowdev's blending-type table.")]]
       std::uint8_t blending_type = 0;
       [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
       std::uint8_t emitter_type = 0;
       [[=welder::doc("ParticleColor.dbc row selector (0/11/12/13).")]]
       std::uint16_t particle_color_index = 0;
+      [[=welder::doc("Render type; in practice implied by flags and model.")]]
       std::uint8_t particle_type = 0;
       [[=welder::doc("0 head, 1 tail, 2 both.")]]
       std::uint8_t head_or_tail = 0;
+      [[=welder::doc("Render priority plane.")]]
       std::int16_t priority_plane = 0;
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
+      [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t columns = 0;
+      [[=welder::doc("Base emission velocity.")]]
       record::M2Track<float, V> emission_speed{};
+      [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
+      [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
+                     "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
+      [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
+                     "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
+      [[=welder::doc("Gravity; a compressed direction vector under the "
+                     "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
+      [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
+      [[=welder::doc("Particles emitted per second.")]]
       record::M2Track<float, V> emission_rate{};
+      [[=welder::doc("Plane: emission area width; sphere: max radius.")]]
       record::M2Track<float, V> emission_area_width{};
+      [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
+      [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
+                     "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Parametric middle of the lifespan.")]]
       float mid_point = 0;
@@ -227,15 +294,27 @@ namespace detail
       std::array<CImVector, 3> color_values{};
       [[=welder::doc("Start/middle/end scale.")]]
       std::array<float, 3> scale_values{};
+      [[=welder::doc("Head flipbook cells, first half of life "
+                     "(start/middle/end).")]]
       std::array<std::uint16_t, 3> lifespan_uv_anim{};
+      [[=welder::doc("Head flipbook cells, second half of life "
+                     "(start/middle/end).")]]
       std::array<std::uint16_t, 3> decay_uv_anim{};
+      [[=welder::doc("Tail flipbook cells, first half of life (start/end).")]]
       std::array<std::int16_t, 2> tail_uv_anim{};
+      [[=welder::doc("Tail flipbook cells, second half of life (start/end).")]]
       std::array<std::int16_t, 2> tail_decay_uv_anim{};
+      [[=welder::doc("Multiplier to the computed tail length.")]]
       float tail_length = 0;
+      [[=welder::doc("Blinking speed.")]]
       float twinkle_speed = 0;
+      [[=welder::doc("Fraction of the time visible (1.0 = always).")]]
       float twinkle_percent = 0;
+      [[=welder::doc("Min/max random scale variation.")]]
       CRange twinkle_scale{};
+      [[=welder::doc("Scales velocity inherited from the parent particle.")]]
       float inherit_velocity_scale = 0;
+      [[=welder::doc("Speed is multiplied by exp(-drag * t).")]]
       float drag = 0;
       [[=welder::doc("1.0 = one full turn over the lifetime.")]]
       float spin = 0;
@@ -243,10 +322,16 @@ namespace detail
       M2Box tumble{};
       [[=welder::doc("Static wind, unless DynamicWind flag.")]]
       C3Vector wind_vector{};
+      [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
+      [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
+                     "follow by follow_scale1.")]]
       float follow_speed1 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
+      [[=welder::doc("Second point of the emitter-follow ramp.")]]
       float follow_speed2 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed2.")]]
       float follow_scale2 = 0;
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;
@@ -270,65 +355,105 @@ namespace detail
       std::uint32_t flags = 0;
       [[=welder::doc("Relative to the bone.")]]
       C3Vector position{};
+      [[=welder::doc("The bone the emitter attaches to.")]]
       std::uint16_t bone_id = 0;
+      [[=welder::doc("Into the model's textures.")]]
       std::uint16_t texture_id = 0;
       [[=welder::doc("Spawns model particles when set.")]]
       std::string geometry_model_filename;
       [[=welder::doc("Child emitters come from this model.")]]
       std::string recursion_model_filename;
+      [[=welder::doc("Blend mode; see wowdev's blending-type table.")]]
       std::uint8_t blending_type = 0;
       [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
       std::uint8_t emitter_type = 0;
       [[=welder::doc("ParticleColor.dbc row selector (0/11/12/13).")]]
       std::uint16_t particle_color_index = 0;
+      [[=welder::doc("Render type; in practice implied by flags and model.")]]
       std::uint8_t particle_type = 0;
       [[=welder::doc("0 head, 1 tail, 2 both.")]]
       std::uint8_t head_or_tail = 0;
+      [[=welder::doc("Render priority plane.")]]
       std::int16_t priority_plane = 0;
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
+      [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t columns = 0;
+      [[=welder::doc("Base emission velocity.")]]
       record::M2Track<float, V> emission_speed{};
+      [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
+      [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
+                     "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
+      [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
+                     "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
+      [[=welder::doc("Gravity; a compressed direction vector under the "
+                     "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
+      [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
       [[=welder::doc("+ lifespan_variation * random(-1, 1).")]]
       float lifespan_variation = 0;
+      [[=welder::doc("Particles emitted per second.")]]
       record::M2Track<float, V> emission_rate{};
+      [[=welder::doc("+ emission_rate_variation * random(-1, 1), rerolled per "
+                     "update.")]]
       float emission_rate_variation = 0;
+      [[=welder::doc("Plane: emission area width; sphere: max radius.")]]
       record::M2Track<float, V> emission_area_width{};
+      [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
+      [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
+                     "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Usually 3 keys: start/middle/end.")]]
       FBlock<C3Vector> color_track{};
+      [[=welder::doc("Opacity ramp: 0 transparent .. 0x7FFF opaque.")]]
       FBlock<fixed16> alpha_track{};
+      [[=welder::doc("Particle size ramp.")]]
       FBlock<C2Vector> scale_track{};
       [[=welder::doc("Random per-particle scale variation.")]]
       C2Vector scale_vary{};
+      [[=welder::doc("Head flipbook cell ramp.")]]
       FBlock<std::uint16_t> head_uv_anim{};
+      [[=welder::doc("Tail flipbook cell ramp.")]]
       FBlock<std::uint16_t> tail_uv_anim{};
+      [[=welder::doc("Multiplier to the computed tail length.")]]
       float tail_length = 0;
+      [[=welder::doc("Blinking speed.")]]
       float twinkle_speed = 0;
+      [[=welder::doc("Fraction of the time visible (1.0 = always).")]]
       float twinkle_percent = 0;
+      [[=welder::doc("Min/max random scale variation.")]]
       CRange twinkle_scale{};
+      [[=welder::doc("Scales velocity inherited from the parent particle.")]]
       float inherit_velocity_scale = 0;
+      [[=welder::doc("Speed is multiplied by exp(-drag * t).")]]
       float drag = 0;
       [[=welder::doc("Initial quad rotation.")]]
       float base_spin = 0;
+      [[=welder::doc("Random variation of base_spin.")]]
       float base_spin_variation = 0;
       [[=welder::doc("Quad rotation per second.")]]
       float spin_speed = 0;
+      [[=welder::doc("Random variation of spin_speed.")]]
       float spin_speed_variation = 0;
       [[=welder::doc("Angular velocity bounds (model particles).")]]
       M2Box tumble{};
       [[=welder::doc("Static wind, unless DynamicWind flag.")]]
       C3Vector wind_vector{};
+      [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
+      [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
+                     "follow by follow_scale1.")]]
       float follow_speed1 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
+      [[=welder::doc("Second point of the emitter-follow ramp.")]]
       float follow_speed2 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed2.")]]
       float follow_scale2 = 0;
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;
@@ -352,6 +477,7 @@ namespace detail
       std::uint32_t flags = 0;
       [[=welder::doc("Relative to the bone.")]]
       C3Vector position{};
+      [[=welder::doc("The bone the emitter attaches to.")]]
       std::uint16_t bone_id = 0;
       [[=welder::doc("3x5-bit texture ids under the MultiTexture flag.")]]
       std::uint16_t texture_id = 0;
@@ -359,6 +485,7 @@ namespace detail
       std::string geometry_model_filename;
       [[=welder::doc("Child emitters come from this model.")]]
       std::string recursion_model_filename;
+      [[=welder::doc("Blend mode; see wowdev's blending-type table.")]]
       std::uint8_t blending_type = 0;
       [[=welder::doc("1 plane, 2 sphere, 3 spline, 4 bone.")]]
       std::uint8_t emitter_type = 0;
@@ -366,51 +493,87 @@ namespace detail
       std::uint16_t particle_color_index = 0;
       [[=welder::doc("2.5 fixed-point per extra layer.")]]
       std::array<std::int8_t, 2> multi_tex_scale{};
+      [[=welder::doc("Render priority plane.")]]
       std::int16_t priority_plane = 0;
       [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t rows = 0;
+      [[=welder::doc("Flipbook tiling.")]]
       std::uint16_t columns = 0;
+      [[=welder::doc("Base emission velocity.")]]
       record::M2Track<float, V> emission_speed{};
+      [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
+      [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
+                     "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
+      [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
+                     "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
+      [[=welder::doc("Gravity; a compressed direction vector under the "
+                     "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
+      [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
       [[=welder::doc("+ lifespan_variation * random(-1, 1).")]]
       float lifespan_variation = 0;
+      [[=welder::doc("Particles emitted per second.")]]
       record::M2Track<float, V> emission_rate{};
+      [[=welder::doc("+ emission_rate_variation * random(-1, 1), rerolled per "
+                     "update.")]]
       float emission_rate_variation = 0;
+      [[=welder::doc("Plane: emission area width; sphere: max radius.")]]
       record::M2Track<float, V> emission_area_width{};
+      [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
+      [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
+                     "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Usually 3 keys: start/middle/end.")]]
       FBlock<C3Vector> color_track{};
+      [[=welder::doc("Opacity ramp: 0 transparent .. 0x7FFF opaque.")]]
       FBlock<fixed16> alpha_track{};
+      [[=welder::doc("Particle size ramp.")]]
       FBlock<C2Vector> scale_track{};
       [[=welder::doc("Random per-particle scale variation.")]]
       C2Vector scale_vary{};
+      [[=welder::doc("Head flipbook cell ramp.")]]
       FBlock<std::uint16_t> head_uv_anim{};
+      [[=welder::doc("Tail flipbook cell ramp.")]]
       FBlock<std::uint16_t> tail_uv_anim{};
+      [[=welder::doc("Multiplier to the computed tail length.")]]
       float tail_length = 0;
+      [[=welder::doc("Blinking speed.")]]
       float twinkle_speed = 0;
+      [[=welder::doc("Fraction of the time visible (1.0 = always).")]]
       float twinkle_percent = 0;
+      [[=welder::doc("Min/max random scale variation.")]]
       CRange twinkle_scale{};
+      [[=welder::doc("Scales velocity inherited from the parent particle.")]]
       float inherit_velocity_scale = 0;
+      [[=welder::doc("Speed is multiplied by exp(-drag * t).")]]
       float drag = 0;
       [[=welder::doc("Initial quad rotation.")]]
       float base_spin = 0;
+      [[=welder::doc("Random variation of base_spin.")]]
       float base_spin_variation = 0;
       [[=welder::doc("Quad rotation per second.")]]
       float spin_speed = 0;
+      [[=welder::doc("Random variation of spin_speed.")]]
       float spin_speed_variation = 0;
       [[=welder::doc("Angular velocity bounds (model particles).")]]
       M2Box tumble{};
       [[=welder::doc("Static wind, unless DynamicWind flag.")]]
       C3Vector wind_vector{};
+      [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
+      [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
+                     "follow by follow_scale1.")]]
       float follow_speed1 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
+      [[=welder::doc("Second point of the emitter-follow ramp.")]]
       float follow_speed2 = 0;
+      [[=welder::doc("Fraction of emitter motion applied at follow_speed2.")]]
       float follow_scale2 = 0;
       [[=welder::doc("Spline emitter path.")]]
       std::vector<C3Vector> spline_points;

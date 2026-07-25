@@ -22,7 +22,7 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
-#include <wowlib/formats/common/offsets.hpp>
+#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>

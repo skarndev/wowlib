@@ -122,7 +122,7 @@ namespace detail
       [[=welder::doc("Exterior batch count.")]]
       std::uint16_t ext_batch_count = 0;
 
-      /** The fourth batch-count slot; unused by clients. */
+      [[=welder::doc("The fourth batch-count slot; unused by clients.")]]
       std::uint16_t batch_type_d = 0;
 
       [[=welder::doc("Fog indices into MFOG.")]]
@@ -138,7 +138,7 @@ namespace detail
       [[=welder::doc("Extended flags (Cataclysm+); GroupFlags2 bits.")]]
       std::uint32_t flags2 = 0;
 
-      /** Unused up to 9.1.5 (becomes the split-group indices in 9.2+). */
+      [[=welder::doc("Unused up to 9.1.5 (becomes the split-group indices in 9.2+).")]]
       std::uint32_t unused = 0;
     };
 
@@ -177,7 +177,7 @@ namespace detail
       [[=welder::doc("Exterior batch count.")]]
       std::uint16_t ext_batch_count = 0;
 
-      /** The fourth batch-count slot; unused by clients. */
+      [[=welder::doc("The fourth batch-count slot; unused by clients.")]]
       std::uint16_t batch_type_d = 0;
 
       [[=welder::doc("Fog indices into MFOG.")]]

@@ -29,6 +29,8 @@ namespace detail
       std::uint32_t id = 0;
       [[=welder::doc("The bone the point follows.")]]
       std::uint16_t bone = 0;
+      [[=welder::doc("Unknown; almost always 0 (vanilla's BogBeast.m2 carries "
+                     "values here).")]]
       std::uint16_t unknown = 0;
       [[=welder::doc("Relative to the bone, typically its pivot.")]]
       C3Vector position{};
@@ -71,12 +73,19 @@ namespace detail
       std::int16_t bone = -1;
       [[=welder::doc("Relative to the bone, if any.")]]
       C3Vector position{};
+      [[=welder::doc("RGB ambient color (no alpha).")]]
       record::M2Track<C3Vector, V> ambient_color{};
+      [[=welder::doc("Multiplies the ambient color; defaults to 1.0.")]]
       record::M2Track<float, V> ambient_intensity{};
+      [[=welder::doc("RGB diffuse color (no alpha).")]]
       record::M2Track<C3Vector, V> diffuse_color{};
+      [[=welder::doc("Multiplies the diffuse color; defaults to 1.0.")]]
       record::M2Track<float, V> diffuse_intensity{};
+      [[=welder::doc("Distance where attenuation begins.")]]
       record::M2Track<float, V> attenuation_start{};
+      [[=welder::doc("Distance where the light fades out entirely.")]]
       record::M2Track<float, V> attenuation_end{};
+      [[=welder::doc("Bool track: the light is enabled.")]]
       record::M2Track<std::uint8_t, V> visibility{};
 
       bool operator==(const M2Light&) const = default;
@@ -97,11 +106,18 @@ namespace detail
       std::uint32_t type = 0;
       [[=welder::doc("Diagonal field of view, radians.")]]
       float fov = 0;
+      [[=welder::doc("Far clip distance.")]]
       float far_clip = 0;
+      [[=welder::doc("Near clip distance.")]]
       float near_clip = 0;
+      [[=welder::doc("Spline track moving the camera, one spline per segment.")]]
       record::M2Track<M2SplineKey<C3Vector>, V> positions{};
+      [[=welder::doc("Pivot point the position splines are relative to.")]]
       C3Vector position_base{};
+      [[=welder::doc("Spline track moving the look-at target, one spline per "
+                     "segment.")]]
       record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
+      [[=welder::doc("Pivot point the target splines are relative to.")]]
       C3Vector target_position_base{};
       [[=welder::doc("0 .. 2*pi.")]]
       record::M2Track<M2SplineKey<float>, V> roll{};
@@ -118,11 +134,18 @@ namespace detail
     {
       [[=welder::doc("0 portrait, 1 character info, -1 flyby.")]]
       std::uint32_t type = 0;
+      [[=welder::doc("Far clip distance.")]]
       float far_clip = 0;
+      [[=welder::doc("Near clip distance.")]]
       float near_clip = 0;
+      [[=welder::doc("Spline track moving the camera, one spline per segment.")]]
       record::M2Track<M2SplineKey<C3Vector>, V> positions{};
+      [[=welder::doc("Pivot point the position splines are relative to.")]]
       C3Vector position_base{};
+      [[=welder::doc("Spline track moving the look-at target, one spline per "
+                     "segment.")]]
       record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
+      [[=welder::doc("Pivot point the target splines are relative to.")]]
       C3Vector target_position_base{};
       [[=welder::doc("0 .. 2*pi.")]]
       record::M2Track<M2SplineKey<float>, V> roll{};

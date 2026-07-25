@@ -76,6 +76,7 @@ namespace wowlib::formats::m2::root::record
       std::uint32_t flags = 0;
       [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
       std::int16_t frequency = 0;
+      [[=welder::doc("Unused alignment padding.")]]
       std::uint16_t padding = 0;
       [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
       M2Range replay{};
@@ -126,6 +127,7 @@ namespace wowlib::formats::m2::root::record
       std::uint32_t flags = 0;
       [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
       std::int16_t frequency = 0;
+      [[=welder::doc("Unused alignment padding.")]]
       std::uint16_t padding = 0;
       [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
       M2Range replay{};
@@ -176,6 +178,7 @@ namespace wowlib::formats::m2::root::record
       std::uint32_t flags = 0;
       [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
       std::int16_t frequency = 0;
+      [[=welder::doc("Unused alignment padding.")]]
       std::uint16_t padding = 0;
       [[=welder::doc("Random repetition bounds; both 0 = no repeat.")]]
       M2Range replay{};
@@ -224,7 +227,10 @@ namespace wowlib::formats::m2::root::record
                  "2 frame-by-frame, 3 freeze).")
   ]] M2SequenceFallback
   {
+    [[=welder::doc("Substitute animation id in AnimationData.dbc.")]]
     std::int16_t fallback_animation_id = 0;
+    [[=welder::doc("Playback mode: 0 normal, 1 backwards, 2 frame-by-frame, "
+                   "3 freeze.")]]
     std::int16_t flags = 0;
 
     bool operator==(const M2SequenceFallback&) const = default;

@@ -11,8 +11,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/chunk.hpp>
-#include <wowlib/formats/common/serializer.hpp>
+#include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/types.hpp>
 
 namespace wowlib::formats::m2::bone
@@ -23,6 +22,7 @@ namespace wowlib::formats::m2::bone
     =welder::doc("The .bone file prelude: a version marker (always 1).")
   ]] BoneFilePrelude
   {
+    [[=welder::doc("The format version; always 1 so far.")]]
     std::uint32_t version = 1;
 
     bool operator==(const BoneFilePrelude&) const = default;

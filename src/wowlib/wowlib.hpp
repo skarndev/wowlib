@@ -64,7 +64,7 @@ namespace wowlib
   }
 }
 
-#include <wowlib/formats/common/chunk.hpp>
+#include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/types.hpp>

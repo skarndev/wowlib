@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include <wowlib/formats/common/offset_serializer.hpp>
+#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/m2/m2.hpp>
 #include <wowlib/fs/filesystem.hpp>
 

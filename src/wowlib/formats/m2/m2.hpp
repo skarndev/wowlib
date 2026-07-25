@@ -20,7 +20,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
-#include <wowlib/formats/common/offset_serializer.hpp>
+#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/m2/bone/bone.hpp>
 #include <wowlib/formats/m2/chunked/chunked.hpp>

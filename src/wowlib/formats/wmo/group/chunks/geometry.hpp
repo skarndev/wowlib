@@ -182,7 +182,7 @@ namespace detail
     [[=welder::doc("Replacement index count.")]]
     std::uint16_t index_count = 0;
 
-    /** Alignment padding; zero in client files. */
+    [[=welder::doc("Alignment padding; zero in client files.")]]
     std::uint16_t padding = 0;
   };
   static_assert(sizeof(RenderBatchOverride) == 0x8);

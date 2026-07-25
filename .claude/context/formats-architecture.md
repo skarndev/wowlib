@@ -10,10 +10,17 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
 
 - `formats/common/` — everything format-agnostic, reused by M2/ADT/... later:
   `fourcc.hpp`, `annotations.hpp` (chunk/since/until/optional/header/container/
-  repeats — the annotation vocabulary stays snake_case), `chunk.hpp`
-  (ChunkExtras, ChunkedFile, ChunkBlob, Repeated, UnknownChunk, JournalEntry),
-  `string_block.hpp` (StringBlock), `serializer.hpp` (engine), `flags.hpp`
-  (has_flag), `types.hpp` (wire math/color primitives).
+  repeats — the annotation vocabulary stays snake_case), `chunked_file.hpp`
+  (ChunkExtras, ChunkedFile, ChunkBlob, Repeated, UnknownChunk, JournalEntry
+  AND the serializer engine — one header), `offset_file.hpp` (OffsetFile +
+  the offset engine — one header), `string_block.hpp` (StringBlock),
+  `flags.hpp` (has_flag), `types.hpp` (wire math/color primitives).
+- **Header-only parts define where they declare** (user rule, 2026-07-25): no
+  vocabulary-header/engine-header splits — the former `serializer.hpp` and
+  `offset_serializer.hpp` were inlined into `chunked_file.hpp`/`offset_file.hpp`
+  (mixin method definitions sit at the bottom of the same header, past the
+  engine). A separate definition file is only warranted when it is a `.cpp`
+  for a non-templated class (core/path, fs/*).
 - `formats/wmo/` — **the directory tree mirrors the namespace tree** (user rule,
   2026-07-20), so each sub-namespace is a subdirectory. Reorganized 2026-07-23 so
   each entity owns its chunk wire structs as a nested `chunks/` subdir/namespace
@@ -81,8 +88,8 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   MPB*) are deliberately unmodeled; MLSO/MOS2 are binary-only; MFOB (12.1)
   postdates the range.
 - **read()/write() are entity METHODS**: `ChunkedFile<Derived>` (CRTP mixin
-  over ChunkExtras, chunk.hpp) declares them; definitions live in
-  serializer.hpp; the engine is `detail::read_entity`/`detail::write_entity`
+  over ChunkExtras, chunked_file.hpp) declares them; definitions sit at the
+  bottom of the same header; the engine is `detail::read_entity`/`detail::write_entity`
   (no more free `formats::read<E>`/`write` wrappers). The ChunkedFile bases
   are extern-templated in wowlib::formats (an explicit instantiation must sit
   in the template's enclosing namespace) so serializer expansion stays in
@@ -91,7 +98,7 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   independent (fourcc dispatch); every encounter lands in the journal; writes
   replay it; unknown/duplicate/capacity-overflow chunks are preserved verbatim;
   <8 trailing stray bytes kept. Fresh entities write declaration order.
-- **Member kinds are type-driven** (serializer.hpp dispatch): trivially-
+- **Member kinds are type-driven** (chunked_file.hpp dispatch): trivially-
   copyable struct = data chunk (exact size), `std::vector<T>` = array chunk
   (divisibility), **SelfSerializing** (concept: read(span)/write(FileBuffer&)/
   empty()) = StringBlock and ChunkBlob own their payload encoding,
@@ -146,7 +153,7 @@ entities work now.
   simpler and keep the Python layer identical; old type-level tricks beat reflection
   here. Spikes were throwaway.)
 
-**Serializer** (serializer.hpp):
+**Serializer** (chunked_file.hpp engine half):
 - `members_of<E>` now **flattens public bases** (`collect_members`, mirroring welder)
   so it sees trait members. Base bookkeeping (ChunkExtras journal/unknown/trailing)
   comes along but carries no `chunk()`, so every chunk loop skips it. The journal's
@@ -270,7 +277,7 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
   quirk documented per member; deriving them would break byte-perfect
   round-trips. WMO::read counts groups from MOGI (group_infos.size());
   WMO::write validates MOGI size == groups.size(). The offset engine's
-  counterpart is consteval `wire_offset_of<E>(name)` (offset_serializer.hpp)
+  counterpart is consteval `wire_offset_of<E>(name)` (offset_file.hpp)
   for stamping into a written image (M2 num_skin_profiles); its `template
   for` ranges must be `static constexpr` or constant evaluation fails.
 

@@ -12,7 +12,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/offsets.hpp>
+#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/skin/records.hpp>
 

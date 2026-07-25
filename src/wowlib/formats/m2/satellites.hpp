@@ -32,7 +32,7 @@
 #include <wowlib/core/buffer.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
-#include <wowlib/formats/common/offsets.hpp>
+#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/m2/chunked/records.hpp>
 
 namespace wowlib::formats::m2

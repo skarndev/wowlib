@@ -23,10 +23,15 @@ namespace wowlib::formats::m2::root::record
                  "two texture coordinate sets.")
   ]] M2Vertex
   {
+    [[=welder::doc("Position in model space.")]]
     C3Vector pos{};
+    [[=welder::doc("Influence weights of the four bones; they sum to 255.")]]
     std::array<std::uint8_t, 4> bone_weights{};
+    [[=welder::doc("The four influencing bone indices.")]]
     std::array<std::uint8_t, 4> bone_indices{};
+    [[=welder::doc("Normal in model space.")]]
     C3Vector normal{};
+    [[=welder::doc("Two UV sets; the shader picks which are used.")]]
     std::array<C2Vector, 2> tex_coords{};
 
     bool operator==(const M2Vertex&) const = default;
@@ -53,7 +58,9 @@ namespace wowlib::formats::m2::root::record
                  "blending mode (see M2/Rendering M2BLEND).")
   ]] M2Material
   {
+    [[=welder::doc("See MaterialFlags.")]]
     std::uint16_t flags = 0;
+    [[=welder::doc("M2BLEND blending mode (see M2/Rendering).")]]
     std::uint16_t blending_mode = 0;
 
     bool operator==(const M2Material&) const = default;
@@ -102,6 +109,8 @@ namespace detail
       =welder::doc("A global texture weight (transparency) track.")
     ]] M2TextureWeight
     {
+      [[=welder::doc("0 transparent .. 0x7FFF opaque; multiplies the color "
+                     "block's alpha.")]]
       record::M2Track<fixed16, V> weight{};
 
       bool operator==(const M2TextureWeight&) const = default;
@@ -113,6 +122,7 @@ namespace detail
       =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
     ]] M2TextureFlipbook
     {
+      [[=welder::doc("Frame index keyframes.")]]
       record::M2Track<std::uint16_t, V> frames{};
 
       bool operator==(const M2TextureFlipbook&) const = default;
@@ -125,8 +135,11 @@ namespace detail
                    "texture matrix (rotation pivots at texture center 0.5, 0.5).")
     ]] M2TextureTransform
     {
+      [[=welder::doc("UV translation keyframes.")]]
       record::M2Track<C3Vector, V> translation{};
+      [[=welder::doc("UV rotation keyframes, pivoting at the texture center.")]]
       record::M2Track<C4Quaternion, V> rotation{};
+      [[=welder::doc("UV scaling keyframes.")]]
       record::M2Track<C3Vector, V> scaling{};
 
       bool operator==(const M2TextureTransform&) const = default;

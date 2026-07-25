@@ -32,9 +32,8 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
-#include <wowlib/formats/common/chunk.hpp>
-#include <wowlib/formats/common/offsets.hpp>
-#include <wowlib/formats/common/serializer.hpp>
+#include <wowlib/formats/common/chunked_file.hpp>
+#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/bone.hpp>
 #include <wowlib/formats/m2/root/record/scene.hpp>
@@ -188,8 +187,11 @@ namespace wowlib::formats::m2
                  "whose AFID/BFID satellite files this skeleton shares.")
   ]] SkelParentData
   {
+    [[=welder::doc("Unknown leading bytes; always zero so far.")]]
     std::array<std::uint8_t, 8> padding0{};
+    [[=welder::doc("The parent .skel FileDataID.")]]
     std::uint32_t parent_skel_file_id = 0;
+    [[=welder::doc("Unknown trailing bytes; always zero so far.")]]
     std::array<std::uint8_t, 4> padding1{};
 
     bool operator==(const SkelParentData&) const = default;

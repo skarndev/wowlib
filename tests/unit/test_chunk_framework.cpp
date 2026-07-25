@@ -5,7 +5,7 @@
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/serializer.hpp>
+#include <wowlib/formats/common/chunked_file.hpp>
 
 using namespace wowlib;
 using namespace wowlib::formats;

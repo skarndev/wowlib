@@ -83,7 +83,7 @@ namespace wowlib::formats::wmo::root::chunks
     [[=welder::doc("Which side of the portal plane this reference looks from.")]]
     std::int16_t side = 0;
 
-    /** Alignment filler; zero in client files. */
+    [[=welder::doc("Alignment filler; zero in client files.")]]
     std::uint16_t filler = 0;
   };
   static_assert(sizeof(SMOPortalRef) == 0x8);

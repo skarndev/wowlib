@@ -56,8 +56,11 @@ namespace wowlib::formats::m2::root::record
       std::int16_t parent_bone = -1;
       [[=welder::doc("Mesh part id.")]]
       std::uint16_t submesh_id = 0;
+      [[=welder::doc("Translation keyframes, relative to the parent bone.")]]
       record::M2Track<C3Vector, V> translation{};
+      [[=welder::doc("Rotation keyframes as raw quaternions.")]]
       record::M2Track<C4Quaternion, V> rotation{};
+      [[=welder::doc("Scale keyframes.")]]
       record::M2Track<C3Vector, V> scale{};
       [[=welder::doc("The bone's pivot point.")]]
       C3Vector pivot{};
@@ -83,8 +86,11 @@ namespace wowlib::formats::m2::root::record
       std::uint16_t submesh_id = 0;
       [[=welder::doc("CRC of the authoring bone name (debug only).")]]
       std::uint32_t bone_name_crc = 0;
+      [[=welder::doc("Translation keyframes, relative to the parent bone.")]]
       record::M2Track<C3Vector, V> translation{};
+      [[=welder::doc("Rotation keyframes as compressed quaternions.")]]
       record::M2Track<M2CompQuat, V> rotation{};
+      [[=welder::doc("Scale keyframes.")]]
       record::M2Track<C3Vector, V> scale{};
       [[=welder::doc("The bone's pivot point.")]]
       C3Vector pivot{};

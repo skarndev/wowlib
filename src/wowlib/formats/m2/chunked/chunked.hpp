@@ -21,8 +21,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/chunk.hpp>
-#include <wowlib/formats/common/serializer.hpp>
+#include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/chunked/records.hpp>
 
