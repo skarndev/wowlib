@@ -14,8 +14,8 @@ kinds:
     stream (forward FourCCs, unlike every other WoW chunk format), so its
     members carry FourCC badges linking wowdev.wiki/M2 plus since() badges.
 
-The record modules (root.record, skin, the Skel* chunk payloads) are dumped by
-mkdocstrings on records.md; the engine re-annotates their wire integer widths
+The record modules (root.record, chunked.record, skin, the Skel* chunk
+payloads) are dumped by mkdocstrings on records.md; the engine re-annotates their wire integer widths
 from the C++ headers listed here.
 """
 
@@ -29,9 +29,11 @@ M2_SRC = fr.REPO_ROOT / "src/wowlib/formats/m2"
 BODY_HPP = M2_SRC / "root/root.hpp"
 SHELL_HPP = M2_SRC / "chunked/chunked.hpp"
 BOUNDARIES_HPP = M2_SRC / "boundaries.hpp"
+BUILDS_HPP = fr.REPO_ROOT / "src/wowlib/core/client_builds.hpp"
 RECORD_HEADERS = tuple(
     M2_SRC / "root/record" / f"{fn}.hpp"
-    for fn in ("bone", "effects", "material", "scene", "sequence", "shell", "track"))
+    for fn in ("bone", "effects", "material", "scene", "sequence", "track"))
+CHUNKED_RECORDS_HPP = M2_SRC / "chunked/records.hpp"
 
 # --- version boundary constants -----------------------------------------------
 _CONSTS_CACHE: dict | None = None
@@ -40,7 +42,7 @@ _CONSTS_CACHE: dict | None = None
 def _consts() -> dict[str, tuple[int, int, int]]:
     global _CONSTS_CACHE
     if _CONSTS_CACHE is None:
-        _CONSTS_CACHE = fr.parse_version_constants(BOUNDARIES_HPP)
+        _CONSTS_CACHE = fr.parse_version_constants(BUILDS_HPP, BOUNDARIES_HPP)
     return _CONSTS_CACHE
 
 
@@ -198,11 +200,11 @@ BODY_SIDE = fr.Side(
 SHELL_SIDE = fr.Side(
     key="shell", kind="chunked",
     marker="<!-- m2-shell-fields -->",
-    module="wowlib.formats.m2.root",
+    module="wowlib.formats.m2.chunked",
     badge_classes=("M2ChunkedFile",), width_classes=("M2ChunkedFile",),
     class_prefix="M2ChunkedFile",
     repr_class="M2ChunkedFileTheWarWithin",
-    stub="wowlib/formats/m2/root/__init__.pyi",
+    stub="wowlib/formats/m2/chunked/__init__.pyi",
     parse_fields=_shell_fields,
     categorize=lambda f: SHELL_FOURCC_CATEGORY.get(f["cc"]),
     category_order=SHELL_CATEGORY_ORDER, category_blurbs=SHELL_CATEGORY_BLURB,
@@ -219,6 +221,13 @@ RECORDS_BODY = fr.StructPage(
     module="wowlib.formats.m2.root.record",
     stub="wowlib/formats/m2/root/record.pyi",
     headers=RECORD_HEADERS,
+)
+
+RECORDS_CHUNKED = fr.StructPage(
+    page="python/m2/records.md",
+    module="wowlib.formats.m2.chunked.record",
+    stub="wowlib/formats/m2/chunked/record.pyi",
+    headers=(CHUNKED_RECORDS_HPP,),
 )
 
 RECORDS_SKIN = fr.StructPage(
@@ -263,7 +272,7 @@ FORMAT = fr.Format(
             ("wowlib.formats.m2.skin.Skin", "Skin", "Wotlk"),
         ),
     },
-    struct_pages=(RECORDS_BODY, RECORDS_SKIN, RECORDS_SKEL),
+    struct_pages=(RECORDS_BODY, RECORDS_CHUNKED, RECORDS_SKIN, RECORDS_SKEL),
     # Entity families referenced from vector annotations (M2.skins,
     # Skeleton.parent_link, …) link to their family page, not a records page.
     elem_links={

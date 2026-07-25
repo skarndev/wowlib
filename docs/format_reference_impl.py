@@ -280,16 +280,26 @@ def slice_text(text: str, start: str, end: str | None) -> str:
     return text[i: j if j > 0 else len(text)]
 
 
-def parse_version_constants(path: Path) -> dict[str, tuple[int, int, int]]:
-    """Named ``inline constexpr ClientVersion`` boundaries (e.g. M2's
-    ``m2_per_sequence_timelines``) -> (major, minor, patch), so annotations may
-    reference them instead of literals."""
+def parse_version_constants(*paths: Path) -> dict[str, tuple[int, int, int]]:
+    """Named ``inline constexpr ClientVersion`` constants -> (major, minor,
+    patch), so annotations may reference them instead of literals. Two forms:
+    brace literals (core/client_builds.hpp's ``builds::`` vocabulary) and
+    aliases of an earlier name (``... m2_chunked_container = builds::Legion_Alpha;``)
+    — pass client_builds.hpp BEFORE a boundaries header so its aliases
+    resolve."""
     out: dict[str, tuple[int, int, int]] = {}
-    for m in re.finditer(
-            r"inline\s+constexpr\s+ClientVersion\s+(\w+)\s*"
-            r"\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\}",
-            path.read_text(encoding="utf-8")):
-        out[m.group(1)] = (int(m.group(2)), int(m.group(3)), int(m.group(4)))
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for m in re.finditer(
+                r"inline\s+constexpr\s+ClientVersion\s+(\w+)\s*"
+                r"\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\}",
+                text):
+            out[m.group(1)] = (int(m.group(2)), int(m.group(3)), int(m.group(4)))
+        for m in re.finditer(
+                r"inline\s+constexpr\s+ClientVersion\s+(\w+)\s*=\s*"
+                r"(?:\w+::)*(\w+);", text):
+            if m.group(2) in out:
+                out[m.group(1)] = out[m.group(2)]
     return out
 
 
@@ -317,7 +327,7 @@ def _version_ref(attrs: str, kind: str,
     m = re.search(kind + r"\(\s*" + _CV, attrs)
     if m:
         return tuple(int(x) for x in m.groups())
-    m = re.search(kind + r"\(\s*([A-Za-z_]\w*)\s*\)", attrs)
+    m = re.search(kind + r"\(\s*(?:[A-Za-z_]\w*::)*([A-Za-z_]\w*)\s*\)", attrs)
     if m and consts and m.group(1) in consts:
         return consts[m.group(1)]
     return None

@@ -67,7 +67,7 @@ extended particle data, parent-model overrides, inline physics. Chunk ids are
 carries its chunk **FourCC** (linking to wowdev.wiki); an untouched shell
 rewrites byte-for-byte.
 
-::: wowlib.formats.m2.root.M2ChunkedFile
+::: wowlib.formats.m2.chunked.M2ChunkedFile
     options:
       heading_level: 3
       show_root_toc_entry: true

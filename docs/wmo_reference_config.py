@@ -16,6 +16,19 @@ import format_reference_impl as fr
 
 ROOT_HPP = fr.REPO_ROOT / "src/wowlib/formats/wmo/root/root.hpp"
 GROUP_HPP = fr.REPO_ROOT / "src/wowlib/formats/wmo/group/group.hpp"
+BUILDS_HPP = fr.REPO_ROOT / "src/wowlib/core/client_builds.hpp"
+BOUNDARIES_HPP = fr.REPO_ROOT / "src/wowlib/formats/wmo/boundaries.hpp"
+
+_CONSTS_CACHE: dict | None = None
+
+
+def _consts() -> dict[str, tuple[int, int, int]]:
+    """since()/until() spell named build constants (builds::BfA_TidesOfVengeance)
+    plus the WMO boundary aliases; builds parse first so aliases resolve."""
+    global _CONSTS_CACHE
+    if _CONSTS_CACHE is None:
+        _CONSTS_CACHE = fr.parse_version_constants(BUILDS_HPP, BOUNDARIES_HPP)
+    return _CONSTS_CACHE
 CHUNK_DIR = fr.REPO_ROOT / "src/wowlib/formats/wmo"
 
 # --- fields-page category taxonomy -------------------------------------------
@@ -104,15 +117,16 @@ def _entity_fields() -> tuple[dict, dict]:
         # covering the traits + WMORoot's own members.
         root = {f["name"]: f for f in fr.parse_members(
             fr.slice_text(ROOT_HPP.read_text(encoding="utf-8"), "namespace detail", None),
-            header_cc="MOGP")}
+            consts=_consts(), header_cc="MOGP")}
         gtxt = GROUP_HPP.read_text(encoding="utf-8")
         # WMOGroupBody's version-gated chunks live in detail:: trait bases declared
         # ahead of the struct, so slice from the detail namespace (traits) through
         # WMOGroupBody's own members, up to the WMOGroup wrapper.
         group = {f["name"]: f for f in fr.parse_members(
-            fr.slice_text(gtxt, "namespace detail", "]] WMOGroup :"), header_cc="MOGP")}
+            fr.slice_text(gtxt, "namespace detail", "]] WMOGroup :"),
+            consts=_consts(), header_cc="MOGP")}
         for f in fr.parse_members(fr.slice_text(gtxt, "]] WMOGroup :", None),
-                                  header_cc="MOGP"):
+                                  consts=_consts(), header_cc="MOGP"):
             group.setdefault(f["name"], f)
         _FIELDS_CACHE = (root, group)
     return _FIELDS_CACHE

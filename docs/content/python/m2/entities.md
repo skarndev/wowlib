@@ -67,7 +67,7 @@ fields are documented on [Fields & versions](fields.md).
       show_root_toc_entry: true
       members: false
 
-::: wowlib.formats.m2.root.M2ChunkedFileTheWarWithin
+::: wowlib.formats.m2.chunked.M2ChunkedFileTheWarWithin
     options:
       heading_level: 3
       show_root_toc_entry: true

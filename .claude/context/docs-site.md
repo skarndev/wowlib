@@ -25,12 +25,16 @@ project `.venv` (no CMake target). Driver: **`docs/build.py`** (`build` | `serve
   build/serve, so the worktree stays clean and `reference.md` links to
   `../api/index.html`. `Doxyfile.in` is `@VAR@`-substituted by build.py.
 
-## Generic WMO field reference (`wmo_reference.py`)
+## Generic WMO/M2 field reference (engine is format_reference_impl.py;
+## configs wmo_reference_config.py / m2_reference_config.py)
 The WMO layout is version-parametric (`WMO<V>` per expansion), so instead of
 documenting 12 near-identical per-version classes, `docs/wmo_reference.py` (an
 mkdocs `on_page_markdown` hook) **generates** one generic reference. It textually
 parses `src/wowlib/formats/wmo/{root/root.hpp,group/group.hpp}` for each member's
-`=chunk()`, `=since(ClientVersion{...})`, `=until(...)`, type and `=welder::doc`,
+`=chunk()`, `=since(...)`, `=until(...)`, type and `=welder::doc` — since/until
+spell named constants (`builds::BfA_TidesOfVengeance`), resolved through
+`parse_version_constants(client_builds.hpp, <fmt>/boundaries.hpp)` (brace
+literals + alias definitions; builds header must parse FIRST),
 maps the version **major → expansion** (1=Vanilla … 8=BfA … 11=TWW), and fills the
 `<!-- wmo-legend / wmo-root-fields / wmo-group-fields -->` markers in
 `python/wmo/fields.md` with per-field **expansion-range badges** (original colored

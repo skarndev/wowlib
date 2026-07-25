@@ -12,10 +12,23 @@ on-disk width (`Annotated[int, uint16]`), generated from the C++ sources.
 
 The records the MD20 body's vectors are made of, from
 `wowlib.formats.m2.root.record`: tracks and timestamps, sequences, bones,
-materials, scene objects (attachments, events, lights, cameras), the emitters
-and the chunked-shell payload records (`AnimFileEntry`, `Exp2Data`, …).
+materials, scene objects (attachments, events, lights, cameras) and the
+emitters.
 
 ::: wowlib.formats.m2.root.record
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      heading_level: 3
+
+## Chunked-shell records
+
+The Legion+ companion-chunk payload records, from
+`wowlib.formats.m2.chunked.record`: the AFID entries, the extended particle
+parameters (`EXPT`/`EXP2`), the per-light `DETL` overrides and the
+parent-model override payloads.
+
+::: wowlib.formats.m2.chunked.record
     options:
       show_root_heading: false
       show_root_toc_entry: false
