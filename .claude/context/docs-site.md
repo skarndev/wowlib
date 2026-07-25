@@ -98,6 +98,35 @@ the earlier representative-version mkdocstrings pages (entity/root/group); the
   (declaration order + `wire_after` splices — `_wire_order()` in the m2
   config parses the anchors; the wire_order array no longer exists).
 
+### Wire int-width coverage (2026-07-25, follow-up)
+Every fixed-width integer wire member now renders `Annotated[int, uintN]`
+(nanobind erases the width to a bare `int`). Fixes that got it comprehensive:
+- **`_struct_int_fields` is BRACE-AWARE**: each struct's region is brace-matched
+  and its nested-struct bodies blanked, so a struct that CONTAINS one (SMOFog↦Fog,
+  LightExtension↦Gradient) keeps the members after the nested type. `_blank_noncode`
+  blanks strings + comments first so a `{`/`}` or an apostrophe in a doc/comment
+  can't desync the brace counter (a lone `'` in a comment was eating whole struct
+  decls). The member regex close is CONDITIONAL (`(?(vec)…|(?(arr)…))`) so
+  `FBlock<std::uint16_t> x` is not misread as a uint16 field, and it handles
+  `vector<array<uintN,K>>` (TXAC combos, skin bone quads → `list[list[Annotated…]]`).
+  It also no longer lets a member's annotation `.*?` bleed across a PRECEDING
+  excluded member's `]]` (which dragged `mark::exclude` onto the next field).
+- **Nested vector depth** comes from the rendered signature, so one C++ struct
+  (M2Track) covers both the pre-WotLK `list[…]` and WotLK+ `list[list[…]]` layouts.
+- **`_annotate_int_widths` constrains the class group to the page's own classes**
+  and forbids the heading body from crossing its `</hN>` — otherwise a module
+  that is a namespace PREFIX of a sibling page (…m2 vs …m2.skin) or a heading not
+  followed by a signature div (an enum/flag class) makes `.*?` swallow the region
+  and starve the real attribute headings.
+- **Template VALUE members** (M2TrackUInt16.values, FBlockUInt16.keys) are typed
+  on the bare parameter `T`, so their width lives only in the welded class-name
+  suffix — `_value_member_width` resolves it (`_VALUE_SUFFIX_WIDTH`).
+- Entity side fields carry an `int_width` from `parse_members`/`_decl_int_width`
+  (the fixed-width leaf of a scalar/vector/array/vector-of-array decl); the shell
+  TXAC field annotates through it. `_apply_int_width` is the shared applier.
+- Genuinely skipped: computed getter properties (SMODoodadDef.name_index) — not
+  stored wire fields, so no size.
+
 ## Key details / gotchas
 - **welder filter resolution** (build.py `find_welder_filter`): `$WOWLIB_WELDER_FILTER`
   → pinned FetchContent checkout (`build/*/_deps/welder-src/tools/…`, matches the

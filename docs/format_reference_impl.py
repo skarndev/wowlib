@@ -351,6 +351,23 @@ def _elem_name(decl: str, name: str) -> str:
     return t.split("::")[-1].strip()
 
 
+def _decl_int_width(decl: str, name: str) -> tuple[bool, int] | None:
+    """(unsigned, bits) of the fixed-width integer LEAF of a member declaration
+    — the scalar itself, or the element of a vector / array / vector-of-array
+    (mver -> uint32, TXAC's vector<array<uint8, 2>> -> uint8) — else None (a
+    struct/float/string element carries no wire width to show)."""
+    t = decl.split("=")[0]
+    if name in t:
+        t = t[: t.rfind(name)]
+    m = re.search(r"\b(u?)int(8|16|32|64)_t\b", t)
+    if not m:
+        return None
+    # Reject a type where the int is only a template argument of a record
+    # (FBlock<std::uint16_t>): the leaf must be reached through vector/array only.
+    outer = re.sub(r"\b(?:std|vector|array)\b|[<>,:\s]|\d+", "", t[: m.start()])
+    return (m.group(1) == "u", int(m.group(2))) if outer == "" else None
+
+
 def _version_ref(attrs: str, kind: str,
                  consts: dict[str, tuple] | None) -> tuple | None:
     """The =since()/=until() version in an annotation block: a ClientVersion
@@ -386,6 +403,7 @@ def parse_members(text: str, consts: dict[str, tuple] | None = None,
             "since": _version_ref(attrs, "since", consts),
             "until": _version_ref(attrs, "until", consts),
             "elem": _elem_name(decl, name=toks[-1]),
+            "int_width": _decl_int_width(decl, name=toks[-1]),
             "container": "formats::container" in attrs,
             "after": after_m.group(1) if after_m else None,
         })
@@ -525,7 +543,12 @@ def _elem_html(concrete: str, base: str) -> str:
     is a known struct: a wire struct/record on its format's struct page —
     anchored at the CONCRETE versioned class (page ids keep real names), or at
     the family representative on a deduplicated page —, an entity family by its
-    unsuffixed base, or a shared primitive on the Common page (C3Vector, …)."""
+    unsuffixed base, or a shared primitive on the Common page (C3Vector, …).
+    An element that is itself an opaque Vector (nested per-sequence containers:
+    VectorVectorUnsignedInt -> VectorUnsignedInt) recurses to list[list[…]]."""
+    inner = _vector_elements().get(concrete)
+    if inner is not None:
+        return f"list[{_elem_html(inner, base)}]"
     display = _generic_name(concrete)
     stem = display.replace(_VERSION_PLACEHOLDER, "")
     pages = _elem_pages()
@@ -841,11 +864,23 @@ def _augment_chunks(html_out: str, fmt: Format, sp: StructPage, base: str) -> st
 # to a bare Python `int`, so the on-disk field size vanishes from the stubs. The
 # width lives only in the C++ sources; parse it back and re-annotate the rendered
 # signatures as Annotated[int, uint32] so the wire size stays documented.
+# The optional close is CONDITIONAL on what opened: a std::vector chain closes
+# with its `>`s, a std::array with `, N>`, a bare scalar with nothing — so a
+# struct member typed `FBlock<std::uint16_t> foo` is NOT mis-read as a uint16
+# field (its `>` is a template close the regex must not consume). `inarr`
+# handles a std::array nested in a vector (vector<array<uint8, 4>> — per-vertex
+# bone quads, the TXAC combos). The annotation group forbids `]]` so it cannot
+# bleed across a PRECEDING excluded member's brackets (which would drag its
+# `mark::exclude` onto this member and wrongly drop it).
 _STRUCT_MEMBER_RE = re.compile(
-    r"(?:\[\[(?P<ann>.*?)\]\]\s*)?"                    # optional annotation
-    r"(?:std::)?(?P<arr>array<\s*)?(?:std::)?"          # optional std::array<
+    r"(?:\[\[(?P<ann>(?:(?!\]\]).)*)\]\]\s*)?"          # optional annotation (no `]]` inside)
+    r"(?:std::)?"                                       # std:: of array/vector/int
+    r"(?:(?P<arr>array<\s*)|(?P<vec>(?:(?:std::)?vector<\s*)+))?(?:std::)?"
+    r"(?P<inarr>array<\s*(?:std::)?)?"                  # std::array nested in a vector
     r"(?P<sign>u?)int(?P<bits>8|16|32|64)_t"
-    r"(?:\s*,\s*\d+\s*>)?\s+(?P<field>\w+)\s*[={;]", re.DOTALL)
+    r"(?(inarr)\s*,\s*\d+\s*>)?"                        # inner array close
+    r"(?(vec)\s*>+|(?(arr)\s*,\s*\d+\s*>|))"
+    r"\s+(?P<field>\w+)\s*[={;]", re.DOTALL)
 _INT_SPAN = '<span title="int">int</span>'
 
 
@@ -863,55 +898,166 @@ def _int_width(elem: str) -> tuple[bool, int] | None:
     return (m.group(1) == "u", int(m.group(2))) if m else None
 
 
-def _struct_int_fields(headers: tuple[Path, ...]) -> dict[str, dict[str, tuple[bool, int]]]:
-    """{C++ struct name: {field: (unsigned, bits)}} for the wire structs declared
-    in ``headers``. Struct regions run from one struct/enum opening brace to the
-    next; the member regex only matches fixed-width int declarations, so
-    doc-string braces in between are harmless."""
-    out: dict[str, dict[str, tuple[bool, int]]] = {}
+_STRUCT_DECL_RE = re.compile(
+    r"(?:struct|class|enum\s+class)\s+(?:\[\[.*?\]\]\s*)?"
+    r"(?:WOWLIB_EMPTY_BASES\s+)?(?P<name>[A-Za-z_]\w*)(?:<[^>]*>)?"
+    r"\s*(?::[^{;]*)?\{", re.DOTALL)
+_BLANK_STRING_RE = re.compile(r'"(?:\\.|[^"\\])*"', re.DOTALL)
+_BLANK_BLOCK_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+_BLANK_LINE_RE = re.compile(r"//[^\n]*")
+
+
+def _blank_noncode(txt: str) -> str:
+    """A same-length copy of ``txt`` with string literals and comments blanked
+    to spaces, so brace matching sees only code braces — never a `{`/`}` (or a
+    stray apostrophe) inside a doc string or a comment. Strings go first so a
+    `//` inside one is not mistaken for a comment; block before line."""
+    txt = _BLANK_STRING_RE.sub(lambda m: '"' + " " * (len(m.group(0)) - 2) + '"', txt)
+    txt = _BLANK_BLOCK_RE.sub(lambda m: " " * len(m.group(0)), txt)
+    return _BLANK_LINE_RE.sub(lambda m: " " * len(m.group(0)), txt)
+
+
+def _match_brace(txt: str, open_pos: int) -> int:
+    """The index of the `}` matching the `{` at ``open_pos`` (or end-of-text)."""
+    depth = 0
+    for i in range(open_pos, len(txt)):
+        if txt[i] == "{":
+            depth += 1
+        elif txt[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+    return len(txt)
+
+
+def _struct_int_fields(headers: tuple[Path, ...]) -> dict[str, dict[str, tuple[bool, int, bool]]]:
+    """{C++ struct name: {field: (unsigned, bits, vectorish)}} for the wire
+    structs declared in ``headers`` — vectorish marks std::vector/array members
+    (possibly nested), whose rendered annotation is a coerced ``list[…int…]``
+    rather than an int autoref span. Each struct's region is BRACE-MATCHED and
+    its nested struct bodies blanked, so a struct that contains one (SMOFog
+    holds Fog; LightExtension holds Gradient) keeps the members that follow the
+    nested type instead of losing them to it."""
+    out: dict[str, dict[str, tuple[bool, int, bool]]] = {}
     for path in headers:
         txt = path.read_text(encoding="utf-8")
-        spans = [(m.start(), m.end(), m.group("name")) for m in re.finditer(
-            r"(?:struct|class|enum\s+class)\s+(?:\[\[.*?\]\]\s*)?"
-            r"(?:WOWLIB_EMPTY_BASES\s+)?(?P<name>[A-Za-z_]\w*)(?:<[^>]*>)?"
-            r"\s*(?::[^{;]*)?\{", txt, re.DOTALL)]
-        for i, (_s, e, name) in enumerate(spans):
-            region = txt[e: spans[i + 1][0] if i + 1 < len(spans) else len(txt)]
-            fields: dict[str, tuple[bool, int]] = {}
-            for mm in _STRUCT_MEMBER_RE.finditer(region):
+        braces = _blank_noncode(txt)      # for brace matching / decl detection
+        structs = [(m.group("name"), m.start(), m.end() - 1,
+                    _match_brace(braces, m.end() - 1))
+                   for m in _STRUCT_DECL_RE.finditer(braces)]
+        for name, dstart, open_pos, close_pos in structs:
+            region = list(txt[open_pos + 1: close_pos])
+            for _n2, ds2, _op2, cl2 in structs:          # blank nested struct spans
+                if ds2 > open_pos and cl2 <= close_pos and ds2 != dstart:
+                    for k in range(ds2, min(cl2 + 1, close_pos)):
+                        region[k - (open_pos + 1)] = " "
+            fields: dict[str, tuple[bool, int, bool]] = {}
+            for mm in _STRUCT_MEMBER_RE.finditer("".join(region)):
                 if mm.group("ann") and "mark::exclude" in mm.group("ann"):
                     continue
-                fields[mm.group("field")] = (mm.group("sign") == "u",
-                                             int(mm.group("bits")))
+                fields[mm.group("field")] = (
+                    mm.group("sign") == "u", int(mm.group("bits")),
+                    mm.group("vec") is not None or mm.group("inarr") is not None)
             if fields:
                 out.setdefault(name, {}).update(fields)
     return out
 
 
-def _cpp_struct(cls: str, alias: dict[str, str]) -> str:
-    """The C++ wire-struct name for a rendered class (strip the range suffix,
-    undo any templated-struct weld aliasing)."""
+def _cpp_struct(cls: str, alias: dict[str, str], known: set[str] = frozenset()) -> str:
+    """The C++ wire-struct name for a rendered class: strip the range suffix,
+    undo any explicit weld aliasing, then resolve a welded TEMPLATE class whose
+    value argument welder mangled into the name (M2TrackC3Vector -> M2Track,
+    FBlockUInt16 -> FBlock, M2SplineKeyFloat -> M2SplineKey) down to the base
+    struct — the longest ``known`` struct name it starts with, since all value
+    variants of one template share its int fields."""
     split = split_range_suffix(cls)
     if split:
         cls = split[0]
-    return alias.get(cls, cls)
+    cls = alias.get(cls, cls)
+    if cls in known:
+        return cls
+    prefixes = [k for k in known if cls.startswith(k) and cls != k]
+    return max(prefixes, key=len) if prefixes else cls
 
 
 def _annotate_int_widths(html_out: str, sp: StructPage) -> str:
     ints = sp.int_fields()
+    # Constrain the class group to the classes this page actually renders: the
+    # module is a namespace PREFIX of sibling struct pages (wowlib.formats.m2 vs
+    # …m2.skin), so an unconstrained `\w+` would match a sibling's heading
+    # (…m2.skin.M2Batch as cls=skin) and its `.*?</hN>` would swallow the region
+    # up to the next signature — starving the real headings between.
+    cls_alt = "|".join(re.escape(c) for c in sorted(sp.classes(), key=len, reverse=True))
+    if not cls_alt:
+        return html_out
+    # The heading body uses (?:(?!</hN>).)*? so it CANNOT cross its own close —
+    # otherwise a heading not followed by a signature div (an enum/flag class,
+    # e.g. LightExtension) would backtrack `.*?` to a later heading and swallow
+    # the real attribute headings in between.
     pat = re.compile(
         r'(?P<pre><h(?P<lvl>[1-6]) id="' + re.escape(sp.module) +
-        r'\.(?P<cls>\w+)\.(?P<field>\w+)"[^>]*>.*?</h(?P=lvl)>\s*'
+        r'\.(?P<cls>' + cls_alt + r')\.(?P<field>\w+)"[^>]*>'
+        r'(?:(?!</h(?P=lvl)>).)*?</h(?P=lvl)>\s*'
         r'<div class="[^"]*doc-signature[^"]*">)(?P<sig>.*?)(?P<end></div>)', re.DOTALL)
 
+    known = set(ints)
+
     def repl(m):
-        info = ints.get(_cpp_struct(m["cls"], sp.struct_alias), {}).get(m["field"])
-        if not info or _INT_SPAN not in m["sig"]:
+        info = ints.get(_cpp_struct(m["cls"], sp.struct_alias, known), {}).get(m["field"])
+        if info is None:
+            # A welded template's VALUE member (values/keys/…) is typed on the
+            # bare parameter `T`, so its width lives only in the class-name value
+            # suffix (M2TrackUInt16 -> uint16), not the C++ decl.
+            info = _value_member_width(m["cls"], m["field"], sp.struct_alias, known)
+        if info is None:
             return m.group(0)
-        ann = f'Annotated[{_INT_SPAN}, {_width_label(*info)}]'
-        return m["pre"] + m["sig"].replace(_INT_SPAN, ann, 1) + m["end"]
+        sig = _apply_int_width(m["sig"], *info)
+        return m["pre"] + sig + m["end"] if sig is not None else m.group(0)
 
     return pat.sub(repl, html_out)
+
+
+# Welded value-type suffixes that are raw integers (M2TrackUInt16, FBlockUInt16,
+# …); the float/fixed16/vector value types are structs and stay unannotated.
+_VALUE_SUFFIX_WIDTH = {"UInt8": (True, 8), "UInt16": (True, 16), "UInt32": (True, 32),
+                       "Int8": (False, 8), "Int16": (False, 16), "Int32": (False, 32)}
+# The template members typed on the parameter T across the track/fblock family.
+_VALUE_MEMBER_NAMES = frozenset({"values", "keys", "value", "in_tan", "out_tan"})
+
+
+def _value_member_width(cls: str, field: str, alias: dict[str, str],
+                        known: set[str]) -> tuple[bool, int, bool] | None:
+    """(unsigned, bits, vectorish=True) for a welded-template value member whose
+    width is carried by the class-name value suffix (M2TrackUInt16.values ->
+    uint16), else None. Vectorish is always True — the value member is a
+    vector<T> (or vector<vector<T>>); scalar-T value types (M2SplineKey.value)
+    never reach here because those variants are non-integer."""
+    if field not in _VALUE_MEMBER_NAMES:
+        return None
+    base = _cpp_struct(cls, alias, known)
+    split = split_range_suffix(cls)
+    core = alias.get(split[0] if split else cls, cls) if not split else split[0]
+    core = alias.get(core, core)
+    if not core.startswith(base) or core == base:
+        return None
+    w = _VALUE_SUFFIX_WIDTH.get(core[len(base):])
+    return (w[0], w[1], True) if w else None
+
+
+def _apply_int_width(sig: str, unsigned: bool, bits: int, vectorish: bool) -> str | None:
+    """Rewrite the int in a rendered signature as Annotated[int, uintN], or None
+    when there is nothing to rewrite. A scalar/array carries the `int` autoref
+    span; a coerced opaque vector is plain-text list[int] / list[list[int]]
+    (the nesting depth read from the signature itself)."""
+    label = _width_label(unsigned, bits)
+    if _INT_SPAN in sig:                   # scalar (or std::array rendered as list[int-span])
+        return sig.replace(_INT_SPAN, f'Annotated[{_INT_SPAN}, {label}]', 1)
+    if vectorish:
+        lm = re.search(r"((?:list\[)+)int((?:\])+)", sig)
+        if lm:
+            return (sig[:lm.start()] + lm.group(1) + f"Annotated[int, {label}]"
+                    + lm.group(2) + sig[lm.end():])
+    return None
 
 
 def _annotate_entity_int_widths(html_out: str, fmt: Format, src: str) -> str:
@@ -927,25 +1073,20 @@ def _annotate_entity_int_widths(html_out: str, fmt: Format, src: str) -> str:
             r'(?P<pre><h(?P<lvl>[1-6]) id="' + re.escape(side.module) +
             r'\.(?:' + "|".join(side.width_classes) + r')' + _SUFFIX_ALT +
             r'\.(?P<field>\w+)"[^>]*>'
-            r'.*?</h(?P=lvl)>\s*<div class="[^"]*doc-signature[^"]*">)(?P<sig>.*?)(?P<end></div>)',
+            r'(?:(?!</h(?P=lvl)>).)*?</h(?P=lvl)>\s*'
+            r'<div class="[^"]*doc-signature[^"]*">)(?P<sig>.*?)(?P<end></div>)',
             re.DOTALL)
 
         def repl(m, fields=fields):
             f = fields.get(m["field"])
-            if not f:
-                return m.group(0)
-            w = _int_width(f["elem"])
+            w = f.get("int_width") if f else None
             if not w:
                 return m.group(0)
-            label = _width_label(*w)
-            sig = m["sig"]
-            if _INT_SPAN in sig:                                   # scalar int (mver)
-                sig = sig.replace(_INT_SPAN, f'Annotated[{_INT_SPAN}, {label}]', 1)
-            elif "list[int]" in sig:                              # coerced int vector
-                sig = sig.replace("list[int]", f'list[Annotated[int, {label}]]', 1)
-            else:
-                return m.group(0)
-            return m["pre"] + sig + m["end"]
+            # vectorish=True: an opaque int vector (or vector-of-array) has been
+            # coerced to plain list[int] / list[list[int]]; a scalar keeps its
+            # int autoref span — _apply_int_width picks the right one.
+            sig = _apply_int_width(m["sig"], w[0], w[1], vectorish=True)
+            return m["pre"] + sig + m["end"] if sig is not None else m.group(0)
 
         html_out = pat.sub(repl, html_out)
     return html_out

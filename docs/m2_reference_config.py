@@ -234,6 +234,10 @@ RECORDS_BODY = fr.StructPage(
     module="wowlib.formats.m2.root.record",
     stub="wowlib/formats/m2/root/record.pyi",
     headers=RECORD_HEADERS,
+    # The event-track family is welded M2EventTrack but is the M2TrackBase<V>
+    # template; the value-typed M2Track variants (M2TrackC3Vector, …) resolve
+    # to M2Track by prefix, so only this rename needs spelling out.
+    struct_alias={"M2EventTrack": "M2TrackBase"},
     dedup_marker="<!-- m2-records-body -->",
 )
 
