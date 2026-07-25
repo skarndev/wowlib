@@ -119,7 +119,7 @@ namespace
         if (i >= gate_sequences->size())
           return nullptr;
         const auto& s = (*gate_sequences)[i];
-        if (!root::record::sequence_data_external(s.flags) || (s.flags & 0x40u) != 0)
+        if (!s.owns_anim_file())
           return nullptr;
         return &anim_out[i];
       };

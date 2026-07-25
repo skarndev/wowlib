@@ -88,6 +88,21 @@ namespace wowlib::formats::m2::root::record
       [[=welder::doc("Alias target (flags & 0x40 chains).")]]
       std::uint16_t alias_next = 0;
 
+      [[=welder::doc("Whether this sequence is an alias (flag 0x40): it owns "
+                     "NO track data — resolve it by following alias_next. "
+                     "Files still carry stale array records for aliases "
+                     "(dead offsets, junk values), so they are never "
+                     "chased.")]]
+      constexpr bool is_alias() const { return (flags & 0x40u) != 0; }
+
+      [[=welder::doc("Whether this sequence owns an external .anim file: its "
+                     "data is low-priority (0x10/0x20/0x100 all clear) and "
+                     "it is no alias.")]]
+      constexpr bool owns_anim_file() const
+      {
+        return sequence_data_external(flags) && !is_alias();
+      }
+
       bool operator==(const M2Sequence&) const = default;
     };
 
@@ -122,6 +137,21 @@ namespace wowlib::formats::m2::root::record
       std::int16_t variation_next = -1;
       [[=welder::doc("Alias target (flags & 0x40 chains).")]]
       std::uint16_t alias_next = 0;
+
+      [[=welder::doc("Whether this sequence is an alias (flag 0x40): it owns "
+                     "NO track data — resolve it by following alias_next. "
+                     "Files still carry stale array records for aliases "
+                     "(dead offsets, junk values), so they are never "
+                     "chased.")]]
+      constexpr bool is_alias() const { return (flags & 0x40u) != 0; }
+
+      [[=welder::doc("Whether this sequence owns an external .anim file: its "
+                     "data is low-priority (0x10/0x20/0x100 all clear) and "
+                     "it is no alias.")]]
+      constexpr bool owns_anim_file() const
+      {
+        return sequence_data_external(flags) && !is_alias();
+      }
 
       bool operator==(const M2Sequence&) const = default;
     };
@@ -159,6 +189,21 @@ namespace wowlib::formats::m2::root::record
       std::int16_t variation_next = -1;
       [[=welder::doc("Alias target (flags & 0x40 chains).")]]
       std::uint16_t alias_next = 0;
+
+      [[=welder::doc("Whether this sequence is an alias (flag 0x40): it owns "
+                     "NO track data — resolve it by following alias_next. "
+                     "Files still carry stale array records for aliases "
+                     "(dead offsets, junk values), so they are never "
+                     "chased.")]]
+      constexpr bool is_alias() const { return (flags & 0x40u) != 0; }
+
+      [[=welder::doc("Whether this sequence owns an external .anim file: its "
+                     "data is low-priority (0x10/0x20/0x100 all clear) and "
+                     "it is no alias.")]]
+      constexpr bool owns_anim_file() const
+      {
+        return sequence_data_external(flags) && !is_alias();
+      }
 
       bool operator==(const M2Sequence&) const = default;
     };

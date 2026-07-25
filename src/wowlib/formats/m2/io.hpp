@@ -14,15 +14,13 @@
 
 #include <cstring>
 #include <format>
-#include <map>
 #include <optional>
-#include <set>
 #include <span>
 #include <string>
 #include <string_view>
 
 #include <wowlib/formats/common/offset_serializer.hpp>
-#include <wowlib/formats/m2/detail/satellite_io.hpp>
+#include <wowlib/formats/m2/satellites.hpp>
 #include <wowlib/formats/m2/m2.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
@@ -75,19 +73,18 @@ namespace wowlib::formats::m2
       return make_error(ErrorCode::PathNotResolvable,
                         "a monolithic M2's satellite files (.skin/.anim) need a "
                         "resolvable path for the model key");
-    const std::string stem = detail::m2_stem(*resolved.path);
+    const SatellitePaths paths{*resolved.path};
 
     // Low-priority sequence data lives in per-sequence .anim files; the
     // context resolves them lazily — the sequences table is populated
     // before any track member reads (wire order), so the flags are already
     // decoded when the first track consults us. A missing .anim file
     // leaves its sequences' tracks empty rather than failing.
-    detail::AnimCache cache{[&](std::uint16_t id, std::uint16_t sub) {
-      return fs.read_file(FileKey{detail::anim_path(stem, id, sub)});
+    AnimCache cache{[&](SequenceKey seq) {
+      return fs.read_file(FileKey{paths.anim(seq)});
     }};
     OffsetReadContext ctx;
-    ctx.sequence_base =
-      detail::make_sequence_base(this->root.sequences, cache, main, detail::afm2_magic);
+    ctx.sequence_base = cache.sequence_base(this->root.sequences, main, AnimCache::afm2_magic);
     if (auto r = this->root.read(main, ctx); !r)
       return r;
     if (auto r = check_header(this->root.magic, this->root.format_version); !r)
@@ -95,7 +92,7 @@ namespace wowlib::formats::m2
 
     this->skins.reserve(this->root.num_skin_profiles);
     for (std::uint32_t i = 0; i < this->root.num_skin_profiles; ++i)
-      if (auto r = read_skin_into(fs, FileKey{detail::skin_path(stem, i)},
+      if (auto r = read_skin_into(fs, FileKey{paths.skin(i)},
                                   std::format("skin {}", i), this->skins);
           !r)
         return r;
@@ -118,9 +115,9 @@ namespace wowlib::formats::m2
                           r.error().native_error);
 
     // name fallback for satellites without FileDataID entries
-    std::optional<std::string> stem;
+    std::optional<SatellitePaths> paths;
     if (const FileKey resolved = fs.resolve(key); resolved.path)
-      stem = detail::m2_stem(*resolved.path);
+      paths.emplace(*resolved.path);
 
     const std::span<const std::byte> md21{this->chunks.md21.bytes};
 
@@ -130,16 +127,16 @@ namespace wowlib::formats::m2
       has_skel ? &this->skel.sequence_block.sequences : &this->root.sequences;
     const auto& afids = has_skel ? this->skel.effective_anim_fdids() : this->chunks.anim_fdids;
 
-    detail::AnimCache cache{[&, stem](std::uint16_t id, std::uint16_t sub) -> Result<FileBuffer> {
-      const std::uint32_t fdid = detail::afid_lookup(afids, id, sub);
+    AnimCache cache{[&, paths](SequenceKey seq) -> Result<FileBuffer> {
+      const std::uint32_t fdid = AnimCache::afid_lookup(afids, seq);
       if (fdid != 0)
         return fs.read_file(FileKey{FileDataID{fdid}});
-      if (stem)
-        return fs.read_file(FileKey{detail::anim_path(*stem, id, sub)});
+      if (paths)
+        return fs.read_file(FileKey{paths->anim(seq)});
       return make_error(ErrorCode::FileNotFound, "no AFID entry and no path");
     }};
     OffsetReadContext ctx;
-    ctx.sequence_base = detail::make_sequence_base(*sequences, cache, md21, detail::afm2_magic);
+    ctx.sequence_base = cache.sequence_base(*sequences, md21, AnimCache::afm2_magic);
     if (auto r = this->root.read(md21, ctx); !r)
       return r;
     if (auto r = check_header(this->root.magic, this->root.format_version); !r)
@@ -223,37 +220,36 @@ namespace wowlib::formats::m2
       }
 
     // name fallback for satellites without FileDataID entries
-    std::optional<std::string> stem;
+    std::optional<SatellitePaths> paths;
     if (const FileKey resolved = fs.resolve(key); resolved.path)
-      stem = detail::m2_stem(*resolved.path);
+      paths.emplace(*resolved.path);
 
-    detail::AnimCache cache{[&](std::uint16_t id, std::uint16_t sub) -> Result<FileBuffer> {
-      const std::uint32_t fdid = detail::afid_lookup(effective_anim_fdids(), id, sub);
+    AnimCache cache{[&, paths](SequenceKey seq) -> Result<FileBuffer> {
+      const std::uint32_t fdid = AnimCache::afid_lookup(effective_anim_fdids(), seq);
       if (fdid != 0)
         return fs.read_file(FileKey{FileDataID{fdid}});
-      if (stem)
-        return fs.read_file(FileKey{detail::anim_path(*stem, id, sub)});
+      if (paths)
+        return fs.read_file(FileKey{paths->anim(seq)});
       return make_error(ErrorCode::FileNotFound, "no AFID entry and no path");
     }};
 
-    const auto make_ctx = [&](std::span<const std::byte> inline_base, std::uint32_t window) {
+    const auto make_ctx = [&](std::span<const std::byte> inline_base, std::uint32_t target) {
       OffsetReadContext ctx;
-      ctx.sequence_base =
-        detail::make_sequence_base(sequence_block.sequences, cache, inline_base, window);
+      ctx.sequence_base = cache.sequence_base(sequence_block.sequences, inline_base, target);
       return ctx;
     };
 
     if (!skb1.bytes.empty())
     {
       const std::span<const std::byte> base{skb1.bytes};
-      if (auto r = bone_block.read(base, make_ctx(base, detail::afsb_magic)); !r)
+      if (auto r = bone_block.read(base, make_ctx(base, AnimCache::afsb_magic)); !r)
         return make_error(r.error().code, std::format("SKB1: {}", r.error().message),
                           r.error().native_error);
     }
     if (!ska1.bytes.empty())
     {
       const std::span<const std::byte> base{ska1.bytes};
-      if (auto r = attachment_block.read(base, make_ctx(base, detail::afsa_magic)); !r)
+      if (auto r = attachment_block.read(base, make_ctx(base, AnimCache::afsa_magic)); !r)
         return make_error(r.error().code, std::format("SKA1: {}", r.error().message),
                           r.error().native_error);
     }
@@ -271,22 +267,20 @@ namespace wowlib::formats::m2
     if (!resolved.path)
       return make_error(ErrorCode::PathNotResolvable,
                         "saving a skeleton needs a path for the key");
-    const std::string stem = detail::m2_stem(*resolved.path);
+    const SatellitePaths paths{*resolved.path};
 
     Skeleton<V> copy = *this;
 
     // re-encode the bone/attachment blocks, splitting external sequences
     // into per-sequence AFSB/AFSA buffers
-    std::map<std::uint32_t, FileBuffer> afsa_bufs;
-    std::map<std::uint32_t, FileBuffer> afsb_bufs;
+    AnimBuffers afsa_bufs;
+    AnimBuffers afsb_bufs;
     {
-      auto encoded =
-        bone_block.write(detail::make_sequence_sink(sequence_block.sequences, afsb_bufs));
+      auto encoded = bone_block.write(afsb_bufs.sink(sequence_block.sequences));
       if (!encoded)
         return std::unexpected{encoded.error()};
       copy.skb1.bytes = std::move(*encoded);
-      auto attachments =
-        attachment_block.write(detail::make_sequence_sink(sequence_block.sequences, afsa_bufs));
+      auto attachments = attachment_block.write(afsa_bufs.sink(sequence_block.sequences));
       if (!attachments)
         return std::unexpected{attachments.error()};
       copy.ska1.bytes = std::move(*attachments);
@@ -296,25 +290,18 @@ namespace wowlib::formats::m2
     // model's AFM2 (event) section is not represented here — the owning
     // M2's write is the full-fidelity save path.
     copy.anim_fdids.clear();
-    std::set<std::uint32_t> keys;
-    for (const auto& [k, buf] : afsa_bufs)
-      keys.insert(k);
-    for (const auto& [k, buf] : afsb_bufs)
-      keys.insert(k);
-    for (const std::uint32_t packed : keys)
+    for (const SequenceKey seq : AnimBuffers::merged_keys({&afsa_bufs, &afsb_bufs}))
     {
       FileBuffer file;
-      detail::append_chunk(file, detail::afsa_magic, afsa_bufs[packed]);
-      detail::append_chunk(file, detail::afsb_magic, afsb_bufs[packed]);
-      const auto r =
-        fs.add_file(detail::anim_path(stem, packed >> 16, packed & 0xFFFFu), file);
+      afsa_bufs.append_chunk_to(file, AnimCache::afsa_magic, seq);
+      afsb_bufs.append_chunk_to(file, AnimCache::afsb_magic, seq);
+      const auto r = fs.add_file(paths.anim(seq), file);
       if (!r)
         return make_error(r.error().code,
-                          std::format("anim {:04}-{:02}: {}", packed >> 16, packed & 0xFFFFu,
+                          std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
                                       r.error().message),
                           r.error().native_error);
-      copy.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
-                                 static_cast<std::uint16_t>(packed & 0xFFFFu), r->value});
+      copy.anim_fdids.push_back({seq.id, seq.variation, r->value});
     }
 
     const auto bytes = copy.ChunkedFile<Skeleton<V>>::write();
@@ -382,7 +369,7 @@ namespace wowlib::formats::m2
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
       return make_error(ErrorCode::PathNotResolvable, "saving an M2 needs a path for the key");
-    const std::string stem = detail::m2_stem(*resolved.path);
+    const SatellitePaths paths{*resolved.path};
 
     if constexpr (V < m2_per_sequence_timelines)
     {
@@ -411,9 +398,9 @@ namespace wowlib::formats::m2
       // an .anim buffer, filled as the tracks route their per-sequence
       // blocks through the sinks (empty ones still write — the client
       // requests the file whenever the flags say so).
-      std::map<std::uint32_t, FileBuffer> afm2_bufs;
-      const auto make_sink = [sequences](std::map<std::uint32_t, FileBuffer>& bufs) {
-        return detail::make_sequence_sink(*sequences, bufs);
+      AnimBuffers afm2_bufs;
+      const auto make_sink = [sequences](AnimBuffers& bufs) {
+        return bufs.sink(*sequences);
       };
       auto bytes = root.write(make_sink(afm2_bufs));
       if (!bytes)
@@ -433,21 +420,18 @@ namespace wowlib::formats::m2
         // pre-Legion: raw .anim payloads under conventional names
         if (auto r = fs.add_file(*resolved.path, *bytes); !r)
           return std::unexpected{r.error()};
-        for (const auto& [packed, buf] : afm2_bufs)
-          if (auto r =
-                fs.add_file(detail::anim_path(stem, packed >> 16, packed & 0xFFFFu), buf);
-              !r)
+        for (const auto& [seq, buf] : afm2_bufs.entries())
+          if (auto r = fs.add_file(paths.anim(seq), buf); !r)
             return make_error(r.error().code,
-                              std::format("anim {:04}-{:02}: {}", packed >> 16,
-                                          packed & 0xFFFFu, r.error().message),
+                              std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
+                                          r.error().message),
                               r.error().native_error);
         for (std::size_t i = 0; i < this->skins.size(); ++i)
         {
           const auto skin_bytes = this->skins[i].write();
           if (!skin_bytes)
             return std::unexpected{skin_bytes.error()};
-          if (auto r = fs.add_file(detail::skin_path(stem, static_cast<std::uint32_t>(i)),
-                                   *skin_bytes);
+          if (auto r = fs.add_file(paths.skin(static_cast<std::uint32_t>(i)), *skin_bytes);
               !r)
             return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
                               r.error().native_error);
@@ -468,8 +452,7 @@ namespace wowlib::formats::m2
           const auto bone_bytes = this->bone_files[i].write();
           if (!bone_bytes)
             return std::unexpected{bone_bytes.error()};
-          const auto r = fs.add_file(detail::bone_path(stem, static_cast<std::uint32_t>(i)),
-                                     *bone_bytes);
+          const auto r = fs.add_file(paths.bone(static_cast<std::uint32_t>(i)), *bone_bytes);
           if (!r)
             return make_error(r.error().code,
                               std::format(".bone {}: {}", i, r.error().message),
@@ -481,23 +464,20 @@ namespace wowlib::formats::m2
         if (!has_skel)
         {
           // .anim payloads, AFM2-wrapped when the model asks for chunked ones
-          for (const auto& [packed, buf] : afm2_bufs)
+          for (const auto& [seq, buf] : afm2_bufs.entries())
           {
             FileBuffer file;
             if ((root.global_flags & 0x2000u) != 0)
-              detail::append_chunk(file, detail::afm2_magic, buf);
+              afm2_bufs.append_chunk_to(file, AnimCache::afm2_magic, seq);
             else
               file = buf;
-            const auto r =
-              fs.add_file(detail::anim_path(stem, packed >> 16, packed & 0xFFFFu), file);
+            const auto r = fs.add_file(paths.anim(seq), file);
             if (!r)
               return make_error(r.error().code,
-                                std::format("anim {:04}-{:02}: {}", packed >> 16,
-                                            packed & 0xFFFFu, r.error().message),
+                                std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
+                                            r.error().message),
                                 r.error().native_error);
-            stream.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
-                                        static_cast<std::uint16_t>(packed & 0xFFFFu),
-                                        r->value});
+            stream.anim_fdids.push_back({seq.id, seq.variation, r->value});
           }
           stream.bone_fdids = bone_fdids;
         }
@@ -509,8 +489,8 @@ namespace wowlib::formats::m2
           // deduced: inside m2::detail the bare Skeleton names the RAW
           // template, but the member is the collapsed m2::Skeleton alias type
           auto skel_copy = this->skel;
-          std::map<std::uint32_t, FileBuffer> afsa_bufs;
-          std::map<std::uint32_t, FileBuffer> afsb_bufs;
+          AnimBuffers afsa_bufs;
+          AnimBuffers afsb_bufs;
           {
             auto encoded = this->skel.bone_block.write(make_sink(afsb_bufs));
             if (!encoded)
@@ -523,36 +503,27 @@ namespace wowlib::formats::m2
           }
 
           skel_copy.anim_fdids.clear();
-          std::set<std::uint32_t> keys;
-          for (const auto& [k, buf] : afm2_bufs)
-            keys.insert(k);
-          for (const auto& [k, buf] : afsa_bufs)
-            keys.insert(k);
-          for (const auto& [k, buf] : afsb_bufs)
-            keys.insert(k);
-          for (const std::uint32_t packed : keys)
+          for (const SequenceKey seq :
+               AnimBuffers::merged_keys({&afm2_bufs, &afsa_bufs, &afsb_bufs}))
           {
             FileBuffer file;
-            detail::append_chunk(file, detail::afm2_magic, afm2_bufs[packed]);
-            detail::append_chunk(file, detail::afsa_magic, afsa_bufs[packed]);
-            detail::append_chunk(file, detail::afsb_magic, afsb_bufs[packed]);
-            const auto r =
-              fs.add_file(detail::anim_path(stem, packed >> 16, packed & 0xFFFFu), file);
+            afm2_bufs.append_chunk_to(file, AnimCache::afm2_magic, seq);
+            afsa_bufs.append_chunk_to(file, AnimCache::afsa_magic, seq);
+            afsb_bufs.append_chunk_to(file, AnimCache::afsb_magic, seq);
+            const auto r = fs.add_file(paths.anim(seq), file);
             if (!r)
               return make_error(r.error().code,
-                                std::format("anim {:04}-{:02}: {}", packed >> 16,
-                                            packed & 0xFFFFu, r.error().message),
+                                std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
+                                            r.error().message),
                                 r.error().native_error);
-            skel_copy.anim_fdids.push_back({static_cast<std::uint16_t>(packed >> 16),
-                                            static_cast<std::uint16_t>(packed & 0xFFFFu),
-                                            r->value});
+            skel_copy.anim_fdids.push_back({seq.id, seq.variation, r->value});
           }
           skel_copy.bone_fdids = bone_fdids;
 
           const auto skel_bytes = skel_copy.ChunkedFile<m2::Skeleton<V>>::write();
           if (!skel_bytes)
             return std::unexpected{skel_bytes.error()};
-          const auto r = fs.add_file(detail::skel_path(stem), *skel_bytes);
+          const auto r = fs.add_file(paths.skel(), *skel_bytes);
           if (!r)
             return make_error(r.error().code, std::format(".skel: {}", r.error().message),
                               r.error().native_error);
@@ -565,8 +536,7 @@ namespace wowlib::formats::m2
           const auto skin_bytes = this->skins[i].write();
           if (!skin_bytes)
             return std::unexpected{skin_bytes.error()};
-          const auto r = fs.add_file(detail::skin_path(stem, static_cast<std::uint32_t>(i)),
-                                     *skin_bytes);
+          const auto r = fs.add_file(paths.skin(static_cast<std::uint32_t>(i)), *skin_bytes);
           if (!r)
             return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
                               r.error().native_error);
@@ -577,8 +547,8 @@ namespace wowlib::formats::m2
           const auto skin_bytes = this->lod_skins[i].write();
           if (!skin_bytes)
             return std::unexpected{skin_bytes.error()};
-          const auto r = fs.add_file(
-            detail::lod_skin_path(stem, static_cast<std::uint32_t>(i) + 1), *skin_bytes);
+          const auto r =
+            fs.add_file(paths.lod_skin(static_cast<std::uint32_t>(i) + 1), *skin_bytes);
           if (!r)
             return make_error(r.error().code,
                               std::format("lod skin {}: {}", i, r.error().message),
@@ -589,7 +559,7 @@ namespace wowlib::formats::m2
         stream.phys_fdid.clear();
         if (!this->phys.bytes.empty())
         {
-          const auto r = fs.add_file(stem + ".phys", this->phys.bytes);
+          const auto r = fs.add_file(paths.phys(), this->phys.bytes);
           if (!r)
             return make_error(r.error().code, std::format(".phys: {}", r.error().message),
                               r.error().native_error);

@@ -157,14 +157,14 @@ namespace wowlib::formats::m2
   inline constexpr std::array m2_skin_pivots{m2_per_sequence_timelines,
                                              m2_multitex_particles};
 
-  /** M2Data (the MD20 body): the union of every record pivot, its own trait
+  /** M2Root (the MD20 body): the union of every record pivot, its own trait
       slots (TBC combos, WotLK external skins) and the wire-version steps
       (263/264/272/274). */
   inline constexpr std::array m2_data_pivots{
     m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,
     m2_split_blend_times, m2_chunked_container};
 
-  /** M2File (the chunked stream): every chunk-introduction build — each
+  /** M2ChunkedFile (the chunked stream): every chunk-introduction build — each
       documented since() value, so the active chunk set is constant within a
       range. Canonicalized over m2_chunked_versions. */
   inline constexpr std::array m2_file_pivots{

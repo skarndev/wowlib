@@ -298,3 +298,43 @@ client's own symbol), `Skin<V>`, `Skeleton`, `BoneFile`. Directory mirrors
 namespace (realized 2026-07-24, see Refactor sweep): `formats/m2/{body/…,
 skin/,bone/,detail/}` with body record headers under `body/records/` and the
 top-level entities (m2.hpp, skeleton.hpp) at the root.
+
+## Second sweep (2026-07-25; user's 5-point request) — CURRENT LAYOUT
+
+Supersedes the naming/layout notes above (kept as history):
+
+- **M2Data → M2Root** (`m2/root/root.hpp`): the entity template is PUBLIC at
+  `m2::root::M2Root` — no detail:: nesting (user: "M2Data itself should not
+  live in a detail namespace"); the canonicalizing alias sits in m2
+  (`m2::M2Root = root::M2Root<canonical>`). Trait slots stay in root::detail,
+  qualified `root::detail::` in the base list (bare `detail::` is ambiguous
+  against record::detail via the using-directive). Records live in
+  `m2::root::record` (`m2/root/record/*.hpp`, singular).
+- **M2File → M2ChunkedFile** (`m2/chunked/chunked.hpp`): same shape — public
+  template `m2::chunked::M2ChunkedFile`, canonicalizing alias in m2; its
+  companion-chunk payload records (AnimFileEntry, EXPT/EXP2, DETL,
+  Exp2/Pabc/Psbc/Pgd1Data) in `m2::chunked::record`
+  (`m2/chunked/records.hpp`). Python mirrors: formats.m2.root(.record),
+  formats.m2.chunked(.record).
+- **X-macros live in the bindings now**: every WOWLIB_*_RANGES table, the
+  welded per-range aliases and the ranges_valid checks moved from
+  m2.hpp/wmo.hpp to `bindings/python/instantiations/{m2,wmo}_ranges.hpp`
+  (included by instantiations/{m2,wmo}.hpp). GOTCHA: opaque_gen.cpp MUST
+  include both ranges headers — the opaque-container walk finds welded
+  per-version entities only through the aliases; without them it emits an
+  empty header and every vector silently binds by value (caught by
+  tests/python/test_vectors.py failing).
+- **satellite_io.hpp → m2/satellites.hpp entities** (m2/detail/ is gone):
+  `SequenceKey` (id+variation, keys the buffer/cache maps and the .anim
+  naming), `SatellitePaths` (stem + skin/lod_skin/anim/bone/skel/phys
+  naming), `AnimCache` (lazy window cache; afm2/afsa/afsb magics and
+  afid_lookup as statics; `sequence_base()` member = the shared read
+  resolver), `AnimBuffers` (write-side per-sequence buffers: `sink()`,
+  `entries()`, `append_chunk_to()`, `merged_keys()`). The alias/external
+  predicates became WELDED METHODS on every M2Sequence era variant:
+  `is_alias()`, `owns_anim_file()`.
+- **Named build constants** (`core/client_builds.hpp`, wowlib::builds):
+  every =since()/=until() and pivot-list version spells a patch name
+  (LegionAlpha 7.0.1.20740, TidesOfVengeance 8.1.0.27826, LegacyOfArathor
+  11.1.7.60520, era markers Cataclysm/Legion/... at build 0). Disambiguate
+  same-patch builds with _NNNNN suffix (ShadowsOfArgus_24473/_24500).
