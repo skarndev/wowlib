@@ -20,13 +20,32 @@ exposing that version's layout. Satellite files bake into the entity on
 
 Pages:
 
-- **[Fields & versions](fields.md)** — the **generic model**: every MD20 body
-  field and every Legion+ shell chunk, each tagged with the expansion range it
-  is available in (generated from the sources, so the ranges never drift).
-- **[Entities](entities.md)** — `M2`, `M2Root`, `Skin`, `M2ChunkedFile`,
-  `Skeleton`, `BoneFile` and their per-version classes.
-- **[Records](records.md)** — the decoded data records (sequences, bones,
+- **[M2 entity](entities.md)** — the user-facing compound `M2` (the assembly
+  with the body, chunks and every satellite baked in), plus `Skin`,
+  `Skeleton` and `BoneFile`.
+- **[M2 root](root.md)** — the MD20 body: every field with the expansion
+  range it is available in (generated from the sources, so the ranges never
+  drift).
+- **[M2 chunks](chunks.md)** — the Legion+ chunked shell, each chunk with its
+  FourCC and expansion badges.
+- **[M2 records](records.md)** — the decoded data records (sequences, bones,
   animation tracks, textures, cameras, emitters, skin tables).
+
+## Version-agnostic unions
+
+Each family exposes an `Any…` **type alias** — the union of all its per-version
+classes, bound as a real `types.UnionType` on its module (importable, and usable
+in `isinstance` on Python ≥ 3.10). It is the runtime return type of
+`for_version(expansion: Expansion)` and the natural annotation when your code
+handles any version:
+
+| Alias | Module | Union of |
+|---|---|---|
+| `AnyM2` | `wowlib.formats.m2` | every `M2⟨version⟩` |
+| `AnyM2Root` | `wowlib.formats.m2.root` | every `M2Root⟨version⟩` |
+| `AnyM2ChunkedFile` | `wowlib.formats.m2.chunked` | every Legion+ `M2ChunkedFile⟨version⟩` |
+| `AnySkin` | `wowlib.formats.m2.skin` | every WotLK+ `Skin⟨version⟩` |
+| `AnySkeleton` | `wowlib.formats.m2` | every Legion+ `Skeleton⟨version⟩` |
 
 !!! info "Offset format: canonical writes, semantic round-trip"
     Unlike the chunked formats, M2's wire layout is offset-addressed, and

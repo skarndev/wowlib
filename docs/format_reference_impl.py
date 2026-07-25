@@ -157,6 +157,8 @@ class Side:
     category_blurbs: dict[str, str]
     anchor: str                               # category-anchor prefix ("wmo-root")
     sort_key: Callable[[dict], object] | None = None   # None -> declaration order
+    page: str | None = None                   # src_uri of the page this side lives on
+                                              # (None -> the format's fields_page)
     _fields_cache: dict | None = dc_field(default=None, repr=False)
 
     def fields(self) -> dict[str, dict]:
@@ -178,8 +180,12 @@ class StructPage:
     owner_side: Side | None = None            # entity side whose fields backlink here
     enum_chunk: dict[str, tuple[str, str]] = dc_field(default_factory=dict)
     names_filter: Callable[[str], bool] | None = None  # restrict stub classes considered
+    dedup_marker: str | None = None           # page marker for the deduplicated
+                                              # family listing (None -> the page
+                                              # dumps the module itself)
     _classes: set[str] | None = dc_field(default=None, repr=False)
     _ints: dict | None = dc_field(default=None, repr=False)
+    _reps: dict | None = dc_field(default=None, repr=False)
 
     def classes(self) -> set[str]:
         if self._classes is None:
@@ -193,6 +199,20 @@ class StructPage:
         if self._ints is None:
             self._ints = _struct_int_fields(self.headers)
         return self._ints
+
+    def anchor_class(self, name: str) -> str:
+        """The class a link to ``name`` should anchor at: on a deduplicated page
+        only each family's representative renders, so a versioned sibling links
+        to its family's representative; elsewhere the class itself."""
+        if not self.dedup_marker:
+            return name
+        if self._reps is None:
+            self._reps = {}
+            for fam in _family_groups(self).values():
+                rep = fam[-1][1]
+                for _rank, cls in fam:
+                    self._reps[cls] = rep
+        return self._reps.get(name, name)
 
 
 @dataclass
@@ -263,6 +283,17 @@ def _page_url(src_uri: str) -> str:
     """The built URL path of a page src_uri (python/wmo/fields.md ->
     python/wmo/fields/), matching mkdocs' directory-URL scheme."""
     return src_uri[: -len(".md")] + "/" if src_uri.endswith(".md") else src_uri
+
+
+def _side_page(fmt: Format, side: Side) -> str:
+    """The page a side's field sections live on: its own ``page`` when set
+    (M2 splits root/chunks onto separate pages), else the format's shared
+    fields page (WMO)."""
+    return side.page or fmt.fields_page
+
+
+def _side_pages(fmt: Format) -> set[str]:
+    return {_side_page(fmt, side) for side in fmt.sides}
 
 
 # --- source parsing -----------------------------------------------------------
@@ -376,6 +407,46 @@ def _stub_classes(rel: str) -> set[str]:
     return set(re.findall(r"^class ([A-Za-z0-9_]+)", _stub_text(rel), re.M))
 
 
+def _stub_class_blocks(rel: str) -> list[tuple[str, str]]:
+    """The stub's classes as ordered (name, class block text) pairs."""
+    out: list[tuple[str, str]] = []
+    for block in re.split(r"(?=^class )", _stub_text(rel), flags=re.M):
+        m = re.match(r"class ([A-Za-z0-9_]+)", block)
+        if m:
+            out.append((m.group(1), block))
+    return out
+
+
+def _family_groups(sp: StructPage) -> dict[str, list[tuple[int, str]]]:
+    """The page's classes grouped into version families: {stem: [(rank, name),
+    …]} in stub order, each family sorted by its range's first expansion
+    (unversioned classes are single-member families at rank -1)."""
+    groups: dict[str, list[tuple[int, str]]] = {}
+    for name, _block in _stub_class_blocks(sp.stub):
+        if sp.names_filter and not sp.names_filter(name):
+            continue
+        split = split_range_suffix(name)
+        stem, rank = (split[0], range_rank(split[1])) if split else (name, -1)
+        groups.setdefault(stem, []).append((rank, name))
+    for fam in groups.values():
+        fam.sort()
+    return groups
+
+
+_PROP_RE = re.compile(
+    r'@property\s+def (\w+)\(self\)\s*->\s*([^:\n]+):(?:\s*"""(.*?)""")?', re.S)
+
+
+def _class_props(block: str) -> dict[str, tuple[str, str]]:
+    """{property name: (return annotation, docstring)} of a stub class block,
+    in declaration order."""
+    out: dict[str, tuple[str, str]] = {}
+    for m in _PROP_RE.finditer(block):
+        out.setdefault(m.group(1), (m.group(2).strip(),
+                                    re.sub(r"\s+", " ", m.group(3) or "").strip()))
+    return out
+
+
 # The opaque Vector wrappers (VectorUnsignedInt, VectorC3Vector, VectorSMOMaterial,
 # VectorSMOBatchWotlk, …) mirror the list interface with the same guarantees, but
 # their generated names read poorly in the docs. Coerce every Vector type annotation
@@ -399,8 +470,10 @@ def _vector_elements() -> dict[str, str]:
               or re.search(r"def __getitem__\(self, arg: int[^)]*\)\s*->\s*([A-Za-z0-9_.]+)", block))
         if not em:
             continue
-        elem = _generic_name(em.group(1).split(".")[-1])
-        out[m.group(1)] = elem       # bare element name; list[…] built at rewrite time
+        # The CONCRETE element name (incl. versioned ones like WMOBatchWotlk) —
+        # the display goes generic at rewrite time, but the concrete name is what
+        # the element registry and anchors are keyed by.
+        out[m.group(1)] = em.group(1).split(".")[-1]
     _VECTOR_ELEMS_CACHE = out
     return out
 
@@ -410,23 +483,26 @@ def _vector_elements() -> dict[str, str]:
 _VEC_LINK_RE = re.compile(r'<a\b[^>]*>(Vector[A-Za-z0-9_]+)</a>')
 _VEC_SPAN_RE = re.compile(r'<span title="[^"]*\b(Vector[A-Za-z0-9_]+)">\1</span>')
 
-# Element class name -> (page src_uri, module) for linking inside list[…]:
-# explicit per-format elem_links first, then every struct page's stub classes
-# (first format/page wins). Lazy so it runs after the configs load; reset per
+# Element class name -> (page src_uri, module, anchor class) for linking inside
+# list[…]: explicit per-format elem_links first (anchored at the name itself —
+# the family bases), then every struct page's stub classes (first format/page
+# wins; on a deduplicated page a versioned class anchors at its family's
+# rendered representative). Lazy so it runs after the configs load; reset per
 # build when the module reloads.
-_ELEM_PAGE_CACHE: dict[str, tuple[str, str]] | None = None
+_ELEM_PAGE_CACHE: dict[str, tuple[str, str, str]] | None = None
 
 
-def _elem_pages() -> dict[str, tuple[str, str]]:
+def _elem_pages() -> dict[str, tuple[str, str, str]]:
     global _ELEM_PAGE_CACHE
     if _ELEM_PAGE_CACHE is None:
         _ELEM_PAGE_CACHE = {}
         for fmt in formats():
-            for name, target in fmt.elem_links.items():
-                _ELEM_PAGE_CACHE.setdefault(name, target)
+            for name, (page, module) in fmt.elem_links.items():
+                _ELEM_PAGE_CACHE.setdefault(name, (page, module, name))
             for sp in fmt.struct_pages:
                 for n in sp.classes():
-                    _ELEM_PAGE_CACHE.setdefault(n, (sp.page, sp.module))
+                    _ELEM_PAGE_CACHE.setdefault(n, (sp.page, sp.module,
+                                                    sp.anchor_class(n)))
     return _ELEM_PAGE_CACHE
 
 
@@ -441,21 +517,49 @@ def _common_names() -> set[str]:
     return _COMMON_CACHE
 
 
-def _elem_html(elem: str, base: str) -> str:
-    """The element inside list[…], linked to its documentation when it is a known
-    struct: a wire struct/record on its format's struct page (SMOPoly,
-    WMOBatch⟨version⟩ → its base, M2Sequence⟨version⟩ → its base), or a shared
-    primitive on the Common page (C3Vector, CArgb, …)."""
-    lookup = elem.replace(_VERSION_PLACEHOLDER, "")
-    target = _elem_pages().get(lookup)
+def _elem_html(concrete: str, base: str) -> str:
+    """The element inside list[…], displayed generically for versioned names
+    (WMOBatchWotlk -> WMOBatch⟨version⟩) and linked to its documentation when it
+    is a known struct: a wire struct/record on its format's struct page —
+    anchored at the CONCRETE versioned class (page ids keep real names), or at
+    the family representative on a deduplicated page —, an entity family by its
+    unsuffixed base, or a shared primitive on the Common page (C3Vector, …)."""
+    display = _generic_name(concrete)
+    stem = display.replace(_VERSION_PLACEHOLDER, "")
+    pages = _elem_pages()
+    target = pages.get(concrete) or pages.get(stem)
     if target:
-        page, module = target
-        anchor = f"{base}{_page_url(page)}#{module}.{lookup}"
-    elif lookup in _common_names():
-        anchor = f"{base}python/common/#wowlib.formats.common.{lookup}"
+        page, module, anchor_cls = target
+        anchor = f"{base}{_page_url(page)}#{module}.{anchor_cls}"
+    elif concrete in _common_names():
+        anchor = f"{base}python/common/#wowlib.formats.common.{concrete}"
     else:
-        return elem
-    return f'<a class="autorefs autorefs-internal" href="{anchor}">{elem}</a>'
+        return display
+    return f'<a class="autorefs autorefs-internal" href="{anchor}">{display}</a>'
+
+
+# Docstring-section tables (mkdocstrings' "Attributes:" rendering) always carry
+# a Type column; the flag-enum enumerator docs have no types, leaving it empty.
+# Drop the column from any table where every row's Type cell is blank.
+_SECTION_TABLE_RE = re.compile(
+    r"<table>\s*<thead>.*?</thead>\s*<tbody>.*?</tbody>\s*</table>", re.DOTALL)
+_SECTION_ROW_RE = re.compile(
+    r"(<tr[^>]*>)\s*(<td[^>]*>.*?</td>)\s*(<td[^>]*>.*?</td>)\s*(<td[^>]*>.*?</td>)\s*(</tr>)",
+    re.DOTALL)
+
+
+def _strip_empty_type_columns(html_out: str) -> str:
+    def fix(m: re.Match) -> str:
+        tbl = m.group(0)
+        if "<th>Type</th>" not in tbl:
+            return tbl
+        rows = _SECTION_ROW_RE.findall(tbl)
+        if not rows or any(re.sub(r"<[^>]+>", "", r[2]).strip() for r in rows):
+            return tbl                     # no rows, or a typed row exists
+        tbl = tbl.replace("<th>Type</th>", "", 1)
+        return _SECTION_ROW_RE.sub(lambda r: r.group(1) + r.group(2) + r.group(4)
+                                   + r.group(5), tbl)
+    return _SECTION_TABLE_RE.sub(fix, html_out)
 
 
 def _coerce_vectors(html_out: str, base: str) -> str:
@@ -473,7 +577,8 @@ def _pill(major: int, text: str, base: str) -> str:
         # With an icon the emblem conveys the expansion, so show only the version
         # number when the text carries one (range badge "BfA 8.1" -> "8.1"); with no
         # number (legend "Vanilla", or a whole-expansion range "Cata") show the label.
-        ver = re.search(r"\d[\d.]*", text)
+        # A "< 8.1" (removed-before) label keeps its comparator.
+        ver = re.search(r"<\s*\d[\d.]*|\d[\d.]*", text)
         label = ver.group(0) if ver else text
         inner = (f'<img class="exp-icon" src="{base}{rel}" alt="{html.escape(name)}">'
                  f'<span class="exp-label">{html.escape(label)}</span>')
@@ -490,19 +595,32 @@ def _version_label(major: int, minor: int, patch: int) -> str:
 def _range_html(since: tuple | None, until: tuple | None, base: str) -> str:
     """A coloured availability range. A field present in every supported version
     (no since/until) gets NO badge — only version-restricted fields are tagged.
-    since = introduced (open-ended, arrow); until = removed at that exact version
-    (bounded, plain bar) — the removal point is shown as-is (mid-expansion aware),
-    never `until.major - 1`, which mis-renders a mid-expansion boundary."""
+    since = introduced (open-ended, arrow); until = removed at that version
+    (exclusive). The badge reads INCLUSIVE on both ends — it shows the last
+    version that still HAS the field: an era-marker removal (X.0.0, the named
+    era constants) renders the PREVIOUS expansion (until WotLK -> "… TBC"),
+    while a mid-expansion removal keeps its expansion with a "< 8.1" pill so
+    the exact boundary stays visible. A range that collapses to one expansion
+    renders a single pill."""
     if since is None and until is None:
         return ""
     if until is None:                                    # introduced, present onward
         start = _pill(since[0], _version_label(*since[:3]), base)
         return f'<span class="wmo-range">{start}<span class="wmo-bar wmo-bar--open"></span></span>'
-    # removed at `until` (exclusive): bounded range ending at the removal version
-    start = (_pill(since[0], _version_label(*since[:3]), base) if since
-             else _pill(1, "Vanilla", base))
-    removed = _pill(until[0], _version_label(*until[:3]), base)
-    title = f"removed in {_version_label(*until[:3])}"
+    major, minor, patch = until[:3]
+    title = f"removed in {_version_label(major, minor, patch)}"
+    if minor == 0 and patch == 0:        # era marker: last present = previous expansion
+        end_major, end_label = major - 1, EXPANSIONS[major - 1][1]
+    else:                                # mid-expansion removal: present before it
+        num = f"{major}.{minor}" if minor else f"{major}.{minor}.{patch}"
+        end_major, end_label = major, f"< {num}"
+    start_tuple = since if since else (1, 0, 0)
+    start_label = _version_label(*start_tuple[:3]) if since else "Vanilla"
+    if start_tuple[0] == end_major and start_label == end_label:
+        pill = _pill(end_major, end_label, base)
+        return f'<span class="wmo-range" title="{title}">{pill}</span>'
+    start = _pill(start_tuple[0], start_label, base)
+    removed = _pill(end_major, end_label, base)
     return (f'<span class="wmo-range" title="{title}">{start}'
             f'<span class="wmo-bar"></span>{removed}</span>')
 
@@ -592,6 +710,8 @@ def _augment_fields(html_out: str, fmt: Format, base: str, src: str) -> str:
     # Field info is keyed by name (identical across versions), so only the side and
     # field name matter, not the class suffix.
     for side in fmt.sides:
+        if _side_page(fmt, side) != src:
+            continue
         fields = side.fields()
         hid_re = re.compile(
             re.escape(side.module) + r"\.(?:" + "|".join(side.badge_classes) + r")"
@@ -651,7 +771,7 @@ def _augment_chunks(html_out: str, fmt: Format, sp: StructPage, base: str) -> st
         parts = []
         if name in owners and side:              # a wire struct -> its entity field(s)
             for fname, cc in owners[name]:
-                anchor = (f"{base}{_page_url(fmt.fields_page)}"
+                anchor = (f"{base}{_page_url(_side_page(fmt, side))}"
                           f"#{side.module}.{side.repr_class}.{fname}")
                 parts.append(f'<a class="wmo-owner" href="{anchor}"'
                              f' title="Used by the {fname} field of the '
@@ -751,12 +871,14 @@ def _annotate_int_widths(html_out: str, sp: StructPage) -> str:
     return pat.sub(repl, html_out)
 
 
-def _annotate_entity_int_widths(html_out: str, fmt: Format) -> str:
+def _annotate_entity_int_widths(html_out: str, fmt: Format, src: str) -> str:
     """Fields page: annotate the entity members whose (element) type is a
     fixed-width integer. Scalars (mver) render as `<span title="int">int</span>`;
     opaque int vectors have already been coerced to plain `list[int]` by
     _coerce_vectors (this must run after it), so both forms are handled."""
     for side in fmt.sides:
+        if _side_page(fmt, side) != src:
+            continue
         fields = side.fields()
         pat = re.compile(
             r'(?P<pre><h(?P<lvl>[1-6]) id="' + re.escape(side.module) +
@@ -784,6 +906,87 @@ def _annotate_entity_int_widths(html_out: str, fmt: Format) -> str:
 
         html_out = pat.sub(repl, html_out)
     return html_out
+
+
+# --- deduplicated record-page markdown generation -----------------------------
+def _display_type(ann: str) -> str:
+    """A stub return annotation rendered for prose: module paths stripped,
+    opaque Vector wrappers coerced to list[element], versioned names shown
+    generically. Subscripted annotations (list[…]) recurse per part."""
+    ann = ann.strip()
+    m = re.fullmatch(r"(\w+)\[(.+)\]", ann)
+    if m:
+        return f"{m.group(1)}[{_display_type(m.group(2))}]"
+    last = ann.split(".")[-1]
+    vec = _vector_elements().get(last)
+    if vec is not None:
+        return f"list[{_generic_name(vec)}]"
+    return _generic_name(last)
+
+
+def _era_words(suffix: str) -> str:
+    """A range suffix in words: "Wotlk" -> "WotLK only", "VanillaToTbc" ->
+    "Vanilla – TBC", "CataPlus" -> "Cata+"."""
+    m = _RANGE_RE.match(suffix)
+    if not m:
+        return suffix
+    first = EXPANSIONS[EXP_SUFFIXES.index(m.group(1)) + 1][1]
+    if m.group(3):
+        return f"{first}+"
+    if m.group(2):
+        return f"{first} – {EXPANSIONS[EXP_SUFFIXES.index(m.group(2)) + 1][1]}"
+    return f"{first} only"
+
+
+def _records_markdown(sp: StructPage) -> str:
+    """The deduplicated record listing behind a struct page's dedup marker: one
+    fully rendered class per family — the latest-version representative,
+    displayed generically — followed, for a versioned family, by a "Version
+    layouts" note spelling out how each earlier era differs (added, dropped and
+    retyped members, with the added members' docstrings), so the shared 90%% of
+    a record documents once instead of per instantiation."""
+    blocks = dict(_stub_class_blocks(sp.stub))
+    out: list[str] = []
+    for stem, fam in _family_groups(sp).items():
+        rep_rank, rep = fam[-1]
+        out.append(f"::: {sp.module}.{rep}\n    options:\n"
+                   "      show_root_heading: true\n"
+                   "      show_root_toc_entry: true\n"
+                   "      heading_level: 3")
+        if rep_rank < 0:
+            continue                       # unversioned: nothing to annotate
+        rep_era = _era_words(rep[len(stem):])
+        if len(fam) == 1:
+            out.append(f"*One layout across its whole range ({rep_era}).*")
+            continue
+        rep_props = _class_props(blocks[rep])
+        diffs: list[str] = []
+        for _rank, name in fam[:-1]:
+            props = _class_props(blocks[name])
+            era = _era_words(name[len(stem):])
+            added = [p for p in props if p not in rep_props]
+            dropped = [p for p in rep_props if p not in props]
+            retyped = [p for p in props
+                       if p in rep_props and props[p][0] != rep_props[p][0]]
+            bits = []
+            if added:
+                bits.append("adds " + "; ".join(
+                    f"`{p}: {_display_type(props[p][0])}`"
+                    + (f" — {props[p][1]}" if props[p][1] else "")
+                    for p in added))
+            if dropped:
+                bits.append("drops " + ", ".join(f"`{p}`" for p in dropped))
+            if retyped:
+                bits.append("retypes " + "; ".join(
+                    f"`{p}` to `{_display_type(props[p][0])}` (from "
+                    f"`{_display_type(rep_props[p][0])}`)" for p in retyped))
+            diffs.append(f"- **{era}** — {'; '.join(bits) if bits else 'same layout'}.")
+        adm = ['!!! info "Version layouts"',
+               f"    The listing above is the **{rep_era}** layout; earlier "
+               "clients differ:", ""]
+        adm += [f"    {line}" for line in diffs]
+        out.append("\n".join(adm))
+    return "\n\n".join(out)
 
 
 # --- fields-page markdown generation ------------------------------------------
@@ -884,13 +1087,14 @@ def _fields_markdown(fmt: Format, side: Side) -> str:
 def on_page_markdown(markdown, page, config, files, **kwargs):
     src = page.file.src_uri
     for fmt in formats():
-        if src != fmt.fields_page:
-            continue
-        if fmt.legend_marker in markdown:
+        if src in _side_pages(fmt) and fmt.legend_marker in markdown:
             markdown = markdown.replace(fmt.legend_marker, _legend(_base_prefix(page)))
         for side in fmt.sides:
-            if side.marker in markdown:
+            if src == _side_page(fmt, side) and side.marker in markdown:
                 markdown = markdown.replace(side.marker, _fields_markdown(fmt, side))
+        for sp in fmt.struct_pages:
+            if sp.dedup_marker and src == sp.page and sp.dedup_marker in markdown:
+                markdown = markdown.replace(sp.dedup_marker, _records_markdown(sp))
     return markdown
 
 
@@ -899,7 +1103,7 @@ def on_page_content(html_out, page, config, files, **kwargs):
     base = _base_prefix(page)
     for fmt in formats():
         try:
-            if src == fmt.fields_page:
+            if src in _side_pages(fmt):
                 _rewrite_toc(page.toc, fmt.res()["toc"])
                 html_out = _augment_fields(html_out, fmt, base, src)
             elif src in fmt.generic_pages:
@@ -933,6 +1137,7 @@ def on_post_page(output, page, config, **kwargs):
     try:
         if src.startswith("python/"):
             output = _coerce_vectors(output, _base_prefix(page))
+            output = _strip_empty_type_columns(output)
     except re.error:
         return output
     for fmt in formats():
@@ -940,9 +1145,9 @@ def on_post_page(output, page, config, **kwargs):
             for sp in fmt.struct_pages:
                 if sp.page == src and sp.headers:
                     output = _annotate_int_widths(output, sp)
-            if src == fmt.fields_page:
-                output = _annotate_entity_int_widths(output, fmt)
-            if src == fmt.fields_page or src in fmt.generic_pages:
+            if src in _side_pages(fmt):
+                output = _annotate_entity_int_widths(output, fmt, src)
+            if src in _side_pages(fmt) or src in fmt.generic_pages:
                 output = fmt.res()["xref"].sub(rf"\1\2{_VERSION_PLACEHOLDER}\3", output)
         except (OSError, re.error):
             continue

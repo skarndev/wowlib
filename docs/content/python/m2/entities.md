@@ -1,16 +1,17 @@
-# M2 entities
+# M2 entity
 
-The file-level entities of the M2 family: the `M2` assembly (body + baked
-satellites), the external `Skin` LOD view, the shared `Skeleton` and the
-`.bone` facial-pose file. Each family is documented as its version-agnostic
+The user-facing compound `M2` — the assembly with everything baked in (the
+MD20 body, the Legion+ chunks and every satellite file) — plus the other
+file-level entities of the family: the external `Skin` LOD view, the shared
+`Skeleton` and the `.bone` facial-pose file. Each family is documented as its version-agnostic
 base plus a representative per-version class, shown generically as
 `M2⟨version⟩` — the field set is identical across the versions a family
 supports. Construct a concrete version with `for_version(expansion)`;
 `read`/`write` speak the filesystem gateway.
 
 The MD20 body (`M2Root`) and the Legion+ chunked shell (`M2ChunkedFile`) are the
-assembly's two halves; their field-by-field reference, with expansion and
-FourCC badges, lives on **[Fields & versions](fields.md)**.
+assembly's two halves; their field-by-field references, with expansion and
+FourCC badges, live on **[M2 root](root.md)** and **[M2 chunks](chunks.md)**.
 
 ## The M2 assembly
 
@@ -55,23 +56,6 @@ documented with the other [records](records.md).
     options:
       heading_level: 3
       show_root_toc_entry: true
-
-## Body and shell classes
-
-The per-version body and shell classes render here for completeness; their
-fields are documented on [Fields & versions](fields.md).
-
-::: wowlib.formats.m2.root.M2RootLegionPlus
-    options:
-      heading_level: 3
-      show_root_toc_entry: true
-      members: false
-
-::: wowlib.formats.m2.chunked.M2ChunkedFileTheWarWithin
-    options:
-      heading_level: 3
-      show_root_toc_entry: true
-      members: false
 
 ## BoneFile — the .bone facial poses
 

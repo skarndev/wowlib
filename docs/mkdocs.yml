@@ -137,8 +137,9 @@ nav:
           - Group chunks: python/wmo/group-chunks.md
       - M2 format:
           - python/m2/index.md
-          - Fields & versions: python/m2/fields.md
-          - Entities: python/m2/entities.md
-          - Records: python/m2/records.md
+          - M2 entity: python/m2/entities.md
+          - M2 root: python/m2/root.md
+          - M2 chunks: python/m2/chunks.md
+          - M2 records: python/m2/records.md
       - Containers: python/containers.md
   - C++ API Reference: reference.md

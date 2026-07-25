@@ -45,6 +45,35 @@ hook is fail-safe (parse error → visible note, build continues). This *replace
 the earlier representative-version mkdocstrings pages (entity/root/group); the
 `root-chunks`/`group-chunks` wire-struct pages remain mkdocstrings-generated.
 
+### 2026-07-25 sweep (user's 6-point docs request)
+- **M2 section = four pages in order**: `M2 entity` (entities.md — the compound
+  M2 + Skin/Skeleton/BoneFile), `M2 root` (root.md), `M2 chunks` (chunks.md),
+  `M2 records` (records.md). fields.md is GONE — a `Side` now carries its own
+  `page` (falls back to `Format.fields_page`, which WMO still uses for both
+  sides); forver/generic_pages/elem_links are keyed per page. The Any-union
+  table moved to the M2 index.md.
+- **Version badges are INCLUSIVE on both ends** (`_range_html`): an era-marker
+  `until` (X.0.0) renders the PREVIOUS expansion (until WotLK → "Vanilla–TBC");
+  a mid-expansion removal renders its own expansion as "< 8.3"; a range that
+  collapses to one expansion is a single pill.
+- **Element types are clickable**: `_vector_elements` keeps the CONCRETE
+  element class (display goes ⟨version⟩-generic at rewrite); `_elem_pages`
+  stores (page, module, anchor class) so `list[M2TextureTransform⟨version⟩]`
+  links to the records page.
+- **Records pages deduplicate versioned families** (`_records_markdown` behind
+  per-StructPage `dedup_marker`s in records.md): one fully rendered
+  latest-version representative per family + a "Version layouts" admonition
+  listing each earlier era's added/dropped/retyped members (from the stubs).
+  `StructPage.anchor_class` retargets element links of unrendered versions to
+  the family rep. records.md joined M2's generic_pages.
+- **Empty Type columns stripped** (`_strip_empty_type_columns`, on_post_page,
+  all python/ pages): a docstring-section table whose Type cells are all blank
+  loses the column (flag-enum Attributes tables).
+- Every welded member now carries `[[=welder::doc]]` (2026-07-25 sweep of
+  tracks/records/skin/skel/common types) — the stubs must be regenerated
+  (`cmake --build build/bindings --target wowlib_pyi`) before doc builds pick
+  docstring changes up.
+
 ## Key details / gotchas
 - **welder filter resolution** (build.py `find_welder_filter`): `$WOWLIB_WELDER_FILTER`
   → pinned FetchContent checkout (`build/*/_deps/welder-src/tools/…`, matches the

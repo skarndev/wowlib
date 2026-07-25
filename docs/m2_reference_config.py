@@ -181,6 +181,7 @@ def _body_rank(f) -> int:
 BODY_SIDE = fr.Side(
     key="body", kind="offset",
     marker="<!-- m2-root-fields -->",
+    page="python/m2/root.md",
     module="wowlib.formats.m2.root",
     badge_classes=("M2Root",), width_classes=("M2Root",),
     class_prefix="M2Root",
@@ -200,6 +201,7 @@ BODY_SIDE = fr.Side(
 SHELL_SIDE = fr.Side(
     key="shell", kind="chunked",
     marker="<!-- m2-shell-fields -->",
+    page="python/m2/chunks.md",
     module="wowlib.formats.m2.chunked",
     badge_classes=("M2ChunkedFile",), width_classes=("M2ChunkedFile",),
     class_prefix="M2ChunkedFile",
@@ -221,6 +223,7 @@ RECORDS_BODY = fr.StructPage(
     module="wowlib.formats.m2.root.record",
     stub="wowlib/formats/m2/root/record.pyi",
     headers=RECORD_HEADERS,
+    dedup_marker="<!-- m2-records-body -->",
 )
 
 RECORDS_CHUNKED = fr.StructPage(
@@ -228,6 +231,7 @@ RECORDS_CHUNKED = fr.StructPage(
     module="wowlib.formats.m2.chunked.record",
     stub="wowlib/formats/m2/chunked/record.pyi",
     headers=(CHUNKED_RECORDS_HPP,),
+    dedup_marker="<!-- m2-records-chunked -->",
 )
 
 RECORDS_SKIN = fr.StructPage(
@@ -238,6 +242,7 @@ RECORDS_SKIN = fr.StructPage(
     # The skin stub also declares the Skin entity family (documented on
     # entities.md) — keep only the records out of it for the element registry.
     names_filter=lambda n: n.startswith("M2"),
+    dedup_marker="<!-- m2-records-skin -->",
 )
 
 RECORDS_SKEL = fr.StructPage(
@@ -246,22 +251,28 @@ RECORDS_SKEL = fr.StructPage(
     stub="wowlib/formats/m2/__init__.pyi",
     headers=(M2_SRC / "skeleton.hpp",),
     # The assembly stub declares the whole M2/Skeleton families; only the SK*1
-    # chunk payload records are documented on records.md.
-    names_filter=lambda n: n.startswith("Skel"),
+    # chunk payload records are documented on records.md ("Skel" + uppercase, so
+    # the Skeleton entity family itself stays on the entities page).
+    names_filter=lambda n: re.match(r"Skel[A-Z]", n) is not None,
+    dedup_marker="<!-- m2-records-skel -->",
 )
 
 FORMAT = fr.Format(
     key="m2",
-    fields_page="python/m2/fields.md",
+    # M2 splits its field surfaces onto dedicated pages (each Side carries its
+    # own `page`); this stays the default for a side without one.
+    fields_page="python/m2/root.md",
     legend_marker="<!-- m2-legend -->",
     sides=(BODY_SIDE, SHELL_SIDE),
     wowdev_page="M2",
     anchors_file="m2_wowdev_anchors.json",
     name_re=r"(?:M2|Skeleton|Skin|Skel)[A-Za-z0-9]*?",
-    generic_pages=frozenset({"python/m2/fields.md", "python/m2/entities.md"}),
+    generic_pages=frozenset({"python/m2/entities.md", "python/m2/records.md"}),
     forver={
-        "python/m2/fields.md": (
+        "python/m2/root.md": (
             ("wowlib.formats.m2.root.M2Root", "M2Root", "Wotlk"),
+        ),
+        "python/m2/chunks.md": (
             # The chunked shell only exists Legion+, so the example narrows to
             # a version its family actually has.
             ("wowlib.formats.m2.chunked.M2ChunkedFile", "M2ChunkedFile", "Legion"),
@@ -281,7 +292,7 @@ FORMAT = fr.Format(
         "Skin": ("python/m2/entities.md", "wowlib.formats.m2.skin"),
         "BoneFile": ("python/m2/entities.md", "wowlib.formats.m2.bone"),
         "BoneFilePrelude": ("python/m2/entities.md", "wowlib.formats.m2.bone"),
-        "M2Root": ("python/m2/fields.md", "wowlib.formats.m2.root"),
-        "M2ChunkedFile": ("python/m2/fields.md", "wowlib.formats.m2.root"),
+        "M2Root": ("python/m2/root.md", "wowlib.formats.m2.root"),
+        "M2ChunkedFile": ("python/m2/chunks.md", "wowlib.formats.m2.chunked"),
     },
 )
