@@ -160,6 +160,7 @@ def _categorize(f) -> str | None:
 ROOT_SIDE = fr.Side(
     key="root", kind="chunked",
     marker="<!-- wmo-root-fields -->",
+    page="python/wmo/root.md",
     module="wowlib.formats.wmo.root",
     badge_classes=("WMORoot",), width_classes=("WMORoot",),
     class_prefix="WMORoot",
@@ -181,6 +182,7 @@ ROOT_SIDE = fr.Side(
 GROUP_SIDE = fr.Side(
     key="group", kind="chunked",
     marker="<!-- wmo-group-fields -->",
+    page="python/wmo/group.md",
     module="wowlib.formats.wmo.group",
     badge_classes=("WMOGroupBody",),
     width_classes=("WMOGroupBody", "WMOGroup"),   # the WMOGroup wrapper's mver too
@@ -217,16 +219,24 @@ GROUP_CHUNKS = fr.StructPage(
 
 FORMAT = fr.Format(
     key="wmo",
-    fields_page="python/wmo/fields.md",
+    # WMO splits its field surfaces onto dedicated pages (each Side carries its
+    # own `page`, mirroring M2); this is the default for a side without one.
+    fields_page="python/wmo/root.md",
     legend_marker="<!-- wmo-legend -->",
     sides=(ROOT_SIDE, GROUP_SIDE),
     wowdev_page="WMO",
     anchors_file="wmo_wowdev_anchors.json",
     name_re=r"WMO[A-Za-z]+?",
-    generic_pages=frozenset({"python/wmo/fields.md"}),
+    generic_pages=frozenset({"python/wmo/entity.md", "python/wmo/root.md",
+                             "python/wmo/group.md"}),
     forver={
-        "python/wmo/fields.md": (
+        "python/wmo/entity.md": (
+            ("wowlib.formats.wmo.WMO", "WMO", "Wotlk"),
+        ),
+        "python/wmo/root.md": (
             ("wowlib.formats.wmo.root.WMORoot", "WMORoot", "Wotlk"),
+        ),
+        "python/wmo/group.md": (
             ("wowlib.formats.wmo.group.WMOGroup", "WMOGroup", "Wotlk"),
             ("wowlib.formats.wmo.group.WMOGroupBody", "WMOGroupBody", "Wotlk"),
         ),
@@ -234,10 +244,11 @@ FORMAT = fr.Format(
     struct_pages=(ROOT_CHUNKS, GROUP_CHUNKS),
     # Entity families referenced from property annotations (WMO.root, WMO.groups,
     # WMOGroup.body) — the concrete versioned classes render nowhere, so the
-    # links retarget to the family bases documented on the fields page.
+    # links retarget to the family bases documented on their pages.
     elem_links={
-        "WMORoot": ("python/wmo/fields.md", "wowlib.formats.wmo.root"),
-        "WMOGroup": ("python/wmo/fields.md", "wowlib.formats.wmo.group"),
-        "WMOGroupBody": ("python/wmo/fields.md", "wowlib.formats.wmo.group"),
+        "WMO": ("python/wmo/entity.md", "wowlib.formats.wmo"),
+        "WMORoot": ("python/wmo/root.md", "wowlib.formats.wmo.root"),
+        "WMOGroup": ("python/wmo/group.md", "wowlib.formats.wmo.group"),
+        "WMOGroupBody": ("python/wmo/group.md", "wowlib.formats.wmo.group"),
     },
 )

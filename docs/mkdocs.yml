@@ -18,7 +18,7 @@ hooks:
   - inject_reference.py
   # Generates the generic versioned-format field references (per-field expansion
   # badges, FourCC badges) from the C++ entity headers into the per-format
-  # fields pages (python/wmo/fields.md, python/m2/fields.md). Engine in
+  # field pages (python/wmo/{root,group}.md, python/m2/{root,chunks}.md). Engine in
   # format_reference_impl.py; per-format config in {wmo,m2}_reference_config.py.
   - format_reference.py
 
@@ -132,7 +132,9 @@ nav:
       - Common structures: python/common.md
       - WMO format:
           - python/wmo/index.md
-          - Fields & versions: python/wmo/fields.md
+          - WMO entity: python/wmo/entity.md
+          - WMO root: python/wmo/root.md
+          - WMO group: python/wmo/group.md
           - Root chunks: python/wmo/root-chunks.md
           - Group chunks: python/wmo/group-chunks.md
       - M2 format:
