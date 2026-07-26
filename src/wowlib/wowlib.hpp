@@ -66,6 +66,7 @@ namespace wowlib
 
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/flags.hpp>
+#include <wowlib/formats/common/map_placements.hpp>
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/convert.hpp>
@@ -174,10 +175,111 @@ namespace wowlib::formats
   }
 }
 
+// The wdt namespace opens after m2 for the same submodule-order reason; its
+// sub-namespaces (root, occlusion, lights, fogs, mpv — mirroring the
+// directory tree) each pre-declare their chunks wire structs first, so they
+// weld before the entities that name them as NSDMI defaults.
+namespace wowlib::formats
+{
+  namespace
+  [[=welder::doc(R"(
+      The WDT map-description format: the WDT assembly (the main .wdt file plus
+      its era's _occ/_lgt/_fogs/_mpv satellite files) with the per-file
+      submodules mirroring the C++ layout (root, occlusion, lights, fogs,
+      mpv).)")]]
+  wdt
+  {
+    namespace
+    [[=welder::doc("The WDT main-file entity: WDTRoot and its per-version "
+                   "classes.")]]
+    root
+    {
+      namespace
+      [[=welder::doc("WDT main-file chunk wire structs (the MPHD map header, MAIN "
+                     "tile table, MAID FileDataIDs) and their flag enums.")]]
+      chunks
+      {
+      }
+    }
+
+    namespace
+    [[=welder::doc("The _occ.wdt occlusion satellite entity (WoD+).")]]
+    occlusion
+    {
+      namespace
+      [[=welder::doc("_occ.wdt chunk wire structs (the MAOI tile index).")]]
+      chunks
+      {
+      }
+    }
+
+    namespace
+    [[=welder::doc("The _lgt.wdt lights satellite entity (WoD+).")]]
+    lights
+    {
+      namespace
+      [[=welder::doc("_lgt.wdt chunk wire structs (point lights, spot lights, "
+                     "light animations).")]]
+      chunks
+      {
+      }
+    }
+
+    namespace
+    [[=welder::doc("The _fogs.wdt volumetric-fog satellite entity (Legion "
+                   "7.2.5+).")]]
+    fogs
+    {
+      namespace
+      [[=welder::doc("_fogs.wdt chunk wire structs (volumetric fogs and their "
+                     "extensions).")]]
+      chunks
+      {
+      }
+    }
+
+    namespace
+    [[=welder::doc("The _mpv.wdt particulate-volume satellite entity (BfA+).")]]
+    mpv
+    {
+      namespace
+      [[=welder::doc("_mpv.wdt chunk wire structs (particulate points and "
+                     "bounds).")]]
+      chunks
+      {
+      }
+    }
+  }
+}
+
+// The wdl namespace opens after wdt, fixing the submodule weld order; its
+// chunks wire structs pre-declare before the entity that names them.
+namespace wowlib::formats
+{
+  namespace
+  [[=welder::doc(R"(
+      The WDL low-resolution heightmap format: the WDL entity and its
+      per-version classes, with the chunk wire structs in the chunks
+      submodule.)")]]
+  wdl
+  {
+    namespace
+    [[=welder::doc("WDL chunk wire structs (per-tile heightmaps, hole and ocean "
+                   "masks, low-resolution placements, sky scenes).")]]
+    chunks
+    {
+    }
+  }
+}
+
 #include <wowlib/formats/wmo/convert.hpp>
 #include <wowlib/formats/m2/convert.hpp>
+#include <wowlib/formats/wdt/convert.hpp>
+#include <wowlib/formats/wdl/convert.hpp>
 
 // The format entities carry their fs-level read/write definitions inline
 // (implicit instantiation — the library ships no explicit instantiations).
 #include <wowlib/formats/wmo/wmo.hpp>
 #include <wowlib/formats/m2/m2.hpp>
+#include <wowlib/formats/wdt/wdt.hpp>
+#include <wowlib/formats/wdl/wdl.hpp>
