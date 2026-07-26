@@ -154,5 +154,10 @@ nav:
           - python/wdl/index.md
           - WDL entity: python/wdl/entity.md
           - Chunks: python/wdl/chunks.md
+      - ADT format:
+          - python/adt/index.md
+          - ADT entity: python/adt/entity.md
+          - Terrain cells: python/adt/cells.md
+          - Chunks: python/adt/chunks.md
       - Containers: python/containers.md
   - C++ API Reference: reference.md

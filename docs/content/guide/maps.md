@@ -58,3 +58,83 @@ The WDL's MAOF offset table is **derived**: on every write the library
 restamps the 64 × 64 offsets from the finished layout, so only the nonzero
 pattern (which tiles exist) is authored data — see the
 [WDL format page](../python/wdl/index.md) for the editing recipe.
+
+## Editing terrain (ADT)
+
+Each existing terrain tile is an **ADT**. Where the WDT says *which* tiles
+exist, the ADT holds the terrain itself: 16 × 16 cells of heights and normals,
+the texture layers blended through their alpha maps, water, and the doodads and
+WMOs placed on the tile. wowlib loads a tile as **one `ADT` entity** no matter
+how the client stores it — a single pre-Cataclysm `.adt`, or the Cataclysm+
+split of a root `.adt` plus `_tex0` / `_obj0` / `_obj1` / `_lod` satellites. The
+reader merges every file; the writer splits them back apart on save.
+
+!!! note "Semantic round-trip, not byte-perfect"
+    ADT decodes alpha maps to a plain 64 × 64 edit surface and re-derives the
+    offset tables, so an unmodified tile re-reads **equal** but not
+    byte-identical (like [M2](../python/m2/index.md), unlike WDT/WDL). See the
+    **[ADT format](../python/adt/index.md)** pages for the authoritative shapes.
+
+```python
+import numpy
+import wowlib
+from wowlib.formats import adt
+
+fs = wowlib.fs.FileSystem.open(wowlib.fs.FileSystemSettings(
+    client_path="…/World of Warcraft 3.3.5a",
+    version=wowlib.versions.wotlk))
+
+tile = adt.ADT.for_version(wowlib.Expansion.Wotlk)
+tile.read(fs, wowlib.FileKey("World/Maps/Azeroth/Azeroth_32_48.adt"))
+
+# Raise the terrain: every cell's height grid is a zero-copy NumPy view.
+for cell in tile.cells:                       # 256 cells, row-major (y*16 + x)
+    numpy.asarray(cell.heights)[:] += 10.0
+```
+
+### Adding a texture is version-agnostic
+
+The point of the unified entity: **you never branch on which physical file a
+chunk lives in.** On a pre-Cataclysm tile the texture list is one chunk in the
+single file; on a Shadowlands tile it is a chunk in `_tex0` — but the call is
+identical, because the serializer routes it:
+
+```python
+# Pre-Cataclysm: MTEX names.
+wotlk = adt.ADT.for_version(wowlib.Expansion.Wotlk)
+wotlk.read(fs, wowlib.FileKey("World/Maps/Azeroth/Azeroth_32_48.adt"))
+layer_index = len(wotlk.textures.entries())
+wotlk.textures.add("tileset\\generic\\black.blp")
+
+# The exact same shape on a split (Cataclysm+) tile.
+sl = adt.ADT.for_version(wowlib.Expansion.Shadowlands)
+sl.read(fs_927, wowlib.FileKey("world/maps/kultiras/kultiras_31_29.adt"))
+sl.textures.add("tileset\\generic\\black.blp")
+
+# Point a cell's second layer at the new texture and paint its alpha map.
+cell = wotlk.cells[0]
+cell.layers[1].texture_id = layer_index       # 0-based index into the texture list
+cell.layers[1].flags |= int(adt.chunks.LayerFlags.use_alpha_map)
+numpy.asarray(cell.alpha_maps[1])[:] = my_64x64_blend   # 0 = base, 255 = this layer
+
+tile.write(fs, wowlib.FileKey("World/Maps/Azeroth/Azeroth_32_48.adt"))
+```
+
+Newer maps store their textures as FileDataIDs instead of names
+(`diffuse_texture_ids` / `height_texture_ids`, 8.1+); `uses_texture_fdids`
+records which scheme a tile uses. Water is decoded to an editable
+`tile.water` (`MH2OData`), and the deprecated pre-WotLK per-cell liquid lives on
+`cell.legacy_liquid`.
+
+## C++
+
+```cpp
+#include <wowlib/formats/adt/adt.hpp>
+
+wowlib::formats::adt::ADT<wowlib::versions::wotlk> tile;
+tile.read(fs, wowlib::FileKey{"World/Maps/Azeroth/Azeroth_32_48.adt"});
+for (auto& cell : tile.cells)
+  for (float& h : cell.heights)
+    h += 10.0f;
+tile.write(fs, wowlib::FileKey{"World/Maps/Azeroth/Azeroth_32_48.adt"});
+```

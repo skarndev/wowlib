@@ -202,6 +202,21 @@ enums still render as full single listings.
 - Generated artifacts: `build/docs/` (gitignored) — awesome clone, Doxyfile,
   reference, site.
 
+### ADT docs (2026-07-26)
+ADT is the exception to the FourCC field-badge engine: its `ADT<V>`/`MapChunk<V>`
+members carry NO `=chunk()`/`=since()` annotations (sub-chunks are hand-serialized,
+version-gating is by conditional trait bases), so the entity + cell pages are plain
+mkdocstrings `:::` directives on a REPRESENTATIVE concrete class (ADTBfaPlus,
+MapChunkCataPlus — the fullest layouts) with a prose note on version-gating, NOT
+generated field tables. `adt_reference_config.py` is a minimal `common`-style
+Format (empty sides, `name_re=(?!)`) with WIDTH-ONLY StructPages: CHUNKS
+(adt/chunks.md, the wire structs) + LIQUID (adt/entity.md, the four structured
+liquid records, names_filter'd). Registered in FORMAT_MODULES + the reload shim +
+mkdocs nav (python/adt/{index,entity,cells,chunks}.md). Vendored
+adt_wowdev_anchors.json (extracted from the wiki HTML, HTML-entities decoded).
+Guide: content/guide/maps.md gained an "Editing terrain (ADT)" section with the
+version-agnostic add-a-texture walkthrough. Build is clean.
+
 ## Not yet ported from welder (follow-ups)
 - `apilink.py` (auto-link guide code spans to the C++ reference via the Doxygen
   tag file — we already emit `wowlib.tag`, just no consumer yet).
