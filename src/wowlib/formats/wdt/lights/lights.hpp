@@ -39,11 +39,14 @@ namespace wowlib::formats::wdt::lights
   {
     // --- version-range trait bases (unwelded) ---------------------------------
 
-    /** The WoD-only point lights, dropped when Legion introduces MPL2. */
+    /** The WoD-only point lights, dropped when Legion introduces MPL2. The
+        since() matches the satellite file's own introduction, so the docs
+        badge reads "WoD", not "Vanilla-WoD" — no _lgt.wdt predates WoD. */
     struct LightsWod
     {
       [[
         =chunk("MPLT"),
+        =since(builds::WoD),
         =until(builds::Legion),
         =formats::optional,
         =welder::mark::no_reassign,
@@ -122,7 +125,7 @@ namespace wowlib::formats::wdt::lights
           textures and animations. See https://wowdev.wiki/WDT.)")
     ]] WDTLights
       : ChunkedFile<WDTLights<V>>, WDTLightsBase,
-        slot<V, ClientVersion{0, 0, 0, 0}, LightsWod, builds::Legion>,
+        slot<V, builds::WoD, LightsWod, builds::Legion>,
         slot<V, builds::Legion, LightsLegion>,
         slot<V, builds::SL_Beta_34490, LightsSL>
     {

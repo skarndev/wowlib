@@ -457,9 +457,10 @@ by-value). WDT verbs live on WDTBase (fs-only, like M2). WDL is a ChunkedFile
 whose concretes weld read(bytes)/write() — base-scoped fs verbs would be
 SHADOWED in Python attribute lookup, so the (FileSystem, FileKey) overloads
 are MERGED into each concrete's chain (nb::cpp_function name+scope merge, one
-range representative each). KNOWN WART (pre-existing): Skeleton's fs verbs sit
-on SkeletonBase and ARE shadowed by the concrete's welded pair — unreachable
-from Python; fix the same way when touched. Single-range families' AnyX alias
+range representative each). Skeleton had the same wart (fs verbs on
+SkeletonBase, shadowed by the concrete's welded pair, unreachable from
+Python) — FIXED 2026-07-26 the same way (def_skeleton_fs_verbs in
+bindings/python/formats/m2.cpp). Single-range families' AnyX alias
 is the class itself, not a UnionType (AnyWDTOcclusion, AnyWDTParticulates,
 like AnySkeleton). std::array struct members (TileHeights.outer) bind by copy:
 element assignment on the property is lost — whole-array assignment is the

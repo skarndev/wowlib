@@ -187,42 +187,54 @@ namespace wowlib_py::formats::m2
         nb::sig("def convert(self, target: wowlib.Expansion) -> AnyM2"));
     }
 
-    /** @brief Attach @c read/@c write to @c SkeletonBase — skeletons are
-        first-class shared entities with their own filesystem verbs (the
-        chunk-level read(bytes)/write() pair welds on the concretes). */
-    void def_skeleton_ops(nb::handle base)
+    /** @brief Merge the (FileSystem, FileKey) read/write overloads into ONE
+        concrete Skeleton class's welded verb chain. */
+    template <wowlib::Expansion X>
+    void def_skeleton_fs_verbs_on()
     {
+      using C = wowlib::formats::m2::Skeleton<wowlib::to_client_version(X)>;
+      const nb::handle concrete = nb::type<C>();
       nb::cpp_function(
-        [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
+        [](C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          family_dispatch<wowlib::formats::m2::Skeleton>(
-            self,
-            [&](auto& skel)
-            {
-              if (auto r = skel.read(fs, key); !r)
-                throw wowlib::result_error(r.error());
-            },
-            "expected a Skeleton instance");
+          if (auto r = self.read(fs, key); !r)
+            throw wowlib::result_error(r.error());
         },
-        nb::name("read"), nb::scope(base), nb::is_method(),
+        nb::name("read"), nb::scope(concrete), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
         nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
-
       nb::cpp_function(
-        [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
+        [](const C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          family_dispatch<wowlib::formats::m2::Skeleton>(
-            self,
-            [&](auto& skel)
-            {
-              if (auto r = std::as_const(skel).write(fs, key); !r)
-                throw wowlib::result_error(r.error());
-            },
-            "expected a Skeleton instance");
+          if (auto r = self.write(fs, key); !r)
+            throw wowlib::result_error(r.error());
         },
-        nb::name("write"), nb::scope(base), nb::is_method(),
+        nb::name("write"), nb::scope(concrete), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
         nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+    }
+
+    /** @brief Attach the Skeleton filesystem verbs — skeletons are first-class
+        shared entities with their own filesystem read/write. The overloads are
+        merged INTO each concrete's welded chunk-level read(bytes)/write()
+        chain (nanobind merges cpp_functions by name+scope), once per RANGE: a
+        base-scoped verb would be SHADOWED by the concrete's welded pair in
+        Python's attribute lookup and unreachable from every instance. */
+    void def_skeleton_fs_verbs()
+    {
+      template for (constexpr auto e : expansion_enumerators)
+      {
+        constexpr wowlib::Expansion X = [:e:];
+        if constexpr (family_has<wowlib::formats::m2::Skeleton, X>)
+          // only the range representative (its own canonical) attaches, so a
+          // shared concrete class is not given duplicate overloads
+          if constexpr (wowlib::formats::canonical_version(
+                          wowlib::to_client_version(X),
+                          wowlib::formats::m2::m2_chunk_payload_pivots,
+                          wowlib::formats::m2::m2_chunked_versions)
+                        == wowlib::to_client_version(X))
+            def_skeleton_fs_verbs_on<X>();
+      }
     }
   }
 
@@ -251,7 +263,7 @@ namespace wowlib_py::formats::m2
                                    fm2::m2_chunked_versions);
 
     def_m2_ops(m2.attr("M2"));
-    def_skeleton_ops(m2.attr("Skeleton"));
+    def_skeleton_fs_verbs();
 
     // Runtime AnyX union aliases (importable TypeAliases) on the family's own
     // submodule; the subset families fold only the expansions they exist for.

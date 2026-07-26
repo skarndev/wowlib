@@ -148,4 +148,16 @@ def test_convert_stepless_pair_raises(fresh_m2):
 def test_read_write_live_on_the_base_not_the_concrete(fresh_m2):
     assert "read" in m2_mod.M2.__dict__
     assert "read" not in m2_mod.M2Wotlk.__dict__
-    assert "read" in m2_mod.Skeleton.__dict__
+
+
+def test_skeleton_fs_verbs_merge_onto_the_concrete():
+    # A Skeleton concrete welds the chunk-level read(bytes)/write() pair, which
+    # SHADOWS anything base-scoped in Python's attribute lookup — so the
+    # (FileSystem, FileKey) overloads must be merged into the concrete's own
+    # chain, and both spellings must be visible there.
+    concrete = m2_mod.SkeletonLegionPlus
+    assert "read" in concrete.__dict__
+    assert "wowlib.fs.FileSystem" in concrete.read.__doc__
+    assert "data: bytes" in concrete.read.__doc__
+    assert "wowlib.fs.FileSystem" in concrete.write.__doc__
+    assert "read" not in m2_mod.Skeleton.__dict__
