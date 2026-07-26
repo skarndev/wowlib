@@ -41,14 +41,28 @@ namespace wowlib::builds
   /** Battle for Azeroth (any 8.x client). */
   inline constexpr ClientVersion BfA{8, 0, 1, 0};
 
+  /** Shadowlands (any 9.x client). */
+  inline constexpr ClientVersion SL{9, 0, 0, 0};
+
   /** Dragonflight (any 10.x client). */
   inline constexpr ClientVersion DF{10, 0, 0, 0};
+
+  /** The War Within (any 11.x client). */
+  inline constexpr ClientVersion TWW{11, 0, 0, 0};
 
   // --- exact builds, in release order ----------------------------------------
 
   /** Legion alpha, 7.0.1 build 20740 — the first chunked-format build (the
       .m2 MD21 container, WMO GFID, the SMOBatch large-material layout). */
   inline constexpr ClientVersion Legion_Alpha{7, 0, 1, 20740};
+
+  /** Legion alpha, 7.0.1 build 20914 (the _lgt.wdt MVER payload bumps
+      18 -> 20). */
+  inline constexpr ClientVersion Legion_Alpha_20914{7, 0, 1, 20914};
+
+  /** Legion, Tomb of Sargeras, 7.2.5 build 24076 (the _fogs.wdt satellite
+      appears, initially empty). */
+  inline constexpr ClientVersion Legion_TombOfSargeras{7, 2, 5, 24076};
 
   /** Legion, Shadows of Argus PTR, 7.3.0 build 24473. */
   inline constexpr ClientVersion Legion_ShadowsOfArgus_24473{7, 3, 0, 24473};
@@ -57,12 +71,24 @@ namespace wowlib::builds
       and .skel satellite chunks). */
   inline constexpr ClientVersion Legion_ShadowsOfArgus_24500{7, 3, 0, 24500};
 
+  /** Battle for Azeroth beta, 8.0.1 build 25902 (the first _fogs.wdt files
+      with VFOG content). */
+  inline constexpr ClientVersion BfA_Beta_25902{8, 0, 1, 25902};
+
+  /** Battle for Azeroth beta, 8.0.1 build 26287 (the client starts loading
+      the _mpv.wdt particulate-volume satellite). */
+  inline constexpr ClientVersion BfA_Beta_26287{8, 0, 1, 26287};
+
   /** Battle for Azeroth beta, 8.0.1 build 26629 (TXID/LDV1). */
   inline constexpr ClientVersion BfA_Beta{8, 0, 1, 26629};
 
   /** BfA, Tides of Vengeance PTR, 8.1.0 build 27826 (RPID/GPID, WMO
       MOSI/MODI). */
   inline constexpr ClientVersion BfA_TidesOfVengeance{8, 1, 0, 27826};
+
+  /** BfA, Tides of Vengeance, 8.1.0 build 28294 (WDT MAID and the MPHD
+      FileDataID layout — the namehash removal preparation). */
+  inline constexpr ClientVersion BfA_TidesOfVengeance_28294{8, 1, 0, 28294};
 
   /** BfA, Rise of Azshara, 8.2.0 build 30080 (WFV1/WFV2/PGD1). */
   inline constexpr ClientVersion BfA_RiseOfAzshara{8, 2, 0, 30080};
@@ -79,6 +105,9 @@ namespace wowlib::builds
   /** Shadowlands alpha, 9.0.1 build 34365 (DETL). */
   inline constexpr ClientVersion SL_Alpha_34365{9, 0, 1, 34365};
 
+  /** Shadowlands beta, 9.0.1 build 34490 (_lgt.wdt MPL3 point lights). */
+  inline constexpr ClientVersion SL_Beta_34490{9, 0, 1, 34490};
+
   /** Shadowlands, Chains of Domination PTR, 9.1.0 build 39015. */
   inline constexpr ClientVersion SL_ChainsOfDomination{9, 1, 0, 39015};
 
@@ -91,6 +120,10 @@ namespace wowlib::builds
 
   /** The War Within alpha, 11.0.0 build 54210. */
   inline constexpr ClientVersion TWW_Alpha{11, 0, 0, 54210};
+
+  /** The War Within alpha, 11.0.0 build 54935 (_fogs.wdt version 2 and its
+      VFEX extension records). */
+  inline constexpr ClientVersion TWW_Alpha_54935{11, 0, 0, 54935};
 
   /** TWW, Undermine(d) PTR, 11.1.0 build 58221. */
   inline constexpr ClientVersion TWW_Undermined{11, 1, 0, 58221};

@@ -503,6 +503,19 @@ namespace wowlib::formats
                 }
                 // all slots taken: falls through to the unknown route below
               }
+              else if constexpr (detail::annotation<detail::repeating_spec, m>().has_value())
+              {
+                // one element per encounter, unbounded (see the repeating
+                // annotation): the payload reads into a fresh back element
+                static_assert(detail::is_vector_v<M>,
+                              "repeating members must be std::vector<Element>");
+                auto r = detail::read_value(entity.[:m:].emplace_back(), payload, fourcc, pos,
+                                            spec->endian);
+                if (!r)
+                  return std::unexpected{r.error()};
+                matched = true;
+                entity.journal.push_back({fourcc, index, occurrences[index]++});
+              }
               else if (occurrences[index] == 0)
               {
                 auto r = detail::read_value(entity.[:m:], payload, fourcc, pos, spec->endian);
@@ -557,6 +570,27 @@ namespace wowlib::formats
     {
       static constexpr auto members = detail::members_of<E>();
       detail::ChunkWriter writer{out};
+      const std::size_t image_start = out.size();
+
+      // Journal resequencing: an entity may declare
+      //   Result<std::optional<std::vector<JournalEntry>>> resequenced_journal() const
+      // to replace the replay order for THIS write — nullopt keeps the stored
+      // journal. WDL uses it to interleave its per-tile repeating chunks
+      // (MARE/MAHO) once tiles were added or removed, where the stored journal
+      // no longer matches the entity's content.
+      std::vector<JournalEntry> resequenced;
+      std::span<const JournalEntry> journal{entity.journal};
+      if constexpr (requires { entity.resequenced_journal(); })
+      {
+        auto r = entity.resequenced_journal();
+        if (!r)
+          return std::unexpected{r.error()};
+        if (*r)
+        {
+          resequenced = std::move(**r);
+          journal = resequenced;
+        }
+      }
 
       // header prelude members first, mirroring read_entity's phase 1
       template for (constexpr auto m : members)
@@ -578,7 +612,8 @@ namespace wowlib::formats
             if (index == target)
             {
               const std::size_t size_at = writer.begin_chunk(spec->magic);
-              if constexpr (detail::repeated_traits<M>::value)
+              if constexpr (detail::repeated_traits<M>::value
+                            || detail::annotation<detail::repeating_spec, m>().has_value())
               {
                 if (occurrence >= entity.[:m:].size())
                   return make_error(ErrorCode::ChunkSizeMismatch,
@@ -613,7 +648,7 @@ namespace wowlib::formats
         return {};
       };
 
-      for (const JournalEntry& entry : entity.journal)
+      for (const JournalEntry& entry : journal)
       {
         if (entry.member < 0)
         {
@@ -642,7 +677,8 @@ namespace wowlib::formats
                       spec.has_value() && detail::version_active<E::version, m>())
         {
           using M = [:std::meta::type_of(m):];
-          if constexpr (detail::repeated_traits<M>::value)
+          if constexpr (detail::repeated_traits<M>::value
+                        || detail::annotation<detail::repeating_spec, m>().has_value())
           {
             // journaled occurrences already replayed; append the slots added since
             for (std::uint32_t i = written[idx]; !failed && i < entity.[:m:].size(); ++i)
@@ -662,7 +698,76 @@ namespace wowlib::formats
         return std::unexpected{*failed};
 
       writer.append(entity.trailing.data(), entity.trailing.size());
+
+      // Whole-image stamping: an entity may declare
+      //   Result<void> patch_file(std::span<std::byte>) const
+      // to overwrite wire fields whose source of truth is the finished LAYOUT —
+      // fields patch_chunk cannot serve because they reference bytes written
+      // after their own chunk (WDL's MAOF table of absolute MARE offsets; the
+      // ADT header offsets later). The hook sees this entity's complete
+      // serialized image in place.
+      if constexpr (requires(std::span<std::byte> image) {
+                      { entity.patch_file(image) } -> std::same_as<Result<void>>;
+                    })
+        if (auto r = entity.patch_file(
+              std::span<std::byte>{out.data() + image_start, out.size() - image_start});
+            !r)
+          return r;
       return {};
+    }
+
+    /** The flattened member index (a JournalEntry::member value) of the chunk
+        member carrying @a magic, or -1 when no member does. For entity code
+        that builds journal entries by fourcc (resequenced_journal hooks).
+        @tparam E     the entity type.
+        @param  magic the chunk id (see four_cc()). */
+    template <typename E>
+    consteval std::int32_t chunk_member_index(std::uint32_t magic)
+    {
+      constexpr auto members = members_of<E>();
+      for (std::size_t i = 0; i < members.size(); ++i)
+        if (chunk_magic_of(members[i]) == magic)
+          return static_cast<std::int32_t>(i);
+      return -1;
+    }
+
+    /** The journal a FRESH write of @a entity would produce: one entry per
+        engaged (or required) chunk member in canonical write order, repeated/
+        repeating members expanded to one entry per element, no unknown-chunk
+        or trailing entries. The starting point for a resequenced_journal hook,
+        which reorders it (and re-appends the preserved unknown chunks) before
+        handing it to write_entity.
+        @param entity the entity to enumerate.
+        @return the canonical-order journal. */
+    template <ChunkedEntity E>
+    std::vector<JournalEntry> fresh_journal(const E& entity)
+    {
+      static constexpr auto members = detail::members_of<E>();
+      static constexpr auto order = detail::write_order<E>();
+      std::vector<JournalEntry> out;
+      template for (constexpr std::size_t idx : order)
+      {
+        constexpr auto m = members[idx];
+        constexpr auto index = static_cast<std::int32_t>(idx);
+        if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>();
+                      spec.has_value() && detail::version_active<E::version, m>())
+        {
+          using M = [:std::meta::type_of(m):];
+          if constexpr (detail::repeated_traits<M>::value
+                        || detail::annotation<detail::repeating_spec, m>().has_value())
+          {
+            for (std::uint32_t i = 0; i < entity.[:m:].size(); ++i)
+              out.push_back({spec->magic, index, i});
+          }
+          else
+          {
+            constexpr bool required = !detail::annotation<detail::optional_spec, m>().has_value();
+            if (required || detail::engaged(entity.[:m:]))
+              out.push_back({spec->magic, index, 0});
+          }
+        }
+      }
+      return out;
     }
 
     /** Does a never-journaled nested entity hold anything worth a chunk? An

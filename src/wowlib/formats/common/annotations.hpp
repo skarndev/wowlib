@@ -92,6 +92,12 @@ namespace wowlib::formats
       std::uint32_t max;
     };
 
+    /** Stored form of `repeating`: the chunk appears once per element, any
+        number of times (WDL MARE tiles, _mpv PVMI/PVPD/PVBD groups). */
+    struct repeating_spec
+    {
+    };
+
     /** Stored form of `sequence_data` (offset entities): the member's nested
         per-element data may live in an external buffer (M2 .anim files) — the
         engine resolves each outer element's base span/sink through the I/O
@@ -153,6 +159,17 @@ namespace wowlib::formats
       member must be a `Repeated<T, max>`.
       @param max the maximum occurrence count. */
   consteval detail::repeats_spec repeats(std::uint32_t max) { return {max}; }
+
+  /** Mark a chunk that appears once PER ELEMENT of a `std::vector<Element>`
+      member, any number of times: each encounter appends one element (whole
+      payload -> element), and each element writes back as its own chunk —
+      unlike a plain vector member, whose single chunk payload is the whole
+      array. The per-tile WDL chunks (MARE/MAHO) and the repeated _mpv groups
+      (PVMI/PVPD/PVBD) are the motivating cases. Interleaving with other
+      repeating chunks round-trips through the journal; fresh entities emit a
+      member's elements consecutively unless the entity resequences its
+      journal (see write_entity's resequenced_journal hook). */
+  inline constexpr detail::repeating_spec repeating{};
 
   /** Mark an offset-entity member (a nested `std::vector<std::vector<T>>`,
       one inner array per animation sequence) whose inner data may live in an
