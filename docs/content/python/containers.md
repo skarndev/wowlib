@@ -46,6 +46,30 @@ safe:
   `append(value)` there.
 - the element must be **default-constructible** (all welded wire structs are).
 
+## Bulk population: `reserve()` and `resize()`
+
+Two sizing methods (also absent from `list`) make populating a large container
+cheap — and, in `reserve`'s case, safe against the invalidation caveat below:
+
+- **`reserve(n)`** pre-allocates capacity for at least `n` elements. A following run
+  of `append()`/`new()` that stays within that capacity does **not** reallocate, so
+  it is both faster (no repeated regrow-and-copy) and safe: element references handed
+  out during the run stay valid, because the backing buffer never moves.
+- **`resize(n)`** grows or shrinks to exactly `n` elements, value-initializing any
+  new tail elements — the allocate-then-fill-by-index pattern. Needs a
+  default-constructible element (all welded wire structs qualify).
+
+```python
+v = wmo.root.materials
+v.reserve(len(source))            # one allocation for the whole batch
+for src in source:
+    m = v.new()                   # no reallocation ⇒ every `m` stays valid
+    m.shader = src.shader
+```
+
+`reserve` is available on the contiguous vectors (all of them here); `resize` and
+`reserve` apply to scalar vectors too, unlike `new()`.
+
 !!! warning "Held element references are invalidated by resizing — this is undefined behavior, not an exception"
     A reference into one of these containers — whatever `new()`, `v[i]`, or iteration
     hands you — aliases the C++ vector's backing storage directly. Any operation that
@@ -69,8 +93,9 @@ safe:
     e.field = 2          # ⚠️ undefined behavior — do not touch `e` after this
     ```
 
-    If you must keep working with an element across growth, re-fetch it by index
-    (`v[i]`) afterwards, or size the container up front so no reallocation occurs.
+    If you must keep working with an element across growth, either `reserve()`
+    enough capacity up front so the run never reallocates (see above), or re-fetch
+    the element by index (`v[i]`) after each resize.
 
 ::: wowlib.VectorC3Vector
     options:
