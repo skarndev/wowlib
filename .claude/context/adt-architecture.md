@@ -150,3 +150,31 @@ adt.hpp (ADT<V> + ADTBase + fs read/write). Key realized designs:
   test_adt_roundtrip.cpp (3.3.5a real-corpus semantic round-trip). Suite 100/100.
 - GOTCHA: `detail::` is ambiguous in tests (wowlib::detail vs formats::detail vs
   adt::detail) — qualify fully.
+
+## Stage 2 landed (2026-07-26): Cata+ split files
+
+- ADT<V> gained `ADTSplit` (Cata+: mamp u32 [MAMP is 4 bytes, not wowdev's 1],
+  uses_texture_fdids, texture_params[MTXP], + `obj1_data`/`lod_data` raw byte
+  blobs) and `ADTTexFdids` (8.1+: diffuse/height_texture_ids [MDID/MHID]) traits.
+  `textures` (MTEX) moved to an always-present own member.
+- **MTEX vs MDID/MHID is a per-MAP choice, NOT version-gated** (survey: kultiras
+  ships empty MTEX in 9.2.7). Tracked by `uses_texture_fdids` (set when MDID is
+  read); write emits the scheme that was read.
+- Satellites located by the "{stem}_tex0.adt" naming convention (the 9.2.7
+  listfile resolves those paths — no WDT MAID coupling). read() parses
+  root→tex0→obj0 MERGING into the one entity (each file's 256 MCNK stream
+  accumulates per cell via read_slice's FileKind); _obj1/_lod preserved verbatim
+  as raw blobs (structured in stage 3). write() re-emits each file;
+  `write_split_file(kind)` routes chunks per file.
+- **`offset_in_mcal` (SMLayer) is derived** → normalized to 0 on read after MCAL
+  decode, like the header offsets (else the semantic diff compares layout).
+- **MCAL presence differs by era**: pre-Cata writes MCAL in EVERY MCNK (survey:
+  1.47M/1.47M), Cata+ omits it when empty (800/3840). Resolved by sizing
+  `alpha_maps` to `layers.size()` in the MCLY branch (independent of MCAL
+  presence) + emitting MCAL only when the alpha blob is non-empty — both eras
+  round-trip. Same principle: empty vs absent chunk both decode to empty vectors,
+  so only size-carrying members needed care.
+- Tests: 9.2.7 split semantic round-trip (buffer-level per physical file);
+  suite 101/101. Deferred to stage 3: structured _obj1 (MLMD/MLMX/MLDD/MLDX/
+  MLFD) + _lod (MLHD/MLVH/MLLL/MLND/…) + blend meshes + SL MWDR/MWDS/MTCG/MLDB;
+  MCBB/MCDD/MPTX per-cell.

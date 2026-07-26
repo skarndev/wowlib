@@ -305,10 +305,15 @@ namespace wowlib::formats::adt
         {
           layers.resize(sub.size() / 16);
           std::memcpy(layers.data(), sub.data(), layers.size() * 16);
+          // size the alpha maps from the layer count, NOT from MCAL presence:
+          // MCAL is present in every pre-Cata MCNK but omitted when empty on
+          // Cata+, and a per-layer alpha_maps entry keeps both consistent.
+          alpha_maps.assign(layers.size(), {});
         }
         else if (magic == four_cc("MCAL"))
         {
-          alpha_maps.assign(layers.size(), {});
+          if (alpha_maps.size() < layers.size())
+            alpha_maps.resize(layers.size());
           for (std::size_t i = 0; i < layers.size(); ++i)
           {
             const std::uint32_t f = layers[i].flags;
@@ -399,6 +404,12 @@ namespace wowlib::formats::adt
         // are skipped; a later stage stores them for round-trip.
         pos = data_at + effective;
       }
+
+      // Each layer's offset into the MCAL blob is derived (re-stamped on write
+      // from the alpha layout); zero it once MCAL has been decoded so the
+      // semantic diff does not compare a layout artifact.
+      for (auto& layer : layers)
+        layer.offset_in_mcal = 0;
 
       // Normalize the header's DERIVED fields (offsets, sizes, counts) to zero
       // once they have been consumed: they describe a specific on-disk layout,
@@ -534,7 +545,10 @@ namespace wowlib::formats::adt
           });
           emitted_size_shadow = static_cast<std::uint32_t>(out.size() - before);
         }
-        if (!layers.empty())
+        // MCAL is omitted when the cell has no alpha data (most cells): emitting
+        // an empty one would make a no-MCAL cell round-trip to a 1-entry
+        // alpha_maps. Emit only when at least one layer contributed a map.
+        if (!alpha_blob.empty())
         {
           const std::size_t before = out.size();
           o_mcal = emit("MCAL", [&] { put(alpha_blob.data(), alpha_blob.size()); });

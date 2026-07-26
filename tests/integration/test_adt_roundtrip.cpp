@@ -64,9 +64,10 @@ namespace
     }
   }
 
-  /** Semantic round-trip of one tile: read it from the client, canonically
-      rewrite to a buffer, parse the buffer back with the same alpha format, and
-      require decoded equality (ADT is not byte-perfect — see adt-architecture). */
+  /** Semantic round-trip of one monolithic (pre-Cata) tile: read it from the
+      client, canonically rewrite to a buffer, parse the buffer back with the
+      same alpha format, and require decoded equality (ADT is not byte-perfect —
+      see adt-architecture). */
   template <ClientVersion V>
   void roundtrip_adt(fs::FileSystem& fs, const FileKey& key, const std::string& label)
   {
@@ -90,6 +91,42 @@ namespace
       INFO((r ? std::string{} : r.error().message));
       REQUIRE(r.has_value());
     }
+
+    const auto d = diff_value(a, b);
+    INFO(d.value_or(""));
+    CHECK_FALSE(d.has_value());
+  }
+
+  /** Semantic round-trip of one Cata+ split tile: read (root + _tex0 + _obj0
+      merged, _obj1/_lod preserved verbatim), rewrite each physical file to a
+      buffer, parse them all back into a fresh entity, and require decoded
+      equality. */
+  template <ClientVersion V>
+  void roundtrip_adt_split(fs::FileSystem& fs, const FileKey& key, const std::string& label)
+  {
+    INFO(label);
+    adt::ADT<V> a;
+    {
+      const auto r = a.read(fs, key);
+      INFO((r ? std::string{} : r.error().message));
+      REQUIRE(r.has_value());
+    }
+    REQUIRE(a.cells.size() == 256);
+
+    adt::ADT<V> b;
+    b.alpha_format = a.alpha_format;
+    b.cells.assign(256, adt::MapChunk<V>{});
+    for (const auto kind : {adt::FileKind::root, adt::FileKind::tex0, adt::FileKind::obj0})
+    {
+      const auto buf = a.write_split_file(kind);
+      REQUIRE(buf.has_value());
+      const auto r = b.parse_file(*buf, kind);
+      INFO((r ? std::string{} : r.error().message));
+      REQUIRE(r.has_value());
+    }
+    // _obj1/_lod are round-tripped verbatim by write(); mirror that here
+    b.obj1_data = a.obj1_data;
+    b.lod_data = a.lod_data;
 
     const auto d = diff_value(a, b);
     INFO(d.value_or(""));
@@ -136,4 +173,47 @@ TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
     }
   }
   CHECK(verified >= 6);
+}
+
+TEST_CASE("9.2.7 split ADTs re-read equal after a canonical rewrite",
+          "[integration][formats][adt]")
+{
+  const auto clients = tests::require_clients_dir();
+  const auto listfile = tests::require_listfile();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::casc_client_name,
+                                  .version = versions::shadowlands,
+                                  .listfile_csv = listfile});
+  REQUIRE(fs.has_value());
+
+  const std::vector<std::string> maps{"kultiras", "azeroth", "kalimdor"};
+
+  int verified = 0;
+  for (const auto& map : maps)
+  {
+    const std::string wdt_path = std::format("world/maps/{0}/{0}.wdt", map);
+    if (!fs->exists(wdt_path))
+    {
+      WARN("not in client, skipped: " + wdt_path);
+      continue;
+    }
+    wdt::root::WDTRoot<versions::shadowlands> root;
+    const auto raw = fs->read_file(FileKey{wdt_path});
+    REQUIRE(raw.has_value());
+    REQUIRE(root.read(*raw).has_value());
+
+    int tiles_this_map = 0;
+    for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 4; ++i)
+    {
+      if (!(root.tiles[i].flags & 0x1))
+        continue;
+      const std::size_t x = i % 64, y = i / 64;
+      const std::string adt = std::format("world/maps/{0}/{0}_{1}_{2}.adt", map, x, y);
+      if (!fs->exists(adt))
+        continue;
+      roundtrip_adt_split<versions::shadowlands>(*fs, FileKey{adt}, adt);
+      ++tiles_this_map;
+      ++verified;
+    }
+  }
+  CHECK(verified >= 3);
 }

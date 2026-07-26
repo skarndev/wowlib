@@ -76,15 +76,6 @@ namespace wowlib::formats::adt
       MFBOPlanes flying_bounds{};
     };
 
-    /** The MTEX texture name list, removed at 8.1.0.28294 (MDID/MHID replace it). */
-    struct ADTTexNames
-    {
-      [[=welder::doc("The tileset texture filenames (MTEX): the paths MapChunk layers "
-                     "index. Replaced by diffuse_texture_ids at 8.1.0.28294."),
-        =welder::mark::no_reassign]]
-      StringBlock textures;
-    };
-
     /** WotLK+ tile chunks: the water (MH2O) and the texture flags (MTXF). */
     struct ADTWotlk
     {
@@ -94,6 +85,48 @@ namespace wowlib::formats::adt
       [[=welder::doc("Per-texture flags (MTXF, WotLK+): one entry per MTEX texture."),
         =welder::mark::no_reassign]]
       std::vector<SMTextureFlags> texture_flags;
+    };
+
+    /** Cataclysm+ split-file tile chunks (the tile now spans root/_tex0/_obj0/
+        _obj1/_lod files). MTXP is strictly MoP+ but harmless empty on Cata; the
+        _obj1 and _lod files are preserved verbatim this stage (structured in a
+        later one). */
+    struct ADTSplit
+    {
+      [[=welder::doc("The MAMP alpha-map downscale value (Cata+): overrides the MHDR "
+                     "inline value; alpha texture size is 64 / (2^value).")]]
+      std::uint32_t mamp = 0;
+
+      [[=welder::doc("Whether this tile stores its textures as MDID/MHID FileDataIDs "
+                     "(8.1+ height-texturing maps) rather than MTEX names; set from the "
+                     "chunk present on read and honored on write.")]]
+      bool uses_texture_fdids = false;
+
+      [[=welder::doc("Height-blend texture parameters (MTXP, MoP+): one per texture."),
+        =welder::mark::no_reassign]]
+      std::vector<SMTextureParams> texture_params;
+
+      [[=welder::mark::exclude]] std::vector<std::byte> obj1_data;  // raw _obj1.adt
+      [[=welder::mark::exclude]] std::vector<std::byte> lod_data;   // raw _lod.adt
+
+      bool operator==(const ADTSplit&) const = default;
+    };
+
+    /** The 8.1+ FileDataID texture tables (_tex0), which replace MTEX names on
+        height-texturing maps. */
+    struct ADTTexFdids
+    {
+      [[=welder::doc("Diffuse-texture FileDataIDs (MDID, 8.1+): the _s.blp tileset "
+                     "textures MapChunk layers index, in place of MTEX names."),
+        =welder::mark::no_reassign]]
+      std::vector<std::uint32_t> diffuse_texture_ids;
+
+      [[=welder::doc("Height-texture FileDataIDs (MHID, 8.1+): the _h.blp map paired with "
+                     "each diffuse texture (0 for none)."),
+        =welder::mark::no_reassign]]
+      std::vector<std::uint32_t> height_texture_ids;
+
+      bool operator==(const ADTTexFdids&) const = default;
     };
   }
 
@@ -115,8 +148,9 @@ namespace wowlib::formats::adt
     ]] ADT
       : ADTBase,
         slot<V, builds::TBC, ADTFlying>,
-        slot<V, ClientVersion{0, 0, 0, 0}, ADTTexNames, adt::adt_tex_fdids>,
-        slot<V, builds::WotLK, ADTWotlk>
+        slot<V, builds::WotLK, ADTWotlk>,
+        slot<V, builds::Cata, ADTSplit>,
+        slot<V, builds::BfA_TidesOfVengeance, ADTTexFdids>
     {
       static constexpr ClientVersion version = V;
 
@@ -125,6 +159,12 @@ namespace wowlib::formats::adt
 
       [[=welder::doc("The tile header (MHDR): flags; the chunk offsets are derived.")]]
       MHDRData header{};
+
+      [[=welder::doc("The tileset texture filenames (MTEX): the paths MapChunk layers "
+                     "index. Present unless the tile uses MDID/MHID FileDataIDs (8.1+ "
+                     "height-texturing maps)."),
+        =welder::mark::no_reassign]]
+      StringBlock textures;
 
       [[=welder::doc("The M2 model filenames (MMDX) placements reference by MMID index."),
         =welder::mark::no_reassign]]
@@ -188,6 +228,10 @@ namespace wowlib::formats::adt
       /** Serialize the monolithic (pre-Cata) file. */
       [[=welder::mark::exclude]]
       Result<FileBuffer> write_monolithic() const;
+
+      /** Serialize one physical file of a Cata+ split tile (root/_tex0/_obj0). */
+      [[=welder::mark::exclude]]
+      Result<FileBuffer> write_split_file(FileKind kind) const;
 
     private:
       /** Normalize every cell's do_not_fix_alpha flag to set (we hold full 64x64
@@ -290,9 +334,42 @@ namespace wowlib::formats::adt
           ;  // derived on write from the MCNK layout; nothing to keep
         else if (magic == four_cc("MTEX"))
         {
-          if constexpr (requires { this->textures; })
-            if (auto r = this->textures.read(payload); !r)
-              return r;
+          if (auto r = textures.read(payload); !r)
+            return r;
+        }
+        else if (magic == four_cc("MDID"))
+        {
+          if constexpr (requires { this->diffuse_texture_ids; })
+          {
+            this->diffuse_texture_ids.resize(payload.size() / 4);
+            std::memcpy(this->diffuse_texture_ids.data(), payload.data(),
+                        this->diffuse_texture_ids.size() * 4);
+            if constexpr (requires { this->uses_texture_fdids; })
+              this->uses_texture_fdids = true;
+          }
+        }
+        else if (magic == four_cc("MHID"))
+        {
+          if constexpr (requires { this->height_texture_ids; })
+          {
+            this->height_texture_ids.resize(payload.size() / 4);
+            std::memcpy(this->height_texture_ids.data(), payload.data(),
+                        this->height_texture_ids.size() * 4);
+          }
+        }
+        else if (magic == four_cc("MAMP"))
+        {
+          if constexpr (requires { this->mamp; })
+            std::memcpy(&this->mamp, payload.data(), std::min<std::size_t>(4, payload.size()));
+        }
+        else if (magic == four_cc("MTXP"))
+        {
+          if constexpr (requires { this->texture_params; })
+          {
+            this->texture_params.resize(payload.size() / sizeof(SMTextureParams));
+            std::memcpy(this->texture_params.data(), payload.data(),
+                        this->texture_params.size() * sizeof(SMTextureParams));
+          }
         }
         else if (magic == four_cc("MMDX"))
         {
@@ -464,6 +541,106 @@ namespace wowlib::formats::adt
     }
 
     template <ClientVersion V>
+    Result<FileBuffer> ADT<V>::write_split_file(FileKind kind) const
+    {
+      FileBuffer out;
+      const auto put = [&](const void* p, std::size_t n) {
+        const auto* b = static_cast<const std::byte*>(p);
+        out.insert(out.end(), b, b + n);
+      };
+      const auto emit = [&](const char (&cc)[5], auto&& body) -> std::size_t {
+        const std::size_t at = out.size();
+        std::uint32_t magic = four_cc(cc);
+        put(&magic, 4);
+        const std::size_t size_at = out.size();
+        out.insert(out.end(), 4, std::byte{0});
+        body();
+        const auto size = static_cast<std::uint32_t>(out.size() - size_at - 4);
+        std::memcpy(out.data() + size_at, &size, 4);
+        return at;
+      };
+
+      emit("MVER", [&] { std::uint32_t v = adt_version_18; put(&v, 4); });
+
+      std::size_t mh2o_at = 0, mfbo_at = 0, mhdr_at = 0;
+      std::optional<Error> err;
+      const auto emit_cells = [&] {
+        for (std::size_t i = 0; i < cells.size() && i < 256; ++i)
+          emit("MCNK", [&] {
+            if (auto r = cells[i].write_slice(out, kind, alpha_format); !r)
+              err = r.error();
+          });
+      };
+
+      if (kind == FileKind::root)
+      {
+        mhdr_at = emit("MHDR", [&] { put(&header, sizeof(MHDRData)); });
+        if constexpr (requires { this->water; })
+          if (!this->water.empty())
+            mh2o_at = emit("MH2O", [&] { (void)this->water.write(out); });
+        emit_cells();
+        const bool has_mfbo =
+          header.flags & static_cast<std::uint32_t>(MapHeaderFlags::has_mfbo);
+        if constexpr (requires { this->flying_bounds; })
+          if (has_mfbo)
+            mfbo_at = emit("MFBO", [&] { put(&this->flying_bounds, sizeof(MFBOPlanes)); });
+        // stamp the two offsets a split root actually carries (rest stay 0; the
+        // reader zeroes them all anyway).
+        const std::size_t hbase = mhdr_at + 8;
+        MHDRData h = header;
+        h.ofs_mh2o = mh2o_at ? static_cast<std::uint32_t>(mh2o_at - hbase) : 0;
+        h.ofs_mfbo = mfbo_at ? static_cast<std::uint32_t>(mfbo_at - hbase) : 0;
+        std::memcpy(out.data() + mhdr_at + 8, &h, sizeof(MHDRData));
+      }
+      else if (kind == FileKind::tex0)
+      {
+        if constexpr (requires { this->mamp; })
+          emit("MAMP", [&] { put(&this->mamp, 4); });
+        bool fdids = false;
+        if constexpr (requires { this->uses_texture_fdids; })
+          fdids = this->uses_texture_fdids;
+        if (fdids)
+        {
+          if constexpr (requires { this->diffuse_texture_ids; })
+          {
+            emit("MDID", [&] {
+              put(this->diffuse_texture_ids.data(), this->diffuse_texture_ids.size() * 4);
+            });
+            emit("MHID", [&] {
+              put(this->height_texture_ids.data(), this->height_texture_ids.size() * 4);
+            });
+          }
+        }
+        else
+          emit("MTEX", [&] { (void)textures.write(out); });
+        emit_cells();
+        if constexpr (requires { this->texture_params; })
+          if (!this->texture_params.empty())
+            emit("MTXP", [&] {
+              put(this->texture_params.data(),
+                  this->texture_params.size() * sizeof(SMTextureParams));
+            });
+      }
+      else if (kind == FileKind::obj0)
+      {
+        emit("MMDX", [&] { (void)model_filenames.write(out); });
+        emit("MMID", [&] { put(model_name_offsets.data(), model_name_offsets.size() * 4); });
+        emit("MWMO", [&] { (void)wmo_filenames.write(out); });
+        emit("MWID", [&] { put(wmo_name_offsets.data(), wmo_name_offsets.size() * 4); });
+        emit("MDDF", [&] {
+          put(doodad_placements.data(), doodad_placements.size() * sizeof(common::SMDoodadDef));
+        });
+        emit("MODF", [&] {
+          put(wmo_placements.data(), wmo_placements.size() * sizeof(common::SMMapObjDef));
+        });
+        emit_cells();
+      }
+      if (err)
+        return std::unexpected{*err};
+      return out;
+    }
+
+    template <ClientVersion V>
     Result<void> ADT<V>::read(fs::FileSystem& fs, const FileKey& key)
     {
       *this = ADT{};
@@ -482,8 +659,59 @@ namespace wowlib::formats::adt
       }
       else
       {
-        return make_error(ErrorCode::NotImplemented,
-                          "Cata+ split-file ADT read is not implemented yet (stage 2)");
+        // Cata+ split tile: the root .adt plus its _tex0/_obj0/_obj1/_lod
+        // satellites, located by the "{stem}_<suffix>.adt" naming convention.
+        // root/tex0/obj0 are parsed and MERGED into the one entity (their 256
+        // MCNK streams accumulate per cell); _obj1/_lod are preserved verbatim
+        // this stage (structured later).
+        const FileKey resolved = fs.resolve(key);
+        if (!resolved.path)
+          return make_error(ErrorCode::PathNotResolvable,
+                            "loading a split ADT needs the root file path");
+        std::string_view stem = *resolved.path;
+        if (stem.ends_with(".adt"))
+          stem.remove_suffix(4);
+        const auto sibling = [&](std::string_view suffix) {
+          return std::format("{}{}.adt", stem, suffix);
+        };
+
+        const auto root_data = fs.read_file(key);
+        if (!root_data)
+          return std::unexpected{root_data.error()};
+        cells.assign(256, MapChunk<V>{});
+        if (auto r = parse_file(*root_data, FileKind::root); !r)
+          return r;
+
+        const auto load = [&](std::string_view suffix, FileKind fk) -> Result<void> {
+          const FileKey k{sibling(suffix)};
+          if (!fs.exists(k))
+            return {};
+          const auto data = fs.read_file(k);
+          if (!data)
+            return make_error(data.error().code,
+                              std::format("{} satellite: {}", suffix, data.error().message));
+          return parse_file(*data, fk);
+        };
+        if (auto r = load("_tex0", FileKind::tex0); !r)
+          return r;
+        if (auto r = load("_obj0", FileKind::obj0); !r)
+          return r;
+
+        // preserve the unmodeled satellites verbatim
+        if constexpr (requires { this->obj1_data; })
+        {
+          const auto keep = [&](std::string_view suffix, std::vector<std::byte>& into) {
+            const FileKey k{sibling(suffix)};
+            if (fs.exists(k))
+              if (const auto data = fs.read_file(k))
+                into = *data;
+          };
+          keep("_obj1", this->obj1_data);
+          keep("_lod", this->lod_data);
+        }
+
+        normalize_cells();
+        return {};
       }
     }
 
@@ -503,8 +731,40 @@ namespace wowlib::formats::adt
       }
       else
       {
-        return make_error(ErrorCode::NotImplemented,
-                          "Cata+ split-file ADT write is not implemented yet (stage 2)");
+        std::string_view stem = *resolved.path;
+        if (stem.ends_with(".adt"))
+          stem.remove_suffix(4);
+        const auto sibling = [&](std::string_view suffix) {
+          return std::format("{}{}.adt", stem, suffix);
+        };
+        const auto store = [&](FileKind fk, std::string_view suffix) -> Result<void> {
+          const auto data = write_split_file(fk);
+          if (!data)
+            return std::unexpected{data.error()};
+          return fs.add_file(sibling(suffix), *data);
+        };
+        // the root file keeps the bare "{stem}.adt" name
+        {
+          const auto data = write_split_file(FileKind::root);
+          if (!data)
+            return std::unexpected{data.error()};
+          if (auto r = fs.add_file(*resolved.path, *data); !r)
+            return r;
+        }
+        if (auto r = store(FileKind::tex0, "_tex0"); !r)
+          return r;
+        if (auto r = store(FileKind::obj0, "_obj0"); !r)
+          return r;
+        if constexpr (requires { this->obj1_data; })
+        {
+          if (!this->obj1_data.empty())
+            if (auto r = fs.add_file(sibling("_obj1"), this->obj1_data); !r)
+              return r;
+          if (!this->lod_data.empty())
+            if (auto r = fs.add_file(sibling("_lod"), this->lod_data); !r)
+              return r;
+        }
+        return {};
       }
     }
   }
