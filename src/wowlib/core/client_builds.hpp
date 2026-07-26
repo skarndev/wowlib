@@ -32,6 +32,9 @@ namespace wowlib::builds
   /** Cataclysm (any 4.x client). */
   inline constexpr ClientVersion Cata{4, 0, 0, 0};
 
+  /** Mists of Pandaria (any 5.x client). */
+  inline constexpr ClientVersion MoP{5, 0, 0, 0};
+
   /** Warlords of Draenor (any 6.x client). */
   inline constexpr ClientVersion WoD{6, 0, 0, 0};
 
