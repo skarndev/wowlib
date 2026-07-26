@@ -7,6 +7,8 @@ with runnable examples. For the exhaustive *what*, see the generated
 - **[Getting started](getting-started.md)** — build the C++ library, install the
   Python extension, open a client.
 - **[Reading a WMO](wmo.md)** — load a world-model object and walk its chunks.
+- **[Reading a map (WDT & WDL)](maps.md)** — the map's tile table, satellites
+  and low-resolution heightmap.
 
 !!! note "Work in progress"
     wowlib is early. This guide grows with the library; the API references are

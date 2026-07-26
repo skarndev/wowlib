@@ -125,6 +125,7 @@ nav:
       - guide/index.md
       - Getting started: guide/getting-started.md
       - Reading a WMO: guide/wmo.md
+      - Reading a map (WDT & WDL): guide/maps.md
   - Python API:
       - python/index.md
       - Core & versions: python/core.md
@@ -143,5 +144,15 @@ nav:
           - M2 root: python/m2/root.md
           - M2 chunks: python/m2/chunks.md
           - M2 records: python/m2/records.md
+      - WDT format:
+          - python/wdt/index.md
+          - WDT entity: python/wdt/entity.md
+          - WDT main file: python/wdt/root.md
+          - Satellites: python/wdt/satellites.md
+          - Chunks: python/wdt/chunks.md
+      - WDL format:
+          - python/wdl/index.md
+          - WDL entity: python/wdl/entity.md
+          - Chunks: python/wdl/chunks.md
       - Containers: python/containers.md
   - C++ API Reference: reference.md

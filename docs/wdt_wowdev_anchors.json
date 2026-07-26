@@ -1,0 +1,21 @@
+{
+"MPHD": "MPHD_chunk",
+"MAIN": "MAIN_chunk",
+"MAID": "MAID_chunk",
+"MWMO": "MWMO_chunk",
+"MODF": "MODF_chunk",
+"MANM": "MANM",
+"MAOI": "MAOI",
+"MAOH": "MAOH",
+"MPLT": "MPLT",
+"MPL2": "MPL2_(Legion+)",
+"MPL3": "MPL3_(Shadowlands+)",
+"MSLT": "MSLT_(Legion+)",
+"MTEX": "MTEX_(Legion+)",
+"MLTA": "MLTA",
+"VFOG": "VFOG",
+"VFEX": "VFEX",
+"PVPD": "PVPD",
+"PVMI": "PVMI",
+"PVBD": "PVBD"
+}

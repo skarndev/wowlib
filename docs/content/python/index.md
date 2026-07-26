@@ -14,6 +14,9 @@ docstrings here match what you import.
 | [`wowlib.fs`](fs.md) | The filesystem gateway over MPQ / CASC storages |
 | [`wowlib.formats.common`](common.md) | Shared wire primitives — vectors, matrices, colours, planes |
 | [`wowlib.formats.wmo`](wmo/index.md) | The WMO format — root & group, per-expansion classes |
+| [`wowlib.formats.m2`](m2/index.md) | The M2 model format — body, skins, skeletons and satellites |
+| [`wowlib.formats.wdt`](wdt/index.md) | The WDT map description — main file + `_occ`/`_lgt`/`_fogs`/`_mpv` satellites |
+| [`wowlib.formats.wdl`](wdl/index.md) | The WDL low-resolution heightmap |
 | [containers](containers.md) | Opaque `Vector*` types — by-reference, zero-copy NumPy |
 
 !!! tip "Types are shipped"

@@ -15,8 +15,9 @@ possible on top of one shared, well-tested file layer.
 
 -   :material-cube-outline: __World-file formats__
 
-    A chunk framework and versioned entities. **WMO** (root + group) is the
-    first fully-modelled format, with a round-trip guarantee.
+    A chunk framework and versioned entities. **WMO** (root + group), **M2**
+    (with every satellite file) and the **WDT**/**WDL** map files are fully
+    modelled, with a byte-perfect round-trip guarantee.
 
 -   :material-language-python: __Typed Python bindings__
 

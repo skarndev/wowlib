@@ -22,7 +22,8 @@ COMMON_TYPES = fr.StructPage(
     page="python/common.md",
     module="wowlib.formats.common",
     stub="wowlib/formats/common.pyi",
-    headers=(SRC / "formats/common/types.hpp",),
+    headers=(SRC / "formats/common/types.hpp",
+             SRC / "formats/common/map_placements.hpp"),
 )
 # Not covered (accepted bare): StringBlock/ChunkBlob live in module
 # `wowlib.formats` and their only ints are the size() getters (size_t, not wire)

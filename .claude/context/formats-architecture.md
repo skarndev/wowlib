@@ -379,11 +379,97 @@ specializations stay trivially copyable). New gotchas from the sweep:
   `[[=welder::mark::no_reassign]]` → the property is read-only (mutate in place, but no
   whole-attribute reassignment). The excluded `Repeated<>` texcoords/vertex_colors and
   the `ChunkBlob` members are unmarked.
-- Deferred: M2/ADT/WDT; the remaining offset-based intra-chunk data (MOTA/MDDL/
+- Deferred: ADT; the remaining offset-based intra-chunk data (MOTA/MDDL/
   M2Array — planned as an `offset_view` member kind generalizing the MLIQData
   approach); real convert steps; Repeated<>
   bindings (sequence protocol; texcoords/vertex_colors still mark::exclude'd);
   integration coverage for the 9 versions without local clients.
+
+## WDT + WDL (2026-07-26)
+
+Both formats shipped end-to-end (C++ + tests + bindings + docs), grounded in a
+FULL-corpus survey of both clients (106 + 805 maps; scratchpad script walked
+raw chunk streams first, entity round-trip after). Survey CORRECTIONS to
+wowdev.wiki, baked into the models:
+- WDL MWMO/MWID/MODF are NOT removed in Legion: 9.2.7 WMO-only maps still ship
+  them (206 files) — modeled with no `until()`; the MLDD/MLDX/MLMD/MLMX set is
+  since(Legion) alongside.
+- WDL MSSF is documented DF+ but present in 9.2.7 → since(SL). Undocumented
+  MLDF/MLDL/MLDB/MLMB blobs observed in 9.2.7 WDLs → optional members since(SL)
+  (MLDL is a u32 vector per the ADT chunk of the same name; rest ChunkBlob).
+- _lgt 9.2.7 files carry MPL3/MSLT/MTEX/MLTA only (no MPLT/MPL2 back-compat);
+  chunk order MVER MPL3 MSLT MTEX MLTA.
+- _mpv PVMI/PVPD/PVBD REPEAT as ordered groups (up to ~13 per file); PVMI's
+  record size keys on the FILE's own MVER payload, not the client → per-group
+  ChunkBlob.
+- MAOF nonzero slots == MARE chunks, offsets point at the MARE chunk HEADERS
+  in row-major slot order, MAHO count == MARE count — 100% of 911 files.
+
+**Framework additions** (chunked_file.hpp / annotations.hpp):
+- `=formats::repeating` on a `std::vector<Element>` member: one chunk per
+  ELEMENT, unbounded (vs `Repeated<T,N>` slots; vs plain vector = one array
+  chunk). Element reads by the usual kind dispatch (struct exact-size, vector,
+  SelfSerializing). Opaque vector binding covers it for free.
+- `Result<std::optional<std::vector<JournalEntry>>> resequenced_journal() const`
+  hook: replaces the replay order for one write (nullopt = stored journal).
+  `detail::fresh_journal(entity)` builds the canonical-order starting journal;
+  `detail::chunk_member_index<E>(magic)` maps fourcc -> flattened member index.
+- `Result<void> patch_file(std::span<std::byte>) const` hook: sees the WHOLE
+  serialized image after the trailing bytes — for wire fields that reference
+  bytes written after their own chunk (WDL MAOF; ADT MHDR/MCIN later).
+  patch_chunk stays for single-chunk stamping.
+
+**WDL model** (formats/wdl/, one entity, 5 ranges VanillaToTbc/WotlkToWod/
+LegionToBfa/ShadowlandsToDragonflight/TheWarWithin): per-tile MARE/MAHO/MAOE/
+MAOC are `repeating` members pairing BY ORDINAL — i-th heightmap ↔ i-th
+nonzero tile_offsets slot (row-major), i-th hole ↔ i-th heightmap. MAOF offset
+VALUES are DERIVED (patch_file restamps every write; verified byte-identical
+on unmodified files), only the nonzero pattern is authored. Tile add/remove
+triggers resequenced_journal: rebuild = non-tile chunks in chunk_order, then
+per tile MARE/(MAOC/MAOE)/MAHO interleaved after MAOF, unknown chunks last;
+validations (4096 slots, count pairing, holes all-or-nothing) error as
+InvalidEntityState. Sparse MAOE pairing derives from the journal interleave —
+welded `ocean_mask_tiles()` method exposes it. Fresh writes REQUIRE the user
+to fill tile_offsets (no NSDMI vector default — the eager-default risk).
+
+**WDT model** (formats/wdt/): WDTRoot (MVER/MPHD/MAIN/MAID/MWMO/MODF/MANM-
+blob; SMMapHeader has a constrained-specialization layout pivot at 8.1.0.28294
+where the unused tail becomes satellite FDIDs) + four satellite entities
+(occlusion MAOI/MAOH; lights; fogs; mpv) + a WMO-style assembly whose
+satellites are members of version-gated slot traits (occ/lgt since WoD, fogs
+since 7.2.5.24076, mpv since 8.0.1.26287). Satellites locate by
+"{map}_<suffix>.wdt" convention pre-8.1, MPHD FDIDs after; missing file =
+default-empty member, write skips unengaged satellites
+(formats::detail::entity_engaged). MAI2 (12.0.5+) postdates the range,
+round-trips as unknown. Shared placement records SMMapObjDef/SMDoodadDef live
+in formats/common/map_placements.hpp (welded under formats.common; ADT will
+reuse). GOTCHA: wire-struct names are FLAT in the opaque-vector namespace —
+wdt's light records are MapPointLight/MapPointLight3/MapSpotLight because WMO
+already owns PointLight (the opaque generator hard-errors on the collision).
+GOTCHA: with a chunks::detail namespace present, the entity alias must spell
+root::detail::WDTRoot (bare detail:: ambiguous under the using-directive).
+
+**Bindings**: instantiations/{wdt,wdl}_{ranges.hpp,matrix.inl,.hpp,.cpp} +
+formats/{wdt,wdl}.cpp facades, registered in wowlib_module.cpp and — REQUIRED —
+in opaque_gen.cpp (the generator only sees containers reachable from welded
+per-range aliases; forgetting the include silently leaves new vectors
+by-value). WDT verbs live on WDTBase (fs-only, like M2). WDL is a ChunkedFile
+whose concretes weld read(bytes)/write() — base-scoped fs verbs would be
+SHADOWED in Python attribute lookup, so the (FileSystem, FileKey) overloads
+are MERGED into each concrete's chain (nb::cpp_function name+scope merge, one
+range representative each). KNOWN WART (pre-existing): Skeleton's fs verbs sit
+on SkeletonBase and ARE shadowed by the concrete's welded pair — unreachable
+from Python; fix the same way when touched. Single-range families' AnyX alias
+is the class itself, not a UnionType (AnyWDTOcclusion, AnyWDTParticulates,
+like AnySkeleton). std::array struct members (TileHeights.outer) bind by copy:
+element assignment on the property is lost — whole-array assignment is the
+Python editing idiom (documented on the WDL pages).
+
+**Docs**: wdt/wdl_reference_config.py registered in FORMAT_MODULES + the
+format_reference.py reload shim; wdt has FIVE sides (root page + four
+satellite sides sharing satellites.md) and five StructPages sharing chunks.md
+(per-marker); vendored wdt/wdl_wowdev_anchors.json; map_placements.hpp joined
+COMMON_TYPES headers; guide/maps.md.
 
 ## Adding a new format (the recipe)
 

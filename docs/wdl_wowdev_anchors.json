@@ -1,0 +1,20 @@
+{
+"MWMO": "MWMO",
+"MWID": "MWID",
+"MODF": "MODF",
+"MLDD": "MLDD",
+"MLDX": "MLDX",
+"MLMD": "MLMD",
+"MLMX": "MLMX",
+"MAOF": "MAOF_chunk",
+"MSSN": "MSSN",
+"MSSC": "MSSC",
+"MSSO": "MSSO",
+"MSSF": "MSSF",
+"MSLD": "MSLD",
+"MSLI": "MSLI",
+"MARE": "MARE_chunks",
+"MAOC": "MAOC_chunk_(<Legion)",
+"MAOE": "MAOE_chunk_(Legion+)",
+"MAHO": "MAHO_chunks"
+}
