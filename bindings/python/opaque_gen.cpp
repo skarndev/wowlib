@@ -24,6 +24,7 @@
 // The welded per-range alias tables live in the bindings, not the library —
 // without them the walk sees no welded per-version entities and the
 // generator would emit an (almost) empty header.
+#include "instantiations/adt_ranges.hpp"
 #include "instantiations/m2_ranges.hpp"
 #include "instantiations/wdl_ranges.hpp"
 #include "instantiations/wdt_ranges.hpp"

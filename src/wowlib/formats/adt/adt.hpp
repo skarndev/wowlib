@@ -109,6 +109,8 @@ namespace wowlib::formats::adt
       [[=welder::mark::exclude]] std::vector<std::byte> obj1_data;  // raw _obj1.adt
       [[=welder::mark::exclude]] std::vector<std::byte> lod_data;   // raw _lod.adt
 
+      [[=welder::mark::exclude]]
+
       bool operator==(const ADTSplit&) const = default;
     };
 
@@ -125,6 +127,8 @@ namespace wowlib::formats::adt
                      "each diffuse texture (0 for none)."),
         =welder::mark::no_reassign]]
       std::vector<std::uint32_t> height_texture_ids;
+
+      [[=welder::mark::exclude]]
 
       bool operator==(const ADTTexFdids&) const = default;
     };
@@ -722,12 +726,20 @@ namespace wowlib::formats::adt
       if (!resolved.path)
         return make_error(ErrorCode::PathNotResolvable, "saving an ADT needs a path");
 
+      // add_file returns Result<FileDataID>; a save only cares whether it failed.
+      const auto add = [&](std::string_view path,
+                           std::span<const std::byte> bytes) -> Result<void> {
+        if (auto r = fs.add_file(path, bytes); !r)
+          return std::unexpected{r.error()};
+        return {};
+      };
+
       if constexpr (V < builds::Cata)
       {
         const auto data = write_monolithic();
         if (!data)
           return std::unexpected{data.error()};
-        return fs.add_file(*resolved.path, *data);
+        return add(*resolved.path, *data);
       }
       else
       {
@@ -741,14 +753,14 @@ namespace wowlib::formats::adt
           const auto data = write_split_file(fk);
           if (!data)
             return std::unexpected{data.error()};
-          return fs.add_file(sibling(suffix), *data);
+          return add(sibling(suffix), *data);
         };
         // the root file keeps the bare "{stem}.adt" name
         {
           const auto data = write_split_file(FileKind::root);
           if (!data)
             return std::unexpected{data.error()};
-          if (auto r = fs.add_file(*resolved.path, *data); !r)
+          if (auto r = add(*resolved.path, *data); !r)
             return r;
         }
         if (auto r = store(FileKind::tex0, "_tex0"); !r)
@@ -758,10 +770,10 @@ namespace wowlib::formats::adt
         if constexpr (requires { this->obj1_data; })
         {
           if (!this->obj1_data.empty())
-            if (auto r = fs.add_file(sibling("_obj1"), this->obj1_data); !r)
+            if (auto r = add(sibling("_obj1"), this->obj1_data); !r)
               return r;
           if (!this->lod_data.empty())
-            if (auto r = fs.add_file(sibling("_lod"), this->lod_data); !r)
+            if (auto r = add(sibling("_lod"), this->lod_data); !r)
               return r;
         }
         return {};

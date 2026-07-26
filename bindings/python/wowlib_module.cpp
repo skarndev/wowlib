@@ -22,6 +22,7 @@
     typed @c \@overload blocks. The one thing stubgen cannot synthesize — the
     @c AnyX union aliases — comes from the declarative stub PATTERN_FILE, not code. */
 
+#include "instantiations/adt.hpp"
 #include "instantiations/m2.hpp"
 #include "instantiations/wdl.hpp"
 #include "instantiations/wdt.hpp"
@@ -44,6 +45,7 @@
 #include "formats/repeated_caster.hpp"
 
 #include "errors.hpp"
+#include "formats/adt.hpp"
 #include "formats/m2.hpp"
 #include "formats/wdl.hpp"
 #include "formats/wdt.hpp"
@@ -71,5 +73,6 @@ WELDER_MODULE(wowlib, nanobind,
   wowlib_py::formats::m2::register_facade(module);
   wowlib_py::formats::wdt::register_facade(module);
   wowlib_py::formats::wdl::register_facade(module);
+  wowlib_py::formats::adt::register_facade(module);
   wowlib_py::fs::register_filesystem_protocol(module);
 }

@@ -272,10 +272,33 @@ namespace wowlib::formats
   }
 }
 
+// The adt namespace opens after wdl, fixing the submodule weld order; its
+// chunks wire structs pre-declare before the MapChunk/ADT entities that name
+// them as NSDMI defaults.
+namespace wowlib::formats
+{
+  namespace
+  [[=welder::doc(R"(
+      The ADT terrain-tile format: the ADT tile entity and its 256 MapChunk
+      terrain cells (both per-version classes), the structured MH2O/MCLQ liquid,
+      and the chunk wire structs in the chunks submodule. One unified ADT spans
+      the pre-Cataclysm single .adt and the Cataclysm+ root/_tex0/_obj0 split.)")]]
+  adt
+  {
+    namespace
+    [[=welder::doc("ADT chunk wire structs (the MCNK cell header, texture layers, "
+                   "liquid records, flying bounds) and their flag enums.")]]
+    chunks
+    {
+    }
+  }
+}
+
 #include <wowlib/formats/wmo/convert.hpp>
 #include <wowlib/formats/m2/convert.hpp>
 #include <wowlib/formats/wdt/convert.hpp>
 #include <wowlib/formats/wdl/convert.hpp>
+#include <wowlib/formats/adt/convert.hpp>
 
 // The format entities carry their fs-level read/write definitions inline
 // (implicit instantiation — the library ships no explicit instantiations).
@@ -283,3 +306,4 @@ namespace wowlib::formats
 #include <wowlib/formats/m2/m2.hpp>
 #include <wowlib/formats/wdt/wdt.hpp>
 #include <wowlib/formats/wdl/wdl.hpp>
+#include <wowlib/formats/adt/adt.hpp>

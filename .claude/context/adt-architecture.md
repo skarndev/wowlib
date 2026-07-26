@@ -175,6 +175,42 @@ adt.hpp (ADT<V> + ADTBase + fs read/write). Key realized designs:
   round-trip. Same principle: empty vs absent chunk both decode to empty vectors,
   so only size-carrying members needed care.
 - Tests: 9.2.7 split semantic round-trip (buffer-level per physical file);
-  suite 101/101. Deferred to stage 3: structured _obj1 (MLMD/MLMX/MLDD/MLDX/
-  MLFD) + _lod (MLHD/MLVH/MLLL/MLND/…) + blend meshes + SL MWDR/MWDS/MTCG/MLDB;
+  suite 101/101. Deferred: structured _obj1 (MLMD/MLMX/MLDD/MLDX/MLFD) + _lod
+  (MLHD/MLVH/MLLL/MLND/…) + blend meshes + SL MWDR/MWDS/MTCG/MLDB;
   MCBB/MCDD/MPTX per-cell.
+
+## Bindings landed (2026-07-26)
+
+Full Python surface, mirroring WDT. Files: instantiations/adt_{ranges.hpp,
+matrix.inl,.hpp,.cpp} (ADT 5 ranges Vanilla/Tbc/Wotlk/CataToLegion/BfaPlus;
+MapChunk 3 ranges VanillaToTbc/Wotlk/CataPlus — NOT ChunkedFile, so the matrix
+just instantiates the entities, no serializer-base row), formats/adt.{hpp,cpp}
+(facade: for_version on ADT + MapChunk, read/write/convert on ADTBase, AnyADT/
+AnyMapChunk). Wired into wowlib.hpp (adt namespace + chunks, after wdl),
+wowlib_module.cpp, opaque_gen.cpp (MANDATORY include), bindings/CMakeLists.txt
+(sources + stub outputs adt/{__init__,chunks}.pyi), stub_patterns.nb (AnyADT/
+AnyMapChunk). Added MapChunkBase (welded, weld_as "MapChunk") so MapChunk gets
+for_version/AnyMapChunk like the other families. Tests: tests/python/
+test_adt_facade.py (9 cases incl. the version-agnostic "add a texture"); full
+python suite 127/127.
+- GOTCHA: a version-trait struct's `operator==` gets FLATTENED onto the welded
+  entity binding, and welder tries to bind its parameter (the unwelded trait
+  type) → `assert_bindable` failure. Mark every trait `operator==` with
+  `[[=welder::mark::exclude]]` (like ChunkExtras/absent). Applies to
+  MapChunkColor/Cata/LegacyLiquid and ADTSplit/ADTTexFdids.
+- GOTCHA: `fs.add_file` returns `Result<FileDataID>`, not `Result<void>` —
+  wrap it (discard the id) before returning from a `Result<void>` writer.
+
+## CORRECTNESS FIX (2026-07-26): MCSH size
+
+`size_shadow` (MCNK header 0x30) is the RAW MCSH data size (512), and does NOT
+include the 8-byte chunk header — UNLIKE size_alpha/size_liquid, which do.
+Subtracting 8 for MCSH misaligned the sub-chunk stream by 8 bytes, silently
+misparsing every shadow-bearing cell (and crashing when the misalignment
+overran, e.g. Azeroth_37_23). The semantic round-trip DID NOT catch it — both
+sides misparsed identically. Fixed: MCSH trusts its own (reliable) declared
+size, no correction. LESSON: a semantic round-trip can't catch a consistent
+misparse — the test now also asserts per-cell STRUCTURAL invariants (heights/
+normals 0-or-145, shadow 0-or-4096, alpha_maps aligned to layers) over 30
+tiles/map, and a full-corpus Python read sweep (both clients, 0 failures)
+backs it.

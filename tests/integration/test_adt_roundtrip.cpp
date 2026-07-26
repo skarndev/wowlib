@@ -64,6 +64,25 @@ namespace
     }
   }
 
+  /** Structural invariants every decoded cell must satisfy — a guard against a
+      SILENT misparse (a stream misalignment that a semantic round-trip cannot
+      catch, since both sides misparse identically). A cell either has a full
+      terrain grid or none; alpha/shadow maps are the full 64x64 edit surface;
+      the alpha-map list is aligned with the layers. */
+  template <typename Cell>
+  void check_cell(const Cell& c, std::size_t index, const std::string& label)
+  {
+    INFO(label << " cell " << index);
+    CHECK((c.heights.empty() || c.heights.size() == 145));
+    CHECK((c.normals.empty() || c.normals.size() == 145));
+    CHECK((c.shadow_map.empty() || c.shadow_map.size() == 4096));
+    CHECK(c.alpha_maps.size() == c.layers.size());
+    for (const auto& map : c.alpha_maps)
+      CHECK((map.empty() || map.size() == 4096));
+    if constexpr (requires { c.vertex_colors; })
+      CHECK((c.vertex_colors.empty() || c.vertex_colors.size() == 145));
+  }
+
   /** Semantic round-trip of one monolithic (pre-Cata) tile: read it from the
       client, canonically rewrite to a buffer, parse the buffer back with the
       same alpha format, and require decoded equality (ADT is not byte-perfect —
@@ -80,6 +99,8 @@ namespace
     }
     CHECK(a.mver == adt::adt_version_18);
     REQUIRE(a.cells.size() == 256);
+    for (std::size_t i = 0; i < a.cells.size(); ++i)
+      check_cell(a.cells[i], i, label);
 
     const auto buf = a.write_monolithic();
     REQUIRE(buf.has_value());
@@ -112,6 +133,8 @@ namespace
       REQUIRE(r.has_value());
     }
     REQUIRE(a.cells.size() == 256);
+    for (std::size_t i = 0; i < a.cells.size(); ++i)
+      check_cell(a.cells[i], i, label);
 
     adt::ADT<V> b;
     b.alpha_format = a.alpha_format;
@@ -159,7 +182,7 @@ TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
     REQUIRE(root.read(*fs->read_file(FileKey{wdt_path})).has_value());
 
     int tiles_this_map = 0;
-    for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 4; ++i)
+    for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 30; ++i)
     {
       if (!(root.tiles[i].flags & 0x1))
         continue;
@@ -202,7 +225,7 @@ TEST_CASE("9.2.7 split ADTs re-read equal after a canonical rewrite",
     REQUIRE(root.read(*raw).has_value());
 
     int tiles_this_map = 0;
-    for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 4; ++i)
+    for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 30; ++i)
     {
       if (!(root.tiles[i].flags & 0x1))
         continue;

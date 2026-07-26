@@ -83,3 +83,9 @@ wowlib.formats.wdt.mpv.AnyWDTParticulates$:
 
 wowlib.formats.wdl.AnyWDL$:
     AnyWDL = WDLVanillaToTbc | WDLWotlkToWod | WDLLegionToBfa | WDLShadowlandsToDragonflight | WDLTheWarWithin
+
+wowlib.formats.adt.AnyADT$:
+    AnyADT = ADTVanilla | ADTTbc | ADTWotlk | ADTCataToLegion | ADTBfaPlus
+
+wowlib.formats.adt.AnyMapChunk$:
+    AnyMapChunk = MapChunkVanillaToTbc | MapChunkWotlk | MapChunkCataPlus

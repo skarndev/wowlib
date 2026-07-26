@@ -72,6 +72,21 @@ namespace wowlib::formats::adt
     lod [[=welder::doc("The Legion+ _lod.adt (low-detail geometry and liquids).")]] = 5
   };
 
+  /** The version-agnostic base of every MapChunk<V> (welded as "MapChunk"): the
+      language bindings attach for_version here and give the per-version cells a
+      common welded supertype. No role in the C++ API. */
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld_as("MapChunk"),
+    =welder::doc(R"(
+        A terrain cell (MCNK), abstract over the client version. Usually obtained
+        from ADT.cells rather than constructed; the per-version MapChunk* classes
+        are subclasses. Construct a concrete version with
+        MapChunk.for_version(expansion). See https://wowdev.wiki/ADT/v18#MCNK_chunk.)")
+  ]] MapChunkBase
+  {
+  };
+
   /** Whether a slice of this kind carries the 128-byte MCNK header (root or the
       pre-Cata monolithic file). */
   constexpr bool slice_has_header(FileKind kind)
@@ -103,6 +118,8 @@ namespace wowlib::formats::adt
         =welder::mark::no_reassign]]
       std::vector<CImVector> vertex_colors;
 
+      [[=welder::mark::exclude]]
+
       bool operator==(const MapChunkColor&) const = default;
     };
 
@@ -118,6 +135,8 @@ namespace wowlib::formats::adt
         =welder::mark::no_reassign]]
       std::vector<SMTerrainMaterial> material_ids;
 
+      [[=welder::mark::exclude]]
+
       bool operator==(const MapChunkCata&) const = default;
     };
 
@@ -126,6 +145,8 @@ namespace wowlib::formats::adt
     {
       [[=welder::doc("The legacy per-cell liquid (MCLQ, pre-WotLK).")]]
       MCLQData legacy_liquid{};
+
+      [[=welder::mark::exclude]]
 
       bool operator==(const MapChunkLegacyLiquid&) const = default;
     };
@@ -147,7 +168,8 @@ namespace wowlib::formats::adt
           edit surface and re-encodes on write; the round-trip is semantic, not
           byte-identical. See https://wowdev.wiki/ADT/v18#MCNK_chunk.)")
     ]] MapChunk
-      : slot<V, builds::WotLK, MapChunkColor>,
+      : MapChunkBase,
+        slot<V, builds::WotLK, MapChunkColor>,
         slot<V, builds::Cata, MapChunkCata>,
         slot<V, ClientVersion{0, 0, 0, 0}, MapChunkLegacyLiquid, builds::WotLK>
     {
@@ -266,13 +288,17 @@ namespace wowlib::formats::adt
         // governs MCAL/MCLQ/MCSH; MCNR carries 13 undeclared trailing bytes
         // pre-Cata. Fall back to the declared size when the header is absent
         // (split tex/obj slices) or its size field is zero.
+        // Length corrections. MCAL's own size field is unreliable — the MCNK
+        // header's size_alpha (which INCLUDES the 8-byte chunk header) governs;
+        // MCLQ likewise (size_liquid, 8 == empty). MCNR carries 13 undeclared
+        // trailing bytes pre-Cata. MCSH's own size IS reliable (== the header's
+        // size_shadow, which unlike size_alpha does NOT count the chunk header),
+        // so it needs no correction.
         std::size_t effective = declared;
         if (magic == four_cc("MCNR") && declared <= 435)
           effective = 448;
         else if (magic == four_cc("MCAL") && slice_has_header(kind) && header.size_alpha > 8)
           effective = header.size_alpha - 8;
-        else if (magic == four_cc("MCSH") && slice_has_header(kind) && header.size_shadow >= 8)
-          effective = header.size_shadow - 8;
         else if (magic == four_cc("MCLQ") && slice_has_header(kind) && header.size_liquid > 8)
           effective = header.size_liquid - 8;
 
