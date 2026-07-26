@@ -49,18 +49,21 @@ namespace wowlib::formats::adt
   // no-op (version_range.hpp). Each names a build where an ADT<V> or MapChunk<V>
   // member first appears or vanishes.
 
-  /** MapChunk<V>: MFBO-less/… TBC, MCCV/MH2O WotLK, split+MCLV/MCLQ-gone Cata,
-      MCBB/MPTX MoP, MDID/MHID-era tex, SL doodad refs. The per-cell content
-      permutations. */
-  inline constexpr std::array map_chunk_pivots{
-    builds::TBC,     builds::WotLK, builds::Cata,
-    builds::MoP,     builds::Legion, adt_tex_fdids, builds::SL};
+  /** MapChunk<V> content pivots — only boundaries that change what a cell
+      CURRENTLY carries: WotLK (MCCV in, legacy MCLQ out) and Cata (MCLV baked
+      lighting + MCMT materials in). MoP MCBB/MPTX and later per-cell chunks are
+      not modeled yet; add their pivots when they are (a no-op pivot would just
+      over-instantiate). Ranges: VanillaToTbc / Wotlk / CataPlus. */
+  inline constexpr std::array map_chunk_pivots{builds::WotLK, builds::Cata};
 
-  /** ADT<V> assembly: the union of every top-level and per-cell boundary. */
-  inline constexpr std::array adt_pivots{
-    builds::TBC,     builds::WotLK, builds::Cata,
-    builds::MoP,     builds::WoD,   builds::Legion,
-    builds::BfA_TidesOfVengeance, adt_tex_fdids, builds::SL};
+  /** ADT<V> assembly content pivots — only boundaries that change what the tile
+      CURRENTLY carries: TBC (MFBO), WotLK (MH2O/MTXF/MCCV), Cata (split files,
+      MAMP, obj1/lod), 8.1 (MDID/MHID FileDataID texture tables). MoP/WoD add no
+      modeled tile chunks, and _obj1/_lod stay raw until stage 3, so Legion and
+      SL are not yet pivots. Ranges: Vanilla / Tbc / Wotlk / CataToLegion /
+      BfaPlus. */
+  inline constexpr std::array adt_pivots{builds::TBC, builds::WotLK, builds::Cata,
+                                         adt_tex_fdids};
 
   // --- alpha-format context ---------------------------------------------------
 

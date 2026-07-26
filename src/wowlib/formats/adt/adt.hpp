@@ -194,7 +194,7 @@ namespace wowlib::formats::adt
 
       [[=welder::doc("The 256 terrain cells (MCNK), row-major (index = y * 16 + x)."),
         =welder::mark::no_reassign]]
-      std::vector<MapChunk<V>> cells;
+      std::vector<adt::MapChunk<V>> cells;
 
       [[=welder::doc("How this tile's alpha maps are laid out on disk (from the map's "
                      "WDT); wowlib always presents decoded 64x64 maps.")]]
@@ -651,7 +651,7 @@ namespace wowlib::formats::adt
         const auto data = fs.read_file(key);
         if (!data)
           return std::unexpected{data.error()};
-        cells.assign(256, MapChunk<V>{});
+        cells.assign(256, adt::MapChunk<V>{});
         if (auto r = parse_file(*data, FileKind::monolithic); !r)
           return r;
         normalize_cells();
@@ -678,7 +678,7 @@ namespace wowlib::formats::adt
         const auto root_data = fs.read_file(key);
         if (!root_data)
           return std::unexpected{root_data.error()};
-        cells.assign(256, MapChunk<V>{});
+        cells.assign(256, adt::MapChunk<V>{});
         if (auto r = parse_file(*root_data, FileKind::root); !r)
           return r;
 
