@@ -71,7 +71,7 @@ endif()
 
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG 3cf277b676699cd1b8db6b21f759f1ffb10c533f)
+  GIT_TAG 83abe9dc35b2c81ab19572dc1cc6ba810bbd7fd2)
 
 FetchContent_MakeAvailable(StormLib CascLib welder)
 

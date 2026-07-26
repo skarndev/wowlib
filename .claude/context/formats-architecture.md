@@ -462,9 +462,12 @@ SkeletonBase, shadowed by the concrete's welded pair, unreachable from
 Python) — FIXED 2026-07-26 the same way (def_skeleton_fs_verbs in
 bindings/python/formats/m2.cpp). Single-range families' AnyX alias
 is the class itself, not a UnionType (AnyWDTOcclusion, AnyWDTParticulates,
-like AnySkeleton). std::array struct members (TileHeights.outer) bind by copy:
-element assignment on the property is lost — whole-array assignment is the
-Python editing idiom (documented on the WDL pages).
+like AnySkeleton). std::array members bind BY REFERENCE since welder 83abe9d
+(fixed-size Array* wrappers: element write-through, zero-copy NumPy for
+scalar/POD elements, whole-assignment length-checked; no size-changing ops) —
+wowlib's opaque naming hook styles them Array{VerbatimElem}x{N}
+(ArrayC3Vectorx3), scalars keep welder's derived names (ArrayShortIntx289);
+the docs engine coerces Array* to list[Elem] display exactly like Vector*.
 
 **Docs**: wdt/wdl_reference_config.py registered in FORMAT_MODULES + the
 format_reference.py reload shim; wdt has FIVE sides (root page + four

@@ -2,25 +2,33 @@
 
 wowlib binds the C++ `std::vector` members of its formats as **opaque container
 types** — the `Vector*` classes on the top-level `wowlib` module (`VectorC3Vector`,
-`VectorSMOMaterial`, …). They are handed back **by reference**, not copied, so:
+`VectorSMOMaterial`, …) — and the fixed-size `std::array` members as their
+`Array*` counterparts (`ArrayShortIntx289`, `ArrayC3Vectorx3`; element type,
+then extent). Both are handed back **by reference**, not copied, so:
 
-- mutating one (append, assign, clear) mutates the underlying C++ object;
-- numeric vectors expose a **zero-copy NumPy view** of their backing storage.
+- mutating one (element assignment; for vectors also append/clear) mutates the
+  underlying C++ object;
+- numeric containers expose a **zero-copy NumPy view** of their backing storage.
 
-There is one `Vector*` type per element type welder found in the welded surface;
-they share a uniform, list-like interface. `VectorC3Vector` below is
-representative.
+There is one `Vector*`/`Array*` type per (element, extent) welder found in the
+welded surface; they share a uniform, list-like interface. `VectorC3Vector`
+below is representative — an `Array*` is the same minus the size-changing
+operations (no `append`/`insert`/`resize`; `len` is the fixed extent, and
+whole-attribute assignment accepts any sequence of exactly that length).
 
 !!! info "Reference pages spell these as `list[...]` — they are **not** Python lists"
-    Throughout the [format field references](index.md) (the WMO and M2 pages), a
-    member that is really a
-    `Vector*` is displayed as `list[Element]` (e.g. `list[C3Vector]`) purely for
-    readability — a `Vector*` wraps `std::vector<Element>`, so the spelling reads
+    Throughout the [format field references](index.md) (the WMO, M2, WDT and WDL
+    pages), a member that is really a
+    `Vector*` or `Array*` is displayed as `list[Element]` (e.g. `list[C3Vector]`)
+    purely for
+    readability — they wrap `std::vector<Element>` / `std::array<Element, N>`, so
+    the spelling reads
     truthfully at a glance. But these objects are **not** `list`: they are opaque
     handles onto live C++ storage, not owning Python sequences. They implement a
     list-*like* interface — indexing (`v[i]`, `v[i] = x`), iteration, `len(v)`,
-    membership, and the usual mutators (`append`, `insert`, `pop`, `extend`,
-    `clear`) — but every operation reads or writes the underlying C++ vector directly
+    membership, and (vectors only) the usual mutators (`append`, `insert`, `pop`,
+    `extend`,
+    `clear`) — but every operation reads or writes the underlying C++ storage directly
     rather than a Python-side copy. `isinstance(v, list)` is `False`; if you need a
     detached snapshot, build one explicitly with `list(v)`.
 

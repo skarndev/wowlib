@@ -37,11 +37,26 @@ namespace wowlib_py
       restyled to `SmoMaterial`. For a versioned entity — a class template whose sole
       argument is a `ClientVersion` NTTP (`WMOGroup<V>`, `SMOBatch<V>`) — the arg maps
       to its Expansion spelling and suffixes the name: `WMOGroup<versions::wotlk>` →
-      `VectorWMOGroupWotlk`. Scalars, strings, maps and anything unrecognized fall
-      straight through to welder's collision-free derived name (`VectorFloat`,
-      `VectorShortUnsignedInt`). The generator legalizes whatever we return. */
+      `VectorWMOGroupWotlk`. A fixed-size `std::array<T, N>` of a welded class keeps
+      the same verbatim-element treatment with welder's extent token
+      (`std::array<C3Vector, 3>` → `ArrayC3Vectorx3`, not the namespace-qualified
+      default). Scalars, strings, maps and anything unrecognized fall straight
+      through to welder's collision-free derived name (`VectorFloat`,
+      `VectorShortUnsignedInt`, `ArrayShortx289`). The generator legalizes whatever
+      we return. */
   struct wowlib_opaque_naming : welder::naming::none
   {
+    /** Decimal render of @a n (constexpr std::to_string is unavailable on gcc-16). */
+    static consteval std::string decimal(std::size_t n)
+    {
+      if (n == 0)
+        return "0";
+      std::string s;
+      for (; n; n /= 10)
+        s.insert(s.begin(), static_cast<char>('0' + n % 10));
+      return s;
+    }
+
     static consteval std::string transform_opaque_container(std::meta::info /*enclosing*/,
                                                             std::meta::info container,
                                                             std::meta::info /*member*/)
@@ -49,8 +64,24 @@ namespace wowlib_py
       namespace oc = welder::rods::opaque_containers;
       const std::meta::info c = std::meta::dealias(container);
 
-      // Only sequences (std::vector) are named here; maps fall through.
-      if (!std::meta::has_template_arguments(c) || std::meta::template_of(c) != ^^std::vector)
+      if (!std::meta::has_template_arguments(c))
+        return oc::derive_name(container);
+
+      // Fixed-size sequences: Array + verbatim class-element identifier + x + extent
+      // (scalar elements fall through — welder already derives ArrayShortx289).
+      if (std::meta::template_of(c) == ^^std::array)
+      {
+        const auto args = std::meta::template_arguments_of(c);
+        const std::meta::info elem = std::meta::dealias(args[0]);
+        if (std::meta::is_type(elem) && std::meta::is_class_type(elem)
+            && std::meta::has_identifier(elem) && !std::meta::has_template_arguments(elem))
+          return "Array" + std::string{std::meta::identifier_of(elem)} + "x"
+                 + decimal(std::meta::extract<std::size_t>(args[1]));
+        return oc::derive_name(container);
+      }
+
+      // Growable sequences (std::vector); maps fall through.
+      if (std::meta::template_of(c) != ^^std::vector)
         return oc::derive_name(container);
 
       const std::meta::info elem = std::meta::dealias(std::meta::template_arguments_of(c)[0]);

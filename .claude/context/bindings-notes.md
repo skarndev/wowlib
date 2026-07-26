@@ -93,6 +93,19 @@ Read when: touching `bindings/`, adding welded types, or debugging binding build
   two get reference semantics but NO `__array_interface__`: they carry an empty facade
   base (EBO), and welder's POD-array eligibility skips based types — fine, they aren't
   the hot geometry path.
+- **std::array members bind by reference too** (welder 83abe9d, 2026-07-26):
+  the generator also collects every reachable `std::array<T, N>` (direct member,
+  member of an opaque-vector element struct — WDL `TileHeights.outer` — or
+  inherited from a trait base) and emits fixed-size `Array*` wrappers: the vector
+  protocol minus size-changing ops (constant `len`, element write-through, live
+  class-element references, scalar-buffer/POD `__array_interface__` NumPy views).
+  Whole-attribute assignment still works via implicit conversion from any
+  length-N sequence (wrong length → TypeError at the property setter).
+  `<nanobind/stl/array.h>` stays for the same per-type-suppression reason as
+  vector.h. The wowlib hook names class-element arrays `Array{VerbatimElem}x{N}`
+  (`ArrayC3Vectorx3`); scalar elements keep welder's derived spelling
+  (`ArrayShortIntx289`). The docs engine's `_coerce_vectors` renders BOTH
+  `Vector*` and `Array*` as `list[Elem]`.
 - **Container wrapper NAMES come from a `transform_opaque_container` style hook**
   (welder 31b0801+, `WELDER_OPAQUE_CONTAINERS_MAIN_STYLED`), defined in
   `opaque_gen.cpp` as `wowlib_py::wowlib_opaque_naming`: `Vector` + the element's

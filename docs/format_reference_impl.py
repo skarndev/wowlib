@@ -502,7 +502,7 @@ def _vector_elements() -> dict[str, str]:
     out: dict[str, str] = {}
     txt = _stub_text("wowlib/__init__.pyi")
     for block in re.split(r"(?=^class )", txt, flags=re.M):
-        m = re.match(r"class (Vector[A-Za-z0-9_]+)[:(]", block)
+        m = re.match(r"class ((?:Vector|Array)[A-Za-z0-9_]+)[:(]", block)
         if not m:
             continue
         em = (re.search(r"def append\(self, arg:\s*([A-Za-z0-9_.]+)", block)
@@ -519,8 +519,8 @@ def _vector_elements() -> dict[str, str]:
 
 # In the rendered HTML a Vector type annotation is either a resolved cross-ref link
 # (documented vectors) or an unresolved autoref title-span (the rest). Rewrite both.
-_VEC_LINK_RE = re.compile(r'<a\b[^>]*>(Vector[A-Za-z0-9_]+)</a>')
-_VEC_SPAN_RE = re.compile(r'<span title="[^"]*\b(Vector[A-Za-z0-9_]+)">\1</span>')
+_VEC_LINK_RE = re.compile(r'<a\b[^>]*>((?:Vector|Array)[A-Za-z0-9_]+)</a>')
+_VEC_SPAN_RE = re.compile(r'<span title="[^"]*\b((?:Vector|Array)[A-Za-z0-9_]+)">\1</span>')
 
 # Element class name -> (page src_uri, module, anchor class) for linking inside
 # list[…]: explicit per-format elem_links first (anchored at the name itself —
@@ -897,8 +897,9 @@ _STRUCT_MEMBER_RE = re.compile(
     r"(?:(?P<arr>array<\s*)|(?P<vec>(?:(?:std::)?vector<\s*)+))?(?:std::)?"
     r"(?P<inarr>array<\s*(?:std::)?)?"                  # std::array nested in a vector
     r"(?P<sign>u?)int(?P<bits>8|16|32|64)_t"
-    r"(?(inarr)\s*,\s*\d+\s*>)?"                        # inner array close
-    r"(?(vec)\s*>+|(?(arr)\s*,\s*\d+\s*>|))"
+    # array extents may be constant EXPRESSIONS (17 * 17), not just literals
+    r"(?(inarr)\s*,\s*\d[\d\s*+]*>)?"                   # inner array close
+    r"(?(vec)\s*>+|(?(arr)\s*,\s*\d[\d\s*+]*>|))"
     r"\s+(?P<field>\w+)\s*[={;]", re.DOTALL)
 _INT_SPAN = '<span title="int">int</span>'
 
@@ -974,9 +975,13 @@ def _struct_int_fields(headers: tuple[Path, ...]) -> dict[str, dict[str, tuple[b
             for mm in _STRUCT_MEMBER_RE.finditer("".join(region)):
                 if mm.group("ann") and "mark::exclude" in mm.group("ann"):
                     continue
+                # std::array members count as vectorish too: since welder's
+                # opaque Array* wrappers they coerce to plain-text list[int]
+                # exactly like opaque vectors (no int autoref span left).
                 fields[mm.group("field")] = (
                     mm.group("sign") == "u", int(mm.group("bits")),
-                    mm.group("vec") is not None or mm.group("inarr") is not None)
+                    mm.group("vec") is not None or mm.group("inarr") is not None
+                    or mm.group("arr") is not None)
             if fields:
                 out.setdefault(name, {}).update(fields)
     return out

@@ -98,9 +98,7 @@ def _fresh_wotlk_wdl_with_tiles(slots):
     for slot in slots:
         wdl.tile_offsets[slot] = 1
         heights = wdl_mod.chunks.TileHeights()
-        outer = [0] * (17 * 17)
-        outer[0] = slot
-        heights.outer = outer
+        heights.outer[0] = slot   # arrays bind by reference: element write-through
         wdl.heightmaps.append(heights)
         wdl.holes.append(wdl_mod.chunks.TileHoles())
     return wdl

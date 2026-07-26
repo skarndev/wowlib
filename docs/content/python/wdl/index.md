@@ -23,15 +23,17 @@ The MAOF offset **values are derived** — every write restamps them from the
 finished layout — so only the nonzero pattern is authored data:
 
 ```python
+import numpy
 from wowlib.formats import wdl
 
-heightmap = wdl.chunks.TileHeights()
-heightmap.outer = my_heights_17x17          # whole-array assignment
 entity = wdl.WDL.for_version(wowlib.Expansion.Wotlk)
 entity.tile_offsets.resize(64 * 64)
 entity.tile_offsets[y * 64 + x] = 1         # any nonzero marks the tile present
-entity.heightmaps.append(heightmap)
+entity.heightmaps.append(wdl.chunks.TileHeights())
 entity.holes.append(wdl.chunks.TileHoles()) # all-or-nothing: one per heightmap
+heights = entity.heightmaps[-1]
+heights.outer[0] = 42                       # arrays bind by reference
+numpy.asarray(heights.inner)[:] = my_16x16  # zero-copy int16 view, writable
 data = entity.write()                       # offsets stamped, tiles interleaved
 ```
 
