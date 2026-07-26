@@ -23,6 +23,8 @@
     @c AnyX union aliases — comes from the declarative stub PATTERN_FILE, not code. */
 
 #include "instantiations/m2.hpp"
+#include "instantiations/wdl.hpp"
+#include "instantiations/wdt.hpp"
 #include "instantiations/wmo.hpp"
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/array.h>
@@ -43,6 +45,8 @@
 
 #include "errors.hpp"
 #include "formats/m2.hpp"
+#include "formats/wdl.hpp"
+#include "formats/wdt.hpp"
 #include "formats/wmo.hpp"
 #include "fs.hpp"
 #include "naming.hpp"
@@ -65,5 +69,7 @@ WELDER_MODULE(wowlib, nanobind,
   wowlib_py::register_errors(module);
   wowlib_py::formats::wmo::register_facade(module);
   wowlib_py::formats::m2::register_facade(module);
+  wowlib_py::formats::wdt::register_facade(module);
+  wowlib_py::formats::wdl::register_facade(module);
   wowlib_py::fs::register_filesystem_protocol(module);
 }

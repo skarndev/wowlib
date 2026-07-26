@@ -58,3 +58,28 @@ wowlib.formats.m2.chunked.AnyM2ChunkedFile$:
 
 wowlib.formats.m2.AnySkeleton$:
     AnySkeleton = SkeletonLegionPlus
+
+
+wowlib.formats.wdt.AnyWDT$:
+    AnyWDT = WDTVanillaToMop | WDTWod | WDTLegion | WDTBfa | WDTShadowlandsToDragonflight | WDTTheWarWithin
+
+wowlib.formats.wdt.root.AnyWDTRoot$:
+    AnyWDTRoot = WDTRootVanillaToLegion | WDTRootBfa | WDTRootShadowlandsPlus
+
+wowlib.formats.wdt.root.chunks.AnyWDTHeader$:
+    AnyWDTHeader = WDTHeaderVanillaToLegion | WDTHeaderBfaPlus
+
+wowlib.formats.wdt.occlusion.AnyWDTOcclusion$:
+    AnyWDTOcclusion = WDTOcclusionWodPlus
+
+wowlib.formats.wdt.lights.AnyWDTLights$:
+    AnyWDTLights = WDTLightsWod | WDTLightsLegionToBfa | WDTLightsShadowlandsPlus
+
+wowlib.formats.wdt.fogs.AnyWDTFogs$:
+    AnyWDTFogs = WDTFogsLegion | WDTFogsBfaToDragonflight | WDTFogsTheWarWithin
+
+wowlib.formats.wdt.mpv.AnyWDTParticulates$:
+    AnyWDTParticulates = WDTParticulatesBfaPlus
+
+wowlib.formats.wdl.AnyWDL$:
+    AnyWDL = WDLVanillaToTbc | WDLWotlkToWod | WDLLegionToBfa | WDLShadowlandsToDragonflight | WDLTheWarWithin

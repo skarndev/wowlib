@@ -25,6 +25,8 @@
 // without them the walk sees no welded per-version entities and the
 // generator would emit an (almost) empty header.
 #include "instantiations/m2_ranges.hpp"
+#include "instantiations/wdl_ranges.hpp"
+#include "instantiations/wdt_ranges.hpp"
 #include "instantiations/wmo_ranges.hpp"
 
 namespace wowlib_py

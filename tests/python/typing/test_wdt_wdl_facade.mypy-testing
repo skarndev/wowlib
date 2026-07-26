@@ -1,0 +1,42 @@
+"""Type-resolution cases for the WDT/WDL facades, checked by
+pytest-mypy-testing against the installed wowlib stubs. Functions with no
+`# R:`/`# E:` comments assert a clean type-check (no diagnostics)."""
+
+import pytest
+
+import wowlib
+from wowlib.formats import wdl, wdt
+
+
+@pytest.mark.mypy_testing
+def mypy_wdt_for_version_narrows_to_the_concrete_class() -> None:
+    reveal_type(wdt.WDT.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.wdt.WDTVanillaToMop
+    reveal_type(wdt.WDT.for_version(wowlib.Expansion.Shadowlands))  # R: wowlib.formats.wdt.WDTShadowlandsToDragonflight
+
+
+@pytest.mark.mypy_testing
+def mypy_wdt_root_for_version_narrows() -> None:
+    reveal_type(wdt.root.WDTRoot.for_version(wowlib.Expansion.Bfa))  # R: wowlib.formats.wdt.root.WDTRootBfa
+
+
+@pytest.mark.mypy_testing
+def mypy_wdt_convert_narrows_on_the_target_literal() -> None:
+    w = wdt.WDT.for_version(wowlib.Expansion.Wotlk)
+    reveal_type(w.convert(wowlib.Expansion.Legion))  # R: wowlib.formats.wdt.WDTLegion
+
+
+@pytest.mark.mypy_testing
+def mypy_anywdt_widening_type_checks_clean() -> None:
+    s: wdt.AnyWDT = wdt.WDT.for_version(wowlib.Expansion.Shadowlands)
+
+
+@pytest.mark.mypy_testing
+def mypy_wdl_for_version_narrows_to_the_concrete_class() -> None:
+    reveal_type(wdl.WDL.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.wdl.WDLWotlkToWod
+
+
+@pytest.mark.mypy_testing
+def mypy_wdl_buffer_and_fs_overloads_type_check() -> None:
+    l = wdl.WDL.for_version(wowlib.Expansion.Wotlk)
+    l.read(b"")
+    b: bytes = l.write()
