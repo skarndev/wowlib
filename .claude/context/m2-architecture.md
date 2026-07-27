@@ -1,5 +1,18 @@
 # M2 subsystem architecture (plan of record)
 
+## Conventions (ACTIVE — read before editing M2 code)
+
+- **Non-public methods carry a leading underscore** (user request 2026-07-27,
+  "for now"): every `private:` method of `detail::M2<V>` (m2.hpp) and every
+  `protected:` engine method of `M2OffsetBlock` (offset_block.hpp) is named
+  `_name` (e.g. `_read_chunked`, `_write_members`, `_layout` helpers). PUBLIC
+  API stays unprefixed (`read`/`write`/`image_size`/`member_offset`/`empty`,
+  the free `layout_size`, the concepts). When adding a new internal helper to
+  either class, give it the `_` prefix. This is M2-only for now — the chunk
+  framework and other formats do NOT use it. (Leading-underscore + lowercase
+  inside a class/namespace is not a reserved identifier; only `_Upper` and
+  `__` are.)
+
 Decisions fixed with the user 2026-07-24, before any code. M2 support lands as
 INCREMENTAL COMMITS TO MAIN, each stage compiling + tested:
 
