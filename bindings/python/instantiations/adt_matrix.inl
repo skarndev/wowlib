@@ -7,7 +7,7 @@
     binding TU) and instantiations/adt.cpp as `template` (the one-TU
     definitions), so the two sides can never drift.
 
-    ADT and MapChunk are NOT ChunkedFile/OffsetFile entities — they own bespoke
+    ADT and MapChunk are NOT ChunkedFile/M2OffsetBlock entities — they own bespoke
     serializers — so there is no separate serializer-base row: an explicit
     instantiation of the entity expands its inline fs read/write with it. The
     MH2OData/MCLQData liquid entities are non-templated (one definition each,

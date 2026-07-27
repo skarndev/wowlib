@@ -9,7 +9,7 @@ add_executable(wowlib_tests
   unit/test_fourcc.cpp
   unit/test_chunk_framework.cpp
   unit/test_offset_framework.cpp
-  unit/test_m2_wire_layout.cpp
+  unit/test_m2_layout.cpp
   unit/test_wmo_wire_layout.cpp
   unit/test_wdt_wdl_wire_layout.cpp
   unit/test_wdl_tiles.cpp

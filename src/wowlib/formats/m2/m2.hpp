@@ -12,6 +12,7 @@
 #include <cstring>
 #include <format>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -20,9 +21,10 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
-#include <wowlib/formats/common/offset_file.hpp>
+#include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/m2/bone/bone.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/chunked/chunked.hpp>
 #include <wowlib/formats/m2/root/root.hpp>
 #include <wowlib/formats/m2/satellites.hpp>
@@ -84,7 +86,7 @@ namespace wowlib::formats::m2
         =welder::doc(R"(The model's LOD views, in view order ("{model}0N.skin"
                         files, WotLK+). The source of truth for the view
                         count: write() stamps the body's num_skin_profiles
-                        wire field from this vector's length.)")]]
+                        layout field from this vector's length.)")]]
       std::vector<Skin<V>> skins;
 
       [[=welder::mark::exclude]]
@@ -237,15 +239,149 @@ namespace wowlib::formats::m2
                                  std::span<const std::byte> main)
       requires (V >= m2_per_sequence_timelines);
 
-    /** The Legion+ chunked read path: parse the stream, pull the skeleton in
-        when the model is skel-based, then decode the MD21 image with
-        FileDataID-based satellite resolution (and drop the transport blob).
+    /** The Legion+ chunked read path — an orchestrator over the phase helpers
+        below: read the chunk shell, pull the skeleton in when the model is
+        skel-based, decode the MD21 body (then drop its transport blob), and
+        load the .skin / .bone / .phys satellites.
         @param fs   the filesystem gateway.
         @param key  the model identity.
         @param main the model file bytes.
         @return nothing, or the first error. */
     Result<void> read_chunked(fs::FileSystem& fs, const FileKey& key,
                               std::span<const std::byte> main)
+      requires (V >= m2_chunked_container);
+
+    /** Load the referenced .skel into `skel` (skel-based models only — call
+        under skeleton_engaged); its sequences and AFID/BFID tables then stand
+        in for the body's.
+        @param fs the filesystem gateway.
+        @return nothing, or the contextualized .skel error. */
+    Result<void> load_skeleton(fs::FileSystem& fs)
+      requires (V >= m2_chunked_container);
+
+    /** Decode the MD20 body out of the MD21 image with FileDataID-based .anim
+        resolution (falling back to name-based when the key resolves to a
+        path), then verify its header. Skel-based models resolve their
+        sequences and AFIDs from `skel` rather than the body/shell.
+        @param fs       the filesystem gateway.
+        @param key      the model identity (for the .anim name fallback).
+        @param has_skel whether the model is skeleton-based.
+        @return nothing, or the first error. */
+    Result<void> read_chunked_body(fs::FileSystem& fs, const FileKey& key, bool has_skel)
+      requires (V >= m2_chunked_container);
+
+    /** Load the LOD views from SFID: the first num_skin_profiles entries are
+        the .skin views, the remainder the LOD bands (a zero/truncated tail is
+        tolerated). Views append to `skins`, bands to `lod_skins`.
+        @param fs the filesystem gateway.
+        @return nothing, or the first error. */
+    Result<void> read_chunked_skins(fs::FileSystem& fs)
+      requires (V >= m2_chunked_container);
+
+    /** Load the .bone files (the skeleton's when skel-based) into `bone_files`.
+        @param fs       the filesystem gateway.
+        @param has_skel whether the .bone FileDataIDs come from the skeleton.
+        @return nothing, or the first contextualized error. */
+    Result<void> read_bone_files(fs::FileSystem& fs, bool has_skel)
+      requires (V >= m2_chunked_container);
+
+    /** Bake the referenced .phys file into `phys` verbatim (inline PFDC stays
+        a chunk on the stream); physics is optional, so a missing file degrades
+        to empty rather than failing.
+        @param fs the filesystem gateway. */
+    void read_physics(fs::FileSystem& fs)
+      requires (V >= m2_chunked_container);
+
+    /** Serialize the MD20 body into a fresh image, routing each external
+        sequence's per-sequence blocks into @a afm2_bufs sinks keyed by
+        @a sequences, and stamp the derived num_skin_profiles (skins.size()).
+        Shared by the monolithic and chunked write paths.
+        @param afm2_bufs [out] per-sequence .anim buffers, filled by the write.
+        @param sequences the sequence table driving the split (the body's own,
+                         or the skeleton's for skel-based models).
+        @return the body image, or the first error. */
+    Result<FileBuffer> write_body_image(AnimBuffers& afm2_bufs, const auto& sequences) const
+      requires (V >= m2_per_sequence_timelines);
+
+    /** The monolithic-with-satellites write path (WotLK through WoD): the body
+        plus raw .anim payloads and numbered .skin views, all by conventional
+        name.
+        @param fs    the filesystem gateway.
+        @param path  the resolved model path.
+        @param paths the satellite naming conventions around @a path.
+        @return nothing, or the first error. */
+    Result<void> write_monolithic(fs::FileSystem& fs, const std::string& path,
+                                  const SatellitePaths& paths) const
+      requires (V >= m2_per_sequence_timelines && V < m2_chunked_container);
+
+    /** The Legion+ chunked write path: re-encode the body, write every
+        satellite (so fresh FileDataIDs land in the reference chunks), and
+        rebuild the chunk stream around them.
+        @param fs    the filesystem gateway.
+        @param path  the resolved model path.
+        @param paths the satellite naming conventions around @a path.
+        @return nothing, or the first error. */
+    Result<void> write_chunked(fs::FileSystem& fs, const std::string& path,
+                               const SatellitePaths& paths) const
+      requires (V >= m2_chunked_container);
+
+    /** Write the .bone files by conventional name.
+        @param fs    the filesystem gateway.
+        @param paths the satellite naming conventions.
+        @return the allocated .bone FileDataIDs (parallel to bone_files), or
+                the first error. */
+    Result<std::vector<std::uint32_t>> write_bone_files(fs::FileSystem& fs,
+                                                        const SatellitePaths& paths) const
+      requires (V >= m2_chunked_container);
+
+    /** Non-skel .anim write: one file per external sequence (AFM2-wrapped when
+        the model requests chunked .anim, else the raw blob), recording the
+        fresh FileDataIDs into @a stream.anim_fdids.
+        @param fs        the filesystem gateway.
+        @param paths     the satellite naming conventions.
+        @param afm2_bufs the per-sequence body buffers filled by write_body_image.
+        @param stream    [out] the chunk stream whose AFID refs are rebuilt.
+        @return nothing, or the first error. */
+    Result<void> write_plain_anims(fs::FileSystem& fs, const SatellitePaths& paths,
+                                   AnimBuffers& afm2_bufs, auto& stream) const
+      requires (V >= m2_chunked_container);
+
+    /** Skel-based satellite write: re-encode the skeleton's bone/attachment
+        blocks (splitting AFSB/AFSA per sequence), assemble the shared .anim
+        files as AFM2 + AFSA + AFSB, write the .skel, and hang every satellite
+        FileDataID off the skeleton — so @a stream carries only the SKID
+        reference.
+        @param fs         the filesystem gateway.
+        @param paths      the satellite naming conventions.
+        @param afm2_bufs  the body's per-sequence buffers (the AFM2 layer).
+        @param sequences  the skeleton's sequence table (drives the AFSA/AFSB splits).
+        @param bone_fdids the .bone FileDataIDs to record on the skeleton.
+        @param stream     [out] the chunk stream whose SKID is set.
+        @return nothing, or the first error. */
+    Result<void> write_skeleton_satellites(fs::FileSystem& fs, const SatellitePaths& paths,
+                                           AnimBuffers& afm2_bufs, const auto& sequences,
+                                           const std::vector<std::uint32_t>& bone_fdids,
+                                           auto& stream) const
+      requires (V >= m2_chunked_container);
+
+    /** Write the .skin views and LOD bands, recording their FileDataIDs into
+        @a stream.skin_fdids (views first, then bands).
+        @param fs     the filesystem gateway.
+        @param paths  the satellite naming conventions.
+        @param stream [out] the chunk stream whose SFID refs are rebuilt.
+        @return nothing, or the first error. */
+    Result<void> write_chunked_skins(fs::FileSystem& fs, const SatellitePaths& paths,
+                                      auto& stream) const
+      requires (V >= m2_chunked_container);
+
+    /** Bake the .phys file (when present) and record its FileDataID into
+        @a stream.phys_fdid.
+        @param fs     the filesystem gateway.
+        @param paths  the satellite naming conventions.
+        @param stream [out] the chunk stream whose PFID ref is rebuilt.
+        @return nothing, or the first error. */
+    Result<void> write_chunked_phys(fs::FileSystem& fs, const SatellitePaths& paths,
+                                    auto& stream) const
       requires (V >= m2_chunked_container);
 
     /** Whether the SKID reference chunk actually engages a skeleton — files
@@ -284,7 +420,7 @@ namespace wowlib::formats::m2
                         std::format("not an MD20 model (magic {:#010x}; a Legion+ chunked "
                                     "file starts with MD21 instead)",
                                     magic));
-    constexpr auto range = m2_wire_version_range(V);
+    constexpr auto range = m2_format_version_range(V);
     if (format_version < range.first || format_version > range.second)
       return make_error(ErrorCode::FormatVersionMismatch,
                         std::format("MD20 version {} is outside the requested client's "
@@ -327,7 +463,7 @@ namespace wowlib::formats::m2
 
     // Low-priority sequence data lives in per-sequence .anim files; the
     // context resolves them lazily — the sequences table is populated
-    // before any track member reads (wire order), so the flags are already
+    // before any track member reads (layout order), so the flags are already
     // decoded when the first track consults us. A missing .anim file
     // leaves its sequences' tracks empty rather than failing.
     AnimCache cache{[&](SequenceKey seq) {
@@ -354,16 +490,47 @@ namespace wowlib::formats::m2
                                    std::span<const std::byte> main)
     requires (V >= m2_chunked_container)
   {
+    // 1. the chunk shell (MD21 transport blob + the reference/data chunks).
     if (auto r = this->chunks.read(main); !r)
       return r;
 
+    // 2. the skeleton, when the model is skel-based — its sequences and
+    //    AFID/BFID tables then stand in for the body's (which are empty).
     const bool has_skel = skeleton_engaged(this->chunks.skeleton_fdid);
     if (has_skel)
-      if (auto r = this->skel.read(fs, FileKey{FileDataID{this->chunks.skeleton_fdid.front()}});
-          !r)
-        return make_error(r.error().code, std::format(".skel: {}", r.error().message),
-                          r.error().native_error);
+      if (auto r = load_skeleton(fs); !r)
+        return r;
 
+    // 3. the MD20 body out of the MD21 image; the transport blob is spent once
+    //    decoded (the body's md21 span dies inside read_chunked_body), so drop
+    //    it now rather than keep a second whole-model image in memory —
+    //    write() re-encodes root into a fresh stream.
+    if (auto r = read_chunked_body(fs, key, has_skel); !r)
+      return r;
+    this->chunks.md21.bytes = {};
+
+    // 4. the LOD views, then 5. the .bone files and 6. the (optional) physics
+    //    blob — a monadic chain, so each phase runs only if the prior succeeded.
+    return read_chunked_skins(fs)
+      .and_then([&] { return read_bone_files(fs, has_skel); })
+      .transform([&] { read_physics(fs); });
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::load_skeleton(fs::FileSystem& fs)
+    requires (V >= m2_chunked_container)
+  {
+    if (auto r = this->skel.read(fs, FileKey{FileDataID{this->chunks.skeleton_fdid.front()}}); !r)
+      return make_error(r.error().code, std::format(".skel: {}", r.error().message),
+                        r.error().native_error);
+    return {};
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::read_chunked_body(fs::FileSystem& fs, const FileKey& key,
+                                                bool has_skel)
+    requires (V >= m2_chunked_container)
+  {
     // name fallback for satellites without FileDataID entries
     std::optional<SatellitePaths> paths;
     if (const FileKey resolved = fs.resolve(key); resolved.path)
@@ -389,35 +556,46 @@ namespace wowlib::formats::m2
     ctx.sequence_base = cache.sequence_base(*sequences, md21, AnimCache::afm2_magic);
     if (auto r = this->root.read(md21, ctx); !r)
       return r;
-    if (auto r = check_header(this->root.magic, this->root.format_version); !r)
-      return r;
+    return check_header(this->root.magic, this->root.format_version);
+  }
 
-    // skins: the first num_skin_profiles SFID entries are the views, the
-    // rest the LOD bands (real files occasionally truncate the LOD tail)
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::read_chunked_skins(fs::FileSystem& fs)
+    requires (V >= m2_chunked_container)
+  {
+    // the first num_skin_profiles SFID entries are the views, the rest the LOD
+    // bands (real files occasionally truncate the LOD tail)
     if (this->chunks.skin_fdids.size() < this->root.num_skin_profiles)
       return make_error(ErrorCode::InvalidEntityState,
                         std::format("SFID holds {} entries, the body declares {} views",
                                     this->chunks.skin_fdids.size(),
                                     this->root.num_skin_profiles));
-    for (std::uint32_t i = 0; i < this->root.num_skin_profiles; ++i)
-      if (auto r = read_skin_into(fs, FileKey{FileDataID{this->chunks.skin_fdids[i]}},
-                                  std::format("skin {}", i), this->skins);
+    for (const auto [i, fdid] : std::views::enumerate(this->chunks.skin_fdids)
+                                  | std::views::take(this->root.num_skin_profiles))
+      if (auto r =
+            read_skin_into(fs, FileKey{FileDataID{fdid}}, std::format("skin {}", i), this->skins);
           !r)
         return r;
-    for (std::size_t i = this->root.num_skin_profiles; i < this->chunks.skin_fdids.size(); ++i)
-      if (this->chunks.skin_fdids[i] != 0)
-        if (auto r = read_skin_into(fs, FileKey{FileDataID{this->chunks.skin_fdids[i]}},
-                                    std::format("lod skin {}", i), this->lod_skins);
+    for (const auto [i, fdid] : std::views::enumerate(this->chunks.skin_fdids)
+                                  | std::views::drop(this->root.num_skin_profiles))
+      if (fdid != 0)
+        if (auto r = read_skin_into(fs, FileKey{FileDataID{fdid}}, std::format("lod skin {}", i),
+                                    this->lod_skins);
             !r)
           return r;
+    return {};
+  }
 
-    // .bone files (the skeleton's when skel-based)
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::read_bone_files(fs::FileSystem& fs, bool has_skel)
+    requires (V >= m2_chunked_container)
+  {
     const auto& bfids = has_skel ? this->skel.effective_bone_fdids() : this->chunks.bone_fdids;
-    for (std::size_t i = 0; i < bfids.size(); ++i)
+    for (const auto [i, fdid] : std::views::enumerate(bfids))
     {
-      if (bfids[i] == 0)
+      if (fdid == 0)
         continue;
-      const auto bytes = fs.read_file(FileKey{FileDataID{bfids[i]}});
+      const auto bytes = fs.read_file(FileKey{FileDataID{fdid}});
       if (!bytes)
         return make_error(bytes.error().code,
                           std::format(".bone {}: {}", i, bytes.error().message),
@@ -428,19 +606,16 @@ namespace wowlib::formats::m2
                           r.error().native_error);
       this->bone_files.push_back(std::move(bone));
     }
+    return {};
+  }
 
-    // physics: referenced file baked in verbatim (inline PFDC stays a chunk
-    // on the stream); a missing file degrades to empty
+  template <ClientVersion V>
+  void detail::M2<V>::read_physics(fs::FileSystem& fs)
+    requires (V >= m2_chunked_container)
+  {
     if (!this->chunks.phys_fdid.empty() && this->chunks.phys_fdid.front() != 0)
       if (auto bytes = fs.read_file(FileKey{FileDataID{this->chunks.phys_fdid.front()}}))
         this->phys.bytes = std::move(*bytes);
-
-    // the MD21 transport blob is spent once the body is decoded — drop it
-    // rather than keep a second whole-model image in memory; write()
-    // re-encodes root into the stream (the md21 span above dies with it,
-    // hence last)
-    this->chunks.md21.bytes = {};
-    return {};
   }
 
   template <ClientVersion V>
@@ -511,200 +686,263 @@ namespace wowlib::formats::m2
         return std::unexpected{r.error()};
       return {};
     }
+    else if constexpr (V < m2_chunked_container)
+      return write_monolithic(fs, *resolved.path, paths);
     else
+      return write_chunked(fs, *resolved.path, paths);
+  }
+
+  template <ClientVersion V>
+  Result<FileBuffer> detail::M2<V>::write_body_image(AnimBuffers& afm2_bufs,
+                                                     const auto& sequences) const
+    requires (V >= m2_per_sequence_timelines)
+  {
+    // Low-priority sequences split back out: every external sequence gets an
+    // .anim buffer, filled as the tracks route their per-sequence blocks
+    // through the sinks (empty ones still write — the client requests the file
+    // whenever the flags say so).
+    auto bytes = root.write(afm2_bufs.sink(sequences));
+    if (!bytes)
+      return std::unexpected{bytes.error()};
+
+    // stamp the derived skin count into the freshly written image — the baked
+    // skins vector is the source of truth (num_skin_profiles is a hidden
+    // layout field, see M2Root)
+    constexpr std::size_t count_at = M2Root<V>::member_offset("num_skin_profiles");
+    const auto count = static_cast<std::uint32_t>(this->skins.size());
+    std::memcpy(bytes->data() + count_at, &count, sizeof count);
+    return bytes;
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::write_monolithic(fs::FileSystem& fs, const std::string& path,
+                                               const SatellitePaths& paths) const
+    requires (V >= m2_per_sequence_timelines && V < m2_chunked_container)
+  {
+    AnimBuffers afm2_bufs;
+    const auto bytes = write_body_image(afm2_bufs, root.sequences);
+    if (!bytes)
+      return std::unexpected{bytes.error()};
+
+    // pre-Legion: the body and raw .anim payloads under conventional names
+    if (auto r = fs.add_file(path, *bytes); !r)
+      return std::unexpected{r.error()};
+    for (const auto& [seq, buf] : afm2_bufs.entries())
+      if (auto r = fs.add_file(paths.anim(seq), buf); !r)
+        return make_error(r.error().code,
+                          std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
+                                      r.error().message),
+                          r.error().native_error);
+    for (const auto [i, skin] : std::views::enumerate(this->skins))
     {
-      // whose sequence table drives the .anim split
-      const auto* sequences = &root.sequences;
-      bool has_skel = false;
-      if constexpr (V >= m2_chunked_container)
-      {
-        // the SAME engagement predicate the read path uses — a stored SKID of
-        // 0 must not flip a non-skel model into a skel-based write
-        has_skel = skeleton_engaged(this->chunks.skeleton_fdid);
-        if (has_skel)
-          sequences = &this->skel.sequence_block.sequences;
-      }
-
-      // Low-priority sequences split back out: every external sequence gets
-      // an .anim buffer, filled as the tracks route their per-sequence
-      // blocks through the sinks (empty ones still write — the client
-      // requests the file whenever the flags say so).
-      AnimBuffers afm2_bufs;
-      const auto make_sink = [sequences](AnimBuffers& bufs) {
-        return bufs.sink(*sequences);
-      };
-      auto bytes = root.write(make_sink(afm2_bufs));
-      if (!bytes)
-        return std::unexpected{bytes.error()};
-
-      // stamp the derived skin count into the freshly written image — the
-      // baked skins vector is the source of truth (num_skin_profiles is a
-      // hidden wire field, see M2Root)
-      {
-        constexpr std::size_t count_at = wire_offset_of<M2Root<V>>("num_skin_profiles");
-        const auto count = static_cast<std::uint32_t>(this->skins.size());
-        std::memcpy(bytes->data() + count_at, &count, sizeof count);
-      }
-
-      if constexpr (V < m2_chunked_container)
-      {
-        // pre-Legion: raw .anim payloads under conventional names
-        if (auto r = fs.add_file(*resolved.path, *bytes); !r)
-          return std::unexpected{r.error()};
-        for (const auto& [seq, buf] : afm2_bufs.entries())
-          if (auto r = fs.add_file(paths.anim(seq), buf); !r)
-            return make_error(r.error().code,
-                              std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
-                                          r.error().message),
-                              r.error().native_error);
-        for (std::size_t i = 0; i < this->skins.size(); ++i)
-        {
-          const auto skin_bytes = this->skins[i].write();
-          if (!skin_bytes)
-            return std::unexpected{skin_bytes.error()};
-          if (auto r = fs.add_file(paths.skin(static_cast<std::uint32_t>(i)), *skin_bytes);
-              !r)
-            return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
-                              r.error().native_error);
-        }
-        return {};
-      }
-      else
-      {
-        // rebuild the chunk stream around the re-encoded image: satellites
-        // write first so their fresh FileDataIDs land in the reference chunks
-        M2ChunkedFile<V> stream = this->chunks;
-        stream.md21.bytes = std::move(*bytes);
-
-        // .bone files (fdids land in the skeleton for skel-based models)
-        std::vector<std::uint32_t> bone_fdids;
-        for (std::size_t i = 0; i < this->bone_files.size(); ++i)
-        {
-          const auto bone_bytes = this->bone_files[i].write();
-          if (!bone_bytes)
-            return std::unexpected{bone_bytes.error()};
-          const auto r = fs.add_file(paths.bone(static_cast<std::uint32_t>(i)), *bone_bytes);
-          if (!r)
-            return make_error(r.error().code,
-                              std::format(".bone {}: {}", i, r.error().message),
-                              r.error().native_error);
-          bone_fdids.push_back(r->value);
-        }
-
-        stream.anim_fdids.clear();
-        if (!has_skel)
-        {
-          // .anim payloads, AFM2-wrapped when the model asks for chunked ones
-          for (const auto& [seq, buf] : afm2_bufs.entries())
-          {
-            FileBuffer file;
-            if ((root.global_flags & 0x2000u) != 0)
-              afm2_bufs.append_chunk_to(file, AnimCache::afm2_magic, seq);
-            else
-              file = buf;
-            const auto r = fs.add_file(paths.anim(seq), file);
-            if (!r)
-              return make_error(r.error().code,
-                                std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
-                                            r.error().message),
-                                r.error().native_error);
-            stream.anim_fdids.push_back({seq.id, seq.variation, r->value});
-          }
-          stream.bone_fdids = bone_fdids;
-        }
-        else
-        {
-          // skel-based: re-encode the skeleton blocks, then assemble the
-          // shared .anim files as AFM2 (body events) + AFSA (attachments) +
-          // AFSB (bones) and hang every satellite id off the skeleton
-          // deduced: inside m2::detail the bare Skeleton names the RAW
-          // template, but the member is the collapsed m2::Skeleton alias type
-          auto skel_copy = this->skel;
-          AnimBuffers afsa_bufs;
-          AnimBuffers afsb_bufs;
-          {
-            auto encoded = this->skel.bone_block.write(make_sink(afsb_bufs));
-            if (!encoded)
-              return std::unexpected{encoded.error()};
-            skel_copy.skb1.bytes = std::move(*encoded);
-            auto attachments = this->skel.attachment_block.write(make_sink(afsa_bufs));
-            if (!attachments)
-              return std::unexpected{attachments.error()};
-            skel_copy.ska1.bytes = std::move(*attachments);
-          }
-
-          skel_copy.anim_fdids.clear();
-          for (const SequenceKey seq :
-               AnimBuffers::merged_keys({&afm2_bufs, &afsa_bufs, &afsb_bufs}))
-          {
-            FileBuffer file;
-            afm2_bufs.append_chunk_to(file, AnimCache::afm2_magic, seq);
-            afsa_bufs.append_chunk_to(file, AnimCache::afsa_magic, seq);
-            afsb_bufs.append_chunk_to(file, AnimCache::afsb_magic, seq);
-            const auto r = fs.add_file(paths.anim(seq), file);
-            if (!r)
-              return make_error(r.error().code,
-                                std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
-                                            r.error().message),
-                                r.error().native_error);
-            skel_copy.anim_fdids.push_back({seq.id, seq.variation, r->value});
-          }
-          skel_copy.bone_fdids = bone_fdids;
-
-          const auto skel_bytes = skel_copy.ChunkedFile<m2::Skeleton<V>>::write();
-          if (!skel_bytes)
-            return std::unexpected{skel_bytes.error()};
-          const auto r = fs.add_file(paths.skel(), *skel_bytes);
-          if (!r)
-            return make_error(r.error().code, std::format(".skel: {}", r.error().message),
-                              r.error().native_error);
-          stream.skeleton_fdid.assign(1, r->value);
-        }
-
-        stream.skin_fdids.clear();
-        for (std::size_t i = 0; i < this->skins.size(); ++i)
-        {
-          const auto skin_bytes = this->skins[i].write();
-          if (!skin_bytes)
-            return std::unexpected{skin_bytes.error()};
-          const auto r = fs.add_file(paths.skin(static_cast<std::uint32_t>(i)), *skin_bytes);
-          if (!r)
-            return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
-                              r.error().native_error);
-          stream.skin_fdids.push_back(r->value);
-        }
-        for (std::size_t i = 0; i < this->lod_skins.size(); ++i)
-        {
-          const auto skin_bytes = this->lod_skins[i].write();
-          if (!skin_bytes)
-            return std::unexpected{skin_bytes.error()};
-          const auto r =
-            fs.add_file(paths.lod_skin(static_cast<std::uint32_t>(i) + 1), *skin_bytes);
-          if (!r)
-            return make_error(r.error().code,
-                              std::format("lod skin {}: {}", i, r.error().message),
-                              r.error().native_error);
-          stream.skin_fdids.push_back(r->value);
-        }
-
-        stream.phys_fdid.clear();
-        if (!this->phys.bytes.empty())
-        {
-          const auto r = fs.add_file(paths.phys(), this->phys.bytes);
-          if (!r)
-            return make_error(r.error().code, std::format(".phys: {}", r.error().message),
-                              r.error().native_error);
-          stream.phys_fdid.push_back(r->value);
-        }
-
-        const auto stream_bytes = stream.write();
-        if (!stream_bytes)
-          return std::unexpected{stream_bytes.error()};
-        if (auto r = fs.add_file(*resolved.path, *stream_bytes); !r)
-          return std::unexpected{r.error()};
-        return {};
-      }
+      const auto skin_bytes = skin.write();
+      if (!skin_bytes)
+        return std::unexpected{skin_bytes.error()};
+      if (auto r = fs.add_file(paths.skin(static_cast<std::uint32_t>(i)), *skin_bytes); !r)
+        return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
+                          r.error().native_error);
     }
+    return {};
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::write_chunked(fs::FileSystem& fs, const std::string& path,
+                                            const SatellitePaths& paths) const
+    requires (V >= m2_chunked_container)
+  {
+    // the SAME engagement predicate the read path uses — a stored SKID of 0
+    // must not flip a non-skel model into a skel-based write; a skel-based
+    // model's sequence table (which drives the .anim split) lives in the skel
+    const bool has_skel = skeleton_engaged(this->chunks.skeleton_fdid);
+
+    AnimBuffers afm2_bufs;
+    auto bytes = has_skel ? write_body_image(afm2_bufs, this->skel.sequence_block.sequences)
+                          : write_body_image(afm2_bufs, root.sequences);
+    if (!bytes)
+      return std::unexpected{bytes.error()};
+
+    // rebuild the chunk stream around the re-encoded image: satellites write
+    // first so their fresh FileDataIDs land in the reference chunks
+    M2ChunkedFile<V> stream = this->chunks;
+    stream.md21.bytes = std::move(*bytes);
+
+    // .bone files (their fdids land in the skeleton for skel-based models)
+    const auto bone_fdids = write_bone_files(fs, paths);
+    if (!bone_fdids)
+      return std::unexpected{bone_fdids.error()};
+
+    // .anim files + (for skel models) the .skel; each records its fdids on the
+    // stream (non-skel) or the skeleton (skel), rebuilt fresh
+    stream.anim_fdids.clear();
+    if (!has_skel)
+    {
+      if (auto r = write_plain_anims(fs, paths, afm2_bufs, stream); !r)
+        return r;
+      stream.bone_fdids = *bone_fdids;
+    }
+    else if (auto r = write_skeleton_satellites(fs, paths, afm2_bufs,
+                                                this->skel.sequence_block.sequences, *bone_fdids,
+                                                stream);
+             !r)
+      return r;
+
+    // the .skin views, then the physics blob, then finalize: serialize the
+    // rebuilt stream and store it — a monadic chain that short-circuits on the
+    // first failure.
+    return write_chunked_skins(fs, paths, stream)
+      .and_then([&] { return write_chunked_phys(fs, paths, stream); })
+      .and_then([&] { return stream.write(); })
+      .and_then([&](const FileBuffer& stream_bytes) {
+        return fs.add_file(path, stream_bytes).transform([](FileDataID) {});
+      });
+  }
+
+  template <ClientVersion V>
+  Result<std::vector<std::uint32_t>>
+  detail::M2<V>::write_bone_files(fs::FileSystem& fs, const SatellitePaths& paths) const
+    requires (V >= m2_chunked_container)
+  {
+    std::vector<std::uint32_t> bone_fdids;
+    for (const auto [i, bone] : std::views::enumerate(this->bone_files))
+    {
+      const auto bone_bytes = bone.write();
+      if (!bone_bytes)
+        return std::unexpected{bone_bytes.error()};
+      const auto r = fs.add_file(paths.bone(static_cast<std::uint32_t>(i)), *bone_bytes);
+      if (!r)
+        return make_error(r.error().code, std::format(".bone {}: {}", i, r.error().message),
+                          r.error().native_error);
+      bone_fdids.push_back(r->value);
+    }
+    return bone_fdids;
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::write_plain_anims(fs::FileSystem& fs, const SatellitePaths& paths,
+                                                AnimBuffers& afm2_bufs,
+                                                auto& stream) const
+    requires (V >= m2_chunked_container)
+  {
+    // .anim payloads, AFM2-wrapped when the model asks for chunked ones
+    for (const auto& [seq, buf] : afm2_bufs.entries())
+    {
+      FileBuffer file;
+      if (has_flag(root.global_flags, GlobalFlags::ChunkedAnimFiles))
+        afm2_bufs.append_chunk_to(file, AnimCache::afm2_magic, seq);
+      else
+        file = buf;
+      const auto r = fs.add_file(paths.anim(seq), file);
+      if (!r)
+        return make_error(r.error().code,
+                          std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
+                                      r.error().message),
+                          r.error().native_error);
+      stream.anim_fdids.push_back({seq.id, seq.variation, r->value});
+    }
+    return {};
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::write_skeleton_satellites(
+    fs::FileSystem& fs, const SatellitePaths& paths, AnimBuffers& afm2_bufs,
+    const auto& sequences, const std::vector<std::uint32_t>& bone_fdids,
+    auto& stream) const
+    requires (V >= m2_chunked_container)
+  {
+    // re-encode the skeleton's bone/attachment blocks (splitting AFSB/AFSA per
+    // sequence), then assemble the shared .anim files as AFM2 (body events) +
+    // AFSA (attachments) + AFSB (bones) and hang every satellite id off the
+    // skeleton.
+    // deduced: inside m2::detail the bare Skeleton names the RAW template, but
+    // the member is the collapsed m2::Skeleton alias type
+    auto skel_copy = this->skel;
+    AnimBuffers afsa_bufs;
+    AnimBuffers afsb_bufs;
+    {
+      auto encoded = this->skel.bone_block.write(afsb_bufs.sink(sequences));
+      if (!encoded)
+        return std::unexpected{encoded.error()};
+      skel_copy.skb1.bytes = std::move(*encoded);
+      auto attachments = this->skel.attachment_block.write(afsa_bufs.sink(sequences));
+      if (!attachments)
+        return std::unexpected{attachments.error()};
+      skel_copy.ska1.bytes = std::move(*attachments);
+    }
+
+    skel_copy.anim_fdids.clear();
+    for (const SequenceKey seq : AnimBuffers::merged_keys({&afm2_bufs, &afsa_bufs, &afsb_bufs}))
+    {
+      FileBuffer file;
+      afm2_bufs.append_chunk_to(file, AnimCache::afm2_magic, seq);
+      afsa_bufs.append_chunk_to(file, AnimCache::afsa_magic, seq);
+      afsb_bufs.append_chunk_to(file, AnimCache::afsb_magic, seq);
+      const auto r = fs.add_file(paths.anim(seq), file);
+      if (!r)
+        return make_error(r.error().code,
+                          std::format("anim {:04}-{:02}: {}", seq.id, seq.variation,
+                                      r.error().message),
+                          r.error().native_error);
+      skel_copy.anim_fdids.push_back({seq.id, seq.variation, r->value});
+    }
+    skel_copy.bone_fdids = bone_fdids;
+
+    const auto skel_bytes = skel_copy.template ChunkedFile<m2::Skeleton<V>>::write();
+    if (!skel_bytes)
+      return std::unexpected{skel_bytes.error()};
+    const auto r = fs.add_file(paths.skel(), *skel_bytes);
+    if (!r)
+      return make_error(r.error().code, std::format(".skel: {}", r.error().message),
+                        r.error().native_error);
+    stream.skeleton_fdid.assign(1, r->value);
+    return {};
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::write_chunked_skins(fs::FileSystem& fs, const SatellitePaths& paths,
+                                                  auto& stream) const
+    requires (V >= m2_chunked_container)
+  {
+    stream.skin_fdids.clear();
+    for (const auto [i, skin] : std::views::enumerate(this->skins))
+    {
+      const auto skin_bytes = skin.write();
+      if (!skin_bytes)
+        return std::unexpected{skin_bytes.error()};
+      const auto r = fs.add_file(paths.skin(static_cast<std::uint32_t>(i)), *skin_bytes);
+      if (!r)
+        return make_error(r.error().code, std::format("skin {}: {}", i, r.error().message),
+                          r.error().native_error);
+      stream.skin_fdids.push_back(r->value);
+    }
+    for (const auto [i, skin] : std::views::enumerate(this->lod_skins))
+    {
+      const auto skin_bytes = skin.write();
+      if (!skin_bytes)
+        return std::unexpected{skin_bytes.error()};
+      const auto r = fs.add_file(paths.lod_skin(static_cast<std::uint32_t>(i) + 1), *skin_bytes);
+      if (!r)
+        return make_error(r.error().code, std::format("lod skin {}: {}", i, r.error().message),
+                          r.error().native_error);
+      stream.skin_fdids.push_back(r->value);
+    }
+    return {};
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::write_chunked_phys(fs::FileSystem& fs, const SatellitePaths& paths,
+                                                 auto& stream) const
+    requires (V >= m2_chunked_container)
+  {
+    stream.phys_fdid.clear();
+    if (!this->phys.bytes.empty())
+    {
+      const auto r = fs.add_file(paths.phys(), this->phys.bytes);
+      if (!r)
+        return make_error(r.error().code, std::format(".phys: {}", r.error().message),
+                          r.error().native_error);
+      stream.phys_fdid.push_back(r->value);
+    }
+    return {};
   }
 }
 

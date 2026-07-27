@@ -33,7 +33,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
-#include <wowlib/formats/common/offset_file.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/bone.hpp>
 #include <wowlib/formats/m2/root/record/scene.hpp>
@@ -56,7 +56,7 @@ namespace wowlib::formats::m2
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The SKL1 payload: the skeleton's identity.")
-  ]] SkelHeader : OffsetFile<SkelHeader<V>>
+  ]] SkelHeader : M2OffsetBlock<SkelHeader<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -77,7 +77,7 @@ namespace wowlib::formats::m2
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The SKS1 payload: the sequence set that moved out of the "
                  "model.")
-  ]] SkelSequences : OffsetFile<SkelSequences<V>>
+  ]] SkelSequences : M2OffsetBlock<SkelSequences<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -112,7 +112,7 @@ namespace wowlib::formats::m2
     =welder::doc("The SKB1 payload: the bones that moved out of the model "
                  "(external sequences' track data lives in the .anim AFSB "
                  "chunks).")
-  ]] SkelBones : OffsetFile<SkelBones<V>>
+  ]] SkelBones : M2OffsetBlock<SkelBones<V>>
   {
     static constexpr ClientVersion version = V;
 
@@ -139,7 +139,7 @@ namespace wowlib::formats::m2
     =welder::doc("The SKA1 payload: the attachments that moved out of the "
                  "model (external sequences' track data lives in the .anim "
                  "AFSA chunks).")
-  ]] SkelAttachments : OffsetFile<SkelAttachments<V>>
+  ]] SkelAttachments : M2OffsetBlock<SkelAttachments<V>>
   {
     static constexpr ClientVersion version = V;
 

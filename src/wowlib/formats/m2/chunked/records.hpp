@@ -13,7 +13,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/offset_file.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::formats::m2::chunked::record
@@ -111,7 +111,7 @@ namespace wowlib::formats::m2::chunked::record
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The EXP2 chunk payload: extended particle records, one per "
                  "particle emitter.")
-  ]] Exp2Data : OffsetFile<Exp2Data>
+  ]] Exp2Data : M2OffsetBlock<Exp2Data>
   {
     static constexpr ClientVersion version = versions::legion;
 
@@ -119,7 +119,7 @@ namespace wowlib::formats::m2::chunked::record
       =welder::doc("Extended particle parameters, one per particle emitter.")]]
     std::vector<M2ExtendedParticle> content;
 
-    /** Chunk engagement: shadow OffsetFile's always-false empty() so the
+    /** Chunk engagement: shadow M2OffsetBlock's always-false empty() so the
         optional chunk is emitted only when data is present. */
     [[=welder::mark::exclude]]
     bool empty() const { return content.empty(); }
@@ -131,7 +131,7 @@ namespace wowlib::formats::m2::chunked::record
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The PABC chunk payload: the parent-model sequence-id "
                  "blacklist ('BlacklistAnimData').")
-  ]] PabcData : OffsetFile<PabcData>
+  ]] PabcData : M2OffsetBlock<PabcData>
   {
     static constexpr ClientVersion version = versions::legion;
 
@@ -140,7 +140,7 @@ namespace wowlib::formats::m2::chunked::record
                    "present AnimationData ids.")]]
     std::vector<std::uint16_t> replacement_parent_sequence_lookups;
 
-    /** Chunk engagement: shadow OffsetFile's always-false empty() so the
+    /** Chunk engagement: shadow M2OffsetBlock's always-false empty() so the
         optional chunk is emitted only when data is present. */
     [[=welder::mark::exclude]]
     bool empty() const { return replacement_parent_sequence_lookups.empty(); }
@@ -151,7 +151,7 @@ namespace wowlib::formats::m2::chunked::record
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The PSBC chunk payload: parent sequence bounds.")
-  ]] PsbcData : OffsetFile<PsbcData>
+  ]] PsbcData : M2OffsetBlock<PsbcData>
   {
     static constexpr ClientVersion version = versions::legion;
 
@@ -159,7 +159,7 @@ namespace wowlib::formats::m2::chunked::record
       =welder::doc("Parent sequence bounds, one per parent sequence.")]]
     std::vector<root::record::M2Bounds> parent_sequence_bounds;
 
-    /** Chunk engagement: shadow OffsetFile's always-false empty() so the
+    /** Chunk engagement: shadow M2OffsetBlock's always-false empty() so the
         optional chunk is emitted only when data is present. */
     [[=welder::mark::exclude]]
     bool empty() const { return parent_sequence_bounds.empty(); }
@@ -171,7 +171,7 @@ namespace wowlib::formats::m2::chunked::record
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc("The PGD1 chunk payload: per-particle-emitter geoset "
                  "assignments.")
-  ]] Pgd1Data : OffsetFile<Pgd1Data>
+  ]] Pgd1Data : M2OffsetBlock<Pgd1Data>
   {
     static constexpr ClientVersion version = versions::legion;
 
@@ -180,7 +180,7 @@ namespace wowlib::formats::m2::chunked::record
                    "geoset rules).")]]
     std::vector<std::uint16_t> geosets;
 
-    /** Chunk engagement: shadow OffsetFile's always-false empty() so the
+    /** Chunk engagement: shadow M2OffsetBlock's always-false empty() so the
         optional chunk is emitted only when data is present. */
     [[=welder::mark::exclude]]
     bool empty() const { return geosets.empty(); }

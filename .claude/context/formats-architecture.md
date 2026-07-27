@@ -12,15 +12,19 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   `fourcc.hpp`, `annotations.hpp` (chunk/since/until/optional/header/container/
   repeats — the annotation vocabulary stays snake_case), `chunked_file.hpp`
   (ChunkExtras, ChunkedFile, ChunkBlob, Repeated, UnknownChunk, JournalEntry
-  AND the serializer engine — one header), `offset_file.hpp` (OffsetFile +
-  the offset engine — one header), `string_block.hpp` (StringBlock),
-  `flags.hpp` (has_flag), `types.hpp` (wire math/color primitives).
+  AND the serializer engine — one header), `string_block.hpp` (StringBlock),
+  `flags.hpp` (has_flag), `types.hpp` (layout math/color primitives). The
+  offset serializer is NOT here — it is M2-only, so it lives in
+  `formats/m2/offset_block.hpp` (M2OffsetBlock, namespace wowlib::formats::m2;
+  see the 2026-07-27 sweep in m2-architecture.md). `sequence_data`/`gated_by`/
+  `offset_after` are the offset-only annotations in `annotations.hpp`.
 - **Header-only parts define where they declare** (user rule, 2026-07-25): no
   vocabulary-header/engine-header splits — the former `serializer.hpp` and
-  `offset_serializer.hpp` were inlined into `chunked_file.hpp`/`offset_file.hpp`
-  (mixin method definitions sit at the bottom of the same header, past the
-  engine). A separate definition file is only warranted when it is a `.cpp`
-  for a non-templated class (core/path, fs/*).
+  `offset_serializer.hpp` were inlined into `chunked_file.hpp`/`offset_block.hpp`
+  (for the offset engine, the whole read/write engine is now protected member
+  functions of M2OffsetBlock rather than trailing free functions). A separate
+  definition file is only warranted when it is a `.cpp` for a non-templated
+  class (core/path, fs/*).
 - `formats/wmo/` — **the directory tree mirrors the namespace tree** (user rule,
   2026-07-20), so each sub-namespace is a subdirectory. Reorganized 2026-07-23 so
   each entity owns its chunk wire structs as a nested `chunks/` subdir/namespace
@@ -277,9 +281,10 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
   quirk documented per member; deriving them would break byte-perfect
   round-trips. WMO::read counts groups from MOGI (group_infos.size());
   WMO::write validates MOGI size == groups.size(). The offset engine's
-  counterpart is consteval `wire_offset_of<E>(name)` (offset_file.hpp)
-  for stamping into a written image (M2 num_skin_profiles); its `template
-  for` ranges must be `static constexpr` or constant evaluation fails.
+  counterpart is the consteval static member `M2OffsetBlock::member_offset(name)`
+  (offset_block.hpp; was the free `wire_offset_of<E>`) for stamping into a
+  written image (M2 num_skin_profiles); its `template for` ranges must be
+  `static constexpr` or constant evaluation fails.
 
 ## Reflection findings (gcc 16.1, `-freflection`)
 

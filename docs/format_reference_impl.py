@@ -405,7 +405,7 @@ def parse_members(text: str, consts: dict[str, tuple] | None = None,
         toks = re.findall(r"[A-Za-z_]\w*", re.sub(r"\{[^}]*\}", "", decl.split("=")[0]))
         if not toks:
             continue
-        after_m = re.search(r'wire_after\("([^"]+)"\)', attrs)
+        after_m = re.search(r'offset_after\("([^"]+)"\)', attrs)
         out.append({
             "name": toks[-1],
             "cc": cc_m.group(1) if cc_m else (header_cc if is_header else ""),

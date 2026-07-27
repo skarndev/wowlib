@@ -4,12 +4,12 @@
     The MD20 body entity (namespace wowlib::formats::m2::root): M2Root — the
     client's own name for the offset-addressed model payload. Pre-Legion this
     IS the .m2 file; Legion+ it is the MD21 chunk's content (offsets stay
-    relative to the image either way, which is exactly what OffsetFile
+    relative to the image either way, which is exactly what M2OffsetBlock
     serializes against).
 
     Version-gated members live in conditionally-inherited trait slots
-    (root::detail); each carries `=wire_after("member")` naming the own member
-    it follows, which puts it back at its interleaved wire position. A
+    (root::detail); each carries `=offset_after("member")` naming the own member
+    it follows, which puts it back at its interleaved layout position. A
     version's M2Root carries ONLY the members that version defines — setting
     an absent one is a compile error. */
 
@@ -23,10 +23,10 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
-#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/root/record/bone.hpp>
 #include <wowlib/formats/m2/root/record/effects.hpp>
 #include <wowlib/formats/m2/root/record/material.hpp>
@@ -88,7 +88,7 @@ namespace wowlib::formats::m2::root
   namespace detail
   {
     // --- version-range trait bases (unwelded) ---------------------------------
-    // One struct per availability range; each member's wire_after anchor (not
+    // One struct per availability range; each member's offset_after anchor (not
     // flatten order) fixes its interleaved position in the header.
 
     /** Pre-WotLK members: the embedded skin profiles and the vanilla/TBC-only
@@ -98,7 +98,7 @@ namespace wowlib::formats::m2::root
     {
       [[
         =until(m2_per_sequence_timelines),
-        =wire_after("sequence_lookups"),
+        =offset_after("sequence_lookups"),
         =welder::mark::no_reassign,
         =welder::doc("Playable-animation fallbacks, one per AnimationData.dbc "
                      "id (pre-WotLK).")]]
@@ -106,7 +106,7 @@ namespace wowlib::formats::m2::root
 
       [[
         =until(m2_per_sequence_timelines),
-        =wire_after("vertices"),
+        =offset_after("vertices"),
         =welder::mark::no_reassign,
         =welder::doc("The skin profiles (LOD views), embedded in the model "
                      "pre-WotLK; WotLK+ moves them to .skin files.")]]
@@ -114,7 +114,7 @@ namespace wowlib::formats::m2::root
 
       [[
         =until(m2_per_sequence_timelines),
-        =wire_after("texture_weights"),
+        =offset_after("texture_weights"),
         =welder::mark::no_reassign,
         =welder::doc("Texture flipbooks (pre-WotLK; never seen engaged).")]]
       std::vector<M2TextureFlipbook<V>> texture_flipbooks;
@@ -129,10 +129,10 @@ namespace wowlib::formats::m2::root
     {
       [[
         =since(m2_per_sequence_timelines),
-        =wire_after("vertices"),
+        =offset_after("vertices"),
         =welder::mark::exclude,
         =welder::doc("How many .skin files (LOD views) belong to the model "
-                     "(WotLK+). A derived wire field: the M2 assembly's "
+                     "(WotLK+). A derived layout field: the M2 assembly's "
                      "skins vector is the source of truth — its write stamps "
                      "this from skins.size(), and the bindings hide it.")]]
       std::uint32_t num_skin_profiles = 0;
@@ -147,10 +147,10 @@ namespace wowlib::formats::m2::root
       [[
         =since(m2_compressed_bones),
         =gated_by(0x8),
-        =wire_after("particle_emitters"),
+        =offset_after("particle_emitters"),
         =welder::mark::no_reassign,
-        =welder::doc("Second-texture material override combos; on the wire "
-                     "only under global flag 0x8 (TBC+).")]]
+        =welder::doc("Second-texture material override combos; present in the "
+                     "layout only under global flag 0x8 (TBC+).")]]
       std::vector<std::uint16_t> texture_combiner_combos;
 
       [[=welder::mark::exclude]]
@@ -173,7 +173,7 @@ namespace wowlib::formats::m2::root
         An MD20 model body for one client version: header scalars plus every
         offset-addressed block, decoded. A version's class carries ONLY the
         members that version defines. See https://wowdev.wiki/M2.)")
-  ]] M2Root : OffsetFile<M2Root<V>>,
+  ]] M2Root : M2OffsetBlock<M2Root<V>>,
                   // root::detail:: (never a bare detail::) — the using-directive
                   // above imports record::detail, which a bare spelling would
                   // be ambiguous against
@@ -191,7 +191,7 @@ namespace wowlib::formats::m2::root
     std::uint32_t magic = md20_magic;
 
     [[=welder::doc("The MD20 format version (256 vanilla .. 274 Legion+).")]]
-    std::uint32_t format_version = m2_wire_version(V);
+    std::uint32_t format_version = m2_format_version(V);
 
     [[=welder::doc("The model's internal name; empty in 9.2+ files.")]]
     std::string name;

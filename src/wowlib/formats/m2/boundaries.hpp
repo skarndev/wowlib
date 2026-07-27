@@ -3,7 +3,7 @@
 /** @file
     The M2 version vocabulary: the layout pivots record/entity partial
     specializations key on, and the MD20 format_version written for each
-    targeted client. The M2 wire version (256–274) moves with the client but
+    targeted client. The M2 format version (256–274) moves with the client but
     is stored per file — reading trusts the requested entity version's layout
     and cross-checks the file's value. */
 
@@ -20,7 +20,7 @@ namespace wowlib::formats::m2
   /** TBC (v260+): bone rotations become compressed M2CompQuat (vanilla stored
       raw C4Quaternion), M2CompBone gains the boneNameCRC field, and the
       particle header packs blendingType/emitterType into bytes next to the
-      new particleColorIndex (late-TBC v262 on the wire; TBC's last minor
+      new particleColorIndex (late-TBC v262 in the format; TBC's last minor
       2.4.3 writes v263, so the whole tbc target is past it). */
   inline constexpr ClientVersion m2_compressed_bones = builds::TBC;
 
@@ -55,10 +55,11 @@ namespace wowlib::formats::m2
 
   /** The MD20 format_version wowlib writes for @a v — the value the client
       era itself exports (wowdev.wiki/M2, the Versions section): vanilla 256, TBC 263,
-      WotLK 264, Cata through WoD 272, Legion+ 274.
+      WotLK 264, Cata through WoD 272, Legion+ 274. Matches the entity's
+      format_version member.
       @param v the targeted client version.
-      @return the wire version number. */
-  consteval std::uint32_t m2_wire_version(ClientVersion v)
+      @return the on-disk format version number. */
+  consteval std::uint32_t m2_format_version(ClientVersion v)
   {
     if (v >= m2_chunked_container)
       return 274;
@@ -73,10 +74,10 @@ namespace wowlib::formats::m2
 
   /** The inclusive MD20 version range a client era's files may carry —
       reading accepts the whole era (a 2.4.3 client still ships v260 models),
-      writing always emits m2_wire_version().
+      writing always emits m2_format_version().
       @param v the targeted client version.
       @return {era minimum, era maximum}. */
-  consteval std::pair<std::uint32_t, std::uint32_t> m2_wire_version_range(ClientVersion v)
+  consteval std::pair<std::uint32_t, std::uint32_t> m2_format_version_range(ClientVersion v)
   {
     if (v >= m2_chunked_container)
       return {264, 274};
@@ -158,7 +159,7 @@ namespace wowlib::formats::m2
                                              m2_multitex_particles};
 
   /** M2Root (the MD20 body): the union of every record pivot, its own trait
-      slots (TBC combos, WotLK external skins) and the wire-version steps
+      slots (TBC combos, WotLK external skins) and the format-version steps
       (263/264/272/274). */
   inline constexpr std::array m2_data_pivots{
     m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,

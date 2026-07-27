@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/m2/m2.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
 #include "integration_env.hpp"
@@ -56,7 +56,7 @@ namespace
         return std::format(": \"{}\" vs \"{}\"", a, b);
       return std::nullopt;
     }
-    else if constexpr (formats::detail::is_offset_record_v<T>)
+    else if constexpr (InlineRecordMember<T>)
     {
       static constexpr auto members = formats::detail::members_of<T>();
       std::optional<std::string> out;
@@ -93,7 +93,7 @@ namespace
       REQUIRE(r.has_value());
     }
     CHECK(model.root.magic == md20_magic);
-    constexpr auto era = m2_wire_version_range(V);
+    constexpr auto era = m2_format_version_range(V);
     CHECK(model.root.format_version >= era.first);
     CHECK(model.root.format_version <= era.second);
     CHECK(model.root.num_skin_profiles == model.skins.size());

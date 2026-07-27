@@ -345,7 +345,7 @@ namespace detail
       requires (V >= m2_per_sequence_timelines && V < m2_multitex_particles)
     struct [[
       =welder::weld(welder::lang::py, welder::lang::lua),
-      =welder::doc("A particle emitter, WotLK-era layout (476 wire bytes): FBlock ramps, "
+      =welder::doc("A particle emitter, WotLK-era layout (476 bytes): FBlock ramps, "
                    "lifespan/emission variation, four spin fields.")
     ]] M2Particle<V>
     {
@@ -467,7 +467,7 @@ namespace detail
       requires (V >= m2_multitex_particles)
     struct [[
       =welder::weld(welder::lang::py, welder::lang::lua),
-      =welder::doc("A particle emitter (Cata+, 492 wire bytes): multi-textured — packed "
+      =welder::doc("A particle emitter (Cata+, 492 bytes): multi-textured — packed "
                    "texture ids, multiTexScale, trailing scroll parameters.")
     ]] M2Particle<V>
     {

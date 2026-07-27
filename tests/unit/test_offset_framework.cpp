@@ -7,11 +7,12 @@
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/offset_file.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 
 using namespace wowlib;
 using namespace wowlib::formats;
+using namespace wowlib::formats::m2;
 
 namespace
 {
@@ -46,17 +47,17 @@ namespace
     bool operator==(const TestRecord&) const = default;
   };
 
-  static_assert(detail::wire_size<TestTrack, old_v>() == 20);
-  static_assert(detail::wire_size<TestRecord, old_v>() == 40);
-  static_assert(detail::wire_size<std::vector<std::vector<float>>, old_v>() == 8);
-  static_assert(detail::wire_size<std::string, old_v>() == 8);
+  static_assert(layout_size<TestTrack, old_v>() == 20);
+  static_assert(layout_size<TestRecord, old_v>() == 40);
+  static_assert(layout_size<std::vector<std::vector<float>>, old_v>() == 8);
+  static_assert(layout_size<std::string, old_v>() == 8);
 
   namespace traits
   {
     /** Pre-boundary-only members (conditionally inherited). */
     struct ModelOld
     {
-      [[=until(boundary), =wire_after("name")]]
+      [[=until(boundary), =offset_after("name")]]
       std::vector<std::uint32_t> old_refs;
 
       bool operator==(const ModelOld&) const = default;
@@ -65,7 +66,7 @@ namespace
     /** Post-boundary-only members (conditionally inherited). */
     struct ModelNew
     {
-      [[=since(boundary), =wire_after("records")]]
+      [[=since(boundary), =offset_after("records")]]
       std::vector<std::uint64_t> new_refs;
 
       bool operator==(const ModelNew&) const = default;
@@ -73,15 +74,15 @@ namespace
   }
 
   template <ClientVersion V>
-  struct TestModel : OffsetFile<TestModel<V>>,
+  struct TestModel : M2OffsetBlock<TestModel<V>>,
                      slot<V, ClientVersion{0, 0, 0, 0}, traits::ModelOld, boundary>,
                      slot<V, boundary, traits::ModelNew>
   {
     static constexpr ClientVersion version = V;
 
-    // Wire order = own declaration order; the trait members' wire_after
+    // Layout order = own declaration order; the trait members' offset_after
     // anchors interleave them (old_refs after name, new_refs after records),
-    // proving flatten order does not leak onto the wire.
+    // proving flatten order does not leak onto the layout.
     std::uint32_t magic = 0x3244544D;  // 'MTD2'
     std::uint32_t format_version = 264;
     std::uint32_t global_flags = 0;
@@ -159,7 +160,7 @@ TEST_CASE("offset entity round-trips all member kinds", "[formats][offset]")
   CHECK(back == m);
 }
 
-TEST_CASE("wire_after anchors interleave trait members at their wire positions",
+TEST_CASE("offset_after anchors interleave trait members at their layout positions",
           "[formats][offset]")
 {
   const auto m = sample_model<old_v>();
@@ -198,7 +199,7 @@ TEST_CASE("version gating drops the other era's trait members", "[formats][offse
   static_assert(has_new_refs<NewModel>);
 }
 
-TEST_CASE("gated members occupy wire bytes only when their flag is set", "[formats][offset]")
+TEST_CASE("gated members occupy layout bytes only when their flag is set", "[formats][offset]")
 {
   auto gated_off = sample_model<old_v>();
   auto gated_on = sample_model<old_v>();
@@ -246,7 +247,7 @@ TEST_CASE("out-of-bounds offsets are structural errors", "[formats][offset]")
   REQUIRE(!r.has_value());
   CHECK(r.error().code == ErrorCode::OffsetOutOfBounds);
 
-  // Truncating the image below the entity wire size fails, too.
+  // Truncating the image below the entity image size fails, too.
   OldModel out2;
   auto r2 = out2.read(std::span{*bytes}.first(10));
   REQUIRE(!r2.has_value());

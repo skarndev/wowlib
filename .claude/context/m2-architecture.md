@@ -384,3 +384,76 @@ Supersedes the naming/layout notes above (kept as history):
   M2Attachment<V>). Refined rule: propagate V only when the content actually
   varies with it; a Legion+-only payload of version-independent members fixes
   the version instead.
+
+## Offset-serializer readability sweep (2026-07-27; user's 5-point request)
+
+A pure readability pass on the offset serializer — behavior-preserving,
+verified byte-for-byte (synthetic 85, real 3.3.5a 141, real 9.2.7 356
+assertions, all unchanged; the m2.cpp instantiation TU + opaque_gen also
+rebuilt clean). CURRENT NAMES supersede the history above:
+
+- **`common/offset_file.hpp` → `m2/offset_block.hpp`** and its namespace moved
+  `wowlib::formats` → `wowlib::formats::m2` (the engine is M2-only; all
+  consumers are nested under m2, so their unqualified lookups still resolve;
+  shared reflection helpers are spelled `formats::detail::` from inside m2).
+  The CRTP mixin **`OffsetFile` → `M2OffsetBlock`** (user picked "Block" over
+  "File" — it also models embedded chunk payloads, not just whole files); its
+  marker base `OffsetBase → M2OffsetBase`. `OffsetEntity`, `OffsetReadContext`,
+  `OffsetWriteContext` KEPT their names (already clear, not "wire").
+- **"wire" jargon purged** across the M2 subsystem (functions, prose, the docs
+  generator's regex + config). Key renames: the annotation `wire_after →
+  offset_after` (annotations.hpp; re-documented as a POSITIONAL LAYOUT anchor —
+  it is about correct positional READING of the flat MD20 layout, NOT about
+  byte-perfect writes, which M2 has none of; a field read at the wrong position
+  misaligns every offset after it); `wire_size<T,V>() → layout_size<T,V>()`
+  (free consteval in m2); free `wire_offset_of<E> → static member
+  `M2OffsetBlock::member_offset`; free `entity_image_size(e) → member
+  `e.image_size()`; `read_wire/write_wire → read_member/write_member`;
+  `M2ArrayWire → M2ArrayRef`. Also `boundaries.hpp m2_wire_version[_range] →
+  m2_format_version[_range]` (aligns with the format_version member).
+- **Engine encapsulated as M2OffsetBlock member functions** (was a flat
+  `detail::` of free functions): the read/write engine is now protected static
+  member templates, and the big `read_wire`/`write_wire` (~80 lines each) were
+  SPLIT into small per-kind helpers — read side: read_members → read_member →
+  {read_array_member → read_array_ref + read_string_block + read_vector_block →
+  read_array_elements | read_scalar}; write side mirrors exactly. The V
+  template param was DROPPED throughout (it was always Derived::version). Only
+  the pure compile-time layout queries (`layout_size`, and the concepts) stay
+  free in the m2 namespace — tests treat them as white-box queries and they are
+  genuinely entity-agnostic; NOT hidden in a detail namespace.
+- **Named concepts replace the obscure `is_vector_v||is_string` dispatch**:
+  `OffsetArrayMember` (vector/string → M2Array reference), `InlineRecordMember`
+  (a nested record recursed inline), `InlineScalarMember` (trivially-copyable
+  raw bytes), `OffsetStringMember`. Every member function carries full Doxygen
+  (param/tparam/return/throws) or welder annotations where welded.
+- Every consumer include updated to `<wowlib/formats/m2/offset_block.hpp>`; the
+  bindings matrix's explicit instantiations became `m2::M2OffsetBlock<...>`
+  (legal from the enclosing `wowlib::formats` namespace via the qualified name).
+  Test `test_m2_wire_layout.cpp → test_m2_layout.cpp`.
+- **M2<V>::read_chunked and ::write decomposed** (m2.hpp, same sweep): the two
+  ~90/~200-line fs-I/O methods split into small phase helpers that read as a
+  table of contents. read_chunked → load_skeleton / read_chunked_body /
+  read_chunked_skins / read_bone_files / read_physics. write → a version
+  dispatcher (pre-WotLK inline / write_monolithic / write_chunked, mirroring
+  read) over write_body_image (shared body-write + num_skin_profiles stamp) +
+  write_bone_files / write_plain_anims / write_skeleton_satellites /
+  write_chunked_skins / write_chunked_phys. GOTCHA: a helper must NOT name the
+  constrained alias `M2ChunkedFile<V>` in its SIGNATURE — the alias is
+  `requires (V >= m2_chunked_container)`, and member DECLARATIONS instantiate
+  for every V when M2<V> does, so WotLK failed the alias constraint. Take the
+  stream by deduced `auto&` (resolved only at the Legion+ call site) instead;
+  same reason the sequence table flows through `const auto&` (also dodges the
+  root-vs-skel M2Sequence version mismatch, exactly as AnimBuffers::sink does).
+  The `auto&` makes the helper a member template, but it is only ever called
+  with `M2ChunkedFile<V>&`, so it is one instantiation per V — same set the end
+  user gets, no extra codegen.
+- **Polish (same sweep, user follow-up):** `(root.global_flags & 0x2000u)` →
+  `has_flag(root.global_flags, GlobalFlags::ChunkedAnimFiles)` (no hardcoded
+  flag bits). Full-container index loops in m2.hpp use `std::views::enumerate`
+  (and the SFID view/LOD split uses `enumerate | take/drop`); the
+  read_chunked/write_chunked TAILS are monadic `.and_then(...).transform(...)`
+  chains on `Result` (= `std::expected`). offset_block.hpp engine helpers took
+  `const` on their immutable by-value params (the public read/write API params
+  stay clean). The recursive per-element loops (read/write_array_elements) stay
+  index-based — enumerate's signed index would fight the `ref.offset + i*elem`
+  pointer math (sign-conversion). No C-style casts existed to remove.

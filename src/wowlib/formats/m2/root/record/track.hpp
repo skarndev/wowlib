@@ -2,7 +2,7 @@
 
 /** @file
     The M2 animation vocabulary (namespace wowlib::formats::m2::root::record): the
-    small wire primitives (M2Range, M2Bounds, M2Loop, M2CompQuat, M2Box,
+    small fixed-size primitives (M2Range, M2Bounds, M2Loop, M2CompQuat, M2Box,
     M2SplineKey) and the track types every animated record embeds. Tracks are
     offset records — the serializer recurses into them inline at the record
     cursor; their arrays live in blocks behind M2Array references.

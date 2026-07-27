@@ -5,7 +5,7 @@
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/offset_file.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/root/root.hpp>
 #include <wowlib/formats/m2/skin/skin.hpp>
 
@@ -17,7 +17,6 @@ using namespace wowlib::formats::m2;
 using namespace wowlib::formats::m2::root::record;
 using namespace wowlib::formats::m2::skin;
 using wowlib::formats::m2::root::md20_magic;
-using formats::detail::wire_size;
 
 namespace
 {
@@ -28,38 +27,38 @@ namespace
   inline constexpr ClientVersion wo = versions::wod;
 }
 
-// --- track and record wire layouts, per era (wowdev.wiki/M2) -----------------
+// --- track and record offset layouts, per era (wowdev.wiki/M2) -----------------
 
-static_assert(wire_size<M2Track<C3Vector, va>, va>() == 28);
-static_assert(wire_size<M2Track<C3Vector, wk>, wk>() == 20);
-static_assert(wire_size<M2TrackBase<va>, va>() == 20);
-static_assert(wire_size<M2TrackBase<wk>, wk>() == 12);
-static_assert(wire_size<FBlock<C3Vector>, wk>() == 16);
+static_assert(layout_size<M2Track<C3Vector, va>, va>() == 28);
+static_assert(layout_size<M2Track<C3Vector, wk>, wk>() == 20);
+static_assert(layout_size<M2TrackBase<va>, va>() == 20);
+static_assert(layout_size<M2TrackBase<wk>, wk>() == 12);
+static_assert(layout_size<FBlock<C3Vector>, wk>() == 16);
 
-static_assert(wire_size<M2CompBone<va>, va>() == 108);
-static_assert(wire_size<M2CompBone<tb>, tb>() == 112);
-static_assert(wire_size<M2CompBone<wk>, wk>() == 88);  // 0x58
+static_assert(layout_size<M2CompBone<va>, va>() == 108);
+static_assert(layout_size<M2CompBone<tb>, tb>() == 112);
+static_assert(layout_size<M2CompBone<wk>, wk>() == 88);  // 0x58
 
-static_assert(wire_size<M2Texture, wk>() == 16);
-static_assert(wire_size<M2Color<wk>, wk>() == 40);
-static_assert(wire_size<M2TextureWeight<wk>, wk>() == 20);
-static_assert(wire_size<M2TextureTransform<wk>, wk>() == 60);
+static_assert(layout_size<M2Texture, wk>() == 16);
+static_assert(layout_size<M2Color<wk>, wk>() == 40);
+static_assert(layout_size<M2TextureWeight<wk>, wk>() == 20);
+static_assert(layout_size<M2TextureTransform<wk>, wk>() == 60);
 
-static_assert(wire_size<M2Attachment<wk>, wk>() == 40);   // 0x28
-static_assert(wire_size<M2Event<wk>, wk>() == 36);
-static_assert(wire_size<M2Light<wk>, wk>() == 156);       // 0x9C
-static_assert(wire_size<M2Camera<va>, va>() == 124);
-static_assert(wire_size<M2Camera<wk>, wk>() == 100);
-static_assert(wire_size<M2Camera<ca>, ca>() == 116);
+static_assert(layout_size<M2Attachment<wk>, wk>() == 40);   // 0x28
+static_assert(layout_size<M2Event<wk>, wk>() == 36);
+static_assert(layout_size<M2Light<wk>, wk>() == 156);       // 0x9C
+static_assert(layout_size<M2Camera<va>, va>() == 124);
+static_assert(layout_size<M2Camera<wk>, wk>() == 100);
+static_assert(layout_size<M2Camera<ca>, ca>() == 116);
 
-static_assert(wire_size<M2Ribbon<va>, va>() == 220);
-static_assert(wire_size<M2Ribbon<wk>, wk>() == 176);      // 0xB0
-static_assert(wire_size<M2Particle<va>, va>() == 504);
-static_assert(wire_size<M2Particle<wk>, wk>() == 476);
-static_assert(wire_size<M2Particle<ca>, ca>() == 492);
+static_assert(layout_size<M2Ribbon<va>, va>() == 220);
+static_assert(layout_size<M2Ribbon<wk>, wk>() == 176);      // 0xB0
+static_assert(layout_size<M2Particle<va>, va>() == 504);
+static_assert(layout_size<M2Particle<wk>, wk>() == 476);
+static_assert(layout_size<M2Particle<ca>, ca>() == 492);
 
-static_assert(wire_size<M2SkinProfile<wk>, wk>() == 44);
-static_assert(wire_size<M2SkinProfile<ca>, ca>() == 52);
+static_assert(layout_size<M2SkinProfile<wk>, wk>() == 44);
+static_assert(layout_size<M2SkinProfile<ca>, ca>() == 52);
 
 static_assert(OffsetEntity<M2Root<wk>>);
 static_assert(OffsetEntity<Skin<wk>>);
@@ -68,15 +67,15 @@ static_assert(SelfSerializing<M2Root<wk>>);  // the Legion MD21 payload path
 TEST_CASE("MD20 header image sizes match the client eras", "[formats][m2]")
 {
   // wowdev header layouts: vanilla/TBC 0x144 (324), WotLK+ 0x130 (304).
-  CHECK(formats::detail::entity_image_size(M2Root<va>{}) == 324);
-  CHECK(formats::detail::entity_image_size(M2Root<tb>{}) == 324);
-  CHECK(formats::detail::entity_image_size(M2Root<wk>{}) == 304);
-  CHECK(formats::detail::entity_image_size(M2Root<ca>{}) == 304);
-  CHECK(formats::detail::entity_image_size(M2Root<wo>{}) == 304);
+  CHECK(M2Root<va>{}.image_size() == 324);
+  CHECK(M2Root<tb>{}.image_size() == 324);
+  CHECK(M2Root<wk>{}.image_size() == 304);
+  CHECK(M2Root<ca>{}.image_size() == 304);
+  CHECK(M2Root<wo>{}.image_size() == 304);
 
   M2Root<tb> gated;
   gated.global_flags = 0x8;  // engages texture_combiner_combos
-  CHECK(formats::detail::entity_image_size(gated) == 332);
+  CHECK(gated.image_size() == 332);
 }
 
 TEST_CASE("skin files carry the magic ahead of the flattened profile", "[formats][m2]")

@@ -4,8 +4,8 @@ Data + small functions only. M2 has two field surfaces ("sides") with different
 kinds:
 
   * the **MD20 body** (`M2Root`, root/root.hpp) is an OFFSET entity — no
-    per-member FourCC chunks; wire order is the struct's own declaration order
-    with trait-slot members spliced in at their `=wire_after("name")` anchors,
+    per-member FourCC chunks; layout order is the struct's own declaration order
+    with trait-slot members spliced in at their `=offset_after("name")` anchors,
     so its fields page section shows plain field listings with expansion
     badges only. `=since()`/`=until()` here reference the NAMED boundary
     constants from boundaries.hpp (m2_per_sequence_timelines, …), resolved
@@ -15,7 +15,7 @@ kinds:
     members carry FourCC badges linking wowdev.wiki/M2 plus since() badges.
 
 The record modules (root.record, chunked.record, skin, the Skel* chunk
-payloads) are dumped by mkdocstrings on records.md; the engine re-annotates their wire integer widths
+payloads) are dumped by mkdocstrings on records.md; the engine re-annotates their layout integer widths
 from the C++ headers listed here.
 """
 
@@ -48,7 +48,7 @@ def _consts() -> dict[str, tuple[int, int, int]]:
 
 # --- fields-page category taxonomies ------------------------------------------
 # The body categories are keyed by FIELD NAME (an offset entity has no FourCCs);
-# like WMO's, the grouping is documentation structure, not wire semantics. A
+# like WMO's, the grouping is documentation structure, not layout semantics. A
 # field missing from the map is logged and dropped into the first category so
 # the omission is visible, never silent.
 BODY_CATEGORY_ORDER = ("Header & identity", "Sequences & animation", "Bones",
@@ -83,7 +83,7 @@ BODY_FIELD_CATEGORY = {
     "ribbon_emitters": "Particles & ribbons", "particle_emitters": "Particles & ribbons",
 }
 BODY_CATEGORY_BLURB = {
-    "Header & identity": "The wire format version, the model's name and its global flags.",
+    "Header & identity": "The layout format version, the model's name and its global flags.",
     "Sequences & animation": "The animation sequences, global loops and the "
                              "animation-id lookup tables.",
     "Bones": "The bone hierarchy and the key-bone lookup.",
@@ -134,14 +134,14 @@ _FIELDS_CACHE: dict[str, dict] = {}
 def _body_fields() -> dict[str, dict]:
     """M2Root members: the detail:: trait slots (version-gated) plus the struct's
     own members — the slice from `namespace detail` to end-of-file covers both.
-    The excluded wire fields (magic, num_skin_profiles) never parse: their
+    The excluded layout fields (magic, num_skin_profiles) never parse: their
     annotations carry welder::mark::exclude, matching their absence in Python."""
     if "body" not in _FIELDS_CACHE:
         text = fr.slice_text(BODY_HPP.read_text(encoding="utf-8"), "namespace detail", None)
         fields = {f["name"]: f for f in fr.parse_members(text, consts=_consts())}
         # The struct-head annotation block ([[=welder::weld…]] M2Root : bases…)
         # parses as a spurious member named after the first `;` inside the body
-        # (the `version` constant); it is not a wire field, drop it.
+        # (the `version` constant); it is not a layout field, drop it.
         fields.pop("version", None)
         _FIELDS_CACHE["body"] = fields
     return _FIELDS_CACHE["body"]
@@ -158,16 +158,16 @@ def _shell_fields() -> dict[str, dict]:
     return _FIELDS_CACHE["shell"]
 
 
-_WIRE_ORDER_CACHE: list[str] | None = None
+_LAYOUT_ORDER_CACHE: list[str] | None = None
 
 
-def _wire_order() -> list[str]:
-    """M2Root's wire order, rebuilt the way the serializer walks it: the
+def _layout_order() -> list[str]:
+    """M2Root's layout order, rebuilt the way the serializer walks it: the
     struct's OWN members in declaration order, each followed by the trait
-    members whose `=wire_after("name")` anchors it (see offset_file.hpp's
-    offset_order)."""
-    global _WIRE_ORDER_CACHE
-    if _WIRE_ORDER_CACHE is None:
+    members whose `=offset_after("name")` anchors it (see offset_block.hpp's
+    member_order)."""
+    global _LAYOUT_ORDER_CACHE
+    if _LAYOUT_ORDER_CACHE is None:
         txt = BODY_HPP.read_text(encoding="utf-8")
         traits = fr.parse_members(
             fr.slice_text(txt, "namespace detail", "]] M2Root :"), consts=_consts())
@@ -179,12 +179,12 @@ def _wire_order() -> list[str]:
                 continue
             order.append(f["name"])
             order.extend(t["name"] for t in traits if t.get("after") == f["name"])
-        _WIRE_ORDER_CACHE = order
-    return _WIRE_ORDER_CACHE
+        _LAYOUT_ORDER_CACHE = order
+    return _LAYOUT_ORDER_CACHE
 
 
 def _body_rank(f) -> int:
-    order = _wire_order()
+    order = _layout_order()
     return order.index(f["name"]) if f["name"] in order else len(order)
 
 
@@ -300,7 +300,7 @@ RECORDS_SKEL = fr.StructPage(
     dedup_marker="<!-- m2-records-skel -->",
 )
 
-# Width-only pages: the entity-page members with fixed-width wire ints
+# Width-only pages: the entity-page members with fixed-width layout ints
 # (Skeleton's FileDataID lists, the .bone file's ids/version) get the same
 # Annotated[int, uintN] treatment as the record structs.
 ENTITY_SKELETON = fr.StructPage(

@@ -3,7 +3,7 @@
 /** @file
     The external .skin file entity (namespace wowlib::formats::m2::skin), WotLK+:
     the 'SKIN' magic followed by one M2SkinProfile — held as an inline member,
-    so the wire layout is byte-identical to the embedded pre-WotLK profiles
+    so the on-disk layout is byte-identical to the embedded pre-WotLK profiles
     while the entity keeps a single welded facade base. Offsets are relative
     to the .skin file itself; the referenced vertices stay in the .m2. */
 
@@ -12,7 +12,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
-#include <wowlib/formats/common/offset_file.hpp>
+#include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/skin/records.hpp>
 
@@ -58,7 +58,7 @@ namespace wowlib::formats::m2::skin
         One external LOD view (.skin file, WotLK+): the 'SKIN' magic plus the
         profile tables (local lookups, submeshes, render batches). See
         https://wowdev.wiki/M2/.skin.)")
-  ]] Skin : OffsetFile<Skin<V>>, SkinBase
+  ]] Skin : M2OffsetBlock<Skin<V>>, SkinBase
   {
     static constexpr ClientVersion version = V;
 
