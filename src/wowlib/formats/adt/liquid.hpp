@@ -2,7 +2,9 @@
 
 /** @file
     Structured ADT liquid entities (namespace wowlib::formats::adt): the modern
-    MH2O (WotLK+) and the legacy MCLQ (pre-WotLK), decoded to an editable form.
+    MH2O (WotLK+) and the legacy MCLQ (up to and including WotLK), decoded to an
+    editable form. The two coexist in WotLK — Northrend tiles use MH2O while
+    Outland tiles still ship MCLQ.
 
     Both are intra-chunk OFFSET structures — a header whose fields address
     trailing variable-length data — so, like WMO's MLIQData, they own their
@@ -126,14 +128,15 @@ namespace wowlib::formats::adt
                    "mask round-trips as present rather than omitted).")]]
     bool has_attributes = false;
 
-    [[=welder::doc("The stacked liquid layers over this cell."),
+    [[=welder::doc("The stacked liquid layers over this chunk."),
       =welder::mark::no_reassign]]
     std::vector<LiquidInstance> instances;
 
     bool operator==(const MapChunkLiquid&) const = default;
 
+    /** @return whether the chunk carries any liquid. */
     [[nodiscard]]
-    [[=welder::getter, =welder::doc("Whether the cell carries any liquid.")]]
+    [[=welder::getter, =welder::doc("Whether the chunk carries any liquid.")]]
     bool empty() const { return instances.empty(); }
   };
 
@@ -148,13 +151,20 @@ namespace wowlib::formats::adt
         cell = y * 16 + x.)")
   ]] MH2OData
   {
-    [[=welder::doc("Liquid for each of the 256 cells (y * 16 + x)."),
+    [[=welder::doc("Liquid for each of the 256 terrain chunks (y * 16 + x)."),
       =welder::mark::no_reassign]]
     std::vector<MapChunkLiquid> cells;
 
+    /** Decode the whole-tile MH2O offset structure into the 256 per-chunk entries.
+        @param payload the MH2O chunk payload.
+        @return a structural error or success. */
     [[=welder::mark::exclude]]
     Result<void> read(std::span<const std::byte> payload);
 
+    /** Re-lay the 256 entries into a fresh canonical MH2O payload (every wire
+        offset derived), appended to @a out.
+        @param out the destination buffer.
+        @return a structural error or success. */
     [[=welder::mark::exclude]]
     Result<void> write(FileBuffer& out) const;
 
@@ -162,21 +172,21 @@ namespace wowlib::formats::adt
     [[=welder::getter, =welder::doc("Whether the tile has no liquid at all.")]]
     bool empty() const
     {
-      for (const auto& c : cells)
-        if (!c.instances.empty())
-          return false;
-      return true;
+      return std::ranges::none_of(cells, [](const MapChunkLiquid& c) {
+        return !c.instances.empty();
+      });
     }
 
     bool operator==(const MH2OData&) const = default;
   };
 
-  /** The legacy per-cell liquid (MCLQ, pre-WotLK): a 9x9 vertex grid, an 8x8
-      tile-flag grid and up to two flow vectors, decoded. SelfSerializing. */
+  /** The legacy per-chunk liquid (MCLQ, up to and including WotLK): a 9x9 vertex
+      grid, an 8x8 tile-flag grid and up to two flow vectors, decoded.
+      SelfSerializing. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
-        A terrain cell's legacy liquid (MCLQ, pre-WotLK, deprecated by MH2O): a
+        A terrain chunk's legacy liquid (MCLQ, up to WotLK, deprecated by MH2O): a
         9x9 grid of liquid vertices (SLVert; read as magma/slime via as_magma()),
         an 8x8 grid of tile flag bytes and the active flow vectors. The height
         range and the flow-vector count are stored; the trailing pair of flow
@@ -199,14 +209,23 @@ namespace wowlib::formats::adt
       =welder::mark::no_reassign]]
     std::vector<SWFlowv> flows;
 
+    /** Decode an MCLQ payload into the height range, 9x9 vertex grid, 8x8 tile
+        flags and active flow vectors.
+        @param payload the MCLQ chunk payload.
+        @return a structural error or success. */
     [[=welder::mark::exclude]]
     Result<void> read(std::span<const std::byte> payload);
 
+    /** Re-lay the legacy liquid into a fixed-grid MCLQ payload (81 verts, 64
+        tiles, the two-slot flow pair), appended to @a out.
+        @param out the destination buffer.
+        @return a structural error or success. */
     [[=welder::mark::exclude]]
     Result<void> write(FileBuffer& out) const;
 
+    /** @return whether the chunk carries no legacy liquid. */
     [[nodiscard]]
-    [[=welder::getter, =welder::doc("Whether the cell carries no legacy liquid.")]]
+    [[=welder::getter, =welder::doc("Whether the chunk carries no legacy liquid.")]]
     bool empty() const { return vertices.empty(); }
 
     bool operator==(const MCLQData&) const = default;
@@ -278,7 +297,7 @@ namespace wowlib::formats::adt
           starts.push_back(ofs_verts);
       }
     }
-    std::sort(starts.begin(), starts.end());
+    std::ranges::sort(starts);
     const auto block_end = [&](std::size_t start) -> std::size_t {
       std::size_t end = payload.size();
       for (std::size_t s : starts)
@@ -474,10 +493,10 @@ namespace wowlib::formats::adt
     // CRange height (8) + 81 verts (8 each = 648) + 64 tile bytes + u32 nFlowvs
     // + 2 flow vectors (40 each). The trailing flow pair is always present.
     constexpr std::size_t fixed = 8 + 81 * 8 + 64 + 4;
+    // An "empty" MCLQ (the MCNK header's size_liquid was <= 8, so the sub-chunk
+    // carries no record) decodes to no liquid — Outland WotLK tiles ship these.
     if (payload.size() < fixed)
-      return make_error(ErrorCode::ChunkTruncated,
-                        std::format("MCLQ needs at least {} bytes, got {}", fixed,
-                                    payload.size()));
+      return {};
     std::memcpy(&height_range, payload.data(), 8);
     vertices.resize(81);
     std::memcpy(vertices.data(), payload.data() + 8, 81 * 8);

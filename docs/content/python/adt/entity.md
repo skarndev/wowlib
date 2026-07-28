@@ -1,7 +1,7 @@
 # ADT entity
 
-The `ADT` tile class — the 256 terrain cells plus the tile-wide texture, model
-and placement tables, unified across the physical files the tile is stored in.
+The `ADT` tile class — the 256 terrain chunks plus the tile-wide texture, model
+and placement tables, unified across the split ADT files the tile is stored in.
 Construct the concrete version with `ADT.for_version(expansion)`; the fields a
 given client has are version dependent (MFBO since BC, water/texture-flags since
 WotLK, the split-file `mamp` / `texture_params` since Cataclysm, the
@@ -19,9 +19,10 @@ field.
 ## Structured liquid
 
 Water is decoded to an editable form: `MH2OData` holds one `MapChunkLiquid` per
-terrain cell, each a stack of `LiquidInstance` layers with their heightmap,
+terrain chunk, each a stack of `LiquidInstance` layers with their heightmap,
 depth, texture-coordinate and per-tile "exists" data (the wire offsets are
-re-derived on write). `MCLQData` is the deprecated pre-WotLK per-cell liquid.
+re-derived on write). `MCLQData` is the legacy per-chunk liquid (up to and
+including WotLK — Outland tiles still use it).
 
 ::: wowlib.formats.adt.MH2OData
     options:

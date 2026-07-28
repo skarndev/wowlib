@@ -49,11 +49,15 @@ namespace wowlib::formats::adt
   // no-op (version_range.hpp). Each names a build where an ADT<V> or MapChunk<V>
   // member first appears or vanishes.
 
-  /** MapChunk<V> content pivots — only boundaries that change what a cell
-      CURRENTLY carries: WotLK (MCCV in, legacy MCLQ out) and Cata (MCLV baked
-      lighting + MCMT materials in). MoP MCBB/MPTX and later per-cell chunks are
-      not modeled yet; add their pivots when they are (a no-op pivot would just
-      over-instantiate). Ranges: VanillaToTbc / Wotlk / CataPlus. */
+  /** MapChunk<V> content pivots — only boundaries that change what a chunk
+      CURRENTLY carries: WotLK (MCCV vertex colors arrive) and Cata (MCLV baked
+      lighting + MCMT materials arrive, and the legacy MCLQ liquid is finally
+      gone). The legacy MCLQ liquid is NOT removed at WotLK — Outland tiles keep
+      shipping it in 3.3.5a and the exact removal build is unknown, so it stays
+      available through WotLK (see map_chunk.hpp). MoP MCBB/MPTX and later
+      per-chunk sub-chunks are not modeled yet; add their pivots when they are (a
+      no-op pivot would just over-instantiate). Ranges: VanillaToTbc / Wotlk /
+      CataPlus. */
   inline constexpr std::array map_chunk_pivots{builds::WotLK, builds::Cata};
 
   /** ADT<V> assembly content pivots — only boundaries that change what the tile

@@ -279,6 +279,7 @@ namespace wowlib::formats::m2
         @param name the member identifier.
         @return the byte offset inside the entity's image.
         @throws (consteval) if @a name is unknown, or a gated_by member precedes it. */
+    [[=welder::mark::exclude]]
     static consteval std::size_t member_offset(std::string_view name)
     {
       // static: `template for` needs a constant address for the range

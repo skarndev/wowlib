@@ -64,15 +64,25 @@ namespace
     }
   }
 
-  /** Structural invariants every decoded cell must satisfy — a guard against a
+  /** The on-disk alpha bit depth a map's WDT MPHD flags select: 4096-byte 8-bit
+      maps when adt_has_big_alpha (0x4) or adt_has_height_texturing (0x80) is set,
+      else 2048-byte 4-bit. wowlib does not resolve this itself — the caller reads
+      the WDT (as this test does) and passes the format to ADT read()/write(). */
+  adt::AlphaFormat alpha_format_of(std::uint32_t mphd_flags)
+  {
+    return (mphd_flags & 0x4) || (mphd_flags & 0x80) ? adt::AlphaFormat::highres_8bit
+                                                     : adt::AlphaFormat::lowres_4bit;
+  }
+
+  /** Structural invariants every decoded chunk must satisfy — a guard against a
       SILENT misparse (a stream misalignment that a semantic round-trip cannot
-      catch, since both sides misparse identically). A cell either has a full
+      catch, since both sides misparse identically). A chunk either has a full
       terrain grid or none; alpha/shadow maps are the full 64x64 edit surface;
       the alpha-map list is aligned with the layers. */
-  template <typename Cell>
-  void check_cell(const Cell& c, std::size_t index, const std::string& label)
+  template <typename Chunk>
+  void check_chunk(const Chunk& c, std::size_t index, const std::string& label)
   {
-    INFO(label << " cell " << index);
+    INFO(label << " chunk " << index);
     CHECK((c.heights.empty() || c.heights.size() == 145));
     CHECK((c.normals.empty() || c.normals.size() == 145));
     CHECK((c.shadow_map.empty() || c.shadow_map.size() == 4096));
@@ -88,25 +98,26 @@ namespace
       same alpha format, and require decoded equality (ADT is not byte-perfect —
       see adt-architecture). */
   template <ClientVersion V>
-  void roundtrip_adt(fs::FileSystem& fs, const FileKey& key, const std::string& label)
+  void roundtrip_adt(fs::FileSystem& fs, const FileKey& key, adt::AlphaFormat af,
+                     const std::string& label)
   {
     INFO(label);
     adt::ADT<V> a;
     {
-      const auto r = a.read(fs, key);
+      const auto r = a.read(fs, key, af);
       INFO((r ? std::string{} : r.error().message));
       REQUIRE(r.has_value());
     }
     CHECK(a.mver == adt::adt_version_18);
-    REQUIRE(a.cells.size() == 256);
-    for (std::size_t i = 0; i < a.cells.size(); ++i)
-      check_cell(a.cells[i], i, label);
+    REQUIRE(a.chunks.size() == 256);
+    for (std::size_t i = 0; i < a.chunks.size(); ++i)
+      check_chunk(a.chunks[i], i, label);
 
-    const auto buf = a.write_monolithic();
+    const auto buf = a.write_file(adt::FileKind::monolithic, af);
     REQUIRE(buf.has_value());
 
     adt::ADT<V> b;
-    b.alpha_format = a.alpha_format;
+    b.alpha_format = af;
     {
       const auto r = b.parse_file(*buf, adt::FileKind::monolithic);
       INFO((r ? std::string{} : r.error().message));
@@ -123,25 +134,26 @@ namespace
       buffer, parse them all back into a fresh entity, and require decoded
       equality. */
   template <ClientVersion V>
-  void roundtrip_adt_split(fs::FileSystem& fs, const FileKey& key, const std::string& label)
+  void roundtrip_adt_split(fs::FileSystem& fs, const FileKey& key, adt::AlphaFormat af,
+                           const std::string& label)
   {
     INFO(label);
     adt::ADT<V> a;
     {
-      const auto r = a.read(fs, key);
+      const auto r = a.read(fs, key, af);
       INFO((r ? std::string{} : r.error().message));
       REQUIRE(r.has_value());
     }
-    REQUIRE(a.cells.size() == 256);
-    for (std::size_t i = 0; i < a.cells.size(); ++i)
-      check_cell(a.cells[i], i, label);
+    REQUIRE(a.chunks.size() == 256);
+    for (std::size_t i = 0; i < a.chunks.size(); ++i)
+      check_chunk(a.chunks[i], i, label);
 
     adt::ADT<V> b;
-    b.alpha_format = a.alpha_format;
-    b.cells.assign(256, adt::MapChunk<V>{});
+    b.alpha_format = af;
+    b.chunks.assign(256, adt::MapChunk<V>{});
     for (const auto kind : {adt::FileKind::root, adt::FileKind::tex0, adt::FileKind::obj0})
     {
-      const auto buf = a.write_split_file(kind);
+      const auto buf = a.write_file(kind, af);
       REQUIRE(buf.has_value());
       const auto r = b.parse_file(*buf, kind);
       INFO((r ? std::string{} : r.error().message));
@@ -180,6 +192,7 @@ TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
     }
     wdt::root::WDTRoot<versions::wotlk> root;
     REQUIRE(root.read(*fs->read_file(FileKey{wdt_path})).has_value());
+    const auto af = alpha_format_of(root.header.flags);
 
     int tiles_this_map = 0;
     for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 30; ++i)
@@ -190,7 +203,7 @@ TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
       const std::string adt = std::format("World/Maps/{0}/{0}_{1}_{2}.adt", map, x, y);
       if (!fs->exists(adt))
         continue;
-      roundtrip_adt<versions::wotlk>(*fs, FileKey{adt}, adt);
+      roundtrip_adt<versions::wotlk>(*fs, FileKey{adt}, af, adt);
       ++tiles_this_map;
       ++verified;
     }
@@ -223,6 +236,7 @@ TEST_CASE("9.2.7 split ADTs re-read equal after a canonical rewrite",
     const auto raw = fs->read_file(FileKey{wdt_path});
     REQUIRE(raw.has_value());
     REQUIRE(root.read(*raw).has_value());
+    const auto af = alpha_format_of(root.header.flags);
 
     int tiles_this_map = 0;
     for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 30; ++i)
@@ -233,7 +247,7 @@ TEST_CASE("9.2.7 split ADTs re-read equal after a canonical rewrite",
       const std::string adt = std::format("world/maps/{0}/{0}_{1}_{2}.adt", map, x, y);
       if (!fs->exists(adt))
         continue;
-      roundtrip_adt_split<versions::shadowlands>(*fs, FileKey{adt}, adt);
+      roundtrip_adt_split<versions::shadowlands>(*fs, FileKey{adt}, af, adt);
       ++tiles_this_map;
       ++verified;
     }

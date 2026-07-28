@@ -41,15 +41,16 @@ def test_adt_tile_members_are_era_gated():
 
 def test_mapchunk_cell_members_are_era_gated():
     vanilla = adt_mod.MapChunk.for_version(wowlib.Expansion.Vanilla)
-    assert hasattr(vanilla, "legacy_liquid")      # MCLQ, until WotLK
+    assert hasattr(vanilla, "legacy_liquid")      # MCLQ, up to and including WotLK
     assert not hasattr(vanilla, "vertex_colors")  # MCCV, WotLK+
     wotlk = adt_mod.MapChunk.for_version(wowlib.Expansion.Wotlk)
     assert hasattr(wotlk, "vertex_colors")
-    assert not hasattr(wotlk, "legacy_liquid")
+    assert hasattr(wotlk, "legacy_liquid")        # MCLQ survives WotLK (Outland tiles)
     assert not hasattr(wotlk, "vertex_lighting")  # MCLV, Cata+
     cata = adt_mod.MapChunk.for_version(wowlib.Expansion.Cata)
     assert hasattr(cata, "vertex_lighting")
     assert hasattr(cata, "material_ids")
+    assert not hasattr(cata, "legacy_liquid")     # MCLQ finally gone at Cata
 
 
 @pytest.mark.parametrize("alias", ["AnyADT", "AnyMapChunk"])
@@ -58,9 +59,9 @@ def test_any_unions_are_real_union_objects(alias):
     assert isinstance(union, types.UnionType)
 
 
-def test_adt_cells_bind_opaque():
+def test_adt_chunks_bind_opaque():
     a = adt_mod.ADT.for_version(wowlib.Expansion.Wotlk)
-    assert type(a.cells).__name__ == "VectorMapChunkWotlk"
+    assert type(a.chunks).__name__ == "VectorMapChunkWotlk"
 
 
 # --- real-client read (3.3.5a monolithic) ------------------------------------
@@ -68,10 +69,16 @@ def test_adt_cells_bind_opaque():
 
 def test_mono_read_and_structural_invariants(wotlk_fs):
     a = adt_mod.ADT.for_version(wowlib.Expansion.Wotlk)
-    # 37_23 was the tile the MCSH size-correction bug first surfaced on
-    a.read(wotlk_fs, wowlib.FileKey("World/Maps/Azeroth/Azeroth_37_23.adt"))
-    assert len(a.cells) == 256
-    for c in a.cells:
+    # 37_23 was the tile the MCSH size-correction bug first surfaced on. The
+    # on-disk alpha bit depth is supplied by the caller (from the map's WDT);
+    # wowlib does not resolve it. Azeroth ships 4-bit alpha in 3.3.5a.
+    a.read(
+        wotlk_fs,
+        wowlib.FileKey("World/Maps/Azeroth/Azeroth_37_23.adt"),
+        adt_mod.AlphaFormat.lowres_4bit,
+    )
+    assert len(a.chunks) == 256
+    for c in a.chunks:
         assert len(c.heights) in (0, 145)
         assert len(c.normals) in (0, 145)
         assert len(c.shadow_map) in (0, 4096)

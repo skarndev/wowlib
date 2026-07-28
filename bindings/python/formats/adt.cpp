@@ -112,43 +112,49 @@ namespace wowlib_py::formats::adt
 
     /** @brief Attach @c read/@c write/@c convert to @c ADTBase.
 
-        read/write speak the (FileSystem, FileKey) pair — the assembly locates
-        its physical files through the gateway (the "{stem}_tex0.adt" naming
-        convention). @c convert narrows on its target Literal with an
-        @c Expansion → @c AnyADT fallback. */
+        read/write speak the (FileSystem, FileKey, AlphaFormat) triple — the
+        assembly locates its physical files through the gateway (the
+        "{stem}_tex0.adt" naming convention), and the caller supplies the on-disk
+        alpha-map bit depth (from the map's WDT); wowlib does not resolve it.
+        @c convert narrows on its target Literal with an @c Expansion → @c AnyADT
+        fallback. */
     void def_adt_ops(nb::handle base)
     {
       nb::cpp_function(
-        [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
+        [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key,
+           wowlib::formats::adt::AlphaFormat alpha)
         {
           adt_dispatch(
             self,
             [&](auto& tile)
             {
-              if (auto r = tile.read(fs, key); !r)
+              if (auto r = tile.read(fs, key, alpha); !r)
                 throw wowlib::result_error(r.error());
             },
             "expected an ADT instance");
         },
         nb::name("read"), nb::scope(base), nb::is_method(),
-        nb::arg("source"), nb::arg("key"),
-        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::arg("source"), nb::arg("key"), nb::arg("alpha"),
+        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey, "
+                "alpha: wowlib.formats.adt.AlphaFormat) -> None"));
 
       nb::cpp_function(
-        [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
+        [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key,
+           wowlib::formats::adt::AlphaFormat alpha)
         {
           adt_dispatch(
             self,
             [&](auto& tile)
             {
-              if (auto r = std::as_const(tile).write(fs, key); !r)
+              if (auto r = std::as_const(tile).write(fs, key, alpha); !r)
                 throw wowlib::result_error(r.error());
             },
             "expected an ADT instance");
         },
         nb::name("write"), nb::scope(base), nb::is_method(),
-        nb::arg("dest"), nb::arg("key"),
-        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::arg("dest"), nb::arg("key"), nb::arg("alpha"),
+        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey, "
+                "alpha: wowlib.formats.adt.AlphaFormat) -> None"));
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyADT fallback
       template for (constexpr auto e : expansion_enumerators)
