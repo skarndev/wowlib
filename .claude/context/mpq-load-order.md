@@ -182,8 +182,28 @@ Note: pywowlib sorted ALL `Data/*.MPQ` alphabetically — approximately right fo
 3.3.5a, wrong in general; don't copy that.
 
 ## Adding other versions
-- 1.12 / 2.4.3: new `Fixed`/`NumberedSeq` tables only (dbc/model/... .MPQ for
-  vanilla; common.MPQ + expansion.MPQ for TBC).
+- **1.12.x: DONE (2026-07-28).** `vanilla_base` table in `mpq_chain.cpp` +
+  `MpqChainSpec{versions::vanilla, …, ClassicWildcard}`. Base tier = the media/data
+  archives (`base, dbc, fonts, interface, misc, model, sound, speech, terrain,
+  texture, wmo`) + the two `Data/{loc}/` locale rows (`locale-{loc}`, `speech-{loc}`);
+  patch tier reuses ClassicWildcard. Base order **VERIFIED** against
+  `samwhosung/benilla` (a from-scratch 1.12.1 Rust client;
+  `crates/benilla-formats/src/lib.rs` `VANILLA_LOAD_ORDER`) — identical base list
+  and order (`base, dbc, fonts, interface, misc, model, sound, speech, terrain,
+  texture, wmo`), then `patch.MPQ`, `patch-2.MPQ` on top. benilla stops at
+  `patch-2` and carries no locale rows (it targets enUS base content); our
+  ClassicWildcard glob reproduces its patch order and extends to `patch-3`/letter
+  patches, and we keep `locale-{loc}`/`speech-{loc}` for real localized installs
+  (absent members skipped). Order among base archives is anyway immaterial — they
+  partition the namespace (never share a path) and every patch overrides all base.
+  Integration-covered by
+  `test_mpq_112_client.cpp` + the `1.12.2` cases in the ADT/WMO/M2/WDT-WDL
+  round-trip files, opened with **`Locale::ruRU`** (the local 1.12.2 install is a
+  ruRU repack: no enUS dir; it also folds localization into `base.MPQ` +
+  `Data/ruRU/patch-N.MPQ`, so the `locale-{loc}`/`speech-{loc}` rows and the
+  `patch-{loc}` locale glob simply find nothing there — world data still serves
+  from terrain/model/wmo/patch).
+- 2.4.3: new `Fixed` table only (common.MPQ + expansion.MPQ for TBC).
 - 4.3.4 / 5.4.8: need `ChainEntryKind::UpdateChain` (`wow-update-{build}.MPQ`,
   ascending build) implemented, with `incremental_patch=true` → those archives
   must attach via `SFileOpenPatchArchive` on the base handles instead of opening

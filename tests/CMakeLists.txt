@@ -23,6 +23,7 @@ add_executable(wowlib_tests
   unit/test_project_directory.cpp
   unit/test_client_filesystem.cpp
   integration/test_mpq_335_client.cpp
+  integration/test_mpq_112_client.cpp
   integration/test_casc_927_client.cpp
   integration/test_facade_both.cpp
   integration/test_wmo_roundtrip.cpp

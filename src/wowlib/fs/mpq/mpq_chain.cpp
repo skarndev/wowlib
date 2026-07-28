@@ -34,7 +34,41 @@ namespace wowlib::fs::detail
       ChainEntry{ChainEntryKind::LocaleFixed, "lichking-speech-{locale}.MPQ"},
     };
 
+    // Vanilla 1.12.x (build 5875). Base tier: the media/data archives the client
+    // binary hardcodes, plus the two locale archives in Data/{locale}/. Patches
+    // load above via the same ClassicWildcard scheme as WotLK (`patch.MPQ` +
+    // `patch-?.MPQ` in Data/, `patch-{locale}[-?].MPQ` in Data/{locale}/).
+    //
+    // Base order VERIFIED against samwhosung/benilla (a from-scratch 1.12.1 client
+    // in Rust; crates/benilla-formats/src/lib.rs VANILLA_LOAD_ORDER): identical
+    // base list and order — base, dbc, fonts, interface, misc, model, sound,
+    // speech, terrain, texture, wmo — then patch.MPQ, patch-2.MPQ layered on top.
+    // benilla ends the chain at patch-2; our ClassicWildcard glob reproduces that
+    // and additionally picks up patch-3/letter patches (this ruRU repack ships
+    // patch-3.MPQ). benilla itself carries no locale rows (it targets enUS base
+    // content); we keep locale-{loc}/speech-{loc} for real localized installs —
+    // absent members are skipped, so the ruRU repack (localization folded into
+    // base.MPQ + Data/ruRU/patch-N.MPQ) still opens and serves world data from
+    // terrain/model/wmo/patch. (Order among base archives is anyway immaterial:
+    // they partition the namespace and never share a path; every patch wins.)
+    constexpr std::array vanilla_base{
+      ChainEntry{ChainEntryKind::Fixed, "base.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "dbc.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "fonts.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "interface.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "misc.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "model.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "sound.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "speech.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "terrain.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "texture.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "wmo.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "speech-{locale}.MPQ"},
+    };
+
     constexpr std::array chain_specs{
+      MpqChainSpec{versions::vanilla, vanilla_base, PatchScheme::ClassicWildcard},
       MpqChainSpec{versions::wotlk, wotlk_base, PatchScheme::ClassicWildcard},
     };
 

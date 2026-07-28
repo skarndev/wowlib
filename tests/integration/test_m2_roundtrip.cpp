@@ -96,7 +96,10 @@ namespace
     constexpr auto era = m2_format_version_range(V);
     CHECK(model.root.format_version >= era.first);
     CHECK(model.root.format_version <= era.second);
-    CHECK(model.root.num_skin_profiles == model.skins.size());
+    // pre-WotLK models embed their skin profiles in the MD20 body; only the
+    // external-.skin era carries a separate `skins` assembly to reconcile.
+    if constexpr (requires { model.skins; })
+      CHECK(model.root.num_skin_profiles == model.skins.size());
 
     // skel-based models keep the external-data gating sequences in the
     // skeleton, and their bone/attachment blocks round-trip separately
@@ -156,16 +159,18 @@ namespace
         resplit_roundtrip(model.skel.sequence_block, sequences_back, "SKS1");
       }
 
-    // every skin re-reads equal, too
-    for (std::size_t i = 0; i < model.skins.size(); ++i)
-    {
-      const auto skin_bytes = model.skins[i].write();
-      REQUIRE(skin_bytes.has_value());
-      Skin<V> skin_back;
-      REQUIRE(skin_back.read(std::span<const std::byte>{*skin_bytes}).has_value());
-      if (auto d = diff_value(skin_back, model.skins[i]))
-        FAIL(std::format("{} (skin {}): reparse diverges at {}", label, i, *d));
-    }
+    // every external skin re-reads equal, too (pre-WotLK skins are embedded in
+    // the root and already covered by the body round-trip above)
+    if constexpr (requires { model.skins; })
+      for (std::size_t i = 0; i < model.skins.size(); ++i)
+      {
+        const auto skin_bytes = model.skins[i].write();
+        REQUIRE(skin_bytes.has_value());
+        Skin<V> skin_back;
+        REQUIRE(skin_back.read(std::span<const std::byte>{*skin_bytes}).has_value());
+        if (auto d = diff_value(skin_back, model.skins[i]))
+          FAIL(std::format("{} (skin {}): reparse diverges at {}", label, i, *d));
+      }
   }
 }
 
@@ -209,6 +214,43 @@ TEST_CASE("3.3.5a M2s re-read equal after a canonical rewrite",
     ++verified;
   }
   CHECK(verified >= 6);
+}
+
+TEST_CASE("1.12.2 M2s re-read equal after a canonical rewrite",
+          "[integration][formats][m2]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+                                  .version = versions::vanilla,
+                                  .locale = tests::vanilla_locale});
+  REQUIRE(fs.has_value());
+
+  // vanilla creatures, characters and world doodads (skins embedded in the MD20,
+  // no external .anim/.skin files); entries missing from the client are skipped
+  // so path spelling never breaks the suite
+  const std::vector<std::string> candidates{
+    "Creature/Chicken/Chicken.m2",
+    "Creature/Rabbit/Rabbit.m2",
+    "Creature/Murloc/Murloc.m2",
+    "Creature/Ragnaros/Ragnaros.m2",
+    "Character/Human/Male/HumanMale.m2",
+    "Character/Orc/Male/OrcMale.m2",
+    "World/Kalimdor/Ogrimmar/PassiveDoodads/OrgrimmarBonfire/OrgrimmarSmokeEmitter.m2",
+    "World/Azeroth/Elwynn/PassiveDoodads/ElwynnTrees/ElwynnTree02.m2",
+  };
+
+  int verified = 0;
+  for (const auto& path : candidates)
+  {
+    if (!fs->exists(path))
+    {
+      WARN("not in client, skipped: " + path);
+      continue;
+    }
+    roundtrip_m2<versions::vanilla>(*fs, FileKey{path}, path);
+    ++verified;
+  }
+  CHECK(verified >= 4);
 }
 
 TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",

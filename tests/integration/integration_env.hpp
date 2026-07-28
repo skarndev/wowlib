@@ -14,6 +14,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <wowlib/core/client_version.hpp>
+
 namespace wowlib::tests
 {
   inline std::optional<std::filesystem::path> env_path(const char* name)
@@ -42,4 +44,9 @@ namespace wowlib::tests
 
   constexpr const char* mpq_client_name = "World of Warcraft 3.3.5a";
   constexpr const char* casc_client_name = "WoWCircle 9.2.7";
+
+  // Vanilla 1.12.2 (an MPQ client, like 3.3.5a). This local build is a ruRU
+  // repack: no enUS locale dir, so its chain must be opened with Locale::ruRU.
+  constexpr const char* vanilla_client_name = "WoW Classic 1.12.2";
+  constexpr Locale vanilla_locale = Locale::ruRU;
 }

@@ -171,6 +171,42 @@ TEST_CASE("3.3.5a WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
   CHECK(verified >= 5);  // enough coverage even if some curated paths drift
 }
 
+TEST_CASE("1.12.2 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+                                  .version = versions::vanilla,
+                                  .locale = tests::vanilla_locale});
+  REQUIRE(fs.has_value());
+
+  // vanilla-era spread: capitals, inns, farms, a dungeon; entries missing from
+  // the client are skipped so path spelling never breaks the suite
+  const std::vector<std::string> candidates{
+    "World/wmo/Dungeon/AZ_Subway/Subway.wmo",
+    "World/wmo/Azeroth/Buildings/Stormwind/Stormwind.wmo",
+    "World/wmo/Azeroth/Buildings/GoldshireInn/GoldshireInn.wmo",
+    "World/wmo/Azeroth/Buildings/Human_Farm/Farm.wmo",
+    "World/wmo/KhazModan/Cities/Ironforge/Ironforge.wmo",
+    "World/wmo/Kalimdor/Ogrimmar/Ogrimmar.wmo",
+    "World/wmo/Dungeon/MD_Crypt/MD_Crypt_A.wmo",
+    "World/wmo/Azeroth/Buildings/GriffonAviary/GriffonAviary.wmo",
+  };
+
+  int verified = 0;
+  for (const auto& path : candidates)
+  {
+    if (!fs->exists(path))
+    {
+      WARN("not in client, skipped: " + path);
+      continue;
+    }
+    roundtrip_wmo<versions::vanilla>(*fs, FileKey{path}, path);
+    ++verified;
+  }
+  dump_histogram("1.12.2");
+  CHECK(verified >= 4);
+}
+
 TEST_CASE("9.2.7 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
   const auto clients = tests::require_clients_dir();

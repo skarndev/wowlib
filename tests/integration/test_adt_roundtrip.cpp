@@ -211,6 +211,47 @@ TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
   CHECK(verified >= 6);
 }
 
+TEST_CASE("1.12.2 ADTs re-read equal after a canonical rewrite",
+          "[integration][formats][adt]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+                                  .version = versions::vanilla,
+                                  .locale = tests::vanilla_locale});
+  REQUIRE(fs.has_value());
+
+  const std::vector<std::string> maps{"Azeroth", "Kalimdor"};
+
+  int verified = 0;
+  for (const auto& map : maps)
+  {
+    const std::string wdt_path = std::format("World/Maps/{0}/{0}.wdt", map);
+    if (!fs->exists(wdt_path))
+    {
+      WARN("not in client, skipped: " + wdt_path);
+      continue;
+    }
+    wdt::root::WDTRoot<versions::vanilla> root;
+    REQUIRE(root.read(*fs->read_file(FileKey{wdt_path})).has_value());
+    const auto af = alpha_format_of(root.header.flags);
+
+    int tiles_this_map = 0;
+    for (std::size_t i = 0; i < root.tiles.size() && tiles_this_map < 30; ++i)
+    {
+      if (!(root.tiles[i].flags & 0x1))
+        continue;
+      const std::size_t x = i % 64, y = i / 64;
+      const std::string adt = std::format("World/Maps/{0}/{0}_{1}_{2}.adt", map, x, y);
+      if (!fs->exists(adt))
+        continue;
+      roundtrip_adt<versions::vanilla>(*fs, FileKey{adt}, af, adt);
+      ++tiles_this_map;
+      ++verified;
+    }
+  }
+  CHECK(verified >= 2);
+}
+
 TEST_CASE("9.2.7 split ADTs re-read equal after a canonical rewrite",
           "[integration][formats][adt]")
 {

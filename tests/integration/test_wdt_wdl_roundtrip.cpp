@@ -213,6 +213,41 @@ TEST_CASE("3.3.5a WDTs and WDLs rewrite byte-for-byte", "[integration][formats][
   CHECK(verified >= 6);
 }
 
+TEST_CASE("1.12.2 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+                                  .version = versions::vanilla,
+                                  .locale = tests::vanilla_locale});
+  REQUIRE(fs.has_value());
+
+  // vanilla continents, battlegrounds and WMO-only instances (no TBC/WotLK
+  // maps); entries missing from the client are skipped so name spelling never
+  // breaks the suite
+  const std::vector<std::string> maps{
+    "Azeroth",         "Kalimdor",         "PVPZone01",    "DeadminesInstance",
+    "Shadowfang",      "StormwindJail",    "ScarletMonastery",
+  };
+
+  int verified = 0;
+  for (const auto& map : maps)
+  {
+    const std::string wdt_path = std::format("World/Maps/{0}/{0}.wdt", map);
+    const std::string wdl_path = std::format("World/Maps/{0}/{0}.wdl", map);
+    if (!fs->exists(wdt_path))
+    {
+      WARN("not in client, skipped: " + wdt_path);
+      continue;
+    }
+    roundtrip_wdt<versions::vanilla>(*fs, FileKey{wdt_path}, map);
+    if (fs->exists(wdl_path))
+      roundtrip_wdl<versions::vanilla>(*fs, FileKey{wdl_path}, map + " (wdl)");
+    ++verified;
+  }
+  dump_histogram("1.12.2");
+  CHECK(verified >= 3);
+}
+
 TEST_CASE("9.2.7 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
 {
   const auto clients = tests::require_clients_dir();
