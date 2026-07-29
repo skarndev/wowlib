@@ -162,6 +162,40 @@ namespace wowlib::fs
       std::string_view path [[=welder::doc("the client-internal path of the file")]],
       std::span<const std::byte> content [[=welder::doc("the file contents")]]);
 
+    /** Register TACT encryption keys (CASC clients only) so the storage can
+        decrypt content behind them — including the encrypted sections of a .db2,
+        which then decode normally instead of being reported encrypted. Takes the
+        community "KeyName KeyHex" per-line text format.
+        @param key_list the newline-separated key list.
+        @return nothing, or NotSupported on an MPQ client, or a backend error. */
+    [[=welder::doc("Register TACT encryption keys (CASC only) from the community "
+                   "'KeyName KeyHex' per-line text, so encrypted .db2 sections "
+                   "decrypt and decode."),
+      =welder::returns("nothing; raises on an MPQ client or a malformed list")]]
+    Result<void> import_keys(std::string_view key_list
+                             [[=welder::doc("newline-separated 'KeyName KeyHex' lines")]])
+    {
+      if (auto* casc = std::get_if<CascFileSystem>(&_impl))
+        return casc->backend().import_keys(key_list);
+      return make_error(ErrorCode::NotSupported,
+                        "TACT encryption keys apply only to CASC (WoD+) clients");
+    }
+
+    /** Register one TACT encryption key (CASC clients only). C++-only; scripting
+        callers use import_keys with the text format.
+        @param key_name the 64-bit key lookup (a section's tact_key_hash).
+        @param key      the 16-byte key.
+        @return nothing, or NotSupported on an MPQ client, or a backend error. */
+    [[=welder::mark::exclude]]
+    Result<void> add_encryption_key(std::uint64_t key_name,
+                                    std::span<const std::byte, 16> key)
+    {
+      if (auto* casc = std::get_if<CascFileSystem>(&_impl))
+        return casc->backend().add_encryption_key(key_name, key);
+      return make_error(ErrorCode::NotSupported,
+                        "TACT encryption keys apply only to CASC (WoD+) clients");
+    }
+
     [[=welder::getter,
       =welder::doc("Which storage technology backs this filesystem: Mpq or Casc. "
                    "A static fact of the opened client; remains valid after close().")]]

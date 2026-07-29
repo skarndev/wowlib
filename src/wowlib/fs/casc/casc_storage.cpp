@@ -1,7 +1,9 @@
 #include <wowlib/fs/casc/casc_storage.hpp>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
+#include <cstring>
 #include <format>
 #include <fstream>
 #include <vector>
@@ -249,6 +251,34 @@ namespace wowlib::fs
     }
 
     return make_error(ErrorCode::InvalidPath, "empty FileKey");
+  }
+
+  Result<void> CascStorage::add_encryption_key(std::uint64_t key_name,
+                                               std::span<const std::byte, 16> key)
+  {
+    std::scoped_lock lock{_mtx};
+    if (!_storage)
+      return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
+    // CascLib takes the key as a mutable LPBYTE but only reads it.
+    auto bytes = std::array<std::uint8_t, 16>{};
+    std::memcpy(bytes.data(), key.data(), bytes.size());
+    if (!CascAddEncryptionKey(_storage, key_name, bytes.data()))
+      return make_error(ErrorCode::BackendError,
+                        std::format("CascLib rejected TACT key {:016X}", key_name),
+                        static_cast<std::uint32_t>(GetCascError()));
+    return {};
+  }
+
+  Result<void> CascStorage::import_keys(std::string_view key_list)
+  {
+    std::scoped_lock lock{_mtx};
+    if (!_storage)
+      return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
+    const std::string list{key_list};
+    if (!CascImportKeysFromString(_storage, list.c_str()))
+      return make_error(ErrorCode::BackendError, "CascLib rejected the TACT key list",
+                        static_cast<std::uint32_t>(GetCascError()));
+    return {};
   }
 
   bool CascStorage::exists(const FileKey& key)

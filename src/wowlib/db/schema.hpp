@@ -10,7 +10,10 @@
 
 #include <meta>
 
+#include <algorithm>
 #include <array>
+#include <ranges>
+#include <span>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -128,6 +131,14 @@ namespace wowlib::db
       using element = T;
       static constexpr std::size_t extent = N;
     };
+
+    /** Whether every byte of @a bytes is zero (an empty span counts as zero).
+        @param bytes the span to test.
+        @return true when all bytes are zero. */
+    inline bool all_zero(std::span<const std::byte> bytes)
+    {
+      return std::ranges::all_of(bytes, [](std::byte b) { return b == std::byte{0}; });
+    }
 
     /** The first annotation of type @a Spec on reflected member @a M, if any.
         @tparam Spec the annotation payload type (a `*_spec` struct).

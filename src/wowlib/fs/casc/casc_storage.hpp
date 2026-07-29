@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 
 #include <wowlib/core/buffer.hpp>
@@ -86,6 +87,24 @@ namespace wowlib::fs
         @param key the file identity.
         @return the bytes, or FileNotFound / PathNotResolvable / EncryptedContent. */
     Result<FileBuffer> read_file(const FileKey& key);
+
+    /** Register a TACT encryption key so the storage can decrypt content behind
+        it (encrypted BLTE blocks, and thus the encrypted sections of a .db2).
+        Once registered, read_file returns fully-decrypted bytes and the DB2
+        reader decodes those sections normally instead of reporting them
+        encrypted.
+        @param key_name the 64-bit key lookup (the section header's tact_key_hash).
+        @param key      the 16-byte key.
+        @return nothing, or BackendError when CascLib rejects the key. */
+    Result<void> add_encryption_key(std::uint64_t key_name,
+                                    std::span<const std::byte, 16> key);
+
+    /** Register TACT keys from a text list — the community "KeyName KeyHex" per
+        line format (16 hex nibbles name, 32 hex nibbles key). Lines that do not
+        parse are skipped by CascLib.
+        @param key_list the newline-separated key list.
+        @return nothing, or BackendError when CascLib rejects the list. */
+    Result<void> import_keys(std::string_view key_list);
 
     /** Whether the file can be opened (probe open + close).
         @param key the file identity.

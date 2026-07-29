@@ -508,7 +508,12 @@ namespace wowlib::db
       const auto additional = img.field_additional_offsets();
       for (const wire::Wdc3Section& sec : img.sections)
       {
-        if (sec.encrypted)
+        // A section is only undecodable when it carries a TACT key AND its
+        // records arrived zero-filled — i.e. the key was absent and the client
+        // storage could not decrypt it (DBCD's heuristic). A section that has a
+        // key but non-zero records was decrypted by the storage (the key was
+        // registered) and decodes like any other.
+        if (sec.encrypted && detail::all_zero(sec.records))
         {
           EncryptedSection report{.key_hash = sec.header.tact_key_hash,
                                   .record_count = sec.header.record_count};
@@ -583,12 +588,14 @@ namespace wowlib::db
         re-read decodes to identical values) — but the bitpacking keeps files
         compact rather than exploding every small column to full width.
 
-        A table that carried encrypted sections cannot be re-encoded (its
-        encrypted records were never decoded and share the file's field layout),
-        so its preserved original image is re-emitted VERBATIM — encrypted
-        content intact. Edits to a decoded record of such a table are therefore
-        not applied by write(); split the encrypted and plaintext data yourself
-        if you need to.
+        A table that STILL has keyless (undecryptable, zero-filled) sections
+        after reading cannot be re-encoded — those records were never decoded
+        and share the file's field layout — so its preserved original image is
+        re-emitted VERBATIM (encrypted content intact) and edits to decoded rows
+        are not applied. To edit such a table, register its TACT keys first
+        (FileSystem::import_keys / CascStorage::add_encryption_key): the storage
+        then delivers decrypted bytes, every section decodes, and this canonical
+        writer applies edits normally.
         @return the file bytes, or why encoding failed. */
     Result<FileBuffer> write_wdc3() const
     {

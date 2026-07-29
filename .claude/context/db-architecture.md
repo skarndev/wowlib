@@ -207,13 +207,37 @@ The casc test's WDC3||WDC4 check is just defensive.
   small-int record → record_size 1 byte (2-bit pack). fresh_magic returns
   wdc3_magic for BfA..pre-DF so fresh tables are writable + unit-testable
   without a client.
-- **Encrypted tables preserve their original image VERBATIM on write** (not
-  refused): read_wdc3 keeps the raw bytes (wdc_original_) when any section is
-  encrypted; write() re-emits them byte-identically so the encrypted sections
-  stay intact. TRADEOFF: edits to a decoded record of an encrypted table are
-  NOT applied by write() — the encrypted records share the file's field layout,
-  which can't be rebuilt without the keys. Verified on SpellName (40 encrypted
-  sections): write → byte-identical to the original.
+- **Encrypted tables preserve their original image VERBATIM on write** when
+  they still have keyless sections: read_wdc3 keeps the raw bytes (wdc_original_)
+  when any section is keyless; write() re-emits them byte-identically. This is
+  the FALLBACK for files you can't decrypt.
+
+## Encryption model — CORRECTED (2026-07-29, ref: InternWoWTools/TACT.Builder + DBCD.IO)
+
+The reference tool that rebuilds itemsparse.db2 etc. does NOT preserve encrypted
+blocks by re-encoding around them. It runs WITH the TACT keys, so CascLib
+delivers fully-DECRYPTED .db2 bytes, and DBCD writes a normal single plaintext
+section (TactKeyLookup 0, re-derived compression). "Editing an encrypted table"
+= decrypt-with-keys → all records present → canonical write. There is no
+frozen-layout in-place rebuild (I nearly built one — don't).
+- **Section-skip heuristic (DBCD, now ours)**: a WDC3 section is only
+  undecodable when `tact_key_hash != 0 AND its records are all zero` (key absent
+  ⇒ storage shipped zeros). A key-flagged section with NON-zero records was
+  decrypted by the storage and decodes normally. **My reader's old "skip on
+  tact_key != 0" was a BUG** — it dropped 65 already-decrypted sections across
+  ~24 tables in the 9.2.7 corpus (e.g. location.db2's 2 sections = ~103k rows).
+  Fixed with `detail::all_zero()` (schema.hpp). encrypted_sections() now reports
+  only the genuinely keyless sections.
+- **TACT keys**: FileSystem::import_keys(text) (community "KeyName KeyHex" lines,
+  wraps CascImportKeysFromString) + FileSystem::add_encryption_key(u64, 16 bytes)
+  / the same on CascStorage. Register keys → read_file returns decrypted bytes →
+  every section decodes → editable via the canonical writer. MPQ returns
+  NotSupported. (Locally we can't fully exercise decryption of the 1283 keyless
+  sections — the repack lacks that encrypted BLTE data — but the API is wired and
+  the reader fix is validated on the 65 already-decrypted sections.)
+- So editing flow: keyed/plaintext table (encrypted_ empty) → canonical write
+  applies edits. Table with residual keyless sections → verbatim preserve
+  (register keys to edit).
 - BUG fixed during write bring-up: string-ARRAY elements store their relative
   offset from their OWN 4-byte position (field_byte + e*4), not the field
   start — the read side must add e*4 too (was resolving all elements from the

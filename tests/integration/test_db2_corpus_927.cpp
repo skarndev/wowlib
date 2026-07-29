@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstring>
 #include <fstream>
@@ -8,6 +9,7 @@
 #include <vector>
 
 #include <wowlib/db/tables/chr_races.hpp>
+#include <wowlib/db/tables/location.hpp>
 #include <wowlib/db/tables/manifest_interface_data.hpp>
 #include <wowlib/db/tables/spell.hpp>
 #include <wowlib/db/tables/spell_name.hpp>
@@ -220,6 +222,48 @@ TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
     REQUIRE(written->size() == data->size());
     CHECK(std::memcmp(written->data(), data->data(), data->size()) == 0);
   }
+}
+
+TEST_CASE("9.2.7: key-flagged sections that decrypted are decoded, not skipped",
+          "[integration][db]")
+{
+  const auto clients = tests::require_clients_dir();
+  const auto listfile_csv = tests::require_listfile();
+  auto listfile = CsvListfile::load(listfile_csv);
+  REQUIRE(listfile.has_value());
+  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+                                    .build = 45745});
+  REQUIRE(storage.has_value());
+
+  // location.db2 has two sections that carry a tact_key_hash but whose records
+  // arrived non-zero (the storage held the key). A section is only undecodable
+  // when its records are zero-filled, so these decode normally — skipping on the
+  // key flag alone would have dropped ~100k rows.
+  const auto fdid = listfile->path_to_fdid("dbfilesclient/location.db2");
+  REQUIRE(fdid.has_value());
+  const auto data = storage->read_file(FileKey{*fdid});
+  REQUIRE(data.has_value());
+
+  db::tables::Location<versions::shadowlands> location;
+  REQUIRE(location.read(*data).has_value());
+  CHECK(location.fully_decoded());
+  CHECK(location.encrypted_sections().empty());
+  CHECK(location.records.size() > 100'000);
+}
+
+TEST_CASE("9.2.7: TACT key registration is accepted by the CASC storage",
+          "[integration][db]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+                                    .build = 45745});
+  REQUIRE(storage.has_value());
+
+  // A well-formed key registers; the community list format imports cleanly.
+  const std::array<std::byte, 16> key{};
+  CHECK(storage->add_encryption_key(0xFA505078126ACB3EULL, key).has_value());
+  CHECK(storage->import_keys(
+              "FA505078126ACB3E BDC51862ABED79B2A3A4EF1B3556EBD3\n").has_value());
 }
 
 TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
