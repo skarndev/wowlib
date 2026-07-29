@@ -87,19 +87,21 @@ namespace wowlib::formats::wdl
       std::vector<ChunkBlob> occlusion_meshes;
     };
 
-    /** The WotLK per-tile hole masks. */
-    struct WdlWotlk
+    /** The TBC+ per-tile hole masks. */
+    struct WdlTbc
     {
       [[
         =chunk("MAHO"),
-        =since(builds::WotLK),
+        =since(builds::TBC),
         =formats::optional,
         =formats::repeating,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Per-tile hole masks (MAHO, WotLK+): the i-th mask belongs to
+        =welder::doc(R"(Per-tile hole masks (MAHO, TBC+): the i-th mask belongs to
                         the i-th heightmap. Blizzard writes one per tile even when
                         all zero; hole masks are all-or-nothing — leave the list
-                        empty or give every heightmap its mask.)")]]
+                        empty or give every heightmap its mask. (wowdev.wiki dates
+                        MAHO to WotLK, but vanilla WDLs carry none and every 2.4.3
+                        WDL pairs one MAHO per MARE — so it debuts in TBC.))")]]
       std::vector<TileHoles> holes;
     };
 
@@ -280,7 +282,7 @@ namespace wowlib::formats::wdl
     ]] WDL
       : ChunkedFile<WDL<V>>, WDLBase,
         slot<V, ClientVersion{0, 0, 0, 0}, WdlPreLegion, builds::Legion>,
-        slot<V, builds::WotLK, WdlWotlk>,
+        slot<V, builds::TBC, WdlTbc>,
         slot<V, builds::Legion, WdlLegion>,
         slot<V, builds::SL, WdlSL>,
         slot<V, builds::TWW, WdlTww>

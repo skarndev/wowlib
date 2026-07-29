@@ -44,7 +44,7 @@ belongs to.
 ## Version-agnostic union
 
 ```python
-from wowlib.formats.wdl import AnyWDL       # WDLVanillaToTbc | … | WDLTheWarWithin
+from wowlib.formats.wdl import AnyWDL       # WDLVanilla | … | WDLTheWarWithin
 ```
 
 See the guide's **[Reading a map (WDT & WDL)](../../guide/maps.md)** for a

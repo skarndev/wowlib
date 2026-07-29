@@ -52,32 +52,43 @@ namespace
                      at, inside, original.size(), rewritten.size()));
   }
 
-  std::map<std::string, int> unknown_histogram;
+  // Kept separate so a WDL-only chunk (e.g. the WotLK+ MAHO hole masks) is never
+  // mistaken for a WDT chunk — the two files share this test case but not their
+  // chunk vocabularies.
+  std::map<std::string, int> unknown_histogram_wdt;
+  std::map<std::string, int> unknown_histogram_wdl;
 
-  void tally_unknown(const ChunkExtras& extras)
+  void tally_unknown(const ChunkExtras& extras, std::map<std::string, int>& hist)
   {
     for (const UnknownChunk& u : extras.unknown)
-      ++unknown_histogram[fourcc_to_string(u.fourcc)];
+      ++hist[fourcc_to_string(u.fourcc)];
+  }
+
+  void dump_one(const char* which, const char* kind, std::map<std::string, int>& hist)
+  {
+    if (hist.empty())
+      return;
+    std::string lines;
+    for (const auto& [fourcc, count] : hist)
+      lines += std::format("  {} x{}\n", fourcc, count);
+    WARN(std::format("{} {}: unmodeled chunks encountered (still round-tripped verbatim):\n{}",
+                     which, kind, lines));
+    hist.clear();
   }
 
   void dump_histogram(const char* which)
   {
-    if (unknown_histogram.empty())
-      return;
-    std::string lines;
-    for (const auto& [fourcc, count] : unknown_histogram)
-      lines += std::format("  {} x{}\n", fourcc, count);
-    WARN(std::format("{}: unmodeled chunks encountered (still round-tripped verbatim):\n{}",
-                     which, lines));
-    unknown_histogram.clear();
+    dump_one(which, "WDT", unknown_histogram_wdt);
+    dump_one(which, "WDL", unknown_histogram_wdl);
   }
 
   /** Byte-perfect cycle of one already-read chunked entity against its raw
-      file bytes. */
+      file bytes; unmodeled chunks are tallied into @a hist (the WDT or WDL one). */
   template <typename E>
-  void require_roundtrip(const E& entity, const FileBuffer& raw, const std::string& label)
+  void require_roundtrip(const E& entity, const FileBuffer& raw, const std::string& label,
+                         std::map<std::string, int>& hist)
   {
-    tally_unknown(entity);
+    tally_unknown(entity, hist);
     const auto rewritten = entity.write();
     REQUIRE(rewritten.has_value());
     require_identical(raw, *rewritten, label);
@@ -95,7 +106,7 @@ namespace
     REQUIRE(root.read(*raw).has_value());
     CHECK(root.mver == wdt::wdt_version_18);
     CHECK(root.tiles.size() == 64 * 64);
-    require_roundtrip(root, *raw, label + " (main)");
+    require_roundtrip(root, *raw, label + " (main)", unknown_histogram_wdt);
 
     wdt::WDT<V> assembly;
     REQUIRE(assembly.read(fs, key).has_value());
@@ -131,7 +142,8 @@ namespace
         REQUIRE(data.has_value());
         if (data->empty())
           return;
-        require_roundtrip(satellite, *data, std::format("{} (_{})", label, suffix));
+        require_roundtrip(satellite, *data, std::format("{} (_{})", label, suffix),
+                          unknown_histogram_wdt);
       };
 
       const auto fdid_of = [&](auto pick) -> std::uint32_t {
@@ -175,7 +187,7 @@ namespace
     if constexpr (requires { entity.ocean_masks; })
       CHECK(entity.ocean_mask_tiles().size() == entity.ocean_masks.size());
 
-    require_roundtrip(entity, *raw, label);
+    require_roundtrip(entity, *raw, label, unknown_histogram_wdl);
   }
 }
 

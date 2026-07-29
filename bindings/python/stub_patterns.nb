@@ -82,7 +82,7 @@ wowlib.formats.wdt.mpv.AnyWDTParticulates$:
     AnyWDTParticulates = WDTParticulatesBfaPlus
 
 wowlib.formats.wdl.AnyWDL$:
-    AnyWDL = WDLVanillaToTbc | WDLWotlkToWod | WDLLegionToBfa | WDLShadowlandsToDragonflight | WDLTheWarWithin
+    AnyWDL = WDLVanilla | WDLTbcToWod | WDLLegionToBfa | WDLShadowlandsToDragonflight | WDLTheWarWithin
 
 wowlib.formats.adt.AnyADT$:
     AnyADT = ADTVanilla | ADTTbc | ADTWotlk | ADTCataToLegion | ADTBfaPlus

@@ -107,6 +107,10 @@ def _fresh_wotlk_wdl_with_tiles(slots):
 def test_wdl_era_gates_its_chunks():
     vanilla = wdl_mod.WDL.for_version(wowlib.Expansion.Vanilla)
     assert not hasattr(vanilla, "holes")
+    # MAHO hole masks debut in TBC (not WotLK, pace wowdev.wiki): vanilla WDLs
+    # carry none, every 2.4.3 WDL pairs one MAHO per MARE.
+    tbc = wdl_mod.WDL.for_version(wowlib.Expansion.Tbc)
+    assert hasattr(tbc, "holes")
     wotlk = wdl_mod.WDL.for_version(wowlib.Expansion.Wotlk)
     assert hasattr(wotlk, "holes")
     assert not hasattr(wotlk, "lod_doodads")

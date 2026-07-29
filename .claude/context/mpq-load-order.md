@@ -214,16 +214,12 @@ Note: pywowlib sorted ALL `Data/*.MPQ` alphabetically — approximately right fo
   are on-disk distractors NOT in the binary table → no row. The local 2.4.3 install
   ships full **enGB** and **ruRU** locale sets; integration opens the enGB chain
   (`test_mpq_243_client.cpp` + the `2.4.3` cases in the ADT/WMO/M2/WDT-WDL round-trip
-  files). NB: this install's **WDL**s carry per-tile `MAHO` (MapAreaHOles) chunks
-  (histogram `MAHO x2565`). MAHO is a WotLK+ chunk (wowdev: it exists for
-  backward-compat with pre-WotLK WDLs) that wowlib DOES type — as `TileHoles`,
-  gated `since(builds::WotLK)` in `wdl.hpp` — but `WDL<tbc>` canonicalizes into the
-  pre-WotLK range (no MAHO slot), so here it rides the unknown-chunk path and is
-  round-tripped verbatim (byte-exact holds). Retail 2.4.3 WDLs have NO MAHO (our
-  vanilla 1.12.2 WDLs showed none either); its presence is a repack artifact — this
-  "2.4.3" build pulled WotLK-era WDL data forward. Do NOT relax the gate on the
-  strength of one repack. (Not a WDT chunk — the WDT/WDL harness shares one
-  histogram across both files, which is what made it look WDT-sourced.)
+  files). This 2.4.3 install prompted a real WDL fix — see [[wowdev-chunk-version-corrections]]:
+  its **WDL**s carry per-tile `MAHO` hole masks, which led to correcting wowlib's
+  MAHO gate from WotLK to TBC (a client scan proved MAHO debuts in TBC, not WotLK
+  as wowdev.wiki implies). Note: `MAHO` is a WDL chunk — the WDT/WDL round-trip
+  test formerly shared ONE unknown-chunk histogram across both files, which made a
+  WDL chunk look WDT-sourced; that histogram is now split per file kind.
 - 4.3.4 / 5.4.8: need `ChainEntryKind::UpdateChain` (`wow-update-{build}.MPQ`,
   ascending build) implemented, with `incremental_patch=true` → those archives
   must attach via `SFileOpenPatchArchive` on the base handles instead of opening

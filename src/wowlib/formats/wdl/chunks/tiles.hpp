@@ -32,7 +32,7 @@ namespace wowlib::formats::wdl::chunks
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::doc(R"(
-        One tile's hole mask (a MAHO payload, WotLK+): 16 row bitmasks, one
+        One tile's hole mask (a MAHO payload, TBC+): 16 row bitmasks, one
         per chunk row (y), one bit per chunk column (x) — a set bit is a hole.
         Blizzard sets a bit when all 16 holes of the ADT chunk are set; an
         all-zero mask is always written anyway.)")

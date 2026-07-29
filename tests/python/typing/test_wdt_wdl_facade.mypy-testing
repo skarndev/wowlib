@@ -32,7 +32,7 @@ def mypy_anywdt_widening_type_checks_clean() -> None:
 
 @pytest.mark.mypy_testing
 def mypy_wdl_for_version_narrows_to_the_concrete_class() -> None:
-    reveal_type(wdl.WDL.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.wdl.WDLWotlkToWod
+    reveal_type(wdl.WDL.for_version(wowlib.Expansion.Wotlk))  # R: wowlib.formats.wdl.WDLTbcToWod
 
 
 @pytest.mark.mypy_testing

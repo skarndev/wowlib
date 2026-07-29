@@ -12,8 +12,8 @@
 #include <wowlib/formats/wdl/wdl.hpp>
 
 #define WOWLIB_WDL_RANGES(X)                                                                       \
-  X(VanillaToTbc, vanilla)                                                                         \
-  X(WotlkToWod, wotlk)                                                                             \
+  X(Vanilla, vanilla)                                                                              \
+  X(TbcToWod, tbc)                                                                                 \
   X(LegionToBfa, legion)                                                                           \
   X(ShadowlandsToDragonflight, shadowlands)                                                        \
   X(TheWarWithin, tww)

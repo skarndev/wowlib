@@ -130,10 +130,12 @@ static_assert(has_points<WdtLightsNew>);
 static_assert(has_points_v3<WdtLightsNew>);
 
 using WdlVanilla = formats::wdl::WDL<versions::vanilla>;
+using WdlTbc = formats::wdl::WDL<versions::tbc>;
 using WdlOld = formats::wdl::WDL<versions::wotlk>;
 using WdlNew = formats::wdl::WDL<versions::shadowlands>;
 using WdlTww = formats::wdl::WDL<versions::tww>;
-static_assert(!has_holes<WdlVanilla>, "MAHO is WotLK+");
+static_assert(!has_holes<WdlVanilla>, "MAHO debuts in TBC, so vanilla carries none");
+static_assert(has_holes<WdlTbc>, "MAHO debuts in TBC (not WotLK, pace wowdev.wiki)");
 static_assert(has_occ_meshes<WdlVanilla>);
 static_assert(has_holes<WdlOld>);
 static_assert(!has_lod_doodads<WdlOld>);
@@ -144,9 +146,12 @@ static_assert(has_sky_scenes<WdlNew>);
 static_assert(!has_scene_living<WdlNew>, "MSLD is TWW+");
 static_assert(has_scene_living<WdlTww>);
 
-// every version collapses onto its range representative
-static_assert(std::is_same_v<formats::wdl::WDL<versions::vanilla>,
-                             formats::wdl::WDL<versions::tbc>>);
+// every version collapses onto its range representative; MAHO splits vanilla
+// (MARE only) from TBC..WoD (MARE + hole masks), which share one instantiation
+static_assert(!std::is_same_v<formats::wdl::WDL<versions::vanilla>,
+                              formats::wdl::WDL<versions::tbc>>);
+static_assert(std::is_same_v<formats::wdl::WDL<versions::tbc>,
+                             formats::wdl::WDL<versions::wotlk>>);
 static_assert(std::is_same_v<formats::wdl::WDL<versions::wotlk>,
                              formats::wdl::WDL<versions::wod>>);
 static_assert(std::is_same_v<formats::wdt::WDT<versions::vanilla>,

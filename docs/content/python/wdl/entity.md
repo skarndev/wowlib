@@ -2,8 +2,8 @@
 
 A map's low-resolution heightmap file as one versioned entity. It is
 version-parametric: the layout differs by client version, which wowlib models
-as one `WDL<version>` per expansion (Python: `WDLVanillaToTbc`,
-`WDLWotlkToWod`, `WDLLegionToBfa`, …). This page documents the **generic
+as one `WDL<version>` per expansion (Python: `WDLVanilla`,
+`WDLTbcToWod`, `WDLLegionToBfa`, …). This page documents the **generic
 model**, shown as `WDL⟨version⟩`.
 
 Each field carries its chunk **FourCC** (linking to wowdev.wiki). A field
