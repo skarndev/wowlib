@@ -238,6 +238,30 @@ frozen-layout in-place rebuild (I nearly built one — don't).
 - So editing flow: keyed/plaintext table (encrypted_ empty) → canonical write
   applies edits. Table with residual keyless sections → verbatim preserve
   (register keys to edit).
+
+## Copy-table re-derivation on write (2026-07-29)
+
+Corpus survey: WDC copy tables are HUGE — 1.16M copy rows across 239/835 tables;
+spell 65%, item 73%, spellvisualkit 99% copies. The reader EXPANDS copies into
+full records, so a naive write (all rows, no copy table) balloons wide tables
+10-600× → the client crawls loading them (the TACT.Builder itemsparse slowness).
+write_wdc3 now RE-DERIVES the copy table: records identical in every non-id
+field (wdc_value_key, position-independent) are stored once + a {new_id,src_id}
+copy entry. Only when record_size >= 8 (a copy entry is 8 bytes — DBCD's
+threshold; narrow rows stay expanded). Round-trip preserved (reader re-expands);
+reals-before-copies order matches the decode order so records==reread holds for
+single-section tables. Measured: Curve 99%-copies → 62% of original; narrow
+tables unaffected. GOTCHA: string relative offsets are position-dependent, so
+dedup is by VALUE (wdc_value_key), not encoded bytes.
+
+## Open size gaps / next
+- Bitpacking alone loses to Blizzard's pallet/common on some small tables
+  (AnimationData → 162% of original; harmless size, correct round-trip). Adding
+  pallet/common encoding (DBCD-style) would close it — secondary win.
+- Editing a table with residual KEYLESS sections still preserves verbatim (no
+  edits). A "write decodable rows as plaintext, dropping keyless rows" opt-in
+  would let users edit keyless tables at the cost of the encrypted rows — the
+  only way to edit without keys (the rows themselves are unrecoverable).
 - BUG fixed during write bring-up: string-ARRAY elements store their relative
   offset from their OWN 4-byte position (field_byte + e*4), not the field
   start — the read side must add e*4 too (was resolving all elements from the

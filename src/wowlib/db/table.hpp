@@ -631,6 +631,40 @@ namespace wowlib::db
       }
       const std::uint32_t record_size = static_cast<std::uint32_t>((record_bits + 7) / 8);
 
+      // Re-derive the copy table: records identical in every field but their id
+      // are stored once, the rest as {id -> source-id} copy entries. WDC tables
+      // lean on this heavily (spell/item are 65-99% copies), so expanding copies
+      // into full rows — which the reader does — must be undone on write or a
+      // wide table balloons and the client crawls loading it.
+      std::vector<std::uint32_t> reals;   // indices into records of the kept rows
+      std::vector<std::pair<std::uint32_t, std::uint32_t>> copies;  // {new_id, src_id}
+      // A copy entry costs 8 bytes, so deduping only helps when a full row costs
+      // more than that (DBCD's threshold). Narrow rows stay expanded.
+      if (record_size >= 8)
+      {
+        std::unordered_map<std::string, std::uint32_t> first;  // value key -> source id
+        reals.reserve(record_count);
+        for (std::uint32_t r = 0; r < record_count; ++r)
+        {
+          std::string key = wdc_value_key(records[r]);
+          const std::uint32_t id = wdc_id_of(records[r]);
+          if (const auto it = first.find(key); it != first.end())
+            copies.emplace_back(id, it->second);
+          else
+          {
+            first.emplace(std::move(key), id);
+            reals.push_back(r);
+          }
+        }
+      }
+      else
+      {
+        reals.resize(record_count);
+        for (std::uint32_t r = 0; r < record_count; ++r)
+          reals[r] = r;
+      }
+      const std::uint32_t real_count = static_cast<std::uint32_t>(reals.size());
+
       formats::StringBlock block;
       std::ignore = block.add("");
       std::unordered_map<std::string, std::uint32_t> lookup{{"", 0}};
@@ -639,15 +673,15 @@ namespace wowlib::db
                                        + std::size_t{field_count} * sizeof(wire::Wdc3FieldStructure)
                                        + std::size_t{field_count} * sizeof(wire::Wdc3FieldStorage);
       const std::size_t records_at = header_bytes;
-      const std::size_t strings_at = records_at + std::size_t{record_count} * record_size;
+      const std::size_t strings_at = records_at + std::size_t{real_count} * record_size;
 
-      FileBuffer record_region(std::size_t{record_count} * record_size, std::byte{0});
-      std::vector<std::uint32_t> ids(record_count);
-      for (std::uint32_t r = 0; r < record_count; ++r)
+      FileBuffer record_region(std::size_t{real_count} * record_size, std::byte{0});
+      std::vector<std::uint32_t> ids(real_count);
+      for (std::uint32_t i = 0; i < real_count; ++i)
       {
-        const std::size_t base = std::size_t{r} * record_size;
+        const std::size_t base = std::size_t{i} * record_size;
         wire::BitWriter writer(record_region.data() + base, record_size);
-        ids[r] = encode_wdc3_record(records[r], writer, plan, block, lookup, strings_at,
+        ids[i] = encode_wdc3_record(records[reals[i]], writer, plan, block, lookup, strings_at,
                                     records_at + base);
       }
 
@@ -655,11 +689,16 @@ namespace wowlib::db
       if (auto w = block.write(string_region); !w)
         return std::unexpected{w.error()};
 
-      std::uint32_t min_id = record_count ? ids[0] : 0, max_id = min_id;
-      for (std::uint32_t id : ids) { min_id = std::min(min_id, id); max_id = std::max(max_id, id); }
+      std::uint32_t min_id = record_count ? wdc_id_of(records[0]) : 0, max_id = min_id;
+      for (const Record& rec : records)
+      {
+        const std::uint32_t id = wdc_id_of(rec);
+        min_id = std::min(min_id, id);
+        max_id = std::max(max_id, id);
+      }
 
       wire::Wdc3Header header;
-      header.record_count = record_count;
+      header.record_count = real_count;
       header.field_count = field_count;
       header.record_size = record_size;
       header.string_table_size = static_cast<std::uint32_t>(string_region.size());
@@ -677,12 +716,14 @@ namespace wowlib::db
 
       wire::Wdc3SectionHeader section;
       section.file_offset = static_cast<std::uint32_t>(records_at);
-      section.record_count = record_count;
+      section.record_count = real_count;
       section.string_table_size = static_cast<std::uint32_t>(string_region.size());
-      section.id_list_size = record_count * 4;
+      section.id_list_size = real_count * 4;
+      section.copy_table_count = static_cast<std::uint32_t>(copies.size());
 
       FileBuffer out;
-      out.reserve(strings_at + string_region.size() + std::size_t{record_count} * 4);
+      out.reserve(strings_at + string_region.size() + std::size_t{real_count} * 4
+                  + copies.size() * 8);
       auto append = [&](const void* p, std::size_t n) {
         const auto* b = static_cast<const std::byte*>(p);
         out.insert(out.end(), b, b + n);
@@ -707,6 +748,11 @@ namespace wowlib::db
       out.insert(out.end(), string_region.begin(), string_region.end());
       for (std::uint32_t id : ids)
         append(&id, 4);
+      for (const auto& [new_id, src_id] : copies)
+      {
+        append(&new_id, 4);
+        append(&src_id, 4);
+      }
       return out;
       }
     }
@@ -953,6 +999,59 @@ namespace wowlib::db
         ++f;
       }
       return plan;
+    }
+
+    /** The id column value of @a record (the $id$ member). */
+    static std::uint32_t wdc_id_of(const Record& record)
+    {
+      static constexpr auto members = detail::record_members<Record>();
+      std::uint32_t id = 0;
+      template for (constexpr auto m : members)
+        if constexpr (detail::annotation<detail::id_spec, m>().has_value())
+          id = static_cast<std::uint32_t>(record.[:m:]);
+      return id;
+    }
+
+    /** A position-independent key over every non-id field of @a record: two
+        records with the same key differ only in their id and so encode to the
+        same row (one is a copy of the other). Integers/floats contribute their
+        raw bytes, strings their value; arrays element by element.
+        @param record the record to key.
+        @return the byte key. */
+    static std::string wdc_value_key(const Record& record)
+    {
+      static constexpr auto members = detail::record_members<Record>();
+      std::string key;
+      template for (constexpr auto m : members)
+      {
+        if constexpr (!detail::annotation<detail::id_spec, m>().has_value())
+          wdc_key_append(key, record.[:m:]);
+      }
+      return key;
+    }
+
+    /** Append a scalar integer/float field to a value key. */
+    template <typename T>
+      requires ((std::integral<T> && !std::same_as<T, bool>) || std::floating_point<T>)
+    static void wdc_key_append(std::string& key, const T& value)
+    {
+      key.append(reinterpret_cast<const char*>(&value), sizeof(T));
+    }
+
+    /** Append a string field to a value key (length-delimited). */
+    static void wdc_key_append(std::string& key, const std::string& value)
+    {
+      const std::uint32_t n = static_cast<std::uint32_t>(value.size());
+      key.append(reinterpret_cast<const char*>(&n), sizeof n);
+      key.append(value);
+    }
+
+    /** Append an array field to a value key, element by element. */
+    template <typename T, std::size_t N>
+    static void wdc_key_append(std::string& key, const std::array<T, N>& value)
+    {
+      for (const T& element : value)
+        wdc_key_append(key, element);
     }
 
     /** The unsigned bit width holding @a maxv (at least 1). */

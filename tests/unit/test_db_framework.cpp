@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstring>
+#include <ranges>
 #include <span>
 #include <string>
 #include <vector>
@@ -416,6 +417,46 @@ namespace
 
     bool operator==(const WdcSmallRecord&) const = default;
   };
+}
+
+TEST_CASE("db: WDC3 write re-derives a copy table for duplicate-except-id rows",
+          "[db]")
+{
+  // WdcRecord is wide (> 8 bytes), so rows identical in every field but their id
+  // must be stored once plus a copy entry, not expanded.
+  db::Table<WdcRecord> table;
+  const WdcRecord base{.id = 10, .name = "Shared", .scale = 1.0f,
+                       .flags = {4, 5, 6}, .bias = 3, .tags = {"a", "b"}};
+  table.records.push_back(base);
+  table.records.push_back(WdcRecord{.id = 20, .name = "Shared", .scale = 1.0f,
+                                    .flags = {4, 5, 6}, .bias = 3, .tags = {"a", "b"}});
+  table.records.push_back(WdcRecord{.id = 30, .name = "Unique", .scale = 2.0f,
+                                    .flags = {7, 8, 9}, .bias = 1, .tags = {"c", "d"}});
+  table.records.push_back(WdcRecord{.id = 40, .name = "Shared", .scale = 1.0f,
+                                    .flags = {4, 5, 6}, .bias = 3, .tags = {"a", "b"}});
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+
+  db::wire::Wdc3Header header;
+  std::memcpy(&header, written->data(), sizeof header);
+  db::wire::Wdc3SectionHeader section;
+  std::memcpy(&section, written->data() + sizeof header, sizeof section);
+  // Two distinct rows are kept; ids 20 and 40 become copies of id 10.
+  CHECK(header.record_count == 2);
+  CHECK(section.copy_table_count == 2);
+
+  db::Table<WdcRecord> reread;
+  REQUIRE(reread.read(*written).has_value());
+  REQUIRE(reread.records.size() == 4);
+  // Every original row round-trips (copies re-expanded), id included.
+  for (const WdcRecord& original : table.records)
+  {
+    const auto found = std::ranges::find_if(
+      reread.records, [&](const WdcRecord& r) { return r.id == original.id; });
+    REQUIRE(found != reread.records.end());
+    CHECK(*found == original);
+  }
 }
 
 TEST_CASE("db: WDC3 write bitpacks integer columns to their needed width", "[db]")
