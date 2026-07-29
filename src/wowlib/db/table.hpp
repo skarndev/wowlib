@@ -499,6 +499,7 @@ namespace wowlib::db
       records.clear();
       encrypted_.clear();
       strings_ = {};
+      wdc_original_.clear();
       source_magic_ = img.header.magic;
       wdc_table_hash_ = img.header.table_hash;
       wdc_layout_hash_ = img.header.layout_hash;
@@ -565,18 +566,29 @@ namespace wowlib::db
           }
         }
       }
+      // Keep the raw image so write() can re-emit an encrypted table verbatim
+      // (its encrypted sections cannot be re-encoded).
+      if (!encrypted_.empty())
+        wdc_original_.assign(data.begin(), data.end());
       return {};
       }
     }
 
-    /** Encode a canonical WDC3 image: a single unencrypted section, every field
-        stored uncompressed (storage_type None) at its natural byte width, the
-        id in a non-inline id_list, strings in a per-section block referenced by
-        the WDC2+ relative offset. This is NOT byte-identical to Blizzard's
-        column-compressed original (the plan's WDC guarantee is semantic:
-        write -> re-read decodes to identical values). A table that carried
-        encrypted sections cannot be re-encoded (its encrypted records were
-        never decoded) and is refused.
+    /** Encode a canonical WDC3 image: a single unencrypted section, integer
+        columns BITPACKED to their minimum width (bitpacked-signed for signed
+        columns), floats and string references stored uncompressed and
+        byte-aligned, the id in a non-inline id_list, strings in a per-section
+        block via the WDC2+ relative offset. This is NOT byte-identical to
+        Blizzard's original — the plan's WDC guarantee is semantic (write ->
+        re-read decodes to identical values) — but the bitpacking keeps files
+        compact rather than exploding every small column to full width.
+
+        A table that carried encrypted sections cannot be re-encoded (its
+        encrypted records were never decoded and share the file's field layout),
+        so its preserved original image is re-emitted VERBATIM — encrypted
+        content intact. Edits to a decoded record of such a table are therefore
+        not applied by write(); split the encrypted and plaintext data yourself
+        if you need to.
         @return the file bytes, or why encoding failed. */
     Result<FileBuffer> write_wdc3() const
     {
@@ -586,50 +598,50 @@ namespace wowlib::db
       else
       {
       if (!encrypted_.empty())
-        return make_error(
-          ErrorCode::InvalidEntityState,
-          std::format("{}: cannot re-encode a WDC3 table with {} encrypted section(s) — "
-                      "their records were never decoded",
-                      table_name, encrypted_.size()));
-
-      // Lay out the fields: every inline column at its natural byte width.
-      std::vector<WdcFieldLayout> layout;
-      std::uint32_t record_size = 0;
-      for (const Column& col : schema_of<Record>())
       {
-        if (col.noninline)
-          continue;
-        const std::uint16_t elem_bytes =
-          col.type == ColumnType::Int ? static_cast<std::uint16_t>(col.bits / 8)
-                                      : std::uint16_t{4};  // float / string ref
-        layout.push_back({record_size, elem_bytes, col.array_len});
-        record_size += std::uint32_t{elem_bytes} * col.array_len;
+        if (wdc_original_.empty())
+          return make_error(
+            ErrorCode::InvalidEntityState,
+            std::format("{}: a WDC3 table with encrypted sections can only be written by "
+                        "preserving its original image, which is not available here",
+                        table_name));
+        return wdc_original_;  // verbatim: encrypted sections stay intact
       }
 
-      const std::uint32_t field_count = static_cast<std::uint32_t>(layout.size());
       const std::uint32_t record_count = static_cast<std::uint32_t>(records.size());
 
-      // Build the string block: leading empty string, then dedup appends.
+      // Plan each inline field: bitpack ints to the width their values need,
+      // byte-align float/string references at 32 bits.
+      std::vector<WdcFieldPlan> plan = plan_wdc3_fields();
+      const std::uint32_t field_count = static_cast<std::uint32_t>(plan.size());
+      std::size_t record_bits = 0;
+      for (WdcFieldPlan& p : plan)
+      {
+        if (p.storage == wire::Wdc3Compression::None)
+          record_bits = (record_bits + 7) / 8 * 8;  // byte-align float/string
+        p.offset_bits = static_cast<std::uint32_t>(record_bits);
+        record_bits += std::size_t{p.elem_bits} * p.elements;
+      }
+      const std::uint32_t record_size = static_cast<std::uint32_t>((record_bits + 7) / 8);
+
       formats::StringBlock block;
       std::ignore = block.add("");
       std::unordered_map<std::string, std::uint32_t> lookup{{"", 0}};
 
-      // Header + tables come first; the record region follows them.
       const std::size_t header_bytes = sizeof(wire::Wdc3Header) + sizeof(wire::Wdc3SectionHeader)
                                        + std::size_t{field_count} * sizeof(wire::Wdc3FieldStructure)
                                        + std::size_t{field_count} * sizeof(wire::Wdc3FieldStorage);
       const std::size_t records_at = header_bytes;
       const std::size_t strings_at = records_at + std::size_t{record_count} * record_size;
 
-      // Encode records; string fields need the string block laid out first so
-      // their relative offsets are final. Two passes: collect strings, then emit.
       FileBuffer record_region(std::size_t{record_count} * record_size, std::byte{0});
       std::vector<std::uint32_t> ids(record_count);
       for (std::uint32_t r = 0; r < record_count; ++r)
       {
         const std::size_t base = std::size_t{r} * record_size;
-        ids[r] = encode_wdc3_record(records[r], record_region, base, layout, block, lookup,
-                                    strings_at, records_at + base);
+        wire::BitWriter writer(record_region.data() + base, record_size);
+        ids[r] = encode_wdc3_record(records[r], writer, plan, block, lookup, strings_at,
+                                    records_at + base);
       }
 
       FileBuffer string_region;
@@ -652,7 +664,7 @@ namespace wowlib::db
       header.flags = wire::wdc3_flag_noninline_id;
       header.id_index = 0;
       header.total_field_count = field_count;
-      header.bitpacked_data_offset = record_size;
+      header.bitpacked_data_offset = 0;
       header.field_storage_info_size = field_count * sizeof(wire::Wdc3FieldStorage);
       header.section_count = 1;
 
@@ -670,19 +682,18 @@ namespace wowlib::db
       };
       append(&header, sizeof header);
       append(&section, sizeof section);
-      for (const WdcFieldLayout& fl : layout)
+      for (const WdcFieldPlan& p : plan)
       {
-        const std::uint16_t elem_bits = static_cast<std::uint16_t>(fl.elem_bytes * 8);
-        wire::Wdc3FieldStructure fstruct{static_cast<std::int16_t>(32 - elem_bits),
-                                         static_cast<std::uint16_t>(fl.byte_offset)};
+        wire::Wdc3FieldStructure fstruct{static_cast<std::int16_t>(32 - p.elem_bits),
+                                         static_cast<std::uint16_t>(p.offset_bits / 8)};
         append(&fstruct, sizeof fstruct);
       }
-      for (const WdcFieldLayout& fl : layout)
+      for (const WdcFieldPlan& p : plan)
       {
         wire::Wdc3FieldStorage fs;
-        fs.field_offset_bits = static_cast<std::uint16_t>(fl.byte_offset * 8);
-        fs.field_size_bits = static_cast<std::uint16_t>(fl.elem_bytes * 8 * fl.elements);
-        fs.storage_type = wire::Wdc3Compression::None;
+        fs.field_offset_bits = static_cast<std::uint16_t>(p.offset_bits);
+        fs.field_size_bits = static_cast<std::uint16_t>(std::size_t{p.elem_bits} * p.elements);
+        fs.storage_type = p.storage;
         append(&fs, sizeof fs);
       }
       out.insert(out.end(), record_region.begin(), record_region.end());
@@ -880,20 +891,134 @@ namespace wowlib::db
     }
 
     // --- WDC3 canonical encode helpers (mirror the decode walk) ---
-    struct WdcFieldLayout { std::uint32_t byte_offset; std::uint16_t elem_bytes; std::uint16_t elements; };
+    /** How one inline column is placed and packed by the canonical writer. */
+    struct WdcFieldPlan
+    {
+      std::uint32_t offset_bits = 0;               /**< Bit offset within a record (assigned by caller). */
+      std::uint16_t elem_bits = 32;                /**< Bits per element. */
+      std::uint16_t elements = 1;                  /**< Array length (1 for scalars). */
+      wire::Wdc3Compression storage = wire::Wdc3Compression::None;
+    };
 
-    /** Encode one record into the record region; return its id.
+    /** Build the per-inline-field write plan: integer columns bitpacked to the
+        width their actual values need (bitpacked-signed for signed columns),
+        float and string columns left uncompressed at 32 bits. Element bit
+        widths are set here; offset_bits are assigned by the caller.
+        @return one plan per inline column, in column order. */
+    std::vector<WdcFieldPlan> plan_wdc3_fields() const
+    {
+      // Per-field value ranges (ints only), scanned across all records.
+      std::vector<std::int64_t> lo, hi;
+      std::vector<char> is_int;
+      for (const Column& col : schema_of<Record>())
+      {
+        if (col.noninline)
+          continue;
+        lo.push_back(0);
+        hi.push_back(0);
+        is_int.push_back(col.type == ColumnType::Int);
+      }
+      for (const Record& rec : records)
+        scan_wdc3_ranges(rec, lo, hi);
+
+      std::vector<WdcFieldPlan> plan;
+      std::size_t f = 0;
+      for (const Column& col : schema_of<Record>())
+      {
+        if (col.noninline)
+          continue;
+        WdcFieldPlan p;
+        p.elements = col.array_len;
+        if (col.type == ColumnType::Int)
+        {
+          p.storage = col.is_signed ? wire::Wdc3Compression::BitpackedSigned
+                                    : wire::Wdc3Compression::Bitpacked;
+          p.elem_bits = col.is_signed ? signed_width(lo[f], hi[f])
+                                      : unsigned_width(static_cast<std::uint64_t>(hi[f]));
+          p.elem_bits = std::min<std::uint16_t>(p.elem_bits, col.bits);
+        }
+        else
+        {
+          p.storage = wire::Wdc3Compression::None;  // float / string ref
+          p.elem_bits = 32;
+        }
+        plan.push_back(p);
+        ++f;
+      }
+      return plan;
+    }
+
+    /** The unsigned bit width holding @a maxv (at least 1). */
+    static std::uint16_t unsigned_width(std::uint64_t maxv)
+    {
+      std::uint16_t w = 0;
+      while (maxv) { ++w; maxv >>= 1; }
+      return w ? w : std::uint16_t{1};
+    }
+
+    /** The signed bit width holding the range [@a minv, @a maxv] (at least 1). */
+    static std::uint16_t signed_width(std::int64_t minv, std::int64_t maxv)
+    {
+      const auto need = [](std::int64_t v) -> std::uint16_t {
+        std::uint16_t w = 1;
+        while (w < 64 && (v < -(std::int64_t{1} << (w - 1)) || v > (std::int64_t{1} << (w - 1)) - 1))
+          ++w;
+        return w;
+      };
+      return std::max<std::uint16_t>({std::uint16_t{1}, need(minv), need(maxv)});
+    }
+
+    /** Update the per-field integer ranges from one record. */
+    void scan_wdc3_ranges(const Record& rec, std::vector<std::int64_t>& lo,
+                          std::vector<std::int64_t>& hi) const
+    {
+      static constexpr auto members = detail::record_members<Record>();
+      std::size_t field = 0;
+      template for (constexpr auto m : members)
+      {
+        constexpr bool noninline = detail::annotation<detail::noninline_spec, m>().has_value();
+        if constexpr (!noninline)
+        {
+          scan_member_range(rec.[:m:], lo[field], hi[field]);
+          ++field;
+        }
+      }
+    }
+
+    /** Fold a scalar integer member into a running range. */
+    template <typename T>
+      requires (std::integral<T> && !std::same_as<T, bool>)
+    static void scan_member_range(const T& value, std::int64_t& lo, std::int64_t& hi)
+    {
+      const auto v = static_cast<std::int64_t>(value);
+      lo = std::min(lo, v);
+      hi = std::max(hi, v);
+    }
+
+    /** Fold an integer array member into a running range. */
+    template <typename T, std::size_t N>
+      requires (std::integral<T> && !std::same_as<T, bool>)
+    static void scan_member_range(const std::array<T, N>& value, std::int64_t& lo,
+                                  std::int64_t& hi)
+    {
+      for (const T& element : value)
+        scan_member_range(element, lo, hi);
+    }
+
+    /** Non-integer members do not constrain a range. */
+    static void scan_member_range(const auto&, std::int64_t&, std::int64_t&) {}
+
+    /** Encode one record into the record buffer via a BitWriter; return its id.
         @param rec        the record.
-        @param region     the record region buffer (written in place).
-        @param base       the record's byte offset within @a region.
-        @param layout     per-inline-field byte offsets/widths.
+        @param writer     the record's bit writer (buffer pre-zeroed).
+        @param plan       the per-inline-field write plan (offset_bits assigned).
         @param block      the string block (appended, deduped).
         @param lookup     value -> block-offset dedup index.
         @param strings_at the absolute file offset the string block starts at.
         @param record_abs the record's absolute file offset.
         @return the record's id. */
-    std::uint32_t encode_wdc3_record(const Record& rec, FileBuffer& region, std::size_t base,
-                                     const std::vector<WdcFieldLayout>& layout,
+    std::uint32_t encode_wdc3_record(const Record& rec, wire::BitWriter& writer,
+                                     const std::vector<WdcFieldPlan>& plan,
                                      formats::StringBlock& block,
                                      std::unordered_map<std::string, std::uint32_t>& lookup,
                                      std::size_t strings_at, std::size_t record_abs) const
@@ -912,30 +1037,39 @@ namespace wowlib::db
         }
         else
         {
-          const std::size_t pos = base + layout[field].byte_offset;
-          const std::size_t abs = record_abs + layout[field].byte_offset;
-          encode_wdc3_field(rec.[:m:], region, pos, block, lookup, strings_at, abs);
+          encode_wdc3_field(rec.[:m:], writer, plan[field], block, lookup, strings_at, record_abs);
           ++field;
         }
       }
       return id;
     }
 
-    /** Write a fixed-width integer/float field into the record region. */
+    /** Write a bitpacked integer field (signed values keep their two's-complement
+        low bits; sign-extended on read). */
     template <typename T>
-      requires ((std::integral<T> && !std::same_as<T, bool>) || std::floating_point<T>)
-    void encode_wdc3_field(const T& value, FileBuffer& region, std::size_t pos,
+      requires (std::integral<T> && !std::same_as<T, bool>)
+    void encode_wdc3_field(const T& value, wire::BitWriter& writer, const WdcFieldPlan& p,
                            formats::StringBlock&, std::unordered_map<std::string, std::uint32_t>&,
                            std::size_t, std::size_t) const
     {
-      std::memcpy(region.data() + pos, &value, sizeof(T));
+      const std::uint64_t mask = p.elem_bits >= 64 ? ~std::uint64_t{0}
+                                                   : (std::uint64_t{1} << p.elem_bits) - 1;
+      writer.write(p.offset_bits, p.elem_bits, static_cast<std::uint64_t>(value) & mask);
+    }
+
+    /** Write an uncompressed 32-bit float field. */
+    void encode_wdc3_field(const float& value, wire::BitWriter& writer, const WdcFieldPlan& p,
+                           formats::StringBlock&, std::unordered_map<std::string, std::uint32_t>&,
+                           std::size_t, std::size_t) const
+    {
+      writer.write(p.offset_bits, 32, std::bit_cast<std::uint32_t>(value));
     }
 
     /** Write a string field as a WDC2+ relative offset into the string block. */
-    void encode_wdc3_field(const std::string& value, FileBuffer& region, std::size_t pos,
+    void encode_wdc3_field(const std::string& value, wire::BitWriter& writer, const WdcFieldPlan& p,
                            formats::StringBlock& block,
                            std::unordered_map<std::string, std::uint32_t>& lookup,
-                           std::size_t strings_at, std::size_t field_abs) const
+                           std::size_t strings_at, std::size_t record_abs) const
     {
       std::uint32_t block_off = 0;
       if (const auto it = lookup.find(value); it != lookup.end())
@@ -945,21 +1079,25 @@ namespace wowlib::db
         block_off = block.add(value);
         lookup.emplace(value, block_off);
       }
+      const std::size_t field_abs = record_abs + p.offset_bits / 8;
       const std::uint32_t rel = static_cast<std::uint32_t>(strings_at + block_off - field_abs);
-      std::memcpy(region.data() + pos, &rel, 4);
+      writer.write(p.offset_bits, 32, rel);
     }
 
-    /** Write an array field element by element. */
+    /** Write an array field element by element (each element inherits the plan's
+        element width, at consecutive offsets). */
     template <typename T, std::size_t N>
-    void encode_wdc3_field(const std::array<T, N>& value, FileBuffer& region, std::size_t pos,
-                           formats::StringBlock& block,
+    void encode_wdc3_field(const std::array<T, N>& value, wire::BitWriter& writer,
+                           const WdcFieldPlan& p, formats::StringBlock& block,
                            std::unordered_map<std::string, std::uint32_t>& lookup,
-                           std::size_t strings_at, std::size_t field_abs) const
+                           std::size_t strings_at, std::size_t record_abs) const
     {
-      constexpr std::size_t elem = std::same_as<T, std::string> ? 4 : sizeof(T);
       for (std::size_t e = 0; e < N; ++e)
-        encode_wdc3_field(value[e], region, pos + e * elem, block, lookup, strings_at,
-                          field_abs + e * elem);
+      {
+        WdcFieldPlan pe = p;
+        pe.offset_bits = static_cast<std::uint32_t>(p.offset_bits + e * p.elem_bits);
+        encode_wdc3_field(value[e], writer, pe, block, lookup, strings_at, record_abs);
+      }
     }
 
     /** Sign-extend @a raw from @a bits to a full width when @a is_signed and the
@@ -1171,6 +1309,7 @@ namespace wowlib::db
     std::uint32_t wdc_table_hash_ = 0;   /**< Preserved WDC3 header table_hash. */
     std::uint32_t wdc_layout_hash_ = 0;  /**< Preserved WDC3 header layout_hash. */
     std::uint32_t wdc_locale_ = 0;       /**< Preserved WDC3 header locale. */
+    FileBuffer wdc_original_;            /**< Raw image kept when the file has encrypted sections. */
 
     /** The original string-block offset of every string field, row-major in
         record then schema order — the byte-perfect write-back journal. */

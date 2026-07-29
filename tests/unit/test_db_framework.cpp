@@ -402,6 +402,44 @@ TEST_CASE("db: a fresh WDC3 table writes and semantically round-trips", "[db]")
 
 namespace
 {
+  // One wide (uint32) column holding only small values — the case bitpacking
+  // must shrink rather than store at full 4-byte width.
+  struct WdcSmallRecord
+  {
+    static constexpr ClientVersion version = versions::shadowlands;
+    static constexpr std::string_view table_name = "WdcSmall";
+
+    [[=db::id, =db::noninline]]
+    std::int32_t id = 0;
+
+    std::uint32_t value = 0;
+
+    bool operator==(const WdcSmallRecord&) const = default;
+  };
+}
+
+TEST_CASE("db: WDC3 write bitpacks integer columns to their needed width", "[db]")
+{
+  db::Table<WdcSmallRecord> table;
+  for (std::uint32_t i = 1; i <= 3; ++i)
+    table.records.push_back(WdcSmallRecord{.id = static_cast<std::int32_t>(i), .value = i});
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+
+  db::wire::Wdc3Header header;
+  std::memcpy(&header, written->data(), sizeof header);
+  // Values 1..3 need 2 bits, not the declared 32 — a bitpacked record is 1 byte.
+  CHECK(header.field_count == 1);        // the id is non-inline (id_list)
+  CHECK(header.record_size == 1);
+
+  db::Table<WdcSmallRecord> reread;
+  REQUIRE(reread.read(*written).has_value());
+  CHECK(reread.records == table.records);
+}
+
+namespace
+{
   // A Cataclysm-era record: single already-localized string column (no
   // LocString), so its WDB2 record stride is small and easy to hand-build.
   struct CataRecord

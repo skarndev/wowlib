@@ -194,17 +194,26 @@ The casc test's WDC3||WDC4 check is just defensive.
   spell.db2 (95204 records + 40 encrypted sections): id=5 → "Instantly Kills
   the target.", id=133 (Fireball) → "Throws a fiery ball…". Full sweep now
   **829/829 present tables decode, 0 NotImplemented, 0 errors**.
-- **WDC3 canonical WRITE** shipped (write_wdc3). A canonical single-section,
-  non-sparse re-encode: every field storage_type None at natural byte width,
-  non-inline id in the id_list, strings in a per-section block via WDC2+
-  relative offsets. NOT byte-identical (the guarantee is SEMANTIC: write →
-  re-read decodes to identical values). Validated: ManifestInterfaceData
-  (113346 rec) and ChrRaces (arrays/pallet/bitpacked-signed) both re-decode
-  EQUAL — so the compression-kind decoders are proven correct by round-trip.
-  A table with encrypted sections is REFUSED (InvalidEntityState — its
-  encrypted records were never decoded, so re-encode would lose them).
-  fresh_magic now returns wdc3_magic for BfA..pre-DF, so fresh tables are
-  writable + unit-testable without a client (synthetic WdcRecord test).
+- **WDC3 canonical WRITE** shipped (write_wdc3), BITPACKED. Integer columns are
+  bitpacked to the minimum width their actual values need (BitpackedSigned for
+  signed columns — two's-complement low bits, sign-extended on read); floats and
+  string refs stay uncompressed 32-bit and byte-aligned. A wire::BitWriter
+  mirrors BitReader. plan_wdc3_fields() scans the records for per-field int
+  ranges (unsigned_width/signed_width) then assigns tight bit offsets. Single
+  non-sparse section, non-inline id_list, strings via WDC2+ relative offset.
+  NOT byte-identical (guarantee is SEMANTIC: write → re-read → identical
+  values). Validated: ManifestInterfaceData (string-only, ~same size),
+  ChrRaces (int columns → 77% of original, EQUAL round-trip), synthetic
+  small-int record → record_size 1 byte (2-bit pack). fresh_magic returns
+  wdc3_magic for BfA..pre-DF so fresh tables are writable + unit-testable
+  without a client.
+- **Encrypted tables preserve their original image VERBATIM on write** (not
+  refused): read_wdc3 keeps the raw bytes (wdc_original_) when any section is
+  encrypted; write() re-emits them byte-identically so the encrypted sections
+  stay intact. TRADEOFF: edits to a decoded record of an encrypted table are
+  NOT applied by write() — the encrypted records share the file's field layout,
+  which can't be rebuilt without the keys. Verified on SpellName (40 encrypted
+  sections): write → byte-identical to the original.
 - BUG fixed during write bring-up: string-ARRAY elements store their relative
   offset from their OWN 4-byte position (field_byte + e*4), not the field
   start — the read side must add e*4 too (was resolving all elements from the

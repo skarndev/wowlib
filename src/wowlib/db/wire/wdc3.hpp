@@ -158,6 +158,39 @@ namespace wowlib::db::wire
     std::size_t limit_;
   };
 
+  /** A little-endian bit writer over a zero-initialized record buffer — the
+      encode counterpart of BitReader (only 1-bits are set, so the buffer must
+      start zeroed). */
+  class BitWriter
+  {
+  public:
+    /** @param base  the record's first byte (must be zero-initialized).
+        @param limit bytes available from @a base (bounds guard). */
+    BitWriter(std::byte* base, std::size_t limit) : base_(base), limit_(limit) {}
+
+    /** Write the low @a bits of @a value starting at absolute bit offset
+        @a bit_offset. Bits that would overrun the buffer are dropped.
+        @param bit_offset the starting bit position within the record.
+        @param bits       the field width in bits (<= 64).
+        @param value      the value whose low @a bits are written. */
+    void write(std::size_t bit_offset, std::size_t bits, std::uint64_t value)
+    {
+      for (std::size_t i = 0; i < bits; ++i)
+      {
+        if (((value >> i) & 1) == 0)
+          continue;
+        const std::size_t bo = bit_offset + i;
+        if (bo / 8 >= limit_)
+          return;
+        base_[bo / 8] |= static_cast<std::byte>(1u << (bo % 8));
+      }
+    }
+
+  private:
+    std::byte* base_;
+    std::size_t limit_;
+  };
+
   /** A located, structurally-validated WDC3 section. */
   struct Wdc3Section
   {

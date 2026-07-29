@@ -212,10 +212,13 @@ TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
   {
     CHECK_FALSE(spells.fully_decoded());
     CHECK(spells.encrypted_sections().front().key_hash != 0);
-    // An encrypted table cannot be losslessly re-encoded.
+    // An encrypted table can't be re-encoded (its encrypted records share the
+    // file layout) — write() re-emits the original image VERBATIM so the
+    // encrypted sections stay intact.
     const auto written = spells.write();
-    REQUIRE_FALSE(written.has_value());
-    CHECK(written.error().code == ErrorCode::InvalidEntityState);
+    REQUIRE(written.has_value());
+    REQUIRE(written->size() == data->size());
+    CHECK(std::memcmp(written->data(), data->data(), data->size()) == 0);
   }
 }
 
