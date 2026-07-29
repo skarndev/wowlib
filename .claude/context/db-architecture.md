@@ -35,9 +35,10 @@ Stage 1 (WDBC end-to-end) shipped 2026-07-29.
 
 WDB3–WDB6 and WDC2 are Legion/BfA intermediates no last-minor client ships —
 out of scope. Reads sniff the file magic; writes re-emit the read magic.
-NOTE: the local 9.2.7 ships WDC4 files (test_casc_927_client sniffs both) even
-though wowdev's version-range template claims WDC4 starts at 10.1 — trust the
-client, survey the 9.2.7 corpus magic histogram before stage 3.
+CORRECTED (2026-07-29 survey, db2-927-survey.md): the local 9.2.7 corpus is
+**100% WDC3**, zero WDC4 — 9.2.7 sits inside wowdev's WDC3 range (8.1..10.1).
+The 8.3.7/9.2.7 row above should read WDC3 only; WDC4 is Dragonflight (10.1+).
+The casc test's WDC3||WDC4 check is just defensive.
 
 ## Architecture (stage 1 shipped)
 
@@ -55,6 +56,14 @@ client, survey the 9.2.7 corpus magic histogram before stage 3.
   (requires statics `version` + `table_name`).
 - `db/wire/wdbc.hpp` — WdbcHeader (20B) + `wdbc_magic` (four_cc FORWARD — DB
   magics are plain byte sequences, unlike reversed chunk ids).
+- `db/wire/wdc3.hpp` — the WDC3 format (BfA 8.1 .. early-DF; ALL of 9.2.7).
+  `Wdc3Header` (72B), `Wdc3SectionHeader` (40B), `Wdc3FieldStructure` (4B),
+  `Wdc3FieldStorage` (24B, the 6 `Wdc3Compression` kinds), a little-endian
+  `BitReader`, and `Wdc3Image` — the structural PARSER (locates every block of
+  every section) + field-value DECODER (field_raw over all compression kinds,
+  pallet/common lookups, sign width helpers). Structurally validated on the
+  full 835-file corpus (every file parses; blocks reach within 8B of EOF).
+  read_wdc3 (table.hpp) does the typed decode onto the schema.
 - `db/wire/wdb2.hpp` — Wdb2Header (48B) + `wdb2_magic`. Cata..WoD .db2.
   UNVERIFIED (no local client): id-index block (`int32 indices[]` +
   `int16 string_lengths[]`, 6B/id, engaged when max_id != 0) and trailing copy
@@ -147,14 +156,44 @@ client, survey the 9.2.7 corpus magic histogram before stage 3.
   narrow-int/array layouts all emit + compile clean (smoke-checked). No corpus
   test (no Cata/MoP/WoD client installed).
 
+## Stage 3 results — WDC3 READ (2026-07-29)
+
+- wire/wdc3.hpp + read_wdc3 (table.hpp) ship. dbdgen eras extended to ALL 11
+  (through tww): **1221 tables** emitted, 0 warnings.
+- **Full 9.2.7 typed decode sweep** (scratch wdc3_sweep.cpp over the shadowlands
+  manifest, 830 tables): **825 decoded OK** (134 with encrypted sections
+  handled), 1 not-locally-present, **4 sparse (NotImplemented)**, **0 schema
+  mismatches, 0 other errors**. The dbdgen inline-column count matches every
+  WDC3 file's field_count exactly — strong validation of both the emitter and
+  the reader.
+- Typed spot-check: ManifestInterfaceData id=21 → path "Interface\Cinematics\"
+  + name "Logo_1024.avi" (cross-checks the listfile). Non-inline id (id_list),
+  WDC2+ relative string offsets, arrays, pallet/common/bitpacked-signed all
+  correct.
+- Encryption: 138 files have encrypted sections; read() PRESERVES + REPORTS
+  them (encrypted_sections()/fully_decoded()), EXCLUDES their (zeroed) rows.
+- **Copy tables** materialized as id-cloned records. **Relationships**: the
+  non-inline relation column is left at its member default (the relationship
+  block is not yet parsed — rare in WDC3, refine if a spot-check needs it).
+- Integration test test_db2_corpus_927.cpp: structural parse sweep over ALL db2
+  (cheap, no per-table templates) + typed spot-checks on ManifestInterfaceData/
+  ChrRaces/SpellName(encrypted). The FULL 830-table typed sweep is NOT baked in
+  (one TU = ~2min compile); it lives as the scratch tool.
+- **Known limits**: (a) sparse/offset-map tables (flag 0x01, 4 files) →
+  NotImplemented; (b) WDC relationship block not parsed; (c) WDC WRITE not
+  implemented (write_as returns NotImplemented for wdc3_magic); (d) no TACT
+  decryption. GOTCHA: read_wdc3's decode body is `if constexpr (version >=
+  builds::Cata)`-guarded — pre-Cata records carry LocString members the WDC
+  field overloads don't model, and those clients never ship WDC3, so the body
+  must not instantiate for them.
+
 ## Next stages (plan §Stages)
 
-3. WDC3/WDC4 read (sections, field_storage compressions, sparse/offset-map,
-   id list, copy table, relationships, WDC2+ relative string offsets — the
-   error-prone one; encrypted-section preservation + reporting). Survey 9.2.7
-   magic histogram first.
+3b. WDC3 sparse/offset-map decode (4 files) + relationship block; then WDC1
+   (7.3.5) — no local client, synthetic.
 4. WDC canonical writes + semantic corpus round-trip.
-5. WDC1 + WDC5 (no local clients; synthetic).
+5. WDC4 + WDC5 (DF+; no local clients; synthetic). WDC4 = WDC3 + encrypted_status
+   table; WDC5 = + versionNum/schemaString header prefix.
 6. Bindings (weld via dbdgen-emitted shards into the single module) + docs.
-7. Deferred: TACT keys, DBCD cross-validation script, lazy/columnar decode,
-   hotfix cache (DBCache.bin) out of scope.
+7. Deferred: TACT keys (Salsa20 + CascLib), DBCD cross-validation script,
+   lazy/columnar decode, hotfix cache (DBCache.bin) out of scope.

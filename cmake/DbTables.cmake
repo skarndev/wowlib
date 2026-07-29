@@ -10,8 +10,8 @@ option(WOWLIB_DB_TABLES "Generate the WoWDBDefs client-database table headers" O
 set(WOWLIB_DBDEFS_DIR "" CACHE PATH
     "Local WoWDBDefs checkout to generate from (its definitions/ dir is used); \
 empty fetches the pinned snapshot")
-set(WOWLIB_DB_ERAS "vanilla,tbc,wotlk,cata,mop,wod" CACHE STRING
-    "Comma-separated era list dbdgen generates tables for")
+set(WOWLIB_DB_ERAS "vanilla,tbc,wotlk,cata,mop,wod,legion,bfa,shadowlands,dragonflight,tww"
+    CACHE STRING "Comma-separated era list dbdgen generates tables for")
 # Pinned WoWDBDefs master of 2026-07-29.
 set(WOWLIB_DBDEFS_PIN "61db72dc2fcace61b086303cc2a2b95c7d42828a")
 

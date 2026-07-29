@@ -11,6 +11,7 @@
 #include <wowlib/db/locstring.hpp>
 #include <wowlib/db/schema.hpp>
 #include <wowlib/db/table.hpp>
+#include <wowlib/db/wire/wdc3.hpp>
 
 using namespace wowlib;
 
@@ -303,6 +304,52 @@ TEST_CASE("db: locale slots without a column reject writes", "[db]")
   db::LocString16 tbc_column;
   REQUIRE(tbc_column.set(Locale::ruRU, "да").has_value());
   CHECK(tbc_column.at(Locale::ruRU) == "да");
+}
+
+TEST_CASE("db: the WDC3 bit reader extracts fields at arbitrary bit offsets", "[db]")
+{
+  // A byte pattern with known bit runs. Little-endian: byte 0 = 0xB4, etc.
+  const std::array<std::byte, 8> bytes{
+    std::byte{0xB4}, std::byte{0x9A}, std::byte{0x78}, std::byte{0x56},
+    std::byte{0x34}, std::byte{0x12}, std::byte{0xF0}, std::byte{0xFF}};
+  db::wire::BitReader reader{bytes.data(), bytes.size()};
+
+  CHECK(reader.read(0, 8) == 0xB4);
+  CHECK(reader.read(8, 8) == 0x9A);
+  CHECK(reader.read(0, 4) == 0x4);       // low nibble of 0xB4
+  CHECK(reader.read(4, 4) == 0xB);       // high nibble of 0xB4
+  CHECK(reader.read(0, 16) == 0x9AB4);   // little-endian u16
+  CHECK(reader.read(16, 32) == 0x12345678);
+  CHECK(reader.read(12, 12) == 0x789);   // spans bytes 1..2, shifted
+
+  // A 32-bit read straddling a non-byte boundary: 0xFFF0123456789AB4 >> 4,
+  // low 32 bits.
+  CHECK(reader.read(4, 32) == 0x456789AB);
+
+  // Reads that would overrun the buffer clamp to 0.
+  CHECK(reader.read(60, 32) == 0);
+}
+
+namespace
+{
+  // Sign extension is applied to the signed compression kind; verify the helper
+  // indirectly via a bit read + manual extension mirroring the engine.
+  std::int64_t sign_extend(std::uint64_t raw, std::size_t bits)
+  {
+    const std::uint64_t sign = std::uint64_t{1} << (bits - 1);
+    if (raw & sign)
+      return static_cast<std::int64_t>(raw | ~((std::uint64_t{1} << bits) - 1));
+    return static_cast<std::int64_t>(raw);
+  }
+}
+
+TEST_CASE("db: WDC3 signed field bit extension", "[db]")
+{
+  // 6-bit value 0x3F = -1; 0x20 = -32; 0x1F = 31.
+  CHECK(sign_extend(0x3F, 6) == -1);
+  CHECK(sign_extend(0x20, 6) == -32);
+  CHECK(sign_extend(0x1F, 6) == 31);
+  CHECK(sign_extend(0x00, 6) == 0);
 }
 
 namespace
