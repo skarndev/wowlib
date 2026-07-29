@@ -248,6 +248,40 @@ TEST_CASE("1.12.2 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][
   CHECK(verified >= 3);
 }
 
+TEST_CASE("2.4.3 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::tbc_client_name,
+                                  .version = versions::tbc,
+                                  .locale = tests::tbc_locale});
+  REQUIRE(fs.has_value());
+
+  // vanilla continents + Outland (Expansion01) + TBC instances; entries missing
+  // from the client are skipped so name spelling never breaks the suite
+  const std::vector<std::string> maps{
+    "Azeroth",          "Kalimdor",       "Expansion01",    "PVPZone01",
+    "HellfireMilitary", "ShadowfangKeep", "Shadowfang",
+  };
+
+  int verified = 0;
+  for (const auto& map : maps)
+  {
+    const std::string wdt_path = std::format("World/Maps/{0}/{0}.wdt", map);
+    const std::string wdl_path = std::format("World/Maps/{0}/{0}.wdl", map);
+    if (!fs->exists(wdt_path))
+    {
+      WARN("not in client, skipped: " + wdt_path);
+      continue;
+    }
+    roundtrip_wdt<versions::tbc>(*fs, FileKey{wdt_path}, map);
+    if (fs->exists(wdl_path))
+      roundtrip_wdl<versions::tbc>(*fs, FileKey{wdl_path}, map + " (wdl)");
+    ++verified;
+  }
+  dump_histogram("2.4.3");
+  CHECK(verified >= 3);
+}
+
 TEST_CASE("9.2.7 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
 {
   const auto clients = tests::require_clients_dir();

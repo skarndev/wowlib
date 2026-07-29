@@ -203,7 +203,27 @@ Note: pywowlib sorted ALL `Data/*.MPQ` alphabetically — approximately right fo
   `Data/ruRU/patch-N.MPQ`, so the `locale-{loc}`/`speech-{loc}` rows and the
   `patch-{loc}` locale glob simply find nothing there — world data still serves
   from terrain/model/wmo/patch).
-- 2.4.3: new `Fixed` table only (common.MPQ + expansion.MPQ for TBC).
+- **2.4.3: DONE (2026-07-29).** `tbc_base` table in `mpq_chain.cpp` +
+  `MpqChainSpec{versions::tbc, …, ClassicWildcard}`. Structurally the WotLK chain
+  minus the WotLK-only base archives: base = `common` + `expansion` (no `common-2`,
+  no `lichking`) + the four `Data/{loc}/` locale rows (`locale-`, `speech-`,
+  `expansion-locale-`, `expansion-speech-`); patch tier reuses ClassicWildcard.
+  `expansion` outranks `common` (later in table, reverse search). The loader
+  mechanism is the SAME Ghidra-verified 1.x/2.x/3.x family; base NAMES are canonical
+  and on disk, so no fresh Ghidra run. As on 3.3.5a, `base-{loc}.MPQ`/`backup-{loc}.MPQ`
+  are on-disk distractors NOT in the binary table → no row. The local 2.4.3 install
+  ships full **enGB** and **ruRU** locale sets; integration opens the enGB chain
+  (`test_mpq_243_client.cpp` + the `2.4.3` cases in the ADT/WMO/M2/WDT-WDL round-trip
+  files). NB: this install's **WDL**s carry per-tile `MAHO` (MapAreaHOles) chunks
+  (histogram `MAHO x2565`). MAHO is a WotLK+ chunk (wowdev: it exists for
+  backward-compat with pre-WotLK WDLs) that wowlib DOES type — as `TileHoles`,
+  gated `since(builds::WotLK)` in `wdl.hpp` — but `WDL<tbc>` canonicalizes into the
+  pre-WotLK range (no MAHO slot), so here it rides the unknown-chunk path and is
+  round-tripped verbatim (byte-exact holds). Retail 2.4.3 WDLs have NO MAHO (our
+  vanilla 1.12.2 WDLs showed none either); its presence is a repack artifact — this
+  "2.4.3" build pulled WotLK-era WDL data forward. Do NOT relax the gate on the
+  strength of one repack. (Not a WDT chunk — the WDT/WDL harness shares one
+  histogram across both files, which is what made it look WDT-sourced.)
 - 4.3.4 / 5.4.8: need `ChainEntryKind::UpdateChain` (`wow-update-{build}.MPQ`,
   ascending build) implemented, with `incremental_patch=true` → those archives
   must attach via `SFileOpenPatchArchive` on the base handles instead of opening

@@ -253,6 +253,43 @@ TEST_CASE("1.12.2 M2s re-read equal after a canonical rewrite",
   CHECK(verified >= 4);
 }
 
+TEST_CASE("2.4.3 M2s re-read equal after a canonical rewrite",
+          "[integration][formats][m2]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::tbc_client_name,
+                                  .version = versions::tbc,
+                                  .locale = tests::tbc_locale});
+  REQUIRE(fs.has_value());
+
+  // vanilla creatures/characters plus TBC's new playable races (Blood Elf,
+  // Draenei); TBC M2s still embed their skins in the MD20 (no external .skin).
+  // Missing paths are skipped so spelling never breaks the suite.
+  const std::vector<std::string> candidates{
+    "Creature/Chicken/Chicken.m2",
+    "Creature/Rabbit/Rabbit.m2",
+    "Creature/Murloc/Murloc.m2",
+    "Creature/Illidan/Illidan.m2",
+    "Character/Human/Male/HumanMale.m2",
+    "Character/Orc/Male/OrcMale.m2",
+    "Character/BloodElf/Female/BloodElfFemale.m2",
+    "Character/Draenei/Male/DraeneiMale.m2",
+  };
+
+  int verified = 0;
+  for (const auto& path : candidates)
+  {
+    if (!fs->exists(path))
+    {
+      WARN("not in client, skipped: " + path);
+      continue;
+    }
+    roundtrip_m2<versions::tbc>(*fs, FileKey{path}, path);
+    ++verified;
+  }
+  CHECK(verified >= 4);
+}
+
 TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {

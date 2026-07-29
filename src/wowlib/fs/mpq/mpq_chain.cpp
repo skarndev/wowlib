@@ -67,8 +67,31 @@ namespace wowlib::fs::detail
       ChainEntry{ChainEntryKind::LocaleFixed, "speech-{locale}.MPQ"},
     };
 
+    // The Burning Crusade 2.4.3 (build 8606). Structurally the WotLK chain minus
+    // the WotLK-only base archives: base tier is `common` + `expansion` (no
+    // `common-2`, no `lichking`) plus the four locale archives in Data/{locale}/;
+    // patches load above via the same ClassicWildcard scheme. `expansion` (TBC)
+    // outranks `common` (vanilla) where they overlap — it is later in the table,
+    // and expand_chain searches in reverse (see the WotLK note above for the
+    // Ghidra-verified base-priority direction). The loader mechanism is shared
+    // across the 1.x/2.x/3.x clients (verified against Wow.exe 3.3.5a); the base
+    // NAMES here are canonical and present on disk. As on 3.3.5a, `base-{loc}.MPQ`
+    // and `backup-{loc}.MPQ` are on-disk distractors NOT in the binary's table, so
+    // they get no row. This 2.4.3 install ships full enGB and ruRU locale sets;
+    // open with the desired Locale (the "{locale}" rows and locale patches expand
+    // to that code, absent members skipped).
+    constexpr std::array tbc_base{
+      ChainEntry{ChainEntryKind::Fixed, "common.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion-speech-{locale}.MPQ"},
+    };
+
     constexpr std::array chain_specs{
       MpqChainSpec{versions::vanilla, vanilla_base, PatchScheme::ClassicWildcard},
+      MpqChainSpec{versions::tbc, tbc_base, PatchScheme::ClassicWildcard},
       MpqChainSpec{versions::wotlk, wotlk_base, PatchScheme::ClassicWildcard},
     };
 

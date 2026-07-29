@@ -49,4 +49,9 @@ namespace wowlib::tests
   // repack: no enUS locale dir, so its chain must be opened with Locale::ruRU.
   constexpr const char* vanilla_client_name = "WoW Classic 1.12.2";
   constexpr Locale vanilla_locale = Locale::ruRU;
+
+  // The Burning Crusade 2.4.3 (an MPQ client). This install ships full enGB and
+  // ruRU locale sets; we open the English (enGB) chain for readable assertions.
+  constexpr const char* tbc_client_name = "WoW TBC 2.4.3";
+  constexpr Locale tbc_locale = Locale::enGB;
 }

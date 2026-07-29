@@ -207,6 +207,42 @@ TEST_CASE("1.12.2 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
   CHECK(verified >= 4);
 }
 
+TEST_CASE("2.4.3 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
+{
+  const auto clients = tests::require_clients_dir();
+  auto fs = fs::FileSystem::open({.client_path = clients / tests::tbc_client_name,
+                                  .version = versions::tbc,
+                                  .locale = tests::tbc_locale});
+  REQUIRE(fs.has_value());
+
+  // vanilla capitals/dungeons plus TBC's Outland structures; entries missing
+  // from the client are skipped so path spelling never breaks the suite
+  const std::vector<std::string> candidates{
+    "World/wmo/Azeroth/Buildings/Stormwind/Stormwind.wmo",
+    "World/wmo/Azeroth/Buildings/GoldshireInn/GoldshireInn.wmo",
+    "World/wmo/Azeroth/Buildings/Human_Farm/Farm.wmo",
+    "World/wmo/KhazModan/Cities/Ironforge/Ironforge.wmo",
+    "World/wmo/Kalimdor/Ogrimmar/Ogrimmar.wmo",
+    "World/wmo/Draenor/Shattrath/Shattrath.wmo",
+    "World/wmo/Outland/Dungeon/HF_Ramparts/HF_Ramparts.wmo",
+    "World/wmo/Dungeon/AZ_Subway/Subway.wmo",
+  };
+
+  int verified = 0;
+  for (const auto& path : candidates)
+  {
+    if (!fs->exists(path))
+    {
+      WARN("not in client, skipped: " + path);
+      continue;
+    }
+    roundtrip_wmo<versions::tbc>(*fs, FileKey{path}, path);
+    ++verified;
+  }
+  dump_histogram("2.4.3");
+  CHECK(verified >= 4);
+}
+
 TEST_CASE("9.2.7 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
   const auto clients = tests::require_clients_dir();
