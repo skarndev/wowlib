@@ -304,3 +304,188 @@ TEST_CASE("db: locale slots without a column reject writes", "[db]")
   REQUIRE(tbc_column.set(Locale::ruRU, "да").has_value());
   CHECK(tbc_column.at(Locale::ruRU) == "да");
 }
+
+namespace
+{
+  // A Cataclysm-era record: single already-localized string column (no
+  // LocString), so its WDB2 record stride is small and easy to hand-build.
+  struct CataRecord
+  {
+    static constexpr ClientVersion version = versions::cata;
+    static constexpr std::string_view table_name = "CataUnitTest";
+
+    [[=db::id]]
+    std::uint32_t id = 0;
+
+    std::string name;
+
+    std::int32_t value = 0;
+
+    bool operator==(const CataRecord&) const = default;
+  };
+
+  constexpr std::size_t cata_stride = 4 + 4 + 4;
+  static_assert(db::record_stride<CataRecord>() == cata_stride);
+
+  /// A WDB2 image with no id-index block (max_id == 0) and no copy table.
+  std::vector<std::byte> make_wdb2_plain()
+  {
+    const std::string block{"\0Ironforge\0", 11};
+    std::vector<std::byte> image;
+    append(image, db::wire::wdb2_magic);
+    append(image, std::uint32_t{2});                     // record_count
+    append(image, db::field_slot_count<CataRecord>());   // field_count
+    append(image, std::uint32_t{cata_stride});           // record_size
+    append(image, static_cast<std::uint32_t>(block.size()));  // string_block_size
+    append(image, std::uint32_t{0xABCD1234});            // table_hash
+    append(image, std::uint32_t{15595});                 // build
+    append(image, std::uint32_t{0});                     // timestamp
+    append(image, std::uint32_t{0});                     // min_id
+    append(image, std::uint32_t{0});                     // max_id -> no index block
+    append(image, std::uint32_t{0});                     // locale
+    append(image, std::uint32_t{0});                     // copy_table_size
+
+    append(image, std::uint32_t{10});   // id
+    append(image, std::uint32_t{1});    // name -> "Ironforge"
+    append(image, std::int32_t{-1});    // value
+    append(image, std::uint32_t{20});   // id
+    append(image, std::uint32_t{0});    // name -> "" (offset 0)
+    append(image, std::int32_t{99});    // value
+
+    for (char c : block)
+      image.push_back(static_cast<std::byte>(c));
+    return image;
+  }
+
+  /// A WDB2 image WITH an id-index block (max_id != 0) and a copy table.
+  std::vector<std::byte> make_wdb2_indexed()
+  {
+    const std::string block{"\0Ironforge\0", 11};
+    const std::uint32_t min_id = 10, max_id = 11;  // 2 ids -> 2 index entries
+    std::vector<std::byte> image;
+    append(image, db::wire::wdb2_magic);
+    append(image, std::uint32_t{2});
+    append(image, db::field_slot_count<CataRecord>());
+    append(image, std::uint32_t{cata_stride});
+    append(image, static_cast<std::uint32_t>(block.size()));
+    append(image, std::uint32_t{0xABCD1234});
+    append(image, std::uint32_t{15595});
+    append(image, std::uint32_t{0});
+    append(image, min_id);
+    append(image, max_id);
+    append(image, std::uint32_t{0});
+    append(image, std::uint32_t{8});  // copy_table_size -> one {id,id} pair
+
+    // id-index block: int32 indices[2] then int16 string_lengths[2] (6B/id)
+    append(image, std::int32_t{0});
+    append(image, std::int32_t{1});
+    append(image, std::int16_t{10});
+    append(image, std::int16_t{1});
+
+    append(image, std::uint32_t{10});
+    append(image, std::uint32_t{1});
+    append(image, std::int32_t{-1});
+    append(image, std::uint32_t{11});
+    append(image, std::uint32_t{0});
+    append(image, std::int32_t{99});
+
+    for (char c : block)
+      image.push_back(static_cast<std::byte>(c));
+
+    // copy table: {new_id, copied_id}
+    append(image, std::uint32_t{12});
+    append(image, std::uint32_t{10});
+    return image;
+  }
+}
+
+TEST_CASE("db: WDB2 without an index block decodes and round-trips", "[db]")
+{
+  const auto image = make_wdb2_plain();
+  db::Table<CataRecord> table;
+  REQUIRE(table.read(image).has_value());
+
+  REQUIRE(table.records.size() == 2);
+  CHECK(table.records[0].id == 10);
+  CHECK(table.records[0].name == "Ironforge");
+  CHECK(table.records[0].value == -1);
+  CHECK(table.records[1].id == 20);
+  CHECK(table.records[1].name.empty());
+  CHECK(table.records[1].value == 99);
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+  REQUIRE(written->size() == image.size());
+  CHECK(std::memcmp(written->data(), image.data(), image.size()) == 0);
+}
+
+TEST_CASE("db: WDB2 with index and copy blocks round-trips them verbatim", "[db]")
+{
+  const auto image = make_wdb2_indexed();
+  db::Table<CataRecord> table;
+  REQUIRE(table.read(image).has_value());
+
+  REQUIRE(table.records.size() == 2);
+  CHECK(table.records[0].name == "Ironforge");
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+  REQUIRE(written->size() == image.size());
+  CHECK(std::memcmp(written->data(), image.data(), image.size()) == 0);
+}
+
+TEST_CASE("db: WDB2 in-place record edits re-encode; index rebuild rejected", "[db]")
+{
+  SECTION("editing an indexed table's record values keeps the index verbatim")
+  {
+    const auto image = make_wdb2_indexed();
+    db::Table<CataRecord> table;
+    REQUIRE(table.read(image).has_value());
+    table.records[1].value = 4242;
+
+    const auto written = table.write();
+    REQUIRE(written.has_value());
+    db::Table<CataRecord> reread;
+    REQUIRE(reread.read(*written).has_value());
+    CHECK(reread.records == table.records);
+  }
+
+  SECTION("adding a record to an indexed table errors (index cannot be rebuilt)")
+  {
+    const auto image = make_wdb2_indexed();
+    db::Table<CataRecord> table;
+    REQUIRE(table.read(image).has_value());
+    table.records.push_back(CataRecord{.id = 30, .name = "Darnassus", .value = 7});
+
+    const auto written = table.write();
+    REQUIRE_FALSE(written.has_value());
+    CHECK(written.error().code == ErrorCode::InvalidEntityState);
+  }
+}
+
+TEST_CASE("db: a fresh Cata table writes WDB2, a fresh WotLK table writes WDBC",
+          "[db]")
+{
+  db::Table<CataRecord> cata;
+  cata.records.push_back(CataRecord{.id = 1, .name = "Stormwind", .value = 5});
+  const auto cata_bytes = cata.write();
+  REQUIRE(cata_bytes.has_value());
+  REQUIRE(cata_bytes->size() >= 4);
+  CHECK(std::memcmp(cata_bytes->data(), "WDB2", 4) == 0);
+
+  db::wire::Wdb2Header header;
+  std::memcpy(&header, cata_bytes->data(), sizeof header);
+  CHECK(header.build == versions::cata.build);
+  CHECK(header.record_count == 1);
+  CHECK(header.max_id == 0);  // fresh tables emit no index block
+
+  db::Table<CataRecord> reread;
+  REQUIRE(reread.read(*cata_bytes).has_value());
+  CHECK(reread.records == cata.records);
+
+  db::Table<TestRecord> wotlk;  // TestRecord::version is wotlk
+  wotlk.records.push_back(TestRecord{.id = 1, .name = "x"});
+  const auto wotlk_bytes = wotlk.write();
+  REQUIRE(wotlk_bytes.has_value());
+  CHECK(std::memcmp(wotlk_bytes->data(), "WDBC", 4) == 0);
+}

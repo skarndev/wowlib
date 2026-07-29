@@ -2,32 +2,38 @@
 
 /** @file
     Table<Record> — the client-database entity: a typed record vector decoded
-    from / encoded to the on-disk table formats. Stage 1 speaks WDBC (every
-    pre-Cataclysm .dbc); the later formats (WDB2, WDC1/3/4/5) join as further
-    protected codec members dispatched off the sniffed magic.
+    from / encoded to the on-disk table formats. Speaks WDBC (every
+    pre-Cataclysm .dbc) and WDB2 (the Cata..WoD .db2); the WDC formats join as
+    further protected codec members dispatched off the sniffed magic.
 
     Round-trip policy (plan of record, 2026-07-29): WDBC and WDB2 are
     byte-perfect — the string block is preserved as decoded entries whose
     offsets never move, and every record string field remembers the offset it
     was read from, reusing it verbatim while the value still matches. New or
-    changed strings dedup against the block, then append. */
+    changed strings dedup against the block, then append. WDB2's id-index and
+    copy-table blocks are preserved verbatim (the format is unverified — no
+    Cata..WoD client is installed locally). */
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/buffer.hpp>
+#include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/db/schema.hpp>
+#include <wowlib/db/wire/wdb2.hpp>
 #include <wowlib/db/wire/wdbc.hpp>
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/fs/filesystem.hpp>
@@ -79,6 +85,8 @@ namespace wowlib::db
       std::memcpy(&magic, data.data(), sizeof magic);
       if (magic == wire::wdbc_magic)
         return read_wdbc(data);
+      if (magic == wire::wdb2_magic)
+        return read_wdb2(data);
       return make_error(
         ErrorCode::TableMagicUnknown,
         std::format("{}: magic '{}' is not a client-database format wowlib supports for "
@@ -101,13 +109,21 @@ namespace wowlib::db
       return read(*data);
     }
 
-    /** Serialize the table.
+    /** Serialize the table. A loaded table re-emits the magic it was read
+        from; a fresh table uses its client version's canonical .dbc/.db2
+        format (write(fs, key) can override by the target path's extension).
         @return the file image, or why encoding failed. */
-    [[=welder::doc("Serialize the table to a file image."),
+    [[=welder::doc("Serialize the table to a file image; a loaded table re-emits "
+                   "the format it was read from."),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write() const
     {
-      return write_wdbc();
+      if (source_magic_ != 0)
+        return write_as(source_magic_);
+      const auto magic = fresh_magic(std::nullopt);
+      if (!magic)
+        return std::unexpected{magic.error()};
+      return write_as(*magic);
     }
 
     /** Serialize the table into a client filesystem (project overlay).
@@ -122,7 +138,14 @@ namespace wowlib::db
         return make_error(ErrorCode::PathNotResolvable,
                           std::format("saving table {} needs a path for the file key",
                                       table_name));
-      const auto data = write();
+      auto data = [&]() -> Result<FileBuffer> {
+        if (source_magic_ != 0)
+          return write_as(source_magic_);
+        const auto magic = fresh_magic(*resolved.path);
+        if (!magic)
+          return std::unexpected{magic.error()};
+        return write_as(*magic);
+      }();
       if (!data)
         return std::unexpected{data.error()};
       if (auto r = fs.add_file(*resolved.path, *data); !r)
@@ -139,6 +162,48 @@ namespace wowlib::db
     const formats::StringBlock& strings() const { return strings_; }
 
   protected:
+    /** The canonical on-disk format for a FRESH table of this client version;
+        the target path's extension decides in the mixed .dbc/.db2 eras.
+        @param path the destination path, when saving through a filesystem.
+        @return the magic to encode, or why no format is available. */
+    Result<std::uint32_t> fresh_magic(std::optional<std::string_view> path) const
+    {
+      if (path)
+      {
+        if (path->ends_with(".dbc"))
+          return wire::wdbc_magic;
+        if (path->ends_with(".db2") && version < builds::Legion)
+          return version < builds::Cata
+                   ? make_error(ErrorCode::NotSupported,
+                                std::format("{}: .db2 does not exist before Cataclysm",
+                                            table_name))
+                   : Result<std::uint32_t>{wire::wdb2_magic};
+      }
+      if (version < builds::Cata)
+        return wire::wdbc_magic;
+      if (version < builds::Legion)
+        return wire::wdb2_magic;
+      return make_error(ErrorCode::NotImplemented,
+                        std::format("{}: writing fresh Legion+ (WDC) tables is not "
+                                    "implemented yet",
+                                    table_name));
+    }
+
+    /** Encode as @a magic (a loaded table always passes its source magic).
+        @param magic the wire format to emit.
+        @return the file bytes. */
+    Result<FileBuffer> write_as(std::uint32_t magic) const
+    {
+      if (magic == wire::wdbc_magic)
+        return write_wdbc();
+      if (magic == wire::wdb2_magic)
+        return write_wdb2();
+      return make_error(
+        ErrorCode::NotImplemented,
+        std::format("{}: writing '{}' tables is not implemented yet", table_name,
+                    formats::fourcc_to_string(magic, formats::FourCCEndian::forward)));
+    }
+
     /** Decode a WDBC image: 20-byte header, fixed-stride records, string block.
         @param data the whole file content.
         @return nothing, or why the image does not decode. */
@@ -223,6 +288,129 @@ namespace wowlib::db
       header.string_block_size = static_cast<std::uint32_t>(block.size());
       if (auto r = block.write(out); !r)
         return std::unexpected{r.error()};
+      std::memcpy(out.data(), &header, sizeof header);
+      return out;
+    }
+
+    /** Decode a WDB2 image: 48-byte header, optional id-index block,
+        fixed-stride records, string block, optional trailing copy table. The
+        index and copy blocks are preserved verbatim (format unverified — see
+        wire/wdb2.hpp).
+        @param data the whole file content.
+        @return nothing, or why the image does not decode. */
+    Result<void> read_wdb2(std::span<const std::byte> data)
+    {
+      if (data.size() < sizeof(wire::Wdb2Header))
+        return make_error(ErrorCode::TableTruncated,
+                          std::format("{}: {} bytes is too small for a WDB2 header",
+                                      table_name, data.size()));
+      wire::Wdb2Header header;
+      std::memcpy(&header, data.data(), sizeof header);
+
+      constexpr std::size_t stride = record_stride<Record>();
+      if (header.record_size != stride)
+        return make_error(
+          ErrorCode::SchemaMismatch,
+          std::format("{}: file record_size {} disagrees with the generated schema "
+                      "stride {}",
+                      table_name, header.record_size, stride));
+      if (header.max_id != 0 && header.max_id < header.min_id)
+        return make_error(ErrorCode::TableTruncated,
+                          std::format("{}: WDB2 max_id {} below min_id {}", table_name,
+                                      header.max_id, header.min_id));
+
+      const std::size_t index_bytes =
+        header.max_id != 0
+          ? (std::size_t{header.max_id} - header.min_id + 1) * wire::wdb2_index_entry_bytes
+          : 0;
+      const std::size_t records_at = sizeof header + index_bytes;
+      const std::size_t expected = records_at
+                                   + std::size_t{header.record_count} * header.record_size
+                                   + header.string_block_size + header.copy_table_size;
+      if (data.size() != expected)
+        return make_error(
+          ErrorCode::TableTruncated,
+          std::format("{}: {} bytes on disk, but the header describes {} ({} records of "
+                      "{} bytes + {} index + {} string + {} copy-table bytes)",
+                      table_name, data.size(), expected, header.record_count,
+                      header.record_size, index_bytes, header.string_block_size,
+                      header.copy_table_size));
+
+      records.clear();
+      strings_ = {};
+      string_offsets_.clear();
+      if (auto r = strings_.read(data.subspan(
+            records_at + std::size_t{header.record_count} * header.record_size,
+            header.string_block_size));
+          !r)
+        return r;
+
+      records.reserve(header.record_count);
+      string_offsets_.reserve(std::size_t{header.record_count} * string_slot_count<Record>());
+      for (std::uint32_t i = 0; i < header.record_count; ++i)
+      {
+        Record& record = records.emplace_back();
+        decode_record(record, data.subspan(records_at + std::size_t{i} * stride, stride));
+      }
+
+      const auto index_block = data.subspan(sizeof header, index_bytes);
+      wdb2_index_.assign(index_block.begin(), index_block.end());
+      const auto copy_block = data.subspan(expected - header.copy_table_size,
+                                           header.copy_table_size);
+      wdb2_copy_.assign(copy_block.begin(), copy_block.end());
+      wdb2_header_ = header;
+      source_magic_ = header.magic;
+      field_count_ = header.field_count;
+      record_size_ = header.record_size;
+      return {};
+    }
+
+    /** Encode a WDB2 image; preserved header identity and the verbatim
+        index/copy blocks are re-emitted. Rebuilding the id-index block is not
+        supported while the format is unverified, so a record-count change on
+        an indexed table is an error.
+        @return the file bytes. */
+    Result<FileBuffer> write_wdb2() const
+    {
+      constexpr std::size_t stride = record_stride<Record>();
+      const bool loaded = source_magic_ == wire::wdb2_magic;
+      if (loaded && !wdb2_index_.empty()
+          && records.size() != wdb2_header_.record_count)
+        return make_error(
+          ErrorCode::InvalidEntityState,
+          std::format("{}: the WDB2 id-index block cannot be rebuilt yet; adding or "
+                      "removing records of an indexed table is unsupported (had {}, "
+                      "have {})",
+                      table_name, wdb2_header_.record_count, records.size()));
+
+      wire::Wdb2Header header = loaded ? wdb2_header_ : wire::Wdb2Header{};
+      header.record_count = static_cast<std::uint32_t>(records.size());
+      header.field_count = loaded ? field_count_ : field_slot_count<Record>();
+      header.record_size = loaded ? record_size_ : static_cast<std::uint32_t>(stride);
+      if (!loaded)
+        header.build = version.build;
+
+      formats::StringBlock block = strings_;
+      if (block.empty())
+        std::ignore = block.add("");
+      std::unordered_map<std::string, std::uint32_t> lookup;
+      for (const formats::StringBlock::Entry& entry : block.entries())
+        lookup.try_emplace(entry.value, entry.offset);
+
+      FileBuffer out;
+      out.reserve(sizeof header + wdb2_index_.size() + records.size() * stride
+                  + block.size() + wdb2_copy_.size());
+      out.resize(sizeof header);
+      out.insert(out.end(), wdb2_index_.begin(), wdb2_index_.end());
+      std::size_t string_cursor = 0;
+      for (const Record& record : records)
+        encode_record(record, out, block, lookup, string_cursor);
+
+      header.string_block_size = static_cast<std::uint32_t>(block.size());
+      if (auto r = block.write(out); !r)
+        return std::unexpected{r.error()};
+      out.insert(out.end(), wdb2_copy_.begin(), wdb2_copy_.end());
+      header.copy_table_size = static_cast<std::uint32_t>(wdb2_copy_.size());
       std::memcpy(out.data(), &header, sizeof header);
       return out;
     }
@@ -372,6 +560,9 @@ namespace wowlib::db
     std::uint32_t field_count_ = 0;   /**< Preserved header field_count (not always derivable). */
     std::uint32_t record_size_ = 0;   /**< Preserved header record_size. */
     formats::StringBlock strings_;    /**< Preserved string block; offsets never move. */
+    wire::Wdb2Header wdb2_header_{};  /**< Preserved WDB2 header identity fields. */
+    FileBuffer wdb2_index_;           /**< Preserved WDB2 id-index block, verbatim. */
+    FileBuffer wdb2_copy_;            /**< Preserved WDB2 copy table, verbatim. */
 
     /** The original string-block offset of every string field, row-major in
         record then schema order — the byte-perfect write-back journal. */

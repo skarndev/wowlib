@@ -55,10 +55,20 @@ client, survey the 9.2.7 corpus magic histogram before stage 3.
   (requires statics `version` + `table_name`).
 - `db/wire/wdbc.hpp` — WdbcHeader (20B) + `wdbc_magic` (four_cc FORWARD — DB
   magics are plain byte sequences, unlike reversed chunk ids).
+- `db/wire/wdb2.hpp` — Wdb2Header (48B) + `wdb2_magic`. Cata..WoD .db2.
+  UNVERIFIED (no local client): id-index block (`int32 indices[]` +
+  `int16 string_lengths[]`, 6B/id, engaged when max_id != 0) and trailing copy
+  table preserved VERBATIM. Adding/removing records of an INDEXED table errors
+  (InvalidEntityState — index rebuild unsupported while unverified); in-place
+  record edits re-encode fine. Fresh tables emit no index block, stamp build.
 - `db/table.hpp` — `Table<Record>`: public `records` vector + read(span)/
   read(fs,key)/write()→FileBuffer/write(fs,key) (WDL-style fs verbs), strings()
-  getter. Per-magic codecs are protected members (read_wdbc/write_wdbc; WDB2/WDC
-  join there). **Byte-perfect machinery**: StringBlock preserved as decoded
+  getter. Per-magic codecs are protected members (read_wdbc/write_wdbc,
+  read_wdb2/write_wdb2; WDC joins there). **Format dispatch**: reads sniff the
+  magic; a loaded table re-emits its source magic; a fresh table's format is
+  `fresh_magic()` — by client version (pre-Cata→WDBC, Cata..WoD→WDB2, Legion+
+  NotImplemented), overridable by the target path's .dbc/.db2 extension in the
+  mixed eras. **Byte-perfect machinery**: StringBlock preserved as decoded
   entries + a `string_offsets_` journal (the original offset of every string
   field, row-major); writes reuse the journaled offset while the value still
   matches (this is what preserves DUPLICATE block entries and mid-entry
@@ -87,9 +97,13 @@ client, survey the 9.2.7 corpus magic histogram before stage 3.
 - Unsized entries take their type from COLUMNS (float/string/locstring);
   an unsized inline int is a hard per-target error (skips that target, warns).
 - CMake: cmake/DbTables.cmake — `WOWLIB_DB_TABLES` (ON), `WOWLIB_DB_ERAS`
-  (default vanilla,tbc,wotlk), custom command → stamp → `wowlib_db_tables`
-  INTERFACE target carrying the generated include dir. ctest `dbdgen_unit`
-  runs the Python unittests.
+  (default vanilla,tbc,wotlk,cata,mop,wod), custom command → stamp →
+  `wowlib_db_tables` INTERFACE target carrying the generated include dir.
+  ctest `dbdgen_unit` runs the Python unittests.
+  GOTCHA: `WOWLIB_DB_ERAS` is a CACHE var — changing its DEFAULT does not
+  update an existing build dir (set(CACHE) skips populated entries); pass
+  `-DWOWLIB_DB_ERAS=...` or configure fresh. The custom command also does not
+  depend on the var, so force a re-run with `rm build/*/generated/db/dbdgen.stamp`.
 
 ## Stage 1 results (2026-07-29)
 
@@ -122,9 +136,19 @@ client, survey the 9.2.7 corpus magic histogram before stage 3.
   narrow (u8/u16) columns as one each; real 3.3.5a files agree with the derived
   value everywhere the corpus covered, but we preserve the read value anyway.
 
+## Stage 2 results (2026-07-29)
+
+- WDB2 shipped (wire/wdb2.hpp + read_wdb2/write_wdb2). Synthetic-only:
+  test_db_framework.cpp covers plain (no index), indexed+copy-table (verbatim
+  round-trip), in-place edit re-encode, indexed-add rejection, fresh Cata→WDB2
+  vs fresh WotLK→WDBC magic selection.
+- dbdgen eras extended to cata,mop,wod: **448 tables** emitted total (cata 331,
+  mop 409, wod 165), 0 warnings — Cata+ single-string locstrings and WDB2-era
+  narrow-int/array layouts all emit + compile clean (smoke-checked). No corpus
+  test (no Cata/MoP/WoD client installed).
+
 ## Next stages (plan §Stages)
 
-2. WDB2 (Cata/MoP/WoD; synthetic tests only — no local client).
 3. WDC3/WDC4 read (sections, field_storage compressions, sparse/offset-map,
    id list, copy table, relationships, WDC2+ relative string offsets — the
    error-prone one; encrypted-section preservation + reporting). Survey 9.2.7
