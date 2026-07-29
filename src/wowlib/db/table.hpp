@@ -221,10 +221,14 @@ namespace wowlib::db
         return wire::wdbc_magic;
       if (version < builds::Legion)
         return wire::wdb2_magic;
+      // BfA 8.1 .. early DF are WDC3; Legion (WDC1) and DF+ (WDC4/5) await
+      // their own codecs.
+      if (version >= builds::BfA && version.major < 10)
+        return wire::wdc3_magic;
       return make_error(ErrorCode::NotImplemented,
-                        std::format("{}: writing fresh Legion+ (WDC) tables is not "
-                                    "implemented yet",
-                                    table_name));
+                        std::format("{}: writing fresh {}.{} tables (WDC1/WDC4/WDC5) is "
+                                    "not implemented yet",
+                                    table_name, version.major, version.minor));
     }
 
     /** Encode as @a magic (a loaded table always passes its source magic).
@@ -236,6 +240,8 @@ namespace wowlib::db
         return write_wdbc();
       if (magic == wire::wdb2_magic)
         return write_wdb2();
+      if (magic == wire::wdc3_magic)
+        return write_wdc3();
       return make_error(
         ErrorCode::NotImplemented,
         std::format("{}: writing '{}' tables is not implemented yet", table_name,
@@ -494,6 +500,9 @@ namespace wowlib::db
       encrypted_.clear();
       strings_ = {};
       source_magic_ = img.header.magic;
+      wdc_table_hash_ = img.header.table_hash;
+      wdc_layout_hash_ = img.header.layout_hash;
+      wdc_locale_ = img.header.locale;
 
       const auto additional = img.field_additional_offsets();
       for (const wire::Wdc3Section& sec : img.sections)
@@ -509,10 +518,28 @@ namespace wowlib::db
           continue;
         }
         if (img.is_sparse())
-          return make_error(ErrorCode::NotImplemented,
-                            std::format("{}: WDC3 sparse/offset-map tables are not decoded "
-                                        "yet (rare — 4 of 835 in the 9.2.7 corpus)",
-                                        table_name));
+        {
+          // Sparse: each record is located by the offset_map (absolute offset +
+          // byte size), its id from offset_map_ids, and its fields are stored
+          // uncompressed and sequential — strings inline null-terminated. The
+          // field_storage bit offsets do not apply.
+          for (std::uint32_t r = 0; r < sec.header.offset_map_id_count; ++r)
+          {
+            std::uint32_t offset = 0, id = 0;
+            std::uint16_t size = 0;
+            std::memcpy(&offset, sec.offset_map.data() + std::size_t{r} * 6, 4);
+            std::memcpy(&size, sec.offset_map.data() + std::size_t{r} * 6 + 4, 2);
+            if (std::size_t{r} * 4 + 4 <= sec.offset_map_ids.size())
+              std::memcpy(&id, sec.offset_map_ids.data() + std::size_t{r} * 4, 4);
+            if (offset + size > img.file.size())
+              return make_error(ErrorCode::TableTruncated,
+                                std::format("{}: sparse record {} at {:#x} overruns the file",
+                                            table_name, r, offset));
+            Record& record = records.emplace_back();
+            decode_wdc3_sparse_record(record, img.file.subspan(offset, size), id);
+          }
+          continue;
+        }
 
         const std::size_t stride = img.header.record_size;
         for (std::uint32_t r = 0; r < sec.header.record_count; ++r)
@@ -539,6 +566,130 @@ namespace wowlib::db
         }
       }
       return {};
+      }
+    }
+
+    /** Encode a canonical WDC3 image: a single unencrypted section, every field
+        stored uncompressed (storage_type None) at its natural byte width, the
+        id in a non-inline id_list, strings in a per-section block referenced by
+        the WDC2+ relative offset. This is NOT byte-identical to Blizzard's
+        column-compressed original (the plan's WDC guarantee is semantic:
+        write -> re-read decodes to identical values). A table that carried
+        encrypted sections cannot be re-encoded (its encrypted records were
+        never decoded) and is refused.
+        @return the file bytes, or why encoding failed. */
+    Result<FileBuffer> write_wdc3() const
+    {
+      if constexpr (version < builds::Cata)
+        return make_error(ErrorCode::NotSupported,
+                          std::format("{}: a pre-Cata client does not use WDC3", table_name));
+      else
+      {
+      if (!encrypted_.empty())
+        return make_error(
+          ErrorCode::InvalidEntityState,
+          std::format("{}: cannot re-encode a WDC3 table with {} encrypted section(s) — "
+                      "their records were never decoded",
+                      table_name, encrypted_.size()));
+
+      // Lay out the fields: every inline column at its natural byte width.
+      std::vector<WdcFieldLayout> layout;
+      std::uint32_t record_size = 0;
+      for (const Column& col : schema_of<Record>())
+      {
+        if (col.noninline)
+          continue;
+        const std::uint16_t elem_bytes =
+          col.type == ColumnType::Int ? static_cast<std::uint16_t>(col.bits / 8)
+                                      : std::uint16_t{4};  // float / string ref
+        layout.push_back({record_size, elem_bytes, col.array_len});
+        record_size += std::uint32_t{elem_bytes} * col.array_len;
+      }
+
+      const std::uint32_t field_count = static_cast<std::uint32_t>(layout.size());
+      const std::uint32_t record_count = static_cast<std::uint32_t>(records.size());
+
+      // Build the string block: leading empty string, then dedup appends.
+      formats::StringBlock block;
+      std::ignore = block.add("");
+      std::unordered_map<std::string, std::uint32_t> lookup{{"", 0}};
+
+      // Header + tables come first; the record region follows them.
+      const std::size_t header_bytes = sizeof(wire::Wdc3Header) + sizeof(wire::Wdc3SectionHeader)
+                                       + std::size_t{field_count} * sizeof(wire::Wdc3FieldStructure)
+                                       + std::size_t{field_count} * sizeof(wire::Wdc3FieldStorage);
+      const std::size_t records_at = header_bytes;
+      const std::size_t strings_at = records_at + std::size_t{record_count} * record_size;
+
+      // Encode records; string fields need the string block laid out first so
+      // their relative offsets are final. Two passes: collect strings, then emit.
+      FileBuffer record_region(std::size_t{record_count} * record_size, std::byte{0});
+      std::vector<std::uint32_t> ids(record_count);
+      for (std::uint32_t r = 0; r < record_count; ++r)
+      {
+        const std::size_t base = std::size_t{r} * record_size;
+        ids[r] = encode_wdc3_record(records[r], record_region, base, layout, block, lookup,
+                                    strings_at, records_at + base);
+      }
+
+      FileBuffer string_region;
+      if (auto w = block.write(string_region); !w)
+        return std::unexpected{w.error()};
+
+      std::uint32_t min_id = record_count ? ids[0] : 0, max_id = min_id;
+      for (std::uint32_t id : ids) { min_id = std::min(min_id, id); max_id = std::max(max_id, id); }
+
+      wire::Wdc3Header header;
+      header.record_count = record_count;
+      header.field_count = field_count;
+      header.record_size = record_size;
+      header.string_table_size = static_cast<std::uint32_t>(string_region.size());
+      header.table_hash = wdc_table_hash_;
+      header.layout_hash = wdc_layout_hash_;
+      header.min_id = min_id;
+      header.max_id = max_id;
+      header.locale = wdc_locale_;
+      header.flags = wire::wdc3_flag_noninline_id;
+      header.id_index = 0;
+      header.total_field_count = field_count;
+      header.bitpacked_data_offset = record_size;
+      header.field_storage_info_size = field_count * sizeof(wire::Wdc3FieldStorage);
+      header.section_count = 1;
+
+      wire::Wdc3SectionHeader section;
+      section.file_offset = static_cast<std::uint32_t>(records_at);
+      section.record_count = record_count;
+      section.string_table_size = static_cast<std::uint32_t>(string_region.size());
+      section.id_list_size = record_count * 4;
+
+      FileBuffer out;
+      out.reserve(strings_at + string_region.size() + std::size_t{record_count} * 4);
+      auto append = [&](const void* p, std::size_t n) {
+        const auto* b = static_cast<const std::byte*>(p);
+        out.insert(out.end(), b, b + n);
+      };
+      append(&header, sizeof header);
+      append(&section, sizeof section);
+      for (const WdcFieldLayout& fl : layout)
+      {
+        const std::uint16_t elem_bits = static_cast<std::uint16_t>(fl.elem_bytes * 8);
+        wire::Wdc3FieldStructure fstruct{static_cast<std::int16_t>(32 - elem_bits),
+                                         static_cast<std::uint16_t>(fl.byte_offset)};
+        append(&fstruct, sizeof fstruct);
+      }
+      for (const WdcFieldLayout& fl : layout)
+      {
+        wire::Wdc3FieldStorage fs;
+        fs.field_offset_bits = static_cast<std::uint16_t>(fl.byte_offset * 8);
+        fs.field_size_bits = static_cast<std::uint16_t>(fl.elem_bytes * 8 * fl.elements);
+        fs.storage_type = wire::Wdc3Compression::None;
+        append(&fs, sizeof fs);
+      }
+      out.insert(out.end(), record_region.begin(), record_region.end());
+      out.insert(out.end(), string_region.begin(), string_region.end());
+      for (std::uint32_t id : ids)
+        append(&id, 4);
+      return out;
       }
     }
 
@@ -613,6 +764,59 @@ namespace wowlib::db
       }
     }
 
+    /** Decode one sparse record: fields are stored uncompressed and
+        sequential — fixed fields at their natural width, strings inline
+        null-terminated (WDC3 offset-map layout). The non-inline id comes from
+        the offset_map id list (passed in @a id); relations left at default.
+        @param record the destination record.
+        @param bytes  the record's byte span (from the offset map).
+        @param id     the record's id. */
+    void decode_wdc3_sparse_record(Record& record, std::span<const std::byte> bytes,
+                                   std::uint32_t id)
+    {
+      static constexpr auto members = detail::record_members<Record>();
+      std::size_t cursor = 0;
+      template for (constexpr auto m : members)
+      {
+        constexpr bool noninline = detail::annotation<detail::noninline_spec, m>().has_value();
+        constexpr bool is_id = detail::annotation<detail::id_spec, m>().has_value();
+        if constexpr (noninline)
+        {
+          if constexpr (is_id)
+            record.[:m:] = static_cast<std::remove_cvref_t<decltype(record.[:m:])>>(id);
+        }
+        else
+          read_wdc3_sparse_field(record.[:m:], bytes, cursor);
+      }
+    }
+
+    /** Read a sequential fixed-width integer/float field. */
+    template <typename T>
+      requires ((std::integral<T> && !std::same_as<T, bool>) || std::floating_point<T>)
+    void read_wdc3_sparse_field(T& out, std::span<const std::byte> bytes, std::size_t& cursor)
+    {
+      if (cursor + sizeof(T) <= bytes.size())
+        std::memcpy(&out, bytes.data() + cursor, sizeof(T));
+      cursor += sizeof(T);
+    }
+
+    /** Read a sequential inline null-terminated string field. */
+    void read_wdc3_sparse_field(std::string& out, std::span<const std::byte> bytes,
+                                std::size_t& cursor)
+    {
+      out = read_c_string(bytes, cursor);
+      cursor += out.size() + 1;  // skip the terminator
+    }
+
+    /** Read a sequential inline array field element by element. */
+    template <typename T, std::size_t N>
+    void read_wdc3_sparse_field(std::array<T, N>& out, std::span<const std::byte> bytes,
+                                std::size_t& cursor)
+    {
+      for (T& element : out)
+        read_wdc3_sparse_field(element, bytes, cursor);
+    }
+
     /** Decode one inline integer field into a scalar member. */
     template <typename T>
       requires ((std::integral<T> && !std::same_as<T, bool>))
@@ -663,14 +867,99 @@ namespace wowlib::db
         {
           const std::uint32_t rel = static_cast<std::uint32_t>(
             img.field_raw(field, e, N, record_bytes, id, additional));
-          const std::size_t field_byte = img.field_storage[field].field_offset_bits / 8;
-          out[e] = read_c_string(img.file, record_file_offset + field_byte + rel);
+          // Each string ref is 4 bytes; element e's relative offset is measured
+          // from its own position (field start + e * 4), not the field start.
+          const std::size_t elem_byte = img.field_storage[field].field_offset_bits / 8 + e * 4;
+          out[e] = read_c_string(img.file, record_file_offset + elem_byte + rel);
         }
         else
           out[e] = static_cast<T>(wdc_signed_fit<T>(
             img.field_raw(field, e, N, record_bytes, id, additional),
             img.elem_bit_width(field, N), img.field_is_signed(field) || std::is_signed_v<T>));
       }
+    }
+
+    // --- WDC3 canonical encode helpers (mirror the decode walk) ---
+    struct WdcFieldLayout { std::uint32_t byte_offset; std::uint16_t elem_bytes; std::uint16_t elements; };
+
+    /** Encode one record into the record region; return its id.
+        @param rec        the record.
+        @param region     the record region buffer (written in place).
+        @param base       the record's byte offset within @a region.
+        @param layout     per-inline-field byte offsets/widths.
+        @param block      the string block (appended, deduped).
+        @param lookup     value -> block-offset dedup index.
+        @param strings_at the absolute file offset the string block starts at.
+        @param record_abs the record's absolute file offset.
+        @return the record's id. */
+    std::uint32_t encode_wdc3_record(const Record& rec, FileBuffer& region, std::size_t base,
+                                     const std::vector<WdcFieldLayout>& layout,
+                                     formats::StringBlock& block,
+                                     std::unordered_map<std::string, std::uint32_t>& lookup,
+                                     std::size_t strings_at, std::size_t record_abs) const
+    {
+      static constexpr auto members = detail::record_members<Record>();
+      std::uint32_t id = 0;
+      std::size_t field = 0;
+      template for (constexpr auto m : members)
+      {
+        constexpr bool noninline = detail::annotation<detail::noninline_spec, m>().has_value();
+        constexpr bool is_id = detail::annotation<detail::id_spec, m>().has_value();
+        if constexpr (noninline)
+        {
+          if constexpr (is_id)
+            id = static_cast<std::uint32_t>(rec.[:m:]);
+        }
+        else
+        {
+          const std::size_t pos = base + layout[field].byte_offset;
+          const std::size_t abs = record_abs + layout[field].byte_offset;
+          encode_wdc3_field(rec.[:m:], region, pos, block, lookup, strings_at, abs);
+          ++field;
+        }
+      }
+      return id;
+    }
+
+    /** Write a fixed-width integer/float field into the record region. */
+    template <typename T>
+      requires ((std::integral<T> && !std::same_as<T, bool>) || std::floating_point<T>)
+    void encode_wdc3_field(const T& value, FileBuffer& region, std::size_t pos,
+                           formats::StringBlock&, std::unordered_map<std::string, std::uint32_t>&,
+                           std::size_t, std::size_t) const
+    {
+      std::memcpy(region.data() + pos, &value, sizeof(T));
+    }
+
+    /** Write a string field as a WDC2+ relative offset into the string block. */
+    void encode_wdc3_field(const std::string& value, FileBuffer& region, std::size_t pos,
+                           formats::StringBlock& block,
+                           std::unordered_map<std::string, std::uint32_t>& lookup,
+                           std::size_t strings_at, std::size_t field_abs) const
+    {
+      std::uint32_t block_off = 0;
+      if (const auto it = lookup.find(value); it != lookup.end())
+        block_off = it->second;
+      else
+      {
+        block_off = block.add(value);
+        lookup.emplace(value, block_off);
+      }
+      const std::uint32_t rel = static_cast<std::uint32_t>(strings_at + block_off - field_abs);
+      std::memcpy(region.data() + pos, &rel, 4);
+    }
+
+    /** Write an array field element by element. */
+    template <typename T, std::size_t N>
+    void encode_wdc3_field(const std::array<T, N>& value, FileBuffer& region, std::size_t pos,
+                           formats::StringBlock& block,
+                           std::unordered_map<std::string, std::uint32_t>& lookup,
+                           std::size_t strings_at, std::size_t field_abs) const
+    {
+      constexpr std::size_t elem = std::same_as<T, std::string> ? 4 : sizeof(T);
+      for (std::size_t e = 0; e < N; ++e)
+        encode_wdc3_field(value[e], region, pos + e * elem, block, lookup, strings_at,
+                          field_abs + e * elem);
     }
 
     /** Sign-extend @a raw from @a bits to a full width when @a is_signed and the
@@ -879,6 +1168,9 @@ namespace wowlib::db
     FileBuffer wdb2_index_;           /**< Preserved WDB2 id-index block, verbatim. */
     FileBuffer wdb2_copy_;            /**< Preserved WDB2 copy table, verbatim. */
     std::vector<EncryptedSection> encrypted_; /**< Encrypted WDC sections skipped on read. */
+    std::uint32_t wdc_table_hash_ = 0;   /**< Preserved WDC3 header table_hash. */
+    std::uint32_t wdc_layout_hash_ = 0;  /**< Preserved WDC3 header layout_hash. */
+    std::uint32_t wdc_locale_ = 0;       /**< Preserved WDC3 header locale. */
 
     /** The original string-block offset of every string field, row-major in
         record then schema order — the byte-perfect write-back journal. */

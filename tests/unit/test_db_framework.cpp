@@ -354,6 +354,54 @@ TEST_CASE("db: WDC3 signed field bit extension", "[db]")
 
 namespace
 {
+  // A BfA+ (WDC3-era) record: non-inline id, strings, floats, arrays, signed
+  // and narrow ints — the mix a canonical write must round-trip.
+  struct WdcRecord
+  {
+    static constexpr ClientVersion version = versions::shadowlands;
+    static constexpr std::string_view table_name = "WdcUnitTest";
+
+    [[=db::id, =db::noninline]]
+    std::int32_t id = 0;
+
+    std::string name;
+    float scale = 0.0f;
+    std::array<std::uint16_t, 3> flags{};
+    std::int8_t bias = 0;
+    std::array<std::string, 2> tags{};
+
+    bool operator==(const WdcRecord&) const = default;
+  };
+}
+
+TEST_CASE("db: a fresh WDC3 table writes and semantically round-trips", "[db]")
+{
+  db::Table<WdcRecord> table;
+  table.records.push_back(WdcRecord{.id = 100, .name = "Alpha", .scale = 2.5f,
+                                    .flags = {1, 2, 3}, .bias = -7, .tags = {"x", "yy"}});
+  table.records.push_back(WdcRecord{.id = 5, .name = "", .scale = -0.25f,
+                                    .flags = {0, 0, 65535}, .bias = 42, .tags = {"", "z"}});
+  table.records.push_back(WdcRecord{.id = 999, .name = "Alpha", .scale = 0.0f,  // dedup "Alpha"
+                                    .flags = {9, 9, 9}, .bias = 0, .tags = {"x", "x"}});
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+  CHECK(std::memcmp(written->data(), "WDC3", 4) == 0);
+
+  db::Table<WdcRecord> reread;
+  REQUIRE(reread.read(*written).has_value());
+  CHECK(reread.fully_decoded());
+  REQUIRE(reread.records.size() == 3);
+  CHECK(reread.records == table.records);
+
+  // Non-inline id came back through the id_list; a signed negative survived.
+  CHECK(reread.records[0].id == 100);
+  CHECK(reread.records[0].bias == -7);
+  CHECK(reread.records[1].flags[2] == 65535);
+}
+
+namespace
+{
   // A Cataclysm-era record: single already-localized string column (no
   // LocString), so its WDB2 record stride is small and easy to hand-build.
   struct CataRecord

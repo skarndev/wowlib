@@ -179,21 +179,45 @@ The casc test's WDC3||WDC4 check is just defensive.
   (cheap, no per-table templates) + typed spot-checks on ManifestInterfaceData/
   ChrRaces/SpellName(encrypted). The FULL 830-table typed sweep is NOT baked in
   (one TU = ~2min compile); it lives as the scratch tool.
-- **Known limits**: (a) sparse/offset-map tables (flag 0x01, 4 files) →
-  NotImplemented; (b) WDC relationship block not parsed; (c) WDC WRITE not
-  implemented (write_as returns NotImplemented for wdc3_magic); (d) no TACT
-  decryption. GOTCHA: read_wdc3's decode body is `if constexpr (version >=
+- GOTCHA: read_wdc3/write_wdc3 bodies are `if constexpr (version >=
   builds::Cata)`-guarded — pre-Cata records carry LocString members the WDC
   field overloads don't model, and those clients never ship WDC3, so the body
   must not instantiate for them.
 
+## Stage 3b — sparse decode + WDC3 write (2026-07-29)
+
+- **Sparse/offset-map decode** (flag 0x01) shipped. Sparse records are located
+  by the offset_map ({uint32 abs offset, uint16 size}), id from
+  offset_map_ids, and fields are UNCOMPRESSED + SEQUENTIAL — fixed fields at
+  natural width, strings inline null-terminated; field_storage bit offsets do
+  NOT apply (decode_wdc3_sparse_record walks a byte cursor). Validated on
+  spell.db2 (95204 records + 40 encrypted sections): id=5 → "Instantly Kills
+  the target.", id=133 (Fireball) → "Throws a fiery ball…". Full sweep now
+  **829/829 present tables decode, 0 NotImplemented, 0 errors**.
+- **WDC3 canonical WRITE** shipped (write_wdc3). A canonical single-section,
+  non-sparse re-encode: every field storage_type None at natural byte width,
+  non-inline id in the id_list, strings in a per-section block via WDC2+
+  relative offsets. NOT byte-identical (the guarantee is SEMANTIC: write →
+  re-read decodes to identical values). Validated: ManifestInterfaceData
+  (113346 rec) and ChrRaces (arrays/pallet/bitpacked-signed) both re-decode
+  EQUAL — so the compression-kind decoders are proven correct by round-trip.
+  A table with encrypted sections is REFUSED (InvalidEntityState — its
+  encrypted records were never decoded, so re-encode would lose them).
+  fresh_magic now returns wdc3_magic for BfA..pre-DF, so fresh tables are
+  writable + unit-testable without a client (synthetic WdcRecord test).
+- BUG fixed during write bring-up: string-ARRAY elements store their relative
+  offset from their OWN 4-byte position (field_byte + e*4), not the field
+  start — the read side must add e*4 too (was resolving all elements from the
+  field start). Only affects multi-string-array columns.
+- **Remaining limits**: WDC relationship block still not parsed (rare); WDC
+  write refuses encrypted tables; no TACT decryption; WDC1/WDC4/WDC5 codecs
+  absent (fresh_magic → NotImplemented for legion/DF+).
+
 ## Next stages (plan §Stages)
 
-3b. WDC3 sparse/offset-map decode (4 files) + relationship block; then WDC1
-   (7.3.5) — no local client, synthetic.
-4. WDC canonical writes + semantic corpus round-trip.
-5. WDC4 + WDC5 (DF+; no local clients; synthetic). WDC4 = WDC3 + encrypted_status
-   table; WDC5 = + versionNum/schemaString header prefix.
+5. WDC1 (7.3.5) + WDC4 + WDC5 (DF+; no local clients; synthetic). WDC4 = WDC3 +
+   encrypted_status table; WDC5 = + versionNum/schemaString header prefix.
 6. Bindings (weld via dbdgen-emitted shards into the single module) + docs.
-7. Deferred: TACT keys (Salsa20 + CascLib), DBCD cross-validation script,
-   lazy/columnar decode, hotfix cache (DBCache.bin) out of scope.
+7. Deferred: WDC relationship block parse; TACT keys (Salsa20 + CascLib), DBCD
+   cross-validation script, lazy/columnar decode, hotfix cache (DBCache.bin)
+   out of scope.

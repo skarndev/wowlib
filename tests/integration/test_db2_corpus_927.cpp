@@ -9,6 +9,7 @@
 
 #include <wowlib/db/tables/chr_races.hpp>
 #include <wowlib/db/tables/manifest_interface_data.hpp>
+#include <wowlib/db/tables/spell.hpp>
 #include <wowlib/db/tables/spell_name.hpp>
 #include <wowlib/db/wire/wdc3.hpp>
 #include <wowlib/fs/casc/casc_storage.hpp>
@@ -151,6 +152,43 @@ TEST_CASE("9.2.7: ChrRaces decodes fully (compression kinds, arrays)",
   CHECK(races.records.size() >= 20);
 }
 
+TEST_CASE("9.2.7: Spell (sparse/offset-map) decodes inline strings by id",
+          "[integration][db]")
+{
+  const auto clients = tests::require_clients_dir();
+  const auto listfile_csv = tests::require_listfile();
+  auto listfile = CsvListfile::load(listfile_csv);
+  REQUIRE(listfile.has_value());
+  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+                                    .build = 45745});
+  REQUIRE(storage.has_value());
+
+  const auto fdid = listfile->path_to_fdid("dbfilesclient/spell.db2");
+  REQUIRE(fdid.has_value());
+  const auto data = storage->read_file(FileKey{*fdid});
+  REQUIRE(data.has_value());
+
+  // spell.db2 is sparse (flag 0x05) with 40 encrypted sections + one large
+  // unencrypted section of inline null-terminated description strings.
+  db::tables::Spell<versions::shadowlands> spells;
+  REQUIRE(spells.read(*data).has_value());
+  CHECK(spells.records.size() > 50'000);
+  CHECK_FALSE(spells.encrypted_sections().empty());
+
+  const auto by_id = [&](std::uint32_t id) {
+    return std::ranges::find_if(spells.records, [&](const auto& r) {
+      return static_cast<std::uint32_t>(r.id) == id;
+    });
+  };
+  const auto instakill = by_id(5);
+  REQUIRE(instakill != spells.records.end());
+  CHECK(instakill->description.starts_with("Instantly Kills the target."));
+  // Spell 133 is Fireball — its description is stable across builds.
+  const auto fireball = by_id(133);
+  REQUIRE(fireball != spells.records.end());
+  CHECK(fireball->description.find("fiery ball") != std::string::npos);
+}
+
 TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
           "[integration][db]")
 {
@@ -174,5 +212,47 @@ TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
   {
     CHECK_FALSE(spells.fully_decoded());
     CHECK(spells.encrypted_sections().front().key_hash != 0);
+    // An encrypted table cannot be losslessly re-encoded.
+    const auto written = spells.write();
+    REQUIRE_FALSE(written.has_value());
+    CHECK(written.error().code == ErrorCode::InvalidEntityState);
   }
+}
+
+TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
+          "[integration][db]")
+{
+  const auto clients = tests::require_clients_dir();
+  const auto listfile_csv = tests::require_listfile();
+  auto listfile = CsvListfile::load(listfile_csv);
+  REQUIRE(listfile.has_value());
+  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+                                    .build = 45745});
+  REQUIRE(storage.has_value());
+
+  // A WDC3 write is a canonical re-encode (not byte-identical); the guarantee
+  // is that re-reading it yields identical values. ChrRaces exercises pallet,
+  // bitpacked-signed and array columns, so an equal re-decode proves those
+  // compression kinds decode correctly.
+  const auto check = [&](std::string_view path, auto table) {
+    const auto fdid = listfile->path_to_fdid(path);
+    REQUIRE(fdid.has_value());
+    const auto data = storage->read_file(FileKey{*fdid});
+    REQUIRE(data.has_value());
+
+    REQUIRE(table.read(*data).has_value());
+    REQUIRE(table.fully_decoded());
+    const auto written = table.write();
+    REQUIRE(written.has_value());
+    CHECK(std::memcmp(written->data(), "WDC3", 4) == 0);
+
+    decltype(table) reread;
+    REQUIRE(reread.read(*written).has_value());
+    CHECK(reread.records.size() == table.records.size());
+    CHECK(reread.records == table.records);
+  };
+
+  check("dbfilesclient/manifestinterfacedata.db2",
+        db::tables::ManifestInterfaceData<versions::shadowlands>{});
+  check("dbfilesclient/chrraces.db2", db::tables::ChrRaces<versions::shadowlands>{});
 }
