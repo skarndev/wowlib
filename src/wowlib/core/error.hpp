@@ -41,7 +41,11 @@ namespace wowlib
     OffsetOutOfBounds,   /**< An offset array (M2Array) points outside its base buffer. */
     InvalidEntityState,  /**< An entity's members disagree (e.g. a stored count vs baked satellites). */
     FormatVersionMismatch,    /**< The file's version chunk disagrees with the requested version. */
-    UnsupportedClientVersion  /**< No format instantiation exists for the requested client version. */
+    UnsupportedClientVersion, /**< No format instantiation exists for the requested client version. */
+
+    TableTruncated,      /**< A client-database header, record block or satellite block overruns the file. */
+    TableMagicUnknown,   /**< A client-database magic wowlib does not support for the requested version. */
+    SchemaMismatch       /**< A client-database record layout disagrees with the generated WoWDBDefs schema. */
   };
 
   /** The enumerator spelling of @a code, obtained via reflection.

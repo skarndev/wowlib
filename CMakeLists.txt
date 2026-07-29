@@ -8,6 +8,7 @@ option(WOWLIB_BUILD_PYTHON "Build the Python 3.13 extension (nanobind, stable AB
 
 include(cmake/CompilerSettings.cmake)
 include(cmake/Dependencies.cmake)
+include(cmake/DbTables.cmake)
 
 add_library(wowlib STATIC
   src/wowlib/core/path.cpp

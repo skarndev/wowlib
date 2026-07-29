@@ -15,6 +15,7 @@ add_executable(wowlib_tests
   unit/test_wdl_tiles.cpp
   unit/test_adt_wire_layout.cpp
   unit/test_convert.cpp
+  unit/test_db_framework.cpp
   unit/test_csv_listfile.cpp
   unit/test_fdid_allocator.cpp
   unit/test_listfile_concurrency.cpp
@@ -33,6 +34,18 @@ add_executable(wowlib_tests
   integration/test_adt_roundtrip.cpp
 )
 target_link_libraries(wowlib_tests PRIVATE wowlib Catch2::Catch2WithMain)
+
+if(WOWLIB_DB_TABLES)
+  target_sources(wowlib_tests PRIVATE
+    integration/test_dbc_corpus_112.cpp
+    integration/test_dbc_corpus_243.cpp
+    integration/test_dbc_corpus_335.cpp)
+  target_link_libraries(wowlib_tests PRIVATE wowlib_db_tables)
+  add_test(NAME dbdgen_unit
+    COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${CMAKE_SOURCE_DIR}/tools/dbdgen"
+            "${Python3_EXECUTABLE}" -m unittest discover
+            -s "${CMAKE_SOURCE_DIR}/tools/dbdgen/tests")
+endif()
 target_compile_options(wowlib_tests PRIVATE ${WOWLIB_CXX_FLAGS})
 target_compile_definitions(wowlib_tests PRIVATE
   WOWLIB_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
