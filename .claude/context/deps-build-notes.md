@@ -93,3 +93,31 @@ signature, and the *next* page-in from that file kills the process with SIGKILL
 last, e.g. `gc.collect()`). lldb-attached processes are immune, which makes it
 extra confusing. Rule: `rm dest && cp src dest` (fresh inode) whenever
 refreshing the venv extension or stubs.
+## Bindings build speed & incrementality (2026-07-30)
+The 905-table Release bindings build is heavy: one shard TU (~28 tables x 4 eras
+of weld_type reflection/instantiation) is ~1 min at -O2 (measured: 57-table
+shard = 123s -O2 / 101s -O1 / 83s -O0; `-fsyntax-only` 45s, so ~60% is
+codegen+optimization, ~40% frontend). It parallelizes perfectly across shards.
+- **ALWAYS build via the Ninja preset** — `cmake --preset gcc16-bindings-release`
+  then `cmake --build --preset gcc16-bindings-release`. A hand-rolled
+  `cmake -B build/release ...` defaults to **Unix Makefiles**, and `cmake --build`
+  does NOT pass `-j` to make → single-threaded (16 shards x 123s serial ≈ 33 min;
+  that was the "half-hour build"). Ninja auto-parallelizes → ~4-6 min.
+- **Incrementality is already good — the db shards are ISOLATED from the world
+  formats.** A shard's 242 transitive headers pull only
+  `formats/common/version_range.hpp`; touching an ADT/WMO/M2/WDT/WDL header does
+  NOT rebuild any db shard (verified with `g++ -M`). Editing a db *table* header
+  rebuilds only its one shard; editing `db/table.hpp` or a codec header rebuilds
+  ALL shards (the shared facade — unavoidable, but rare).
+- **PCH does NOT help** (measured: identical time with/without a precompiled
+  `db_shard.hpp`) — the cost is per-shard reflection/instantiation of the tables,
+  not parsing the shared prologue. Don't add one.
+- `WOWLIB_DB_SHARDS` (default 32) trades parallel core-utilization vs incremental
+  blast radius vs a little redundant prologue parsing; keep it a small multiple of
+  the core count. The release preset uses `-O2` (not -O3) — the bindings are
+  registration glue, so -O2 compiles ~18% faster per shard for negligible runtime
+  cost. See [[release-build-gotchas]] (memory) for the -Os/NOMINSIZE trap.
+- To move a build dir between generators (Makefiles<->Ninja), the FetchContent
+  `_deps/*-subbuild` caches are generator-specific: `rm -rf _deps/*-subbuild
+  _deps/*-build CMakeCache.txt CMakeFiles` but KEEP `_deps/*-src` (downloaded
+  sources) to reconfigure without re-downloading storm/casc/welder/nanobind.

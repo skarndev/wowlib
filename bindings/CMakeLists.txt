@@ -64,6 +64,33 @@ if(WOWLIB_BUILD_PYTHON)
   # The shards do not exist at configure time; mark them GENERATED so CMake does
   # not look for them on disk (their producer is the wowlib_dbdgen command).
   set_source_files_properties(${WOWLIB_DB_SHARD_SOURCES} PROPERTIES GENERATED TRUE)
+
+  # MEMORY-BOUND BUILD: every wowlib_py TU is reflection-heavy — wowlib_module.cpp
+  # peaks at ~5.6 GB, a db shard ~2.5-3.5 GB. Ninja's default (cores+2) parallelism
+  # oversubscribes RAM (11 x ~3 GB >> 18 GB here) and the build thrashes into swap,
+  # inflating each compile 5-8x (a 2-min shard becomes 15 min). A Ninja JOB POOL
+  # caps the CONCURRENT wowlib_py compiles to what physical RAM holds (~3.5 GB per
+  # job), while links and lighter targets still run at full -j. Adaptive, so it
+  # right-sizes on any machine; overridable via WOWLIB_PY_COMPILE_JOBS.
+  if(NOT DEFINED WOWLIB_PY_COMPILE_JOBS)
+    cmake_host_system_information(RESULT _wowlib_ram QUERY TOTAL_PHYSICAL_MEMORY)   # MB
+    cmake_host_system_information(RESULT _wowlib_cores QUERY NUMBER_OF_LOGICAL_CORES)
+    math(EXPR WOWLIB_PY_COMPILE_JOBS "${_wowlib_ram} / 3500")
+    if(WOWLIB_PY_COMPILE_JOBS LESS 2)
+      set(WOWLIB_PY_COMPILE_JOBS 2)
+    endif()
+    if(WOWLIB_PY_COMPILE_JOBS GREATER _wowlib_cores)
+      set(WOWLIB_PY_COMPILE_JOBS ${_wowlib_cores})
+    endif()
+  endif()
+  message(STATUS "wowlib_py reflection-heavy compiles capped to "
+                 "${WOWLIB_PY_COMPILE_JOBS} concurrent (memory-bound; Ninja job pool)")
+  set_property(GLOBAL APPEND PROPERTY JOB_POOLS wowlib_py_compile=${WOWLIB_PY_COMPILE_JOBS})
+  set_target_properties(wowlib_py PROPERTIES JOB_POOL_COMPILE wowlib_py_compile)
+  # opaque_gen.cpp reflects the whole umbrella too (~5 GB); pool it with the rest.
+  if(TARGET wowlib_opaque_gen)
+    set_target_properties(wowlib_opaque_gen PROPERTIES JOB_POOL_COMPILE wowlib_py_compile)
+  endif()
   # python/ for the quoted glue includes; the binary dir for the generated
   # wowlib.opaque.hpp; the db_bindings dir for the generated db_shards.hpp; and a
   # dependency so all of it is emitted before the module compiles.

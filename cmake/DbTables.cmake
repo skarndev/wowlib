@@ -24,7 +24,13 @@ else()
 endif()
 set(WOWLIB_DB_ERAS "${_wowlib_default_eras}"
     CACHE STRING "Comma-separated era list dbdgen generates tables for")
-set(WOWLIB_DB_SHARDS "16" CACHE STRING
+# One binding shard is a heavy TU (~28 tables x 4 eras of reflection/instantiation
+# ~ 1 min at -O2), so the count trades three things: parallel core utilization
+# (want >= a small multiple of cores so the tail wave stays balanced), the
+# incremental blast radius (editing one table rebuilds only its shard), and a
+# little redundant prologue parsing per extra shard. 32 balances well on 8-16
+# cores; raise it for finer incrementals on a big machine.
+set(WOWLIB_DB_SHARDS "32" CACHE STRING
     "Number of Python binding-shard translation units (parallel compile)")
 # Pinned WoWDBDefs master of 2026-07-29.
 set(WOWLIB_DBDEFS_PIN "61db72dc2fcace61b086303cc2a2b95c7d42828a")
