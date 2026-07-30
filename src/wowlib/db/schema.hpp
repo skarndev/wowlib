@@ -124,12 +124,14 @@ namespace wowlib::db
     {
       using element = T;
       static constexpr std::size_t extent = 1;
+      static constexpr bool is_array = false;
     };
     template <typename T, std::size_t N>
     struct element_traits<std::array<T, N>>
     {
       using element = T;
       static constexpr std::size_t extent = N;
+      static constexpr bool is_array = true;
     };
 
     /** Whether every byte of @a bytes is zero (an empty span counts as zero).

@@ -1,20 +1,21 @@
 #pragma once
 
 /** @file
-    The WDC3 wire format — the .db2 of the BfA 8.1 .. early-Dragonflight era
+    WDC3 — the .db2 format of the BfA 8.1 .. early-Dragonflight era
     (8.1.0.28048 .. 10.1.0.48480); the format of the entire 9.2.7 corpus (survey
     2026-07-29, db2-927-survey.md). WDC3 is section-based and column-compressed:
     a top header, per-section headers, a field-structure table, a
     field-storage-info table describing how each column is packed (none /
-    bitpacked / common / pallet / pallet-array / bitpacked-signed), shared
-    pallet and common-data blocks, then per-section record/string/id-list/
-    copy-table/offset-map/relationship blocks.
+    bitpacked / common / pallet / pallet-array / bitpacked-signed), shared pallet
+    and common-data blocks, then per-section record/string/id-list/copy-table/
+    offset-map/relationship blocks.
 
-    This header carries the wire structs and a structural parser (Wdc3Image)
-    that locates every block and decodes individual field values; the typed
-    per-record decode onto a generated schema lives in table.hpp. Encrypted
-    sections (tact_key_hash != 0, no local key) are located and PRESERVED but
-    their records are not decoded — see Wdc3Image::sections. */
+    This header carries the binary structs and a structural parser (Wdc3Image)
+    that locates every block and decodes individual field values, plus the
+    NON-templated codec entry points; the codec (wdc3.cpp) drives records through
+    the RecordSink / RecordSource so it compiles once, not per generated table.
+    Encrypted sections (tact_key_hash != 0, no local key) are located and
+    PRESERVED but their records are not decoded — see Wdc3Image::sections. */
 
 #include <cstddef>
 #include <cstdint>
@@ -23,10 +24,12 @@
 #include <type_traits>
 #include <vector>
 
+#include <wowlib/core/buffer.hpp>
 #include <wowlib/core/error.hpp>
+#include <wowlib/db/codec.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 
-namespace wowlib::db::wire
+namespace wowlib::db
 {
   /** The WDC3 magic as memcpy'd off the file front (the bytes "WDC3"). */
   inline constexpr std::uint32_t wdc3_magic =
@@ -158,10 +161,10 @@ namespace wowlib::db::wire
     std::size_t limit_;
   };
 
-  /** A little-endian bit writer over a record buffer — the encode counterpart
-      of BitReader. write() OVERWRITES (sets and clears each bit), so it works
-      on a zeroed buffer (canonical encode) and for patching an existing record
-      in place (edit rebuild) alike. */
+  /** A little-endian bit writer over a record buffer — the encode counterpart of
+      BitReader. write() OVERWRITES (sets and clears each bit), so it works on a
+      zeroed buffer (canonical encode) and for patching an existing record in
+      place (edit rebuild) alike. */
   class BitWriter
   {
   public:
@@ -170,8 +173,8 @@ namespace wowlib::db::wire
     BitWriter(std::byte* base, std::size_t limit) : base_(base), limit_(limit) {}
 
     /** Write the low @a bits of @a value starting at absolute bit offset
-        @a bit_offset, overwriting whatever was there. Bits that would overrun
-        the buffer are dropped.
+        @a bit_offset, overwriting whatever was there. Bits that would overrun the
+        buffer are dropped.
         @param bit_offset the starting bit position within the record.
         @param bits       the field width in bits (<= 64).
         @param value      the value whose low @a bits are written. */
@@ -210,9 +213,9 @@ namespace wowlib::db::wire
     std::uint32_t string_base = 0;          /**< Absolute file offset the section's strings start at. */
   };
 
-  /** A parsed WDC3 file: the header, shared tables, and located sections. The
-      raw file span is retained so string references (which are file-absolute
-      after back-conversion) resolve. */
+  /** A parsed WDC3 file: the header, shared tables, and located sections. The raw
+      file span is retained so string references (which are file-absolute after
+      back-conversion) resolve. */
   struct Wdc3Image
   {
     Wdc3Header header{};
@@ -308,8 +311,8 @@ namespace wowlib::db::wire
     }
 
     /** The bit width of one element of inline field @a field: for the inline
-        kinds, the field's total width divided across @a array_count elements;
-        for pallet/common the natural 32.
+        kinds, the field's total width divided across @a array_count elements; for
+        pallet/common the natural 32.
         @param field       the field index.
         @param array_count the column's element count.
         @return the element width in bits. */
@@ -390,108 +393,30 @@ namespace wowlib::db::wire
     }
   };
 
-  /** Parse @a data; see Wdc3Image::parse. Defined inline below. */
-  inline Result<Wdc3Image> Wdc3Image::parse(std::span<const std::byte> data)
-  {
-    auto fail = [](std::string msg) {
-      return std::unexpected(Error{ErrorCode::TableTruncated, std::move(msg)});
-    };
-    Wdc3Image img;
-    img.file = data;
-    if (data.size() < sizeof(Wdc3Header))
-      return fail("WDC3: file smaller than its header");
-    std::memcpy(&img.header, data.data(), sizeof(Wdc3Header));
-    const Wdc3Header& h = img.header;
-    if (h.magic != wdc3_magic)
-      return fail("WDC3: bad magic");
+  /** Decode a WDC3 image onto the schema: every unencrypted section's records
+      (inline fields via their compression, the id from the id_list or an inline
+      column, strings via the WDC2+ relative offset), copy-table rows as clones.
+      Encrypted sections are reported (state.encrypted) but not decoded, and the
+      raw image is kept for a verbatim re-emit.
+      @param info  the table identity + schema.
+      @param data  the whole file content.
+      @param sink  the decode target.
+      @param state the preserved-state store.
+      @return nothing, or why the image does not decode. */
+  Result<void> read_wdc3(const TableInfo& info, std::span<const std::byte> data, RecordSink& sink,
+                         TableState& state);
 
-    std::size_t pos = sizeof(Wdc3Header);
-    const std::size_t sections_bytes = std::size_t{h.section_count} * sizeof(Wdc3SectionHeader);
-    const std::size_t field_struct_bytes = std::size_t{h.field_count} * sizeof(Wdc3FieldStructure);
-    if (data.size() < pos + sections_bytes + field_struct_bytes + h.field_storage_info_size
-                        + h.pallet_data_size + h.common_data_size)
-      return fail("WDC3: header tables overrun the file");
-
-    std::vector<Wdc3SectionHeader> section_headers(h.section_count);
-    for (std::uint32_t s = 0; s < h.section_count; ++s)
-      std::memcpy(&section_headers[s], data.data() + pos + std::size_t{s} * sizeof(Wdc3SectionHeader),
-                  sizeof(Wdc3SectionHeader));
-    pos += sections_bytes;
-
-    img.field_structure.resize(h.field_count);
-    if (h.field_count)
-      std::memcpy(img.field_structure.data(), data.data() + pos, field_struct_bytes);
-    pos += field_struct_bytes;
-
-    const std::size_t storage_count = h.field_storage_info_size / sizeof(Wdc3FieldStorage);
-    img.field_storage.resize(storage_count);
-    if (storage_count)
-      std::memcpy(img.field_storage.data(), data.data() + pos, h.field_storage_info_size);
-    pos += h.field_storage_info_size;
-
-    img.pallet_data = data.subspan(pos, h.pallet_data_size);
-    pos += h.pallet_data_size;
-    img.common_data = data.subspan(pos, h.common_data_size);
-    pos += h.common_data_size;
-
-    // Per-section blocks. Records/strings live at section.file_offset; the
-    // id_list/copy_table/offset_map/relationship blocks follow in that order,
-    // contiguously after the record+string (or sparse record) region.
-    const bool sparse = (h.flags & wdc3_flag_sparse) != 0;
-    img.sections.reserve(h.section_count);
-    for (const Wdc3SectionHeader& sh : section_headers)
-    {
-      Wdc3Section sec;
-      sec.header = sh;
-      sec.encrypted = sh.tact_key_hash != 0;
-
-      std::size_t p = sh.file_offset;
-      if (p > data.size())
-        return fail("WDC3: section file_offset past end");
-
-      if (sparse)
-      {
-        // Sparse: records run from file_offset to offset_records_end; strings
-        // are inline (null-terminated) within that region.
-        if (sh.offset_records_end < sh.file_offset || sh.offset_records_end > data.size())
-          return fail("WDC3: sparse offset_records_end out of range");
-        sec.records = data.subspan(p, sh.offset_records_end - p);
-        sec.string_base = sh.file_offset;
-        p = sh.offset_records_end;
-      }
-      else
-      {
-        const std::size_t rec_bytes = std::size_t{sh.record_count} * h.record_size;
-        if (p + rec_bytes + sh.string_table_size > data.size())
-          return fail("WDC3: section records+strings overrun the file");
-        sec.records = data.subspan(p, rec_bytes);
-        sec.string_base = static_cast<std::uint32_t>(p + rec_bytes);
-        sec.strings = data.subspan(p + rec_bytes, sh.string_table_size);
-        p += rec_bytes + sh.string_table_size;
-      }
-
-      auto take = [&](std::size_t n, std::span<const std::byte>& out) -> bool {
-        if (p + n > data.size())
-          return false;
-        out = data.subspan(p, n);
-        p += n;
-        return true;
-      };
-
-      if (!take(sh.id_list_size, sec.id_list))
-        return fail("WDC3: id_list overruns the file");
-      if (!take(std::size_t{sh.copy_table_count} * 8, sec.copy_table))
-        return fail("WDC3: copy_table overruns the file");
-      // Offset map + its id list (sparse tables).
-      if (!take(std::size_t{sh.offset_map_id_count} * 6, sec.offset_map))
-        return fail("WDC3: offset_map overruns the file");
-      if (!take(std::size_t{sh.offset_map_id_count} * 4, sec.offset_map_ids))
-        return fail("WDC3: offset_map id list overruns the file");
-      if (!take(sh.relationship_data_size, sec.relationship))
-        return fail("WDC3: relationship block overruns the file");
-
-      img.sections.push_back(std::move(sec));
-    }
-    return img;
-  }
+  /** Encode a canonical WDC3 image: one unencrypted section, integers bitpacked
+      to their minimum width, floats/string references byte-aligned, pallet/common
+      reproduced from the original compression, a re-derived copy table. Semantic
+      round-trip (write -> re-read decodes to identical values), not byte-perfect.
+      A table still holding keyless sections is re-emitted verbatim under
+      EncryptedPolicy::Preserve, or written as decoded plaintext under Drop.
+      @param info   the table identity + schema.
+      @param source the records to encode.
+      @param state  the preserved-state store.
+      @param policy keyless-section handling.
+      @return the file bytes, or why encoding failed. */
+  Result<FileBuffer> write_wdc3(const TableInfo& info, const RecordSource& source,
+                                const TableState& state, EncryptedPolicy policy);
 }

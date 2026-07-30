@@ -16,7 +16,7 @@
 #include <wowlib/db/tables/sound_kit.hpp>
 #include <wowlib/db/tables/spell.hpp>
 #include <wowlib/db/tables/spell_name.hpp>
-#include <wowlib/db/wire/wdc3.hpp>
+#include <wowlib/db/wdc3.hpp>
 #include <wowlib/fs/casc/casc_storage.hpp>
 #include <wowlib/fs/csv_listfile.hpp>
 
@@ -75,13 +75,13 @@ TEST_CASE("9.2.7: every DB2 in the corpus is a WDC3 that parses structurally",
       continue;
     std::uint32_t magic = 0;
     std::memcpy(&magic, data->data(), 4);
-    if (magic != db::wire::wdc3_magic)
+    if (magic != db::wdc3_magic)
     {
       ++other_magic;
       continue;
     }
     ++wdc3;
-    const auto img = db::wire::Wdc3Image::parse(*data);
+    const auto img = db::Wdc3Image::parse(*data);
     if (!img)
     {
       if (parse_failures.size() < 20)

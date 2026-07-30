@@ -13,7 +13,8 @@ class Target:
     """One targeted client release."""
 
     era: str  # the wowlib versions:: constant name ("vanilla")
-    suffix: str  # the CamelCase spelling used in class names ("Vanilla")
+    suffix: str  # the Expansion enumerator spelling used in class names — MUST match
+                 # core/expansion.hpp / range_suffix() exactly ("Vanilla", "TheWarWithin")
     version: Build
 
 
@@ -29,7 +30,7 @@ TARGETS: tuple[Target, ...] = (
     Target("bfa", "Bfa", (8, 3, 7, 35662)),
     Target("shadowlands", "Shadowlands", (9, 2, 7, 45745)),
     Target("dragonflight", "Dragonflight", (10, 2, 7, 55664)),
-    Target("tww", "Tww", (11, 2, 7, 65299)),
+    Target("tww", "TheWarWithin", (11, 2, 7, 65299)),
 )
 
 TARGETS_BY_ERA: dict[str, Target] = {t.era: t for t in TARGETS}

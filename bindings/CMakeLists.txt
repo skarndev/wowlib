@@ -38,7 +38,12 @@ if(WOWLIB_BUILD_PYTHON)
   # instantiations/*.cpp expand the FULL per-version entity+serializer matrix
   # (the library ships none) — one TU per format so they compile in parallel
   # with the welder walk; the other TUs include instantiations/*.hpp externs.
-  nanobind_add_module(wowlib_py STABLE_ABI
+  # NOMINSIZE: drop nanobind's default -Os. On gcc-16/macOS -Os emits the
+  # standard-library exception typeinfos (typeinfo for std::bad_alloc, ...) as
+  # STRONG per-TU symbols instead of leaving them undefined (resolved from
+  # libstdc++), so a multi-TU Release link fails with dozens of duplicate
+  # symbols. -O2/-O3 leave them undefined and link cleanly.
+  nanobind_add_module(wowlib_py STABLE_ABI NOMINSIZE
     python/wowlib_module.cpp
     python/errors.cpp
     python/buffers.cpp

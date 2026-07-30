@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-#include <wowlib/db/wire/wdbc.hpp>
+#include <wowlib/db/wdbc.hpp>
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 
 namespace wowlib::tests
@@ -34,7 +34,7 @@ namespace wowlib::tests
     std::size_t at = 0;
     while (at < common && original[at] == written[at])
       ++at;
-    db::wire::WdbcHeader header{};
+    db::WdbcHeader header{};
     std::memcpy(&header, original.data(), std::min(sizeof header, original.size()));
     std::string region = "header";
     if (at >= sizeof header + std::size_t{header.record_count} * header.record_size)

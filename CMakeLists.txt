@@ -19,6 +19,10 @@ add_library(wowlib STATIC
   src/wowlib/fs/mpq/mpq_chain.cpp
   src/wowlib/fs/mpq/mpq_storage.cpp
   src/wowlib/fs/casc/casc_storage.cpp
+  src/wowlib/db/codec_common.cpp
+  src/wowlib/db/wdbc.cpp
+  src/wowlib/db/wdb2.cpp
+  src/wowlib/db/wdc3.cpp
 )
 # The formats subsystem is header-only: entities, serializer engines and the
 # fs-level io.hpp definitions all live in headers so consumers implicitly
