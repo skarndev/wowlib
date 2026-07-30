@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    WDL object-placement chunk wire structs (namespace
+    WDL object-placement chunk binary structs (namespace
     wowlib::formats::wdl::chunks). The placements themselves reuse the shared
     map records (SMMapObjDef for MODF/MLMD-style entries, SMDoodadDef for
     MLDD; formats/common/map_placements.hpp) — this header adds the

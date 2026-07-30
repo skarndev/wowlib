@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    _fogs.wdt chunk wire structs (namespace wowlib::formats::wdt::fogs::chunks). */
+    _fogs.wdt chunk binary structs (namespace wowlib::formats::wdt::fogs::chunks). */
 
 #include <array>
 #include <cstdint>

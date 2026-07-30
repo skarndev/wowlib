@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    _lgt.wdt chunk wire structs (namespace wowlib::formats::wdt::lights::chunks):
+    _lgt.wdt chunk binary structs (namespace wowlib::formats::wdt::lights::chunks):
     the WoD point lights (MPLT), their Legion replacement (MPL2), the
     Shadowlands revision (MPL3), spot lights (MSLT) and the light texture
     animations (MLTA). */

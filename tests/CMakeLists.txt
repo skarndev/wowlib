@@ -10,10 +10,10 @@ add_executable(wowlib_tests
   unit/test_chunk_framework.cpp
   unit/test_offset_framework.cpp
   unit/test_m2_layout.cpp
-  unit/test_wmo_wire_layout.cpp
-  unit/test_wdt_wdl_wire_layout.cpp
+  unit/test_wmo_binary_layout.cpp
+  unit/test_wdt_wdl_binary_layout.cpp
   unit/test_wdl_tiles.cpp
-  unit/test_adt_wire_layout.cpp
+  unit/test_adt_binary_layout.cpp
   unit/test_convert.cpp
   unit/test_db_framework.cpp
   unit/test_csv_listfile.cpp

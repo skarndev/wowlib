@@ -54,26 +54,52 @@ The casc test's WDC3||WDC4 check is just defensive.
   array/string/locstring; annotations carry id/noninline/relation),
   `record_stride`, `field_slot_count`, `string_slot_count`, TableRecord concept
   (requires statics `version` + `table_name`).
-- `db/wire/wdbc.hpp` — WdbcHeader (20B) + `wdbc_magic` (four_cc FORWARD — DB
-  magics are plain byte sequences, unlike reversed chunk ids).
-- `db/wire/wdc3.hpp` — the WDC3 format (BfA 8.1 .. early-DF; ALL of 9.2.7).
+- **TYPE-ERASED CODEC (2026-07-30):** the format engine is NOT templated on the
+  record type. `Table<Record>` was collapsing the whole WDBC/WDB2/WDC3 engine
+  into ~176k `Table<>` symbols across the 4200 bound tables (the binding binary's
+  bulk); it is now a thin facade over non-templated codecs compiled ONCE. The
+  .so drops 497 MB → 75 MB (Release -O2), symbol table 287 → 1 MB, peak import
+  RSS 220 → 86 MB. The `db/wire/` subdir is gone — its binary structs fold into
+  the per-format codec files at `db/` root.
+- `db/codec.hpp` — the type-erasure boundary: `RecordSink` (decode target,
+  `add()` + `set_int/float/string(record, column, element)`) / `RecordSource`
+  (encode source, `get_int/get_slot/get_string`) abstract interfaces the codecs
+  drive records through by (column, element) against the runtime schema; plus
+  `TableInfo` {version, name, schema}, `TableState` (preserved decode state —
+  strings, offset journal, WDB2 blocks, WDC kinds/hashes, encrypted sections),
+  `EncryptedPolicy`/`EncryptedSection` (welded, moved here from table.hpp), and
+  the schema-derived helpers (record_stride, field_slot_count, id_is_noninline …
+  all computed at runtime from the schema span).
+- `db/record_bridge.hpp` — the ONLY per-record template: `TypedRecordSink<Record>`
+  / `TypedRecordSource<Record>` implement the bridge over a `std::vector<Record>`,
+  reflection dispatching a runtime column to the column-th member (schema columns
+  are 1:1 with members) and moving one field value across. Small member-loop
+  code per type — the residual per-table cost.
+- `db/wdbc.{hpp,cpp}` — WdbcHeader (20B) + `wdbc_magic` (four_cc FORWARD — DB
+  magics are plain byte sequences, unlike reversed chunk ids) + the non-templated
+  `read_wdbc`/`write_wdbc(TableInfo, ..., RecordSink&/Source, TableState&)`.
+- `db/wdc3.{hpp,cpp}` — the WDC3 format (BfA 8.1 .. early-DF; ALL of 9.2.7).
   `Wdc3Header` (72B), `Wdc3SectionHeader` (40B), `Wdc3FieldStructure` (4B),
   `Wdc3FieldStorage` (24B, the 6 `Wdc3Compression` kinds), a little-endian
-  `BitReader`, and `Wdc3Image` — the structural PARSER (locates every block of
-  every section) + field-value DECODER (field_raw over all compression kinds,
-  pallet/common lookups, sign width helpers). Structurally validated on the
-  full 835-file corpus (every file parses; blocks reach within 8B of EOF).
-  read_wdc3 (table.hpp) does the typed decode onto the schema.
-- `db/wire/wdb2.hpp` — Wdb2Header (48B) + `wdb2_magic`. Cata..WoD .db2.
+  `BitReader`/`BitWriter`, and `Wdc3Image` — the structural PARSER (locates every
+  block of every section) + field-value DECODER (field_raw over all compression
+  kinds, pallet/common lookups). `read_wdc3`/`write_wdc3` do the schema-driven
+  decode/canonical encode (bit packing, pallet/common re-derivation, copy-table
+  dedup) through the bridge. Structurally validated on the full 835-file corpus.
+- `db/wdb2.{hpp,cpp}` — Wdb2Header (48B) + `wdb2_magic`. Cata..WoD .db2.
   UNVERIFIED (no local client): id-index block (`int32 indices[]` +
   `int16 string_lengths[]`, 6B/id, engaged when max_id != 0) and trailing copy
   table preserved VERBATIM. Adding/removing records of an INDEXED table errors
   (InvalidEntityState — index rebuild unsupported while unverified); in-place
   record edits re-encode fine. Fresh tables emit no index block, stamp build.
+- `db/codec_detail.hpp` + `db/codec_common.cpp` — the shared fixed-stride
+  (WDBC/WDB2) inline-field decode/encode + the byte-perfect `StringPool`,
+  compiled once.
 - `db/table.hpp` — `Table<Record>`: public `records` vector + read(span)/
   read(fs,key)/write()→FileBuffer/write(fs,key) (WDL-style fs verbs), strings()
-  getter. Per-magic codecs are protected members (read_wdbc/write_wdbc,
-  read_wdb2/write_wdb2; WDC joins there). **Format dispatch**: reads sniff the
+  getter. It builds a Typed{Sink,Source} over `records` and calls the codec
+  functions with `info()` (schema + version + name) and `state_`. **Format
+  dispatch**: reads sniff the
   magic; a loaded table re-emits its source magic; a fresh table's format is
   `fresh_magic()` — by client version (pre-Cata→WDBC, Cata..WoD→WDB2, Legion+
   NotImplemented), overridable by the target path's .dbc/.db2 extension in the
@@ -147,7 +173,7 @@ The casc test's WDC3||WDC4 check is just defensive.
 
 ## Stage 2 results (2026-07-29)
 
-- WDB2 shipped (wire/wdb2.hpp + read_wdb2/write_wdb2). Synthetic-only:
+- WDB2 shipped (binary/wdb2.hpp + read_wdb2/write_wdb2). Synthetic-only:
   test_db_framework.cpp covers plain (no index), indexed+copy-table (verbatim
   round-trip), in-place edit re-encode, indexed-add rejection, fresh Cata→WDB2
   vs fresh WotLK→WDBC magic selection.
@@ -158,7 +184,7 @@ The casc test's WDC3||WDC4 check is just defensive.
 
 ## Stage 3 results — WDC3 READ (2026-07-29)
 
-- wire/wdc3.hpp + read_wdc3 (table.hpp) ship. dbdgen eras extended to ALL 11
+- binary/wdc3.hpp + read_wdc3 (table.hpp) ship. dbdgen eras extended to ALL 11
   (through tww): **1221 tables** emitted, 0 warnings.
 - **Full 9.2.7 typed decode sweep** (scratch wdc3_sweep.cpp over the shadowlands
   manifest, 830 tables): **825 decoded OK** (134 with encrypted sections
@@ -197,7 +223,7 @@ The casc test's WDC3||WDC4 check is just defensive.
 - **WDC3 canonical WRITE** shipped (write_wdc3), BITPACKED. Integer columns are
   bitpacked to the minimum width their actual values need (BitpackedSigned for
   signed columns — two's-complement low bits, sign-extended on read); floats and
-  string refs stay uncompressed 32-bit and byte-aligned. A wire::BitWriter
+  string refs stay uncompressed 32-bit and byte-aligned. A binary::BitWriter
   mirrors BitReader. plan_wdc3_fields() scans the records for per-field int
   ranges (unsigned_width/signed_width) then assigns tight bit offsets. Single
   non-sparse section, non-inline id_list, strings via WDC2+ relative offset.

@@ -57,7 +57,7 @@ def test_version_gated_members_do_not_exist_off_era():
     wotlk = root_mod.M2Root.for_version(X.Wotlk)
     assert hasattr(vanilla, "skin_profiles")
     assert not hasattr(wotlk, "skin_profiles")
-    # the derived skin count is a hidden wire field on every version:
+    # the derived skin count is a hidden binary field on every version:
     # len(m2.skins) is the source of truth
     assert not hasattr(wotlk, "num_skin_profiles")
     assert not hasattr(wotlk, "magic")

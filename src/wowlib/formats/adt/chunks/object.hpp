@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    ADT object/misc wire structs (namespace wowlib::formats::adt::chunks): the
+    ADT object/misc binary structs (namespace wowlib::formats::adt::chunks): the
     per-cell sound emitter (MCSE) and the Shadowlands doodad-set range (MWDR).
     Doodad and WMO placements (MDDF/MODF) reuse the shared SMDoodadDef/SMMapObjDef
     from common/map_placements.hpp; blend-mesh and LOD records live in lod.hpp. */

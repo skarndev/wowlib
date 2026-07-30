@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    _occ.wdt chunk wire structs (namespace wowlib::formats::wdt::occlusion::chunks). */
+    _occ.wdt chunk binary structs (namespace wowlib::formats::wdt::occlusion::chunks). */
 
 #include <cstdint>
 

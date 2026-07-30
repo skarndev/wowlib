@@ -76,9 +76,9 @@ Baked into the models as ground truth / wowdev corrections:
 ## Design
 
 - **Namespace/dir mirror** (user rule): `formats/adt/` (namespace `adt`):
-  - `boundaries.hpp` — adt_versions grid (all 11), wire version 18, layout
+  - `boundaries.hpp` — adt_versions grid (all 11), binary version 18, layout
     pivots + per-family canonicalization pivots, `AlphaFormat` context enum.
-  - `chunks/` (`adt::chunks`) wire structs by family: `header.hpp` (SMChunk
+  - `chunks/` (`adt::chunks`) binary structs by family: `header.hpp` (SMChunk
     MCNK-header, MFBO), `texture.hpp` (SMLayer/MTXF/MTXP/MTCG/MAMP + flag
     enums), `liquid.hpp` (SMLiquidChunk/SMLiquidInstance/MH2O attributes;
     MCLQ SLVert union/tiles/flow), `object.hpp` (blend-mesh MBMH/MBBB/MBNV/
@@ -109,7 +109,7 @@ Baked into the models as ground truth / wowdev corrections:
 
 ## Staging (incremental commits to main, each compiling + tested)
 
-1. WotLK monolithic: boundaries, wire structs, MapChunk (terrain sub-chunks),
+1. WotLK monolithic: boundaries, binary structs, MapChunk (terrain sub-chunks),
    MCLQ + MH2O structured, ADT<V> monolithic read/write, alpha decode; tests
    vs 3.3.5a. Delivers a working WotLK ADT.
 2. Cata+ split files: tex/obj routing, MDID/MHID, MCRD/MCRW, MTXP/MAMP/MCMT;

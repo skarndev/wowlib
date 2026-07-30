@@ -89,7 +89,7 @@ namespace wowlib::formats::adt
     lod [[=welder::doc("The Legion+ _lod.adt (low-detail geometry and liquids).")]] = 5
   };
 
-  /** The physical-file group a wire chunk (tile-level or MCNK sub-chunk) is routed
+  /** The physical-file group a binary chunk (tile-level or MCNK sub-chunk) is routed
       to on write; the monolithic file carries every group. Used by both ADT tile
       chunks and MapChunk sub-chunks via the `in_file()` annotation. */
   enum class InFile : std::uint8_t
@@ -101,7 +101,7 @@ namespace wowlib::formats::adt
 
   namespace detail
   {
-    /** Stored form of an `in_file` annotation: a wire chunk's physical-file group. */
+    /** Stored form of an `in_file` annotation: a binary chunk's physical-file group. */
     struct in_file_spec
     {
       InFile file;
@@ -116,7 +116,7 @@ namespace wowlib::formats::adt
     };
   }
 
-  /** Annotate a wire chunk member with the physical file it is routed to on write
+  /** Annotate a binary chunk member with the physical file it is routed to on write
       (the monolithic file carries every group).
       @param file the physical-file group.
       @return the annotation payload. */
@@ -668,7 +668,7 @@ namespace wowlib::formats::adt
         return declared;
       }
 
-      /** Zero the DERIVED wire fields after a portion is read: each layer's MCAL
+      /** Zero the DERIVED binary fields after a portion is read: each layer's MCAL
           offset (re-derived on write) and, on a header-bearing file, the MCNK
           header's offset/size/count fields — keeping them would make the semantic
           round-trip compare layout artifacts. ofs_height/ofs_normal are the 64-bit

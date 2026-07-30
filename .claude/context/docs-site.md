@@ -43,7 +43,7 @@ copyright). `since`/`until` are the single source of truth, so ranges never drif
 Members marked `welder::mark::exclude` (texcoords, vertex_colors) are skipped; the
 hook is fail-safe (parse error → visible note, build continues). This *replaced*
 the earlier representative-version mkdocstrings pages (entity/root/group); the
-`root-chunks`/`group-chunks` wire-struct pages remain mkdocstrings-generated.
+`root-chunks`/`group-chunks` binary-struct pages remain mkdocstrings-generated.
 
 ### 2026-07-25 sweep (user's 6-point docs request)
 - **M2 section = four pages in order**: `M2 entity` (entities.md — the compound
@@ -98,8 +98,8 @@ the earlier representative-version mkdocstrings pages (entity/root/group); the
   (declaration order + `wire_after` splices — `_wire_order()` in the m2
   config parses the anchors; the wire_order array no longer exists).
 
-### Wire int-width coverage (2026-07-25, follow-up)
-Every fixed-width integer wire member now renders `Annotated[int, uintN]`
+### Binary int-width coverage (2026-07-25, follow-up)
+Every fixed-width integer binary member now renders `Annotated[int, uintN]`
 (nanobind erases the width to a bare `int`). Fixes that got it comprehensive:
 - **`_struct_int_fields` is BRACE-AWARE**: each struct's region is brace-matched
   and its nested-struct bodies blanked, so a struct that CONTAINS one (SMOFog↦Fog,
@@ -125,7 +125,7 @@ Every fixed-width integer wire member now renders `Annotated[int, uintN]`
   (the fixed-width leaf of a scalar/vector/array/vector-of-array decl); the shell
   TXAC field annotates through it. `_apply_int_width` is the shared applier.
 - Genuinely skipped: computed getter properties (SMODoodadDef.name_index) — not
-  stored wire fields, so no size.
+  stored binary fields, so no size.
 - The shared-primitive pages get width-only StructPages via a third config,
   `common_reference_config.py` (registered in FORMAT_MODULES + the reload shim):
   a MINIMAL Format (empty sides/generic_pages/forver, `name_re=r"(?!)"`) whose
@@ -136,16 +136,16 @@ Every fixed-width integer wire member now renders `Annotated[int, uintN]`
   FDID lists + BoneFile ids/version are covered by ENTITY_SKELETON/ENTITY_BONE
   in the m2 config. Every engine pass but the int-width one no-ops for these.
 - Genuinely bare (accepted): `size()`/`name_index()` getters (size_t/derived,
-  not wire) and the NESTED `StringBlock.Entry.offset` (module `wowlib.formats`,
+  not binary) and the NESTED `StringBlock.Entry.offset` (module `wowlib.formats`,
   a `Class.Nested.field` path the flat module.class.field matcher can't reach).
 - `WMO` name_re is `WMO[A-Za-z]*?` not `+?`: the bare assembly class is
   `WMO`+version (WMOTheWarWithin) with no stem chars, so `+` never let the
   suffix genericize on the entity page.
 
 ### WMO chunk pages deduped (2026-07-25)
-The root-chunks/group-chunks pages now dedup versioned wire structs like the M2
+The root-chunks/group-chunks pages now dedup versioned binary structs like the M2
 records page (dedup_marker on ROOT_CHUNKS/GROUP_CHUNKS; both pages joined
-generic_pages). Key wrinkle vs M2 records: WMO wire structs have a welded
+generic_pages). Key wrinkle vs M2 records: WMO binary structs have a welded
 FAMILY BASE (bare `WMOBatch`/`WMOGroupHeader` beside the versioned
 `WMOBatchLegionPlus` …), M2 records do not. So `_family_anchor(fam)` returns the
 base (rank -1, already a generic name) when a family has one, else the latest
@@ -210,7 +210,7 @@ mkdocstrings `:::` directives on a REPRESENTATIVE concrete class (ADTBfaPlus,
 MapChunkCataPlus — the fullest layouts) with a prose note on version-gating, NOT
 generated field tables. `adt_reference_config.py` is a minimal `common`-style
 Format (empty sides, `name_re=(?!)`) with WIDTH-ONLY StructPages: CHUNKS
-(adt/chunks.md, the wire structs) + LIQUID (adt/entity.md, the four structured
+(adt/chunks.md, the binary structs) + LIQUID (adt/entity.md, the four structured
 liquid records, names_filter'd). Registered in FORMAT_MODULES + the reload shim +
 mkdocs nav (python/adt/{index,entity,cells,chunks}.md). Vendored
 adt_wowdev_anchors.json (extracted from the wiki HTML, HTML-entities decoded).

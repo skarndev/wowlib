@@ -9,7 +9,7 @@
     the 8.1+ MOSI) and the pre-8.3 by-name blocks MOTX/MODN (gone once the client
     stopped resolving files by name) — while the always-present chunks are the
     entity's own members. A version's WMORoot therefore carries ONLY the chunks that version
-    defines. The root wire structs live in wmo::root::chunks. */
+    defines. The root binary structs live in wmo::root::chunks. */
 
 #include <array>
 #include <cstdint>

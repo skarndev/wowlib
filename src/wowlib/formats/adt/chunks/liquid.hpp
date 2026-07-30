@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    ADT liquid wire pieces (namespace wowlib::formats::adt::chunks): the small
+    ADT liquid binary pieces (namespace wowlib::formats::adt::chunks): the small
     trivially-copyable records the structured liquid entities (adt/liquid.hpp)
     build on — the MH2O vertex-format enum and UV entry, and the legacy MCLQ
     vertex union / tile / flow records. The offset-driven MH2O and MCLQ payload

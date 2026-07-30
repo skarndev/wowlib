@@ -36,7 +36,7 @@ namespace wowlib
     BackendError,        /**< Unclassified StormLib/CascLib failure; see native_error. */
 
     ChunkTruncated,      /**< A chunk header or payload overruns the file buffer. */
-    ChunkSizeMismatch,   /**< A chunk's size disagrees with its wire struct layout. */
+    ChunkSizeMismatch,   /**< A chunk's size disagrees with its binary struct layout. */
     ChunkMissing,        /**< A chunk the format requires is absent from the file. */
     OffsetOutOfBounds,   /**< An offset array (M2Array) points outside its base buffer. */
     InvalidEntityState,  /**< An entity's members disagree (e.g. a stored count vs baked satellites). */

@@ -71,7 +71,7 @@ namespace wowlib
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/convert.hpp>
 
-// The wmo namespace must first open AFTER the common wire primitives: its
+// The wmo namespace must first open AFTER the common binary primitives: its
 // structs carry NSDMI defaults of common types (SMOHeader's CArgb ambient
 // color, CAaBox bounds), and those values convert EAGERLY when the aggregate
 // field constructor registers — declaring wmo inside the formats block above
@@ -83,7 +83,7 @@ namespace wowlib::formats
       The WMO (world map object) format: the WMO assembly and its per-version
       classes, split into submodules that mirror the C++ layout (root, root.chunks,
       group, group.chunks). The pre-declaration order is the submodule weld order —
-      within each of root/group the chunks wire structs are declared first, so they
+      within each of root/group the chunks binary structs are declared first, so they
       weld before the entities that name them as NSDMI defaults.)")]]
   wmo
   {
@@ -93,7 +93,7 @@ namespace wowlib::formats
     root
     {
       namespace
-      [[=welder::doc("WMO root-file chunk wire structs (MOHD, MOMT, lights, "
+      [[=welder::doc("WMO root-file chunk binary structs (MOHD, MOMT, lights, "
                      "doodads, fog, ambient volumes) and their flag enums.")]]
       chunks
       {
@@ -106,7 +106,7 @@ namespace wowlib::formats
     group
     {
       namespace
-      [[=welder::doc("WMO group-file chunk wire structs (the MOGP header, render "
+      [[=welder::doc("WMO group-file chunk binary structs (the MOGP header, render "
                      "batches, BSP nodes, group lights) and their flag enums.")]]
       chunks
       {
@@ -115,7 +115,7 @@ namespace wowlib::formats
   }
 }
 
-// The m2 namespace likewise first opens AFTER the common wire primitives (its
+// The m2 namespace likewise first opens AFTER the common binary primitives (its
 // records carry NSDMI defaults of common types — C3Vector pivots, CAaBox
 // bounds) and after wmo, fixing the submodule weld order. Within m2 the
 // sub-namespaces mirror the directory tree (root with its record structs,
@@ -177,7 +177,7 @@ namespace wowlib::formats
 
 // The wdt namespace opens after m2 for the same submodule-order reason; its
 // sub-namespaces (root, occlusion, lights, fogs, mpv — mirroring the
-// directory tree) each pre-declare their chunks wire structs first, so they
+// directory tree) each pre-declare their chunks binary structs first, so they
 // weld before the entities that name them as NSDMI defaults.
 namespace wowlib::formats
 {
@@ -195,7 +195,7 @@ namespace wowlib::formats
     root
     {
       namespace
-      [[=welder::doc("WDT main-file chunk wire structs (the MPHD map header, MAIN "
+      [[=welder::doc("WDT main-file chunk binary structs (the MPHD map header, MAIN "
                      "tile table, MAID FileDataIDs) and their flag enums.")]]
       chunks
       {
@@ -207,7 +207,7 @@ namespace wowlib::formats
     occlusion
     {
       namespace
-      [[=welder::doc("_occ.wdt chunk wire structs (the MAOI tile index).")]]
+      [[=welder::doc("_occ.wdt chunk binary structs (the MAOI tile index).")]]
       chunks
       {
       }
@@ -218,7 +218,7 @@ namespace wowlib::formats
     lights
     {
       namespace
-      [[=welder::doc("_lgt.wdt chunk wire structs (point lights, spot lights, "
+      [[=welder::doc("_lgt.wdt chunk binary structs (point lights, spot lights, "
                      "light animations).")]]
       chunks
       {
@@ -231,7 +231,7 @@ namespace wowlib::formats
     fogs
     {
       namespace
-      [[=welder::doc("_fogs.wdt chunk wire structs (volumetric fogs and their "
+      [[=welder::doc("_fogs.wdt chunk binary structs (volumetric fogs and their "
                      "extensions).")]]
       chunks
       {
@@ -243,7 +243,7 @@ namespace wowlib::formats
     mpv
     {
       namespace
-      [[=welder::doc("_mpv.wdt chunk wire structs (particulate points and "
+      [[=welder::doc("_mpv.wdt chunk binary structs (particulate points and "
                      "bounds).")]]
       chunks
       {
@@ -253,18 +253,18 @@ namespace wowlib::formats
 }
 
 // The wdl namespace opens after wdt, fixing the submodule weld order; its
-// chunks wire structs pre-declare before the entity that names them.
+// chunks binary structs pre-declare before the entity that names them.
 namespace wowlib::formats
 {
   namespace
   [[=welder::doc(R"(
       The WDL low-resolution heightmap format: the WDL entity and its
-      per-version classes, with the chunk wire structs in the chunks
+      per-version classes, with the chunk binary structs in the chunks
       submodule.)")]]
   wdl
   {
     namespace
-    [[=welder::doc("WDL chunk wire structs (per-tile heightmaps, hole and ocean "
+    [[=welder::doc("WDL chunk binary structs (per-tile heightmaps, hole and ocean "
                    "masks, low-resolution placements, sky scenes).")]]
     chunks
     {
@@ -273,7 +273,7 @@ namespace wowlib::formats
 }
 
 // The adt namespace opens after wdl, fixing the submodule weld order; its
-// chunks wire structs pre-declare before the MapChunk/ADT entities that name
+// chunks binary structs pre-declare before the MapChunk/ADT entities that name
 // them as NSDMI defaults.
 namespace wowlib::formats
 {
@@ -281,12 +281,12 @@ namespace wowlib::formats
   [[=welder::doc(R"(
       The ADT terrain-tile format: the ADT tile entity and its 256 MapChunk
       terrain cells (both per-version classes), the structured MH2O/MCLQ liquid,
-      and the chunk wire structs in the chunks submodule. One unified ADT spans
+      and the chunk binary structs in the chunks submodule. One unified ADT spans
       the pre-Cataclysm single .adt and the Cataclysm+ root/_tex0/_obj0 split.)")]]
   adt
   {
     namespace
-    [[=welder::doc("ADT chunk wire structs (the MCNK cell header, texture layers, "
+    [[=welder::doc("ADT chunk binary structs (the MCNK cell header, texture layers, "
                    "liquid records, flying bounds) and their flag enums.")]]
     chunks
     {

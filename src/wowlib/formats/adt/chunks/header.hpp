@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    ADT header wire structs (namespace wowlib::formats::adt::chunks): the
+    ADT header binary structs (namespace wowlib::formats::adt::chunks): the
     per-cell MCNK header (SMChunk, 128 bytes) and the flying bounding box (MFBO).
 
     SMChunk carries many fields that are DERIVED from the cell's actual content —
@@ -53,7 +53,7 @@ namespace wowlib::formats::adt::chunks
     =welder::doc(R"(
         A terrain cell header (MCNK, 128 bytes): the flags, its (x, y) position in
         the 16x16 cell grid, the area id, the terrain hole mask and the origin.
-        The sub-chunk offset/size/count fields are wire bookkeeping wowlib derives
+        The sub-chunk offset/size/count fields are binary bookkeeping wowlib derives
         on write, so they are not exposed. See https://wowdev.wiki/ADT/v18#MCNK_chunk.)")
   ]] SMChunk
   {

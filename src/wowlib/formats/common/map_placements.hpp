@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The map-placement wire records SHARED across the world file formats
+    The map-placement binary records SHARED across the world file formats
     (namespace wowlib::formats::common, like the math primitives): SMMapObjDef
     places a WMO on a map (WDT MODF, WDL MODF, ADT MODF) and SMDoodadDef places
     an M2 (ADT MDDF, WDL MLDD), under their canonical client names. Both are

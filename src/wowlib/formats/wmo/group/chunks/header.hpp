@@ -67,7 +67,7 @@ namespace wowlib::formats::wmo::group::chunks
       users can write version-agnostic code (isinstance,
       WMOGroupHeader.for_version(expansion)). It has no role in the C++ API, where
       you use the concrete SMOGroupHeader<V> directly. It is an empty (elided)
-      base, so the wire specializations stay trivially copyable and 0x44 bytes. */
+      base, so the binary specializations stay trivially copyable and 0x44 bytes. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::weld_as("WMOGroupHeader"),

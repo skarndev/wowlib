@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The wire-level math and color primitives shared across WoW file formats
+    The binary-level math and color primitives shared across WoW file formats
     (wowdev.wiki Common_Types), under their established client names. All are
     trivially copyable with exact on-disk layout — chunk payloads memcpy
     straight into arrays of them. Fixed-size sequences are std::array (layout
@@ -12,7 +12,7 @@
 
 #include <welder/vocabulary.hpp>
 
-/** Empty-base optimization for a wire struct that carries a (welded, empty)
+/** Empty-base optimization for a binary struct that carries a (welded, empty)
     facade base: gcc/clang always elide it, but MSVC needs the hint once a class
     has more than one empty base — spelled here so a memcpy'd struct's on-disk
     layout is compiler-independent. wowlib compiles under gcc-16 only today

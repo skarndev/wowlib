@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    WDL sky-scene chunk wire structs (namespace wowlib::formats::wdl::chunks),
+    WDL sky-scene chunk binary structs (namespace wowlib::formats::wdl::chunks),
     Shadowlands+: distant scripted scenery — sky scenes tied to
     SkySceneXPlayerCondition, their conditions and placed objects, plus the
     War Within scene-living schedule records. */

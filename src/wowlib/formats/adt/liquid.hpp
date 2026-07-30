@@ -10,7 +10,7 @@
     trailing variable-length data — so, like WMO's MLIQData, they own their
     payload encoding (SelfSerializing) rather than memcpy'ing. wowlib stores the
     fully-decoded liquid (heights, depths, texture coordinates, exists masks,
-    attributes) and re-derives every wire offset on write; the guarantee is a
+    attributes) and re-derives every binary offset on write; the guarantee is a
     semantic round-trip, not byte-identical bytes.
 
     MH2OData is version-independent: the WotLK+ MH2O layout is stable, and the
@@ -39,7 +39,7 @@ namespace wowlib::formats::adt
 
   /** One liquid layer of one terrain cell, fully decoded (an MH2O instance).
       The vertex arrays are present per the vertex_format; the exists mask (when
-      non-empty) selects which of the width x height tiles render. All wire
+      non-empty) selects which of the width x height tiles render. All binary
       offsets are derived on write. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
@@ -48,7 +48,7 @@ namespace wowlib::formats::adt
         heightmap/depthmap/uvmap arrays are present according to vertex_format and
         each hold (width + 1) x (height + 1) entries; exists_bitmap (when not
         empty) is a width x height bit grid selecting which tiles render. Heights
-        outside [min_height, max_height] and the wire offsets are derived, not
+        outside [min_height, max_height] and the binary offsets are derived, not
         stored.)")
   ]] LiquidInstance
   {
@@ -147,7 +147,7 @@ namespace wowlib::formats::adt
     =welder::doc(R"(
         The tile's liquid (MH2O, WotLK+): one MapChunkLiquid per terrain cell, in
         the 16x16 row-major cell order. Decoded from the chunk's offset structure
-        and re-laid on write (the wire offsets are derived). Index it by
+        and re-laid on write (the binary offsets are derived). Index it by
         cell = y * 16 + x.)")
   ]] MH2OData
   {
@@ -161,7 +161,7 @@ namespace wowlib::formats::adt
     [[=welder::mark::exclude]]
     Result<void> read(std::span<const std::byte> payload);
 
-    /** Re-lay the 256 entries into a fresh canonical MH2O payload (every wire
+    /** Re-lay the 256 entries into a fresh canonical MH2O payload (every binary
         offset derived), appended to @a out.
         @param out the destination buffer.
         @return a structural error or success. */

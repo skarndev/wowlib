@@ -69,7 +69,7 @@ namespace wowlib::formats::wmo::group::chunks
       can write version-agnostic code (isinstance,
       WMOBatch.for_version(expansion)). It has no role in the C++ API, where you
       use the concrete SMOBatch<V> directly. It is an empty (elided) base, so the
-      wire specializations stay trivially copyable and 0x18 bytes. */
+      binary specializations stay trivially copyable and 0x18 bytes. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::weld_as("WMOBatch"),

@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    ADT texture wire structs (namespace wowlib::formats::adt::chunks): the
+    ADT texture binary structs (namespace wowlib::formats::adt::chunks): the
     per-cell texture layer (SMLayer / MCLY), the MTEX texture flags (MTXF) and
     parameters (MTXP), the terrain-material map (MCMT), color grading (MTCG) and
     the alpha-map downscale factor (MAMP). The terrain grid element types

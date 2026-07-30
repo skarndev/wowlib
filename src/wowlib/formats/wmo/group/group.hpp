@@ -9,7 +9,7 @@
     always-present chunks are the body's own members. A version's WMOGroupBody
     therefore carries ONLY the fields that version has (setting an absent one is a
     compile error), and welder flattens the active traits' members onto its
-    binding. The group wire structs are in wmo::group::chunks. */
+    binding. The group binary structs are in wmo::group::chunks. */
 
 #include <array>
 #include <cstdint>

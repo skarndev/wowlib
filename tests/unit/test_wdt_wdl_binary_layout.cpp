@@ -39,7 +39,7 @@ static_assert(all_trivially_copyable<wdlc::TileHeights, wdlc::TileHoles, wdlc::T
                                      wdlc::SkySceneObject, wdlc::SkySceneObjectParams,
                                      wdlc::SceneLivingDef>);
 
-TEST_CASE("wire offsets match the wowdev layout", "[formats][wdt][wdl]")
+TEST_CASE("binary offsets match the wowdev layout", "[formats][wdt][wdl]")
 {
   STATIC_CHECK(offsetof(SMMapObjDef, position) == 0x08);
   STATIC_CHECK(offsetof(SMMapObjDef, extents) == 0x20);

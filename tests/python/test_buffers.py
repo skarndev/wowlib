@@ -1,6 +1,6 @@
 """The buffer protocol (buffers.cpp): read/write speak whole entities and accept
 bytes, bytes-like and file-like sources/sinks, and the write() length guard rejects
-a group-count mismatch. We assert the plumbing, not the WMO wire format itself."""
+a group-count mismatch. We assert the plumbing, not the WMO binary format itself."""
 
 import io
 

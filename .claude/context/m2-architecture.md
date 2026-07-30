@@ -65,7 +65,7 @@ INCREMENTAL COMMITS TO MAIN, each stage compiling + tested:
   sequences stored externally point into the matching .anim file
   (`%s%04d-%02d.anim` by anim id/sub id, or AFID fdids), offsets relative to
   that file. Alias sequences (flag 0x40) follow aliasNext and own no data.
-- M2 wire version per our grid: vanilla 256, tbc 263, wotlk 264,
+- M2 binary version per our grid: vanilla 256, tbc 263, wotlk 264,
   cata/mop/wod 272, legion+ 274. Stored in-entity as `format_version` (the
   name `version` is taken by the ClientVersion static).
 - Pre-WotLK: skin profiles EMBEDDED (`M2Array<M2SkinProfile>` in the header),
@@ -83,7 +83,7 @@ INCREMENTAL COMMITS TO MAIN, each stage compiling + tested:
   fake-animation block, particle color/scale/UV) has NO per-sequence layer in
   any version.
 - textureCombinerCombos: trailing header M2Array present iff
-  `global_flags & 0x8` — the one flag-gated wire member (`gated_by(0x8)`).
+  `global_flags & 0x8` — the one flag-gated binary member (`gated_by(0x8)`).
 - .skel chunks SKL1/SKA1/SKB1/SKS1 are headers-with-M2Arrays whose offsets are
   relative to the CHUNK data; SKPD carries parent_skel_file_id; AFID/BFID as
   in M2. A skel-based model's .anim files are chunked (AFM2 + AFSA attach /
@@ -94,8 +94,8 @@ INCREMENTAL COMMITS TO MAIN, each stage compiling + tested:
 
 Sibling of the chunk serializer, same philosophy: annotations + `template for`
 over reflected members; member kinds are TYPE-DRIVEN. In-memory entities store
-`std::vector<T>`/`std::string`; the wire `M2Array` never surfaces as a user
-type. Wire layout of a record = members walked in canonical order, cursor
+`std::vector<T>`/`std::string`; the binary `M2Array` never surfaces as a user
+type. Binary layout of a record = members walked in canonical order, cursor
 advanced by consteval `wire_size<T>()`: trivially-copyable → `sizeof(T)`,
 vector/string → 8 (M2Array), non-trivial struct → recursive member sum (client
 records have no implicit padding). Element kinds recurse, so
@@ -109,12 +109,12 @@ containing nested arrays) fall out naturally.
 - **Versioning**: entity-level interleaved diffs use conditional trait bases
   (version_slot) + an authoritative `static constexpr wire_order` — an array
   of member NAMES (identifier_of match, offset entities have no fourccs) that
-  fixes the wire walk order across flattened traits; consteval-checked to list
+  fixes the binary walk order across flattened traits; consteval-checked to list
   every serialized member exactly once. Record-level TYPE changes in place =
   constrained partial specializations. since/until survive as doc metadata +
   active-member filter.
-- **Write = canonical relayout**: reserve the entity's wire image, then
-  depth-first in wire order: per vector, one element-image block (16-byte
+- **Write = canonical relayout**: reserve the entity's binary image, then
+  depth-first in binary order: per vector, one element-image block (16-byte
   aligned, zero gap fill — Blizzard-preferred), then each element's nested
   blocks; M2Array slots backpatched. Empty vector → {0, 0}. Strings write
   size = length + 1 (NUL included — client requires the terminator counted).
@@ -133,7 +133,7 @@ containing nested arrays) fall out naturally.
   DataPreWotlk<V>/DataWotlk/DataTbc + 41-name wire_order), skin.hpp (Skin<V>
   = magic + inherited M2SkinProfile<V>, wire_order puts magic first),
   m2.hpp/.cpp (assembly + X-macros ×11 + skin-only X-macro ×9), convert.hpp.
-  All wire sizes static_asserted against wowdev (vanilla header 324, wotlk
+  All binary sizes static_asserted against wowdev (vanilla header 324, wotlk
   304, bone 108/112/88, particle 504/476/492, camera 124/100/116, ribbon
   220/176, skin section 32/48).
 - **Engine addition**: a `sequence_data` member's per-sequence resolution is
@@ -141,7 +141,7 @@ containing nested arrays) fall out naturally.
   sequence tracks keep their single timeline inline even when sequences are
   external. Both read and write gate on it.
 - **Assembly I/O** (m2.cpp): read resolves .anim lazily inside the context
-  closure (sequences decode before any track member — wire order — so flags
+  closure (sequences decode before any track member — binary order — so flags
   are available); missing .anim leaves tracks empty, and write regenerates an
   empty file for them. Aliases (0x40) never own a file. Skins are
   "{stem}0N.skin"; write validates num_skin_profiles == skins.size()
@@ -209,7 +209,7 @@ shapes:
 - Member docs converted /**< */ → welder::doc across records (welded-entity
   doc policy); class doxygen folded into the weld doc() and removed.
 - Skin<V> switched from profile INHERITANCE to a `profile` MEMBER (identical
-  wire layout — inline record): a welded M2SkinProfile base would have been
+  binary layout — inline record): a welded M2SkinProfile base would have been
   a second welded base beside SkinBase (nanobind allows one).
 - Facade: for_version/isinstance/AnyX on M2/M2Data/Skin/M2File/Skeleton
   bases; read/write(fs,key) + convert on M2Base; read/write on SkeletonBase;
@@ -263,7 +263,7 @@ index_start.
   `template for` ranges inside a consteval fn must be `static constexpr`
   (wire_offset_of failed constant evaluation only for versions no test
   instantiated — the bindings matrix caught it).
-- **Derived counts**: num_skin_profiles is a HIDDEN wire field
+- **Derived counts**: num_skin_profiles is a HIDDEN binary field
   (mark::exclude) stamped by M2<V>::write from skins.size() via the new
   consteval `wire_offset_of<M2Data<V>>("num_skin_profiles")` patch into the
   written image (the old mismatch error is gone; standalone M2Data write
@@ -373,7 +373,7 @@ Supersedes the naming/layout notes above (kept as history):
   no own member). A pure "own members then traits" walk CANNOT work — the
   MD20 header interleaves trait members mid-struct — which is why anchors
   carry the position. M2Root now has 5 anchors instead of the 41-name array;
-  declaration order == wire order for the own members (keep it that way).
+  declaration order == binary order for the own members (keep it that way).
 - **Chunked payload records canonicalized** (chunked/records.hpp): Exp2Data/
   PabcData/PsbcData/Pgd1Data moved to `record::detail` + canonicalizing
   aliases over `m2_chunk_payload_pivots` (RENAMED from m2_skeleton_pivots;
@@ -412,8 +412,8 @@ rebuilt clean). CURRENT NAMES supersede the history above:
   The CRTP mixin **`OffsetFile` → `M2OffsetBlock`** (user picked "Block" over
   "File" — it also models embedded chunk payloads, not just whole files); its
   marker base `OffsetBase → M2OffsetBase`. `OffsetEntity`, `OffsetReadContext`,
-  `OffsetWriteContext` KEPT their names (already clear, not "wire").
-- **"wire" jargon purged** across the M2 subsystem (functions, prose, the docs
+  `OffsetWriteContext` KEPT their names (already clear, not "binary").
+- **"binary" jargon purged** across the M2 subsystem (functions, prose, the docs
   generator's regex + config). Key renames: the annotation `wire_after →
   offset_after` (annotations.hpp; re-documented as a POSITIONAL LAYOUT anchor —
   it is about correct positional READING of the flat MD20 layout, NOT about

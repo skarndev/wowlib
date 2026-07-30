@@ -1,9 +1,9 @@
 #pragma once
 
 /** @file
-    WMO version pivots that change a wire-struct *layout* (not just chunk
+    WMO version pivots that change a binary-struct *layout* (not just chunk
     presence). These name the client version at which a struct's field set flips,
-    so the wire structs (the group/chunks headers) can select a constrained
+    so the binary structs (the group/chunks headers) can select a constrained
     partial specialization with `requires (V < pivot)` / `requires (V >= pivot)`.
 
     Chunk *presence* boundaries are no longer named here: each chunk member's
@@ -64,7 +64,7 @@ namespace wowlib::formats::wmo
     builds::TWW_Alpha, builds::TWW_Undermined};
 
   /** WMOGroupBody / WMOGroup: every trait-slot boundary and chunk build the
-      group files carry, plus the two wire-layout pivots above. */
+      group files carry, plus the two binary-layout pivots above. */
   inline constexpr std::array wmo_group_pivots{
     builds::Cata,      builds::WoD,
     wmo_batch_large_material,       builds::BfA_TidesOfVengeance,

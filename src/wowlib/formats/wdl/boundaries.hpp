@@ -3,7 +3,7 @@
 /** @file
     WDL version grid and canonicalization pivots. Everything is chunk
     presence (carried inline by the members' since()/until() annotations) —
-    the WDL never changed a wire-struct layout:
+    the WDL never changed a binary-struct layout:
     - TBC adds the per-tile MAHO hole masks (verified: vanilla 1.12 WDLs carry
       MARE heightmaps with zero MAHO, every 2.4.3 WDL pairs one MAHO per MARE —
       wowdev.wiki dates MAHO to WotLK, which our client scan disproves);

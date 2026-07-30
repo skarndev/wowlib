@@ -44,6 +44,6 @@ enum→int, `has_flag(value, Enum::bit)` for flag tests.
 
 Every function/method carries a complete Doxygen block: one-line summary, then
 `@tparam` for each template parameter, `@param` for each parameter, `@return`
-for non-void returns. Wire structs and members use `welder::doc` per the
+for non-void returns. Binary structs and members use `welder::doc` per the
 annotation policy (see [[doc-annotation-policy]] / chunk-annotation-conventions);
 non-welded internals use `///`/`/** */` Doxygen.

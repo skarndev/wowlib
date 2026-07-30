@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    The chunk annotation vocabulary format entities declare their wire mapping
+    The chunk annotation vocabulary format entities declare their binary mapping
     with. Follows welder's pattern: structural `*_spec` payloads in `detail`,
     consteval factories / inline constants as the user-facing spelling.
 
@@ -34,7 +34,7 @@
     Annotations appear only on entity primary-template members, with
     non-dependent arguments (a member's since()/until() carries the exact client
     version the chunk appeared/vanished at, as wowdev.wiki documents it, spelled
-    through the named build constants of core/client_builds.hpp) — wire
+    through the named build constants of core/client_builds.hpp) — binary
     structs carry none. The serializer and the bindings read the same specs, so
     version activity has a single source of truth. */
 
@@ -50,7 +50,7 @@ namespace wowlib::formats
 {
   namespace detail
   {
-    /** Stored form of a `chunk` annotation: the member's wire identity. */
+    /** Stored form of a `chunk` annotation: the member's binary identity. */
     struct chunk_spec
     {
       std::uint32_t magic;  /**< Comparison value, see four_cc(). */
@@ -106,7 +106,7 @@ namespace wowlib::formats
     {
     };
 
-    /** Stored form of `gated_by` (offset entities): the member occupies wire
+    /** Stored form of `gated_by` (offset entities): the member occupies binary
         bytes only when the entity's `global_flags` has any @a mask bit set. */
     struct gated_by_spec
     {
@@ -179,10 +179,10 @@ namespace wowlib::formats
       inline in the entity's own buffer. */
   inline constexpr detail::sequence_data_spec sequence_data{};
 
-  /** Make an offset-entity member's wire presence conditional on the entity's
+  /** Make an offset-entity member's binary presence conditional on the entity's
       `global_flags`: it occupies bytes only when `global_flags & mask` is
       non-zero (M2's textureCombinerCombos behind global flag 0x8). The flags
-      member must precede it in wire order.
+      member must precede it in binary order.
       @param mask the flag bits that engage the member. */
   consteval detail::gated_by_spec gated_by(std::uint32_t mask) { return {mask}; }
 

@@ -355,7 +355,7 @@ namespace wowlib::formats
     // --- single-value (chunk payload <-> member) transfer ---------------------
 
     /** Read one chunk payload into member @a dst, dispatching on the member
-        kind (nested entity, self-serializing, array, raw wire struct).
+        kind (nested entity, self-serializing, array, raw binary struct).
         @param dst     the destination member.
         @param payload the chunk payload bytes.
         @param fourcc  the chunk id (for diagnostics).
@@ -455,7 +455,7 @@ namespace wowlib::formats
         if constexpr (detail::annotation<detail::header_spec, m>().has_value())
         {
           using M = [:std::meta::type_of(m):];
-          static_assert(std::is_trivially_copyable_v<M>, "header members are raw wire structs");
+          static_assert(std::is_trivially_copyable_v<M>, "header members are raw binary structs");
           if (data.size() - pos < sizeof(M))
             return make_error(ErrorCode::ChunkTruncated,
                               std::format("header prelude at offset {:#x}: {} bytes needed, {} left",
@@ -630,7 +630,7 @@ namespace wowlib::formats
               writer.end_chunk(size_at);
               // Derived-field stamping: an entity may declare
               //   void patch_chunk(std::uint32_t fourcc, std::span<std::byte>) const
-              // to overwrite wire fields whose source of truth is other
+              // to overwrite binary fields whose source of truth is other
               // members (e.g. WMORoot stamping the MOHD counts from its
               // vectors). The hook sees the finished payload in place, so
               // write() stays const and entity state is untouched.
@@ -701,7 +701,7 @@ namespace wowlib::formats
 
       // Whole-image stamping: an entity may declare
       //   Result<void> patch_file(std::span<std::byte>) const
-      // to overwrite wire fields whose source of truth is the finished LAYOUT —
+      // to overwrite binary fields whose source of truth is the finished LAYOUT —
       // fields patch_chunk cannot serve because they reference bytes written
       // after their own chunk (WDL's MAOF table of absolute MARE offsets; the
       // ADT header offsets later). The hook sees this entity's complete
@@ -815,7 +815,7 @@ namespace wowlib::formats
       else if constexpr (is_vector_v<M>)
       {
         using T = typename M::value_type;
-        static_assert(std::is_trivially_copyable_v<T>, "array chunks hold raw wire structs");
+        static_assert(std::is_trivially_copyable_v<T>, "array chunks hold raw binary structs");
         if (payload.size() % sizeof(T) != 0)
           return chunk_error(ErrorCode::ChunkSizeMismatch, fourcc, offset,
                              std::format("size {} is not a multiple of the {}-byte element",
@@ -827,7 +827,7 @@ namespace wowlib::formats
       }
       else
       {
-        static_assert(std::is_trivially_copyable_v<M>, "data chunks hold raw wire structs");
+        static_assert(std::is_trivially_copyable_v<M>, "data chunks hold raw binary structs");
         if (payload.size() != sizeof(M))
           return chunk_error(ErrorCode::ChunkSizeMismatch, fourcc, offset,
                              std::format("size {} != expected {}", payload.size(), sizeof(M)),

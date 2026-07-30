@@ -18,7 +18,7 @@ from wowlib.formats import wmo as wmo_mod
 
 @pytest.fixture
 def fresh_wmo():
-    """A fresh Wotlk WMO assembly: empty root, no groups, wire defaults."""
+    """A fresh Wotlk WMO assembly: empty root, no groups, binary defaults."""
     return wmo_mod.WMO.for_version(wowlib.Expansion.Wotlk)
 
 

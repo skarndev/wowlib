@@ -214,7 +214,7 @@ namespace wowlib::formats::wmo
       return std::unexpected{r.error()};
 
     // MOGI (one info record per group file) is the group count's source of
-    // truth — header.n_groups is a derived wire field stamped from it.
+    // truth — header.n_groups is a derived binary field stamped from it.
     const std::size_t n_groups = root.group_infos.size();
     // GFID (group FileDataIDs) is Legion+; pre-Legion roots have no such member
     // (it lives in a version trait that version does not inherit), so they always

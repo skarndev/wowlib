@@ -34,12 +34,12 @@ static_assert(all_trivially_copyable<UVAnimation, GroupInfo2, PortalExtra, Light
                                      Poly2, RenderBatchOverride, ShadowBatch, PointLight,
                                      LightSet, PointLightAnim>);
 
-// MLIQ grid records are bulk-memcpy'd like the other wire structs; the water
+// MLIQ grid records are bulk-memcpy'd like the other binary structs; the water
 // and magma vertex readings share the same 8-byte layout (bit_cast reinterpret).
 static_assert(all_trivially_copyable<SMOLVert, SMOLTile, SMOMVert>);
 static_assert(sizeof(SMOLVert) == 8 && sizeof(SMOLTile) == 1 && sizeof(SMOMVert) == 8);
 
-TEST_CASE("wire offsets match the wowdev layout", "[formats][wmo]")
+TEST_CASE("binary offsets match the wowdev layout", "[formats][wmo]")
 {
   STATIC_CHECK(offsetof(SMOHeader, ambient_color) == 0x1C);
   STATIC_CHECK(offsetof(SMOHeader, bounding_box) == 0x24);
@@ -115,7 +115,7 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
   FileBuffer root_data;
   put_chunk(root_data, "MVER", &mver, sizeof mver);
   SMOHeader header;
-  // n_groups is a derived wire field, stamped from the MOGI table on write —
+  // n_groups is a derived binary field, stamped from the MOGI table on write —
   // the handcrafted file must carry the matching MOGI record for the
   // round-trip to reproduce it
   header.n_groups = 1;

@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    _mpv.wdt chunk wire structs (namespace wowlib::formats::wdt::mpv::chunks). */
+    _mpv.wdt chunk binary structs (namespace wowlib::formats::wdt::mpv::chunks). */
 
 #include <array>
 #include <cstdint>

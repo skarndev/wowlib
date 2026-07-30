@@ -8,9 +8,9 @@
 using namespace wowlib;
 using namespace wowlib::formats::adt;
 
-// The wire structs must keep their exact on-disk sizes: the serializer memcpys
+// The binary structs must keep their exact on-disk sizes: the serializer memcpys
 // arrays of them straight from chunk payloads.
-TEST_CASE("ADT wire structs have their documented on-disk sizes", "[adt][layout]")
+TEST_CASE("ADT binary structs have their documented on-disk sizes", "[adt][layout]")
 {
   STATIC_REQUIRE(sizeof(chunks::SMChunk) == 0x80);
   STATIC_REQUIRE(sizeof(chunks::MHDRData) == 0x40);

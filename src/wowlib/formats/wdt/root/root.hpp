@@ -4,7 +4,7 @@
     The WDT main-file entity (namespace wowlib::formats::wdt::root): the map
     header, the 64x64 tile table, the per-tile FileDataID table (8.1+) and the
     global-WMO reference of WMO-only maps. Version-gated chunks live in
-    conditionally-inherited trait bases (wdt::root::detail); the wire structs
+    conditionally-inherited trait bases (wdt::root::detail); the binary structs
     live in wdt::root::chunks. */
 
 #include <cstdint>

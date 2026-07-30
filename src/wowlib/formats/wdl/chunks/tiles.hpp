@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file
-    WDL per-tile chunk wire structs (namespace wowlib::formats::wdl::chunks):
+    WDL per-tile chunk binary structs (namespace wowlib::formats::wdl::chunks):
     the MARE low-resolution heightmap, the MAHO hole mask and the MAOE ocean
     mask. Each appears once per present map tile. */
 

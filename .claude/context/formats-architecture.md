@@ -27,7 +27,7 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   class (core/path, fs/*).
 - `formats/wmo/` — **the directory tree mirrors the namespace tree** (user rule,
   2026-07-20), so each sub-namespace is a subdirectory. Reorganized 2026-07-23 so
-  each entity owns its chunk wire structs as a nested `chunks/` subdir/namespace
+  each entity owns its chunk binary structs as a nested `chunks/` subdir/namespace
   (user rule): the submodules are `wmo`, `wmo.root`, `wmo.root.chunks`, `wmo.group`
   and `wmo.group.chunks`, and `root`/`group` are Python *packages*:
   - `boundaries.hpp` (`wmo`) — wmo_version_v17 + the two *layout*-pivot constants
@@ -39,10 +39,10 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
     (moved out of wmo.hpp) + future `convert_step` overloads; include this, not
     wmo.hpp, to convert across versions.
   - `root/root.hpp` (`wmo::root`) — WMORoot + WMORootBase.
-  - `root/chunks/` (`wmo::root::chunks`) — root wire structs split by chunk family:
+  - `root/chunks/` (`wmo::root::chunks`) — root binary structs split by chunk family:
     `header.hpp material.hpp structure.hpp light.hpp doodad.hpp environment.hpp`.
   - `group/group.hpp` (`wmo::group`) — WMOGroup/WMOGroupBody + their bases.
-  - `group/chunks/` (`wmo::group::chunks`) — group wire structs +
+  - `group/chunks/` (`wmo::group::chunks`) — group binary structs +
     SMOGroupHeader/SMOBatch bases: `header.hpp geometry.hpp light.hpp liquid.hpp`.
   (data_structs.hpp — a single 1247-line file — was split into these; "avoid
   extremely long files, split logically" is a user rule.)
@@ -51,13 +51,13 @@ record: `~/.claude/plans/mighty-swimming-falcon.md`.
   annotations (since/until, optional/header/container, repeats), then welder's
   (mark::*), with `welder::doc` ALWAYS last — a raw string literal when multiline.
 - Type naming: PascalCase classes everywhere (StringBlock, ChunkExtras,
-  Repeated); wire structs keep the client's canonical spellings (SMOHeader,
+  Repeated); binary structs keep the client's canonical spellings (SMOHeader,
   CAaBspNode); **WMO keeps its acronym** (WMORoot, WMOWotlk — not WmoRoot).
   Flag namespaces became welded scoped enums (GroupFlags, MaterialFlags,
   HeaderFlags, PolyFlags, DoodadFlags, GroupFlags2) whose enumerators carry
   `Name [[=welder::doc("…")]] = value` (welder 04fded7+ documents enumerators —
   folded into the enum class docstring's `Attributes:` section; annotation goes
-  AFTER the name); wire fields stay plain ints (combined bit values are not valid
+  AFTER the name); binary fields stay plain ints (combined bit values are not valid
   enumerators) tested via `has_flag(value, GroupFlags::x)`.
 
 ## Core design
@@ -197,12 +197,12 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
   - Generating markdown (not surgical HTML) keeps the right-hand TOC correct: the toc
     extension sees the real `###` headings.
   - Flag/enum types on the chunk pages get a wowdev badge + a same-page backlink to the
-    wire struct that carries the bits, via `ENUM_CHUNK` (enum → (FourCC, struct), e.g.
+    binary struct that carries the bits, via `ENUM_CHUNK` (enum → (FourCC, struct), e.g.
     `PolyFlags → (MOPY, SMOPoly)`; templated structs alias, `WMOGroupHeader → SMOGroupHeader`).
-  - Wire integer widths: nanobind flattens every `std::uintN_t`/`std::intN_t` to Python
+  - Binary integer widths: nanobind flattens every `std::uintN_t`/`std::intN_t` to Python
     `int`, so the on-disk size is parsed back from source and the rendered signatures
     re-annotated `int → Annotated[int, uint32]` (arrays → `list[Annotated[int, uint8]]`,
-    signed → `int16`). Chunk pages read wire-struct fields (`_struct_int_fields` →
+    signed → `int16`). Chunk pages read binary-struct fields (`_struct_int_fields` →
     `_annotate_int_widths`); the fields page reads entity members' element type
     (`_annotate_entity_int_widths`, handling both scalar `mver` and the `list[int]`
     that `_coerce_vectors` produces for opaque int vectors). Both run in `on_post_page`
@@ -270,7 +270,7 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
   instantiations; every consumer TU implicitly instantiates exactly the
   versions it uses. X-macros + consteval version-coverage checks stay
   in the library headers.
-- **Derived wire counts** (2026-07-24, survey-grounded: 1983 3.3.5a + 8146
+- **Derived binary counts** (2026-07-24, survey-grounded: 1983 3.3.5a + 8146
   9.2.7 roots): write_entity invokes an optional entity hook
   `patch_chunk(fourcc, span<std::byte>) const` on each finished chunk
   payload — WMORoot stamps MOHD n_groups (from MOGI), n_portals,
@@ -317,11 +317,11 @@ specializations stay trivially copyable). New gotchas from the sweep:
   unmaintainable — "does nb::sig cover it?" — and yes it does):
   - **Welded empty C++ base struct per family** (`WMOBase` weld_as "WMO",
     `WMORootBase`, `WMOGroupBase`, `WMOGroupBodyBase`, and — on the trivially-
-    copyable wire structs — `WMOGroupHeaderBase`/`WMOBatchBase`). The per-version
+    copyable binary structs — `WMOGroupHeaderBase`/`WMOBatchBase`). The per-version
     template *inherits* it (`WMO<V> : WMOBase`; `WMORoot<V> : ChunkedFile<...>,
     WMORootBase` — ChunkedFile is a non-welded mixin so nanobind's single-welded-
     base rule holds). welder registers the base natively → `class WMOWotlk(WMO)`
-    in the stub AND real `isinstance`/`issubclass`, ZERO glue. Wire-struct bases
+    in the stub AND real `isinstance`/`issubclass`, ZERO glue. Binary-struct bases
     are empty → EBO keeps the memcpy layout (0x44/0x18 static_asserts prove it;
     `WOWLIB_EMPTY_BASES` = `__declspec(empty_bases)` guards MSVC — gcc-only today).
   - **for_version / read / write / convert are nb::sig merged overloads on the
@@ -420,7 +420,7 @@ wowdev.wiki, baked into the models:
   `detail::fresh_journal(entity)` builds the canonical-order starting journal;
   `detail::chunk_member_index<E>(magic)` maps fourcc -> flattened member index.
 - `Result<void> patch_file(std::span<std::byte>) const` hook: sees the WHOLE
-  serialized image after the trailing bytes — for wire fields that reference
+  serialized image after the trailing bytes — for binary fields that reference
   bytes written after their own chunk (WDL MAOF; ADT MHDR/MCIN later).
   patch_chunk stays for single-chunk stamping.
 
@@ -448,7 +448,7 @@ default-empty member, write skips unengaged satellites
 (formats::detail::entity_engaged). MAI2 (12.0.5+) postdates the range,
 round-trips as unknown. Shared placement records SMMapObjDef/SMDoodadDef live
 in formats/common/map_placements.hpp (welded under formats.common; ADT will
-reuse). GOTCHA: wire-struct names are FLAT in the opaque-vector namespace —
+reuse). GOTCHA: binary-struct names are FLAT in the opaque-vector namespace —
 wdt's light records are MapPointLight/MapPointLight3/MapSpotLight because WMO
 already owns PointLight (the opaque generator hard-errors on the collision).
 GOTCHA: with a chunks::detail namespace present, the entity alias must spell
@@ -482,7 +482,7 @@ COMMON_TYPES headers; guide/maps.md.
 
 ## Adding a new format (the recipe)
 
-1. `formats/<fmt>/data_structs.hpp`: wire structs (trivially copyable,
+1. `formats/<fmt>/data_structs.hpp`: binary structs (trivially copyable,
    std::array not C-arrays, size static_asserts, welder::weld + doc, flag
    enums with Doxygen enumerator comments) + version boundary constants.
 2. `formats/<fmt>/<entity>.hpp` files: entities `struct E : ChunkedFile<E>`
