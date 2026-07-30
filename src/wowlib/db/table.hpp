@@ -58,22 +58,39 @@ namespace wowlib::db
     Drop       /**< Write only decoded rows as plaintext; keyless rows are dropped. */
   };
 
+  /** One WDC3 section whose records could not be decoded because they are
+      encrypted under a TACT key wowlib does not hold. Record-independent, so it
+      lives at namespace scope (welded once, shared by every Table). */
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("An encrypted WDC section: its records are behind a TACT key "
+                 "wowlib does not hold, so they are absent from records.")
+  ]] EncryptedSection
+  {
+    [[=welder::doc("The section's TACT key lookup hash (names the missing key).")]]
+    std::uint64_t key_hash = 0;
+
+    [[=welder::doc("How many records the encrypted section holds.")]]
+    std::uint32_t record_count = 0;
+
+    [[=welder::doc("The ids of the encrypted records, when the file lists them.")]]
+    std::vector<std::uint32_t> ids;
+  };
+
   /** A client database table: the typed records of one DBFilesClient file.
 
       The record type is generated from WoWDBDefs by dbdgen (a flat struct whose
       member types carry the column shapes — schema.hpp) and pins both the
       client version and the table identity, so `Table<MapRecord<V>>` IS the
       Map table of client V.
+
+      NOT welded: it is a non-welded MIXIN whose public members flatten onto a
+      per-table welded wrapper the bindings generate (like ChunkedFile under
+      WMORoot). The member annotations here (getters, no_reassign, docs) are read
+      off this declaring class during that flatten.
       @tparam Record the generated record type. */
   template <TableRecord Record>
-  class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
-    =welder::doc(R"(
-        A client database table (DBFilesClient): the typed records of one
-        .dbc/.db2 file, decoded against the WoWDBDefs schema its record class
-        was generated from. Reading preserves the string block and the exact
-        header values, so an unmodified table writes back byte-identically.)")
-  ]] Table
+  class Table
   {
   public:
     /** The client version the record schema belongs to. */
@@ -190,24 +207,6 @@ namespace wowlib::db
                    "from; offsets never move, write() appends new strings past its "
                    "end.")]]
     const formats::StringBlock& strings() const { return strings_; }
-
-    /** One WDC3 section whose records could not be decoded because they are
-        encrypted under a TACT key wowlib does not hold. */
-    struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
-      =welder::doc("An encrypted WDC section: its records are behind a TACT key "
-                   "wowlib does not hold, so they are absent from records.")
-    ]] EncryptedSection
-    {
-      [[=welder::doc("The section's TACT key lookup hash (names the missing key).")]]
-      std::uint64_t key_hash = 0;
-
-      [[=welder::doc("How many records the encrypted section holds.")]]
-      std::uint32_t record_count = 0;
-
-      [[=welder::doc("The ids of the encrypted records, when the file lists them.")]]
-      std::vector<std::uint32_t> ids;
-    };
 
     /** The encrypted sections skipped on the last read (empty when the file was
         fully decodable or is not a WDC format).

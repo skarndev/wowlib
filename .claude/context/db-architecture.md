@@ -313,3 +313,34 @@ decoded pallet, so round-trip holds. Bitpacked/None columns unchanged.
 7. Deferred: WDC relationship block parse; TACT keys (Salsa20 + CascLib), DBCD
    cross-validation script, lazy/columnar decode, hotfix cache (DBCache.bin)
    out of scope.
+
+## Python bindings (STARTED 2026-07-30)
+
+User decisions: bind ALL tables sharded across vanilla/tbc/wotlk/shadowlands
+(the locally-testable eras), everything in the ONE wowlib module. DF/TWW
+schema-only later (no WDC5 reader). Expect a very long compile (~10k+ welded
+classes); shard the instantiations across many TUs.
+
+**Binding pattern (mirror WMO/M2, per bindings-notes.md)**: welder welds a
+class-template instantiation through a namespace-scope ALIAS whose identifier is
+the target name (`using MapWotlk = Map<versions::wotlk>`). A versioned welded
+entity needs (a) a welded empty BASE (weld_as the family name) giving the
+per-version classes a common supertype + single-welded-base for nanobind, (b) a
+per-version wrapper inheriting the base + a NON-welded mixin whose public members
+flatten on. So per db table: welded `MapRecord*` structs, welded `MapBase`
+(weld_as "Map"), `Map<V> : Table<MapRecord<V>>, MapBase`, range aliases, a
+for_version facade (facade.hpp is generic). dbdgen emits all of this + sharded
+instantiation TUs; the module walk needs the aliases visible (umbrella +
+instantiations/*.hpp like WMO).
+
+**DONE (foundation)**: `Table<Record>` is now a NON-welded MIXIN (removed the
+class weld; kept member annotations — getters/no_reassign/docs — which welder
+reads off the declaring class when flattening). `EncryptedSection` hoisted to
+`wowlib::db` namespace scope (Record-independent → welded once, shared). C++ db
+tests still pass (32 cases).
+
+**REMAINING**: dbdgen emits welded records + MapBase/Map<V>/aliases + facade
+registration; umbrella pre-declares `wowlib::db`; opaque_gen registers db record
+vectors/arrays; sharded instantiation TUs; stubs OUTPUT entries; check.py; then
+the (long) wowlib_py build + a Python round-trip test. Prove ONE table (Map)
+end-to-end before generating 1221×.
