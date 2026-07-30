@@ -711,3 +711,155 @@ TEST_CASE("db: a fresh Cata table writes WDB2, a fresh WotLK table writes WDBC",
   REQUIRE(wotlk_bytes.has_value());
   CHECK(std::memcmp(wotlk_bytes->data(), "WDBC", 4) == 0);
 }
+
+namespace
+{
+  // A Legion-era record: WDC1 is the fresh format for 7.3.5. Mixed shapes
+  // exercise block-relative strings, signed bitpacking (WDC1 spells it
+  // Bitpacked + flags 0x01) and arrays.
+  struct Wdc1Record
+  {
+    static constexpr ClientVersion version = versions::legion;
+    static constexpr std::string_view table_name = "Wdc1UnitTest";
+
+    [[=db::id, =db::noninline]]
+    std::int32_t id = 0;
+
+    std::string name;
+    std::int16_t bias = 0;
+    std::array<std::uint8_t, 3> flags{};
+    float scale = 0.0f;
+
+    bool operator==(const Wdc1Record&) const = default;
+  };
+
+  // A 10.1-era record (between WDC4's 10.1.0.48480 debut and WDC5's
+  // 10.2.5.52432 takeover) — the only window whose fresh format is WDC4.
+  struct Wdc4Record
+  {
+    static constexpr ClientVersion version = ClientVersion{10, 1, 7, 50000};
+    static constexpr std::string_view table_name = "Wdc4UnitTest";
+
+    [[=db::id, =db::noninline]]
+    std::int32_t id = 0;
+
+    std::string name;
+    std::uint32_t value = 0;
+
+    bool operator==(const Wdc4Record&) const = default;
+  };
+
+  // A Dragonflight 10.2.7 record: fresh tables write WDC5 (version prefix +
+  // schema string ahead of the WDC3-shaped header).
+  struct Wdc5Record
+  {
+    static constexpr ClientVersion version = versions::dragonflight;
+    static constexpr std::string_view table_name = "Wdc5UnitTest";
+
+    [[=db::id, =db::noninline]]
+    std::int32_t id = 0;
+
+    std::string name;
+    std::int32_t value = 0;
+
+    bool operator==(const Wdc5Record&) const = default;
+  };
+
+  // A record with a non-inline $relation$ column: its values live in the
+  // relationship block, not the record image (the WDC1/Legion norm for
+  // foreign keys, still present in WDC3+).
+  struct WdcRelationRecord
+  {
+    static constexpr ClientVersion version = versions::shadowlands;
+    static constexpr std::string_view table_name = "WdcRelationUnitTest";
+
+    [[=db::id, =db::noninline]]
+    std::int32_t id = 0;
+
+    std::uint32_t value = 0;
+
+    [[=db::relation, =db::noninline]]
+    std::uint32_t owner = 0;
+
+    bool operator==(const WdcRelationRecord&) const = default;
+  };
+}
+
+TEST_CASE("db: a fresh Legion table writes WDC1 and semantically round-trips", "[db]")
+{
+  db::Table<Wdc1Record> table;
+  table.records.push_back(
+    Wdc1Record{.id = 3, .name = "First", .bias = -20, .flags = {1, 2, 3}, .scale = 0.5f});
+  table.records.push_back(
+    Wdc1Record{.id = 9, .name = "Second", .bias = 500, .flags = {7, 0, 255}, .scale = -2.0f});
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+  REQUIRE(written->size() >= sizeof(db::wdc::Wdc1Header));
+  CHECK(std::memcmp(written->data(), "WDC1", 4) == 0);
+
+  db::wdc::Wdc1Header header;
+  std::memcpy(&header, written->data(), sizeof header);
+  CHECK(header.record_count == 2);
+  CHECK(header.field_count == 4);  // the non-inline id is not a stored column
+  CHECK((header.flags & db::wdc::wdc_flag_noninline_id) != 0);
+  CHECK(header.id_list_size == 8);
+  CHECK(header.min_id == 3);
+  CHECK(header.max_id == 9);
+
+  db::Table<Wdc1Record> reread;
+  REQUIRE(reread.read(*written).has_value());
+  CHECK(reread.records == table.records);  // signed bias, strings, arrays, floats
+}
+
+TEST_CASE("db: fresh 10.1 tables write WDC4, fresh 10.2.7 tables write WDC5", "[db]")
+{
+  db::Table<Wdc4Record> wdc4;
+  wdc4.records.push_back(Wdc4Record{.id = 1, .name = "a", .value = 10});
+  wdc4.records.push_back(Wdc4Record{.id = 2, .name = "b", .value = 4000000000u});
+  const auto wdc4_bytes = wdc4.write();
+  REQUIRE(wdc4_bytes.has_value());
+  CHECK(std::memcmp(wdc4_bytes->data(), "WDC4", 4) == 0);
+  db::Table<Wdc4Record> wdc4_reread;
+  REQUIRE(wdc4_reread.read(*wdc4_bytes).has_value());
+  CHECK(wdc4_reread.records == wdc4.records);
+
+  db::Table<Wdc5Record> wdc5;
+  wdc5.records.push_back(Wdc5Record{.id = 5, .name = "five", .value = -5});
+  wdc5.records.push_back(Wdc5Record{.id = 6, .name = "six", .value = 6});
+  const auto wdc5_bytes = wdc5.write();
+  REQUIRE(wdc5_bytes.has_value());
+  REQUIRE(wdc5_bytes->size() >= 4 + sizeof(db::wdc::Wdc5HeaderPrefix));
+  CHECK(std::memcmp(wdc5_bytes->data(), "WDC5", 4) == 0);
+  // The fresh prefix: version_num 5, blank schema string.
+  db::wdc::Wdc5HeaderPrefix prefix;
+  std::memcpy(&prefix, wdc5_bytes->data() + 4, sizeof prefix);
+  CHECK(prefix.version_num == 5);
+  db::Table<Wdc5Record> wdc5_reread;
+  REQUIRE(wdc5_reread.read(*wdc5_bytes).has_value());
+  CHECK(wdc5_reread.records == wdc5.records);
+}
+
+TEST_CASE("db: a non-inline relation column round-trips through the relationship map",
+          "[db]")
+{
+  db::Table<WdcRelationRecord> table;
+  table.records.push_back(WdcRelationRecord{.id = 1, .value = 10, .owner = 100});
+  table.records.push_back(WdcRelationRecord{.id = 2, .value = 20, .owner = 100});
+  table.records.push_back(WdcRelationRecord{.id = 3, .value = 30, .owner = 200});
+
+  const auto written = table.write();  // shadowlands -> WDC3
+  REQUIRE(written.has_value());
+  CHECK(std::memcmp(written->data(), "WDC3", 4) == 0);
+
+  db::wdc::Wdc3Header header;
+  std::memcpy(&header, written->data(), sizeof header);
+  CHECK(header.lookup_column_count == 1);
+  db::wdc::Wdc3SectionHeader section;
+  std::memcpy(&section, written->data() + sizeof header, sizeof section);
+  CHECK(section.relationship_data_size == 12 + 3 * 8);
+
+  db::Table<WdcRelationRecord> reread;
+  REQUIRE(reread.read(*written).has_value());
+  CHECK(reread.records == table.records);  // owner restored from the relationship map
+}
