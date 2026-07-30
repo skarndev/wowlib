@@ -344,3 +344,40 @@ registration; umbrella pre-declares `wowlib::db`; opaque_gen registers db record
 vectors/arrays; sharded instantiation TUs; stubs OUTPUT entries; check.py; then
 the (long) wowlib_py build + a Python round-trip test. Prove ONE table (Map)
 end-to-end before generating 1221×.
+
+## Python bindings — BLOCKED on a welder namespace-surfacing mystery (2026-07-30)
+
+The C++ binding surface is DONE and committed (dbdgen emits rowbase/tablebase
+welded supertypes + wrapper + records; commits d000cd3, 63ea0c2). The wiring to
+surface `wowlib.db` in the module was attempted (db.hpp + umbrella db decl +
+module/opaque includes + CMake links) and REVERTED because db never surfaces at
+runtime, despite:
+- `wowlib.abi3.so` builds clean (~6 min) and CONTAINS 124 db symbols (rowbase,
+  MapRecord, EncryptedSection registration code compiled in).
+- Reflection is IDENTICAL to `fs`: db is member 26 of `^^wowlib` (fs is 23), has
+  1 doc annotation (fs has 1), and every welder gate passes — verified by direct
+  consteval probes: `member_bound(db)=1`, `namespace_has_bound(db)=1`, and the
+  ACTUAL walk predicate `marker_resolution::namespace_participates(^^wowlib::db,
+  py, policy_of(^^wowlib), ^^wowlib) = 1` (same as fs).
+- Yet `wowlib.db` is absent from the module (`dir(wowlib)` submodules =
+  [versions, formats, fs] only), sys.modules has no wowlib.db*, and no db type
+  exists anywhere in the module tree. No import error/warning. The walk simply
+  never emits db's submodule despite the compile-time gate saying it should.
+- Moving the db decl into the umbrella (exactly like fs/formats) did NOT fix it.
+  `formats::common` (undoc'd, welded content) DOES surface, so doc isn't the
+  factor and content isn't missing.
+
+This is a genuine welder-integration mystery (possible welder bug or a subtle
+interaction the reflection probes don't capture — e.g. the WELDER_MODULE walk's
+`^^wowlib` enumeration at the macro point differing from a standalone
+`members_of`, a visited-set, or ordering). Needs welder-author input or stepping
+through the generated walk code. Fast repro: the consteval probes in the session
+scratchpad (db_gate.cpp / db_part.cpp) compile in ~seconds and show
+participates=1 while the 6-min module build shows no db submodule.
+
+Everything ELSE for the bindings is ready: the pattern (welded base + wrapper +
+alias) compiles, the collision-proof rowbase/tablebase namespace scheme works,
+and Table is a non-welded mixin. Once surfacing is fixed, the remaining work is
+mechanical: dbdgen emits per-range aliases + a facade, shard the instantiations,
+extend stubs, add check.py. Scope: all tables, sharded, eras vanilla/tbc/wotlk/
+shadowlands.
