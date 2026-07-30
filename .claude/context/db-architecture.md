@@ -270,9 +270,28 @@ decoded pallet, so round-trip holds. Bitpacked/None columns unchanged.
   162%->99%. All round-trip value-equal.
 - GOTCHA: pallet must cover FLOAT columns, not just int — the worst outliers
   (graphics tables) pallet floats. wdc_u32() bit_casts float slots.
-- Remaining 2 outliers: ManifestInterfaceItemIcon (232% but tiny — fixed header
-  overhead) and CreatureDisplayInfoExtra (137%, likely Common). Common encoding
-  is not implemented (rare in the outliers); it would close CreatureDisplayInfoExtra.
+- Remaining outlier after pallet: CreatureDisplayInfoExtra (137%) used Common.
+
+## Common encoding + inline-id fix — SHIPPED (2026-07-30)
+- Common (CompressionType 2): the record stores NOTHING; the value lives in a
+  per-id {id,value} table (sorted, binary-searched by the reader) with a default
+  (field_storage val1). write_wdc3 reuses the original Common kind for scalar
+  int/float columns, picks the most-frequent value over the KEPT (real) rows as
+  the default, and emits only the differing rows as entries (copies inherit, so
+  only reals need entries). common_data block sits after pallet_data.
+- INLINE-ID FIX (latent bug): the writer always forced a non-inline id_list +
+  flag 0x04, but tables whose DBD marks $id$ WITHOUT $noninline$ (e.g.
+  CreatureDisplayInfoExtra, flags 0x00) keep the id as an inline record field.
+  Forcing non-inline desynced the layout and corrupted such tables on write.
+  Fixed: wdc_id_is_noninline()/wdc_id_field_index() consteval — inline-id tables
+  now write flags 0x00, id_index = the id's field index, and NO id_list.
+- Result: bloated (>110%,>20KB) fully-decoded tables 2 -> 0; aggregate 70% of
+  Blizzard's total. Every fully-decoded table now writes <=~110% of original.
+- ROUND-TRIP GUARANTEE refined: write coalesces duplicate rows into copy
+  entries, so a MULTI-section table can be REORDERED (a section-1 row that dups a
+  section-0 row becomes a copy). The guarantee is same-SET-by-id, not vector
+  order (WDC rows are id-keyed; DBCD reorders too). Single-section tables keep
+  order. The semantic round-trip test sorts by .id before comparing.
 - SHIPPED: EncryptedPolicy::Drop on write() writes a keyless table as a plain
   WDC3 of just its decoded rows (keyless rows discarded, output unencrypted) —
   the way to apply edits to a table you can't fully decrypt. Default is

@@ -419,6 +419,54 @@ namespace
   };
 }
 
+namespace
+{
+  // A BfA+ record whose id is INLINE ($id$ without $noninline$): the writer must
+  // keep it as a record field with flag 0x00, not move it to an id_list.
+  struct WdcInlineIdRecord
+  {
+    static constexpr ClientVersion version = versions::shadowlands;
+    static constexpr std::string_view table_name = "WdcInlineId";
+
+    [[=db::id]]
+    std::int32_t id = 0;
+
+    std::int32_t value = 0;
+    std::string name;
+
+    bool operator==(const WdcInlineIdRecord&) const = default;
+  };
+}
+
+TEST_CASE("db: WDC3 write keeps an inline id in the record, not an id_list", "[db]")
+{
+  db::Table<WdcInlineIdRecord> table;
+  table.records.push_back(WdcInlineIdRecord{.id = 7, .value = 100, .name = "a"});
+  table.records.push_back(WdcInlineIdRecord{.id = 42, .value = -3, .name = "b"});
+  table.records.push_back(WdcInlineIdRecord{.id = 99, .value = 100, .name = "c"});
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+
+  db::wire::Wdc3Header header;
+  std::memcpy(&header, written->data(), sizeof header);
+  CHECK((header.flags & db::wire::wdc3_flag_noninline_id) == 0);  // id stays inline
+  db::wire::Wdc3SectionHeader section;
+  std::memcpy(&section, written->data() + sizeof header, sizeof section);
+  CHECK(section.id_list_size == 0);  // no id_list for an inline id
+
+  db::Table<WdcInlineIdRecord> reread;
+  REQUIRE(reread.read(*written).has_value());
+  REQUIRE(reread.records.size() == 3);
+  for (const auto& original : table.records)
+  {
+    const auto found = std::ranges::find_if(
+      reread.records, [&](const auto& r) { return r.id == original.id; });
+    REQUIRE(found != reread.records.end());
+    CHECK(*found == original);
+  }
+}
+
 TEST_CASE("db: WDC3 write re-derives a copy table for duplicate-except-id rows",
           "[db]")
 {

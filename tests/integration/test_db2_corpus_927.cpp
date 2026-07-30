@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <wowlib/db/tables/chr_races.hpp>
+#include <wowlib/db/tables/creature_display_info_extra.hpp>
 #include <wowlib/db/tables/creature_model_data.hpp>
 #include <wowlib/db/tables/location.hpp>
 #include <wowlib/db/tables/manifest_interface_data.hpp>
@@ -320,10 +321,12 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
   REQUIRE(storage.has_value());
 
   // A WDC3 write is a canonical re-encode (not byte-identical); the guarantee
-  // is that re-reading it yields identical values. The write reuses each
-  // column's original compression scheme, so an equal re-decode also proves the
-  // pallet / bitpacked-signed / array encoders round-trip. `max_pct` guards that
-  // the re-encode stays near Blizzard's size (pallet reproduced, not exploded).
+  // is that re-reading it yields the same SET of records by id (a write coalesces
+  // duplicate rows into copy entries, which can reorder a multi-section table).
+  // The write reuses each column's original compression scheme, so an equal
+  // re-decode also proves the pallet / common / bitpacked-signed / array
+  // encoders round-trip. `max_pct` guards that the re-encode stays near
+  // Blizzard's size (compression reproduced, not exploded).
   const auto check = [&](std::string_view path, auto table, int max_pct) {
     const auto fdid = listfile->path_to_fdid(path);
     REQUIRE(fdid.has_value());
@@ -339,7 +342,10 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
 
     decltype(table) reread;
     REQUIRE(reread.read(*written).has_value());
-    CHECK(reread.records.size() == table.records.size());
+    REQUIRE(reread.records.size() == table.records.size());
+    const auto by_id = [](const auto& a, const auto& b) { return a.id < b.id; };
+    std::ranges::sort(table.records, by_id);
+    std::ranges::sort(reread.records, by_id);
     CHECK(reread.records == table.records);
   };
 
@@ -350,4 +356,8 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
   // reproducing the pallet keeps it at ~Blizzard size instead of ~2x.
   check("dbfilesclient/creaturemodeldata.db2",
         db::tables::CreatureModelData<versions::shadowlands>{}, 110);
+  // CreatureDisplayInfoExtra exercises common-data compression and an INLINE id
+  // (3 sections); it must decode-equal by id and stay near Blizzard's size.
+  check("dbfilesclient/creaturedisplayinfoextra.db2",
+        db::tables::CreatureDisplayInfoExtra<versions::shadowlands>{}, 105);
 }

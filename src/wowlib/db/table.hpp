@@ -708,8 +708,15 @@ namespace wowlib::db
       std::ignore = block.add("");
       std::unordered_map<std::string, std::uint32_t> lookup{{"", 0}};
 
-      // Pallet blocks (one per palleted field) sit between the field-storage
-      // table and the records; the reader accumulates their sizes for the base.
+      // Common-data entries (per common field) over the kept rows; sets each
+      // common field's default.
+      const auto common_entries = build_wdc3_common(plan, reals);
+      std::uint32_t common_total = 0;
+      for (const auto& e : common_entries)
+        common_total += static_cast<std::uint32_t>(e.size() * 8);
+
+      // Pallet and common blocks sit between the field-storage table and the
+      // records; the reader accumulates their sizes for the base.
       std::uint32_t pallet_total = 0;
       for (const WdcFieldPlan& p : plan)
         if (p.is_pallet())
@@ -718,7 +725,7 @@ namespace wowlib::db
       const std::size_t header_bytes = sizeof(wire::Wdc3Header) + sizeof(wire::Wdc3SectionHeader)
                                        + std::size_t{field_count} * sizeof(wire::Wdc3FieldStructure)
                                        + std::size_t{field_count} * sizeof(wire::Wdc3FieldStorage)
-                                       + pallet_total;
+                                       + pallet_total + common_total;
       const std::size_t records_at = header_bytes;
       const std::size_t strings_at = records_at + std::size_t{real_count} * record_size;
 
@@ -754,19 +761,21 @@ namespace wowlib::db
       header.min_id = min_id;
       header.max_id = max_id;
       header.locale = wdc_locale_;
-      header.flags = wire::wdc3_flag_noninline_id;
-      header.id_index = 0;
+      constexpr bool noninline_id = wdc_id_is_noninline();
+      header.flags = noninline_id ? wire::wdc3_flag_noninline_id : std::uint16_t{0};
+      header.id_index = noninline_id ? std::uint16_t{0} : wdc_id_field_index();
       header.total_field_count = field_count;
       header.bitpacked_data_offset = 0;
       header.field_storage_info_size = field_count * sizeof(wire::Wdc3FieldStorage);
       header.pallet_data_size = pallet_total;
+      header.common_data_size = common_total;
       header.section_count = 1;
 
       wire::Wdc3SectionHeader section;
       section.file_offset = static_cast<std::uint32_t>(records_at);
       section.record_count = real_count;
       section.string_table_size = static_cast<std::uint32_t>(string_region.size());
-      section.id_list_size = real_count * 4;
+      section.id_list_size = noninline_id ? real_count * 4 : 0;
       section.copy_table_count = static_cast<std::uint32_t>(copies.size());
 
       FileBuffer out;
@@ -789,14 +798,16 @@ namespace wowlib::db
         wire::Wdc3FieldStructure fstruct{size, static_cast<std::uint16_t>(p.offset_bits / 8)};
         append(&fstruct, sizeof fstruct);
       }
+      std::size_t cf = 0;
       for (const WdcFieldPlan& p : plan)
       {
         wire::Wdc3FieldStorage fs;
         fs.field_offset_bits = static_cast<std::uint16_t>(p.offset_bits);
-        // For a pallet the record stores one index (elem_bits wide); otherwise
-        // the whole field (element width times the element count).
+        // For a pallet the record stores one index (elem_bits wide); common
+        // fields store nothing; otherwise the whole field.
         fs.field_size_bits = static_cast<std::uint16_t>(
-          p.is_pallet() ? p.elem_bits : std::size_t{p.elem_bits} * p.elements);
+          p.is_pallet() ? p.elem_bits
+                        : (p.is_common() ? 0 : std::size_t{p.elem_bits} * p.elements));
         fs.storage_type = p.storage;
         if (p.is_pallet())
         {
@@ -804,6 +815,12 @@ namespace wowlib::db
           if (p.storage == wire::Wdc3Compression::PalletArray)
             fs.val3 = p.elements;  // array length per pallet entry (client reads it)
         }
+        else if (p.is_common())
+        {
+          fs.val1 = p.common_default;  // value for ids with no override
+          fs.additional_data_size = static_cast<std::uint32_t>(common_entries[cf].size() * 8);
+        }
+        ++cf;
         append(&fs, sizeof fs);
       }
       // pallet_data: each palleted field's distinct values, in field order.
@@ -811,10 +828,18 @@ namespace wowlib::db
         if (p.is_pallet())
           for (std::uint32_t v : p.pallet)
             append(&v, 4);
+      // common_data: each common field's {id, value} overrides, sorted by id.
+      for (const auto& field_entries : common_entries)
+        for (const auto& [id, value] : field_entries)
+        {
+          append(&id, 4);
+          append(&value, 4);
+        }
       out.insert(out.end(), record_region.begin(), record_region.end());
       out.insert(out.end(), string_region.begin(), string_region.end());
-      for (std::uint32_t id : ids)
-        append(&id, 4);
+      if (noninline_id)
+        for (std::uint32_t id : ids)
+          append(&id, 4);
       for (const auto& [new_id, src_id] : copies)
       {
         append(&new_id, 4);
@@ -833,6 +858,33 @@ namespace wowlib::db
       for (const Column& col : schema_of<Record>())
         n += col.noninline ? 0 : 1;
       return n;
+    }
+
+    /** Whether the id column lives outside the record ($noninline$): then the
+        file carries an id_list and flag 0x04; otherwise the id is an inline
+        field addressed by header id_index. */
+    static consteval bool wdc_id_is_noninline()
+    {
+      for (const Column& col : schema_of<Record>())
+        if (col.is_id)
+          return col.noninline;
+      return false;
+    }
+
+    /** The inline field index of an inline id column (0 when the id is
+        non-inline). */
+    static consteval std::uint16_t wdc_id_field_index()
+    {
+      std::uint16_t idx = 0;
+      for (const Column& col : schema_of<Record>())
+      {
+        if (col.noninline)
+          continue;
+        if (col.is_id)
+          return idx;
+        ++idx;
+      }
+      return 0;
     }
 
     /** The id of section record @a r: the id_list entry when the id is
@@ -1021,16 +1073,22 @@ namespace wowlib::db
       std::vector<std::uint32_t> pallet;           /**< Pallet values, flat (elements per entry). */
       std::unordered_map<std::string, std::uint32_t> pallet_index;  /**< Value key -> pallet index. */
 
+      std::uint32_t common_default = 0;            /**< Common: value for ids with no override. */
+
       /** Whether this field is stored as a pallet index. */
       bool is_pallet() const
       {
         return storage == wire::Wdc3Compression::Pallet
                || storage == wire::Wdc3Compression::PalletArray;
       }
-      /** The record bits this field occupies: one index for a pallet, else the
-          value width times the element count. */
+      /** Whether this field's value lives in the common-data table (no record bits). */
+      bool is_common() const { return storage == wire::Wdc3Compression::CommonData; }
+      /** The record bits this field occupies: none for common, one index for a
+          pallet, else the value width times the element count. */
       std::size_t record_bits() const
       {
+        if (is_common())
+          return 0;
         return is_pallet() ? elem_bits : std::size_t{elem_bits} * elements;
       }
     };
@@ -1066,7 +1124,11 @@ namespace wowlib::db
           && (wdc_kinds_[f] == wire::Wdc3Compression::Pallet
               || wdc_kinds_[f] == wire::Wdc3Compression::PalletArray);
         const bool palletable = col.type == ColumnType::Int || col.type == ColumnType::Float;
-        if (palletable && orig_pallet)
+        const bool orig_common = f < wdc_kinds_.size()
+                                 && wdc_kinds_[f] == wire::Wdc3Compression::CommonData;
+        if (palletable && col.array_len == 1 && orig_common)
+          p.storage = wire::Wdc3Compression::CommonData;  // scalar; value in common_data by id
+        else if (palletable && orig_pallet)
           p.storage = col.array_len > 1 ? wire::Wdc3Compression::PalletArray
                                         : wire::Wdc3Compression::Pallet;
         else if (col.type == ColumnType::Int)
@@ -1077,6 +1139,8 @@ namespace wowlib::db
 
         if (p.is_pallet())
           p.elem_bits = 1;  // index width filled in after the pallet is built
+        else if (p.is_common())
+          p.elem_bits = 0;  // no record bits
         else if (col.type == ColumnType::Int)
           p.elem_bits = std::min<std::uint16_t>(
             col.is_signed ? signed_width(lo[f], hi[f])
@@ -1155,6 +1219,68 @@ namespace wowlib::db
 
     /** String members are never palleted. */
     static void pallet_intern(WdcFieldPlan&, const auto&) {}
+
+    /** Build the common-data entries for every common field over the kept
+        (real) rows: the field's most frequent value becomes the default
+        (field_storage val1), and only rows differing from it get an {id, value}
+        entry, sorted by id (the reader binary-searches). Copies inherit their
+        source's value, so only reals need entries.
+        @param plan  the field plans (each common field's default is filled in).
+        @param reals indices into records of the kept rows.
+        @return per-field sorted {id, value} entries (empty for non-common fields). */
+    std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> build_wdc3_common(
+      std::vector<WdcFieldPlan>& plan, const std::vector<std::uint32_t>& reals) const
+    {
+      const std::size_t nf = plan.size();
+      std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> raw(nf);
+      for (std::uint32_t ri : reals)
+        collect_common_values(records[ri], wdc_id_of(records[ri]), plan, raw);
+
+      std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> entries(nf);
+      for (std::size_t f = 0; f < nf; ++f)
+      {
+        if (!plan[f].is_common())
+          continue;
+        std::unordered_map<std::uint32_t, std::uint32_t> hist;
+        for (const auto& [id, v] : raw[f])
+          ++hist[v];
+        std::uint32_t def = 0, best = 0;
+        for (const auto& [v, c] : hist)
+          if (c > best) { best = c; def = v; }
+        plan[f].common_default = def;
+        for (const auto& [id, v] : raw[f])
+          if (v != def)
+            entries[f].emplace_back(id, v);
+        std::ranges::sort(entries[f]);  // by id, then value
+      }
+      return entries;
+    }
+
+    /** Append each common field's (id, value) for @a record to @a raw. */
+    void collect_common_values(
+      const Record& record, std::uint32_t id, const std::vector<WdcFieldPlan>& plan,
+      std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>& raw) const
+    {
+      static constexpr auto members = detail::record_members<Record>();
+      std::size_t field = 0;
+      template for (constexpr auto m : members)
+      {
+        if constexpr (!detail::annotation<detail::noninline_spec, m>().has_value())
+        {
+          if (plan[field].is_common())
+            raw[field].emplace_back(id, common_slot(record.[:m:]));
+          ++field;
+        }
+      }
+    }
+
+    /** The 32-bit common-data slot of a scalar value (int widened, float bits). */
+    template <typename T>
+      requires (palletable_scalar<T>)
+    static std::uint32_t common_slot(const T& value) { return wdc_u32(value); }
+
+    /** Non-scalar members never carry common data (unused). */
+    static std::uint32_t common_slot(const auto&) { return 0; }
 
     /** The id column value of @a record (the $id$ member). */
     static std::uint32_t wdc_id_of(const Record& record)
@@ -1314,6 +1440,8 @@ namespace wowlib::db
                            formats::StringBlock&, std::unordered_map<std::string, std::uint32_t>&,
                            std::size_t, std::size_t) const
     {
+      if (p.is_common())
+        return;  // value lives in the common-data table, not the record
       if (p.storage == wire::Wdc3Compression::Pallet)
       {
         const std::uint32_t slot = static_cast<std::uint32_t>(value);
@@ -1331,6 +1459,8 @@ namespace wowlib::db
                            formats::StringBlock&, std::unordered_map<std::string, std::uint32_t>&,
                            std::size_t, std::size_t) const
     {
+      if (p.is_common())
+        return;  // value lives in the common-data table, not the record
       if (p.storage == wire::Wdc3Compression::Pallet)
       {
         const std::uint32_t slot = std::bit_cast<std::uint32_t>(value);
