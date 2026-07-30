@@ -10,27 +10,24 @@ option(WOWLIB_DB_TABLES "Generate the WoWDBDefs client-database table headers" O
 set(WOWLIB_DBDEFS_DIR "" CACHE PATH
     "Local WoWDBDefs checkout to generate from (its definitions/ dir is used); \
 empty fetches the pinned snapshot")
-# The Python bindings COMPILE every generated table (each era of each table is a
-# real welded instantiation), so they default to the four eras with a local test
-# client — vanilla 1.12, tbc 2.4.3, wotlk 3.3.5a, shadowlands 9.2.7 — to keep the
-# compile bounded (user decision 2026-07-30). A C++-only build only ever *includes*
-# a handful of table headers on demand (header-only, implicit instantiation), so it
-# defaults to every last-minor expansion. Either way the list is overridable.
-if(WOWLIB_BUILD_PYTHON)
-  set(_wowlib_default_eras "vanilla,tbc,wotlk,shadowlands")
-else()
-  set(_wowlib_default_eras
-      "vanilla,tbc,wotlk,cata,mop,wod,legion,bfa,shadowlands,dragonflight,tww")
-endif()
+# Every last-minor expansion, for the C++ build and the Python bindings alike
+# (user decision 2026-07-30: expose ALL eras' tables to Python). Every era now
+# has a working codec: WDBC (pre-Cata), WDB2 (Cata..WoD), WDC1 (Legion), WDC3
+# (BfA/SL), WDC4/WDC5 (DF/TWW). The bindings COMPILE every generated table
+# (each era of each table is a real welded instantiation) — trim this list for
+# a faster local bindings build.
+set(_wowlib_default_eras
+    "vanilla,tbc,wotlk,cata,mop,wod,legion,bfa,shadowlands,dragonflight,tww")
 set(WOWLIB_DB_ERAS "${_wowlib_default_eras}"
     CACHE STRING "Comma-separated era list dbdgen generates tables for")
-# One binding shard is a heavy TU (~28 tables x 4 eras of reflection/instantiation
-# ~ 1 min at -O2), so the count trades three things: parallel core utilization
-# (want >= a small multiple of cores so the tail wave stays balanced), the
-# incremental blast radius (editing one table rebuilds only its shard), and a
-# little redundant prologue parsing per extra shard. 32 balances well on 8-16
-# cores; raise it for finer incrementals on a big machine.
-set(WOWLIB_DB_SHARDS "32" CACHE STRING
+# One binding shard is a heavy TU (~1 min at -O2 when it holds ~28 tables'
+# worth of reflection/instantiation), so the count trades three things:
+# parallel core utilization (want >= a small multiple of cores so the tail
+# wave stays balanced), the incremental blast radius (editing one table
+# rebuilds only its shard), and a little redundant prologue parsing per extra
+# shard. 96 keeps the per-shard load at the proven 32-shard/4-era density now
+# that the default era list is all eleven.
+set(WOWLIB_DB_SHARDS "96" CACHE STRING
     "Number of Python binding-shard translation units (parallel compile)")
 # Pinned WoWDBDefs master of 2026-07-29.
 set(WOWLIB_DBDEFS_PIN "61db72dc2fcace61b086303cc2a2b95c7d42828a")

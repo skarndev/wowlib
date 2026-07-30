@@ -18,6 +18,15 @@ from dbdgen.emit import (Range, build_members, collapse, emit_manifest, emit_sha
                          write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
 
+# Generated C++/Python identifiers come straight from the table name.
+# WoWDBDefs contains exactly one name that is not a valid identifier:
+# "Item-sparse", the Cataclysm..WoD ancestor of ItemSparse (a separate .dbd
+# with its own columns; their build ranges never overlap). Its generated
+# family is renamed here; the record's table_name string keeps the on-disk
+# truth ("Item-sparse", as in DBFilesClient/Item-sparse.db2). Any future
+# non-identifier name must be added here — dbdgen refuses it otherwise.
+IDENT_RENAMES = {"Item-sparse": "ItemSparseLegacy"}
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="dbdgen")
@@ -52,8 +61,13 @@ def main(argv: list[str] | None = None) -> int:
     warnings: list[str] = []
 
     for path in sorted(args.definitions.glob("*.dbd")):
-        table = path.stem
-        if only is not None and table not in only:
+        dbd_name = path.stem
+        table = IDENT_RENAMES.get(dbd_name, dbd_name)
+        if not table.isidentifier():
+            warnings.append(f"{dbd_name}: not a valid identifier — add an "
+                            f"IDENT_RENAMES entry for it")
+            continue
+        if only is not None and table not in only and dbd_name not in only:
             continue
         try:
             defn = dbd.parse(path.read_text(encoding="utf-8-sig"))
@@ -75,7 +89,8 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         ranges = collapse(per_target)
-        write_if_changed(tables_dir / f"{snake(table)}.hpp", emit_table(table, ranges))
+        write_if_changed(tables_dir / f"{snake(table)}.hpp",
+                         emit_table(table, ranges, dbd_name=dbd_name))
         emitted += 1
         table_ranges.append((table, ranges))
         for target, _ in per_target:

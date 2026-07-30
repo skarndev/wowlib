@@ -4,6 +4,57 @@ Client-side database files (`DBFilesClient/*.dbc`, `*.db2`), `src/wowlib/db/`,
 namespace `wowlib::db`. Plan of record: `~/.claude/plans/rosy-dreaming-beaver.md`.
 Stage 1 (WDBC end-to-end) shipped 2026-07-29.
 
+## 2026-07-30 (late): FULL FORMAT COVERAGE + wdc/ restructure
+
+Every era now has a working codec: WDBC (pre-Cata), WDB2 (Cata..WoD,
+REAL-CORPUS VERIFIED on 4.3.4 — see below), WDC1 (Legion), WDC3 (BfA/SL,
+corpus-verified), WDC4 (10.1..10.2.5), WDC5 (10.2.5+/TWW). Key facts:
+
+- **db/wdc/ subdir** (namespace `wowlib::db::wdc`): `bit_stream.hpp`
+  (BitReader/BitWriter), `binary.hpp` (all flavors' structs: Wdc1Header 84B,
+  Wdc3Header 72B shared by WDC4, Wdc5HeaderPrefix 132B {version_num,
+  schema_string[128]} spliced after the magic, Wdc3SectionHeader 40B,
+  WdcFieldStructure/WdcFieldStorage/WdcCompression), `image.hpp/.cpp`
+  (WdcImage — flavor-NORMALIZING parser + field decoder), `read.cpp` (Decoder
+  class), `write.cpp` (Writer class), `wdc.hpp` (entry points `read_wdc` /
+  `write_wdc(magic, ...)`; Table dispatches via `is_wdc_magic`). Old
+  `db/wdc3.{hpp,cpp}` deleted. Free-helper piles became class members per the
+  house convention (this also answers "why not private methods" — they are
+  now).
+- **Normalization at parse**: WDC1's single implicit section becomes
+  sections[0]; its DENSE min_id..max_id offset map is filtered to present
+  entries with explicit ids (owned by the image); its `Bitpacked + flags
+  val3&1` signed spelling is rewritten to BitpackedSigned (the writer maps it
+  back when emitting WDC1). WDC4/5's per-encrypted-section
+  `encrypted_status` id lists are parsed (preferred for
+  EncryptedSection.ids); their section tail moves offset_map_ids AFTER the
+  relationship block (flag 0x02 restores WDC3 order). The ONLY decoder branch
+  left is StringRefMode: WDC1 = block-relative, WDC2+ = field-relative.
+- **BUG FIXED (was latent since stage 3): multi-section string resolution.**
+  WDC2+ string refs measure the distance inside the client's concatenated
+  BLOB (all sections' records, then all sections' strings), NOT inside the
+  file. The old reader resolved file-relative → garbage strings in any
+  multi-section table whose later sections hold records (e.g. every partially
+  encrypted table). The Decoder now maps blob→file through per-section
+  geometry. Canary: SpellName (41 sections) id 133 == "Fireball" in
+  test_db2_corpus_927.cpp.
+- **Relationship maps implemented** (read + write): parsed onto the
+  non-inline `$relation$` column ({num,min,max} + {foreign_id,record_index}
+  entries, per section; by-id when WDC4+ flag 0x02); the Writer emits one
+  entry per kept row + lookup_column_count=1 when the schema has such a
+  column. The old "relationship not parsed" limit is gone.
+- **fresh_magic ladder** (table.hpp `db2_magic_for_version()`): <Cata WDBC,
+  <Legion WDB2, <BfA WDC1, <10.1.0.48480 WDC3, <10.2.5.52432 WDC4, else
+  WDC5. TableState gained `wdc5_prefix` (preserved WDC5 header prefix).
+- **WDB2 VERIFIED on the real 4.3.4 corpus** (was synthetic-only): the full
+  mixed .dbc/.db2 sweep round-trips byte-perfectly (test_dbc_corpus_434.cpp;
+  Item.db2 61k records; `sweep_table_mixed` tries .db2 then .dbc; the one
+  odd filename is ItemSparse → "Item-sparse.db2"). Reads go through the NEW
+  wow-update incremental patch chains — see mpq-load-order.md.
+- Synthetic unit proofs for WDC1/WDC4/WDC5 + relationship round-trip live at
+  the end of test_db_framework.cpp.
+- WDB3–WDB6/WDC2 stay out of scope (no last-minor client ships them).
+
 ## User decisions (2026-07-29, all confirmed via AskUserQuestion)
 
 1. **Codegen for ALL tables, exhaustive** — typed record structs generated from
@@ -371,7 +422,18 @@ vectors/arrays; sharded instantiation TUs; stubs OUTPUT entries; check.py; then
 the (long) wowlib_py build + a Python round-trip test. Prove ONE table (Map)
 end-to-end before generating 1221×.
 
-## Python bindings — BLOCKED on a welder namespace-surfacing mystery (2026-07-30)
+## Python bindings — RESOLVED + shipped (2026-07-30)
+
+The namespace-surfacing blocker below was fixed the same day (commits
+570a895..c14baae): tables surface as `wowlib.db.tables`, sharded TUs,
+grid-gated for_version facade + AnyX unions, full 4-era set, then the Ninja
+release preset + memory-aware job pool fixed the 30-min build. On 2026-07-30
+(late) the default era set for BOTH C++ and Python builds became ALL ELEVEN
+eras (cmake/DbTables.cmake; WOWLIB_DB_SHARDS default 96 keeps per-shard
+density at the proven level) — every era now has a codec, so the whole grid
+is meaningful from Python. Historical record of the blocker follows.
+
+## Python bindings — BLOCKED on a welder namespace-surfacing mystery (2026-07-30) [RESOLVED, see above]
 
 The C++ binding surface is DONE and committed (dbdgen emits rowbase/tablebase
 welded supertypes + wrapper + records; commits d000cd3, 63ea0c2). The wiring to

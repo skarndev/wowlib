@@ -35,18 +35,29 @@ def test_for_version_narrows_to_the_concrete_class():
     assert issubclass(tbc, tables.WMOAreaTable)
 
 
-def test_for_version_rejects_an_unsupported_era():
-    # Map has no Cata block in the binding build's era set -> raises, rather than
-    # silently collapsing onto an adjacent range.
+def test_for_version_covers_every_era():
+    # All eleven eras are bound (2026-07-30); each resolves to a concrete class.
+    for era in (wowlib.Expansion.Cata, wowlib.Expansion.Legion,
+                wowlib.Expansion.Dragonflight, wowlib.Expansion.TheWarWithin):
+        m = wowlib.db.tables.Map.for_version(era)
+        assert isinstance(m, wowlib.db.tables.Map)
+
+
+def test_for_version_rejects_an_uncovered_table_era():
+    # A table absent from an era's DBD (ItemSparse debuts in Cata) raises rather
+    # than silently collapsing onto an adjacent range.
     with pytest.raises(ValueError):
-        wowlib.db.tables.Map.for_version(wowlib.Expansion.Cata)
+        wowlib.db.tables.ItemSparse.for_version(wowlib.Expansion.Vanilla)
 
 
 def test_any_union_folds_the_concrete_classes():
     tables = wowlib.db.tables
     members = set(wowlib.db.tables.AnyMap.__args__)
-    assert members == {tables.MapVanilla, tables.MapTbc, tables.MapWotlk,
-                       tables.MapShadowlands}
+    # Map now spans every era; ranges may collapse adjacent eras into one
+    # concrete class, so assert the known-distinct members are present rather
+    # than pinning the full set.
+    assert {tables.MapVanilla, tables.MapTbc, tables.MapWotlk,
+            tables.MapShadowlands} <= members
 
 
 def test_map_round_trips_byte_perfect(wotlk_fs):

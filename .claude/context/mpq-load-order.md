@@ -220,7 +220,18 @@ Note: pywowlib sorted ALL `Data/*.MPQ` alphabetically — approximately right fo
   as wowdev.wiki implies). Note: `MAHO` is a WDL chunk — the WDT/WDL round-trip
   test formerly shared ONE unknown-chunk histogram across both files, which made a
   WDL chunk look WDT-sourced; that histogram is now split per file kind.
-- 4.3.4 / 5.4.8: need `ChainEntryKind::UpdateChain` (`wow-update-{build}.MPQ`,
-  ascending build) implemented, with `incremental_patch=true` → those archives
-  must attach via `SFileOpenPatchArchive` on the base handles instead of opening
-  standalone. Currently `expand_chain` returns NotImplemented for UpdateChain.
+- **4.3.4 / 5.4.8: DONE (2026-07-30).** `PatchScheme::UpdateChain` implemented:
+  `expand_chain` globs `wow-update[-base]-{build}.MPQ` (Data/, attach prefix
+  "base") and `wow-update-{locale}-{build}.MPQ` (Data/{locale}/, prefix the
+  locale code), sorted ascending by build, emitted as `ChainMember.incremental`
+  entries carrying their prefix. `MpqStorage::open_chain` attaches each to
+  every already-open archive of the SAME Data directory via
+  `SFileOpenPatchArchive`; StormLib then serves PTCH-patched content through
+  the base handles transparently. GOTCHA: `SFileHasFile` checks only the base
+  hash table and cannot see files ADDED by updates — patched archives resolve
+  read_file/exists through `SFileOpenFileEx` directly (continue on
+  ERROR_FILE_NOT_FOUND). `cata_base`/`mop_base` tables added; 4.3.4 verified
+  end-to-end by the full DBC/DB2 corpus round-trip (test_dbc_corpus_434.cpp,
+  ruRU install symlinked into ~/WoWModding/Clients as "WoW Cata 4.3.4"); the
+  MoP table is a safe superset, UNVERIFIED until the local 5.4.8 download
+  completes.

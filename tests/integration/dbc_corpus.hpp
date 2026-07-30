@@ -94,8 +94,9 @@ namespace wowlib::tests
   template <typename Tbl>
   void sweep_table_mixed(fs::MpqStorage& storage, std::string_view name, CorpusStats& stats)
   {
-    // The one filename that differs from its table name in the WDB2 era.
-    const std::string base = name == "ItemSparse" ? "Item-sparse" : std::string{name};
+    // The one family whose identifier differs from its on-disk name: dbdgen
+    // renames the hyphenated "Item-sparse" table to ItemSparseLegacy.
+    const std::string base = name == "ItemSparseLegacy" ? "Item-sparse" : std::string{name};
     auto data = storage.read_file(FileKey{std::format("DBFilesClient/{}.db2", base)});
     if (!data)
       data = storage.read_file(FileKey{std::format("DBFilesClient/{}.dbc", base)});
