@@ -131,15 +131,20 @@ class EmitTest(unittest.TestCase):
 
     def test_emit_table_shape(self):
         header = emit_table("Widget", self._ranges())
-        self.assertIn("struct WidgetRecord<versions::vanilla>", header)
-        self.assertIn("struct WidgetRecord<versions::wotlk>", header)
+        self.assertIn("struct WidgetRecord<versions::vanilla> : db::rowbase::Widget", header)
+        self.assertIn("struct WidgetRecord<versions::wotlk> : db::rowbase::Widget", header)
         self.assertNotIn("versions::tbc>", header)  # no tbc block
         self.assertIn("[[=db::id]]\n      std::int32_t id = 0;", header)
         self.assertIn("std::array<std::uint32_t, 2> flags{};", header)
         self.assertIn("inline constexpr std::array<ClientVersion, 2> "
                       "widget_grid{versions::vanilla, versions::wotlk};", header)
         self.assertIn("widget_pivots{versions::wotlk};", header)
-        self.assertIn("using Widget = Table<WidgetRecord<V>>;", header)
+        # Welded bases + wrapper for the Python/Lua binding surface.
+        self.assertIn("=welder::weld(welder::lang::py, welder::lang::lua),", header)
+        self.assertIn("namespace wowlib::db::rowbase", header)
+        self.assertIn("struct WidgetTable : Table<WidgetRecord<V>>, db::tablebase::Widget", header)
+        self.assertIn("using Widget = detail::WidgetTable<formats::canonical_version("
+                      "V, widget_pivots, widget_grid)>;", header)
 
     def test_emit_manifest_shape(self):
         manifest = emit_manifest("wotlk", ["AreaTable", "Map"])

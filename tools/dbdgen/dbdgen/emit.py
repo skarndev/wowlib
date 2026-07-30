@@ -224,6 +224,33 @@ def emit_table(table: str, ranges: list[Range]) -> str:
     out.append("#include <wowlib/db/table.hpp>")
     out.append("#include <wowlib/formats/common/version_range.hpp>")
     out.append("")
+    # Welded empty supertypes for the Python/Lua binding surface. A class-template
+    # instantiation is only weldable through a welded base, and each per-range
+    # concrete welds via a namespace alias (in the binding shard). The bases live
+    # in dedicated namespaces named by the (unique) table name, so they never
+    # collide with the tables:: aliases or with a table literally named "<X>Base".
+    out.append("namespace wowlib::db::rowbase")
+    out.append("{")
+    out.append("  struct [[")
+    out.append("    =welder::weld(welder::lang::py, welder::lang::lua),")
+    out.append(f'    =welder::doc("One row of the {table} client-database table.")]]')
+    out.append(f"  {table}")
+    out.append("  {")
+    out.append(f"    bool operator==(const {table}&) const = default;")
+    out.append("  };")
+    out.append("}")
+    out.append("")
+    out.append("namespace wowlib::db::tablebase")
+    out.append("{")
+    out.append("  struct [[")
+    out.append("    =welder::weld(welder::lang::py, welder::lang::lua),")
+    out.append(f'    =welder::doc("The {table} client-database table (DBFilesClient/'
+               f'{var}.db2 or .dbc).")]]')
+    out.append(f"  {table}")
+    out.append("  {")
+    out.append("  };")
+    out.append("}")
+    out.append("")
     out.append("namespace wowlib::db::tables")
     out.append("{")
     out.append("  namespace detail")
@@ -234,7 +261,7 @@ def emit_table(table: str, ranges: list[Range]) -> str:
         era = r.canonical.era
         out.append("")
         out.append("    template <>")
-        out.append(f"    struct {table}Record<versions::{era}>")
+        out.append(f"    struct {table}Record<versions::{era}> : db::rowbase::{table}")
         out.append("    {")
         out.append(f"      static constexpr ClientVersion version = versions::{era};")
         out.append(f'      static constexpr std::string_view table_name = "{table}";')
@@ -259,8 +286,17 @@ def emit_table(table: str, ranges: list[Range]) -> str:
     out.append(f"  using {table}Record = detail::{table}Record<formats::canonical_version("
                f"V, {var}_pivots, {var}_grid)>;")
     out.append("")
+    out.append("  namespace detail")
+    out.append("  {")
+    out.append("    template <ClientVersion V>")
+    out.append(f"    struct {table}Table : Table<{table}Record<V>>, db::tablebase::{table}")
+    out.append("    {")
+    out.append("    };")
+    out.append("  }")
+    out.append("")
     out.append("  template <ClientVersion V>")
-    out.append(f"  using {table} = Table<{table}Record<V>>;")
+    out.append(f"  using {table} = detail::{table}Table<formats::canonical_version("
+               f"V, {var}_pivots, {var}_grid)>;")
     out.append("}")
     out.append("")
     return "\n".join(out)
