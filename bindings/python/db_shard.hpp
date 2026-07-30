@@ -35,3 +35,6 @@
 
 #include <welder/naming.hpp>
 #include <welder/rods/python/nanobind/rod.hpp>
+
+// for_version / AnyX facade attached per table after its types are welded.
+#include "db_facade.hpp"

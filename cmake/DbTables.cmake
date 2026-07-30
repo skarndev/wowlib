@@ -55,8 +55,9 @@ if(WOWLIB_DB_TABLES)
       list(APPEND WOWLIB_DB_SHARD_SOURCES
            "${WOWLIB_DB_BINDINGS_DIR}/db_shard_${_i}.cpp")
     endforeach()
+    set(WOWLIB_DB_STUB_PATTERNS "${WOWLIB_DB_BINDINGS_DIR}/db_stub_patterns.nb")
     list(APPEND _wowlib_dbdgen_outputs ${WOWLIB_DB_SHARD_SOURCES}
-         "${WOWLIB_DB_BINDINGS_DIR}/db_shards.hpp")
+         "${WOWLIB_DB_BINDINGS_DIR}/db_shards.hpp" "${WOWLIB_DB_STUB_PATTERNS}")
   endif()
 
   add_custom_command(

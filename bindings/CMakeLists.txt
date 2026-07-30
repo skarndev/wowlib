@@ -119,6 +119,25 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
   # correct `AnyX = C0 | ...` alias (and suppresses that broken auto-emit). The wmo
   # namespace is a package whose root/ and group/ submodules are themselves
   # packages (each with a nested chunks submodule of wire structs).
+  # The stub PATTERN_FILE = the hand-written format patterns + dbdgen's generated
+  # db AnyX patterns (~one per multi-range table), concatenated (nanobind takes a
+  # single file). Falls back to just the hand-written file when the db tables /
+  # Python build is off.
+  set(_wowlib_patterns ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb)
+  if(DEFINED WOWLIB_DB_STUB_PATTERNS)
+    set(_wowlib_combined_patterns ${CMAKE_CURRENT_BINARY_DIR}/combined_stub_patterns.nb)
+    add_custom_command(
+      OUTPUT ${_wowlib_combined_patterns}
+      COMMAND ${CMAKE_COMMAND} -DOUT=${_wowlib_combined_patterns}
+              "-DINPUTS=${_wowlib_patterns};${WOWLIB_DB_STUB_PATTERNS}"
+              -P ${CMAKE_SOURCE_DIR}/cmake/ConcatFiles.cmake
+      DEPENDS ${_wowlib_patterns} ${WOWLIB_DB_STUB_PATTERNS} wowlib_dbdgen
+      COMMENT "Merging stub PATTERN_FILEs (format + generated db)"
+      VERBATIM)
+    add_custom_target(wowlib_stub_patterns DEPENDS ${_wowlib_combined_patterns})
+    set(_wowlib_patterns ${_wowlib_combined_patterns})
+  endif()
+
   nanobind_add_stub(wowlib_pyi
     MODULE wowlib
     RECURSIVE
@@ -126,6 +145,9 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
     OUTPUT ${_wowlib_stubs}/wowlib/__init__.pyi
            ${_wowlib_stubs}/wowlib/fs.pyi
            ${_wowlib_stubs}/wowlib/versions.pyi
+           ${_wowlib_stubs}/wowlib/db/__init__.pyi
+           ${_wowlib_stubs}/wowlib/db/rowbase.pyi
+           ${_wowlib_stubs}/wowlib/db/tables.pyi
            ${_wowlib_stubs}/wowlib/formats/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/common.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/__init__.pyi
@@ -155,9 +177,9 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
            ${_wowlib_stubs}/wowlib/formats/wdl/chunks.pyi
            ${_wowlib_stubs}/wowlib/formats/adt/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/adt/chunks.pyi
-    PATTERN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb
+    PATTERN_FILE ${_wowlib_patterns}
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
-    DEPENDS wowlib_py)
+    DEPENDS wowlib_py ${_wowlib_patterns})
 
   if(NOT WIN32)
     set(Python_EXECUTABLE "${_wowlib_saved_python}")  # restore the real interpreter

@@ -14,7 +14,8 @@ from pathlib import Path
 
 from dbdgen import dbd
 from dbdgen.emit import (Range, build_members, collapse, emit_manifest, emit_shard,
-                         emit_shard_registry, emit_table, snake, write_if_changed)
+                         emit_shard_registry, emit_stub_patterns, emit_table, snake,
+                         write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
 
 
@@ -97,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
                              emit_shard(index, shard))
         write_if_changed(args.bindings_out / "db_shards.hpp",
                          emit_shard_registry(num_shards))
+        write_if_changed(args.bindings_out / "db_stub_patterns.nb",
+                         emit_stub_patterns(table_ranges))
         print(f"dbdgen: {num_shards} binding shards emitted to {args.bindings_out}")
 
     print(f"dbdgen: {emitted} tables emitted "

@@ -9,8 +9,8 @@ from pathlib import Path
 
 from dbdgen import dbd
 from dbdgen.emit import (Member, build_members, collapse, emit_manifest,
-                         emit_shard, emit_shard_registry, emit_table, member_name,
-                         range_suffix, snake)
+                         emit_shard, emit_shard_registry, emit_stub_patterns,
+                         emit_table, member_name, range_suffix, snake)
 from dbdgen.targets import TARGETS_BY_ERA, locstring_langs
 
 DATA = Path(__file__).resolve().parents[3] / "tests" / "data" / "dbd"
@@ -145,6 +145,9 @@ class EmitTest(unittest.TestCase):
                       "widget_grid{versions::vanilla, versions::wotlk};", header)
         self.assertIn("widget_pivots{versions::wotlk};", header)
         self.assertIn("detail::widget_pivots, detail::widget_grid", header)
+        # A ranges table checked against C++ range_suffix guards naming drift.
+        self.assertIn("static_assert(formats::ranges_valid(widget_ranges, "
+                      "widget_pivots, widget_grid));", header)
         # Welded bases + wrapper for the Python/Lua binding surface.
         self.assertIn("=welder::weld(welder::lang::py, welder::lang::lua),", header)
         self.assertIn("namespace wowlib::db::rowbase", header)
@@ -206,6 +209,9 @@ $id$ID<32>
         self.assertIn('W::weld_type<t::WidgetRecordWotlk>(tables, '
                       '"WidgetRecordWotlk");', shard)
         self.assertNotIn("weld_namespace", shard)
+        # for_version / AnyX facade, after the types are welded.
+        self.assertIn('def_table_facade<t::Widget>(tables, "Widget", '
+                      "t::detail::widget_pivots, t::detail::widget_grid);", shard)
 
     def test_emit_shard_registry_shape(self):
         registry = emit_shard_registry(2)
@@ -215,6 +221,17 @@ $id$ID<32>
         self.assertIn('db.def_submodule(', registry)
         self.assertIn("register_shard_0(tables, rowbase);", registry)
         self.assertIn("register_shard_1(tables, rowbase);", registry)
+
+    def test_emit_stub_patterns(self):
+        # Widget: vanilla (LS8) and wotlk (minimal) are distinct -> 2 ranges -> a
+        # multi-member AnyWidget that needs a pattern entry.
+        patterns = emit_stub_patterns([("Widget", self._ranges())])
+        self.assertIn("wowlib.db.tables.AnyWidget$:", patterns)
+        self.assertIn("    AnyWidget = WidgetVanilla | WidgetWotlk", patterns)
+        # A single-range table collapses to one class and gets no entry.
+        single = self._ranges(self._NOLOC, eras=("vanilla", "tbc"))
+        self.assertEqual(len(single), 1)
+        self.assertNotIn("AnyNoloc", emit_stub_patterns([("Noloc", single)]))
 
     def test_emit_manifest_shape(self):
         manifest = emit_manifest("wotlk", ["AreaTable", "Map"])

@@ -384,3 +384,44 @@ so welder creates the `wowlib.db` submodule; the generated `db_shards.hpp`
 - Verified at 254 tables (vanilla/tbc/wotlk): 251 `db.rowbase` supertypes, 981
   `db.tables` classes, zero collisions, Map round-trip still byte-perfect, 127
   binding tests green, stubs (RECURSIVE) render db.tables/db.rowbase without error.
+
+## The db for_version facade is GRID-gated + generated AnyX patterns (2026-07-30)
+Each table gets the same native facade as the formats (`facade.hpp` helpers
+reused verbatim), attached per table in the shard via `db_facade.hpp`'s
+`def_table_facade<F>` (F = the alias template `db::tables::Map`), called AFTER the
+shard's `weld_type`s so the base class exists and `def_any_alias`'s name lookups
+resolve. KEY difference from the format facade: a table alias `F<V>` is TOTAL (it
+canonicalizes every version into its grid), so the format facade's `family_has`
+SFINAE gate never fires — `def_table_facade` instead gates `for_version`'s Literal
+overloads on GRID membership (`grid_has(to_client_version(X), grid)`), so
+`Map.for_version(Expansion.Cata)` on a table with no Cata block RAISES instead of
+silently collapsing Cata onto the wotlk range. `def_any_alias<F>` is reused
+as-is (every expansion's `concrete_name` maps into the grid, the union dedups).
+- **Naming-drift guard:** dbdgen's Python `range_suffix` must match C++
+  `range_suffix` exactly or `def_any_alias`'s `module.attr(concrete_name(...))`
+  fails at IMPORT. The generated header emits a `{var}_ranges` `RangeRow` table +
+  `static_assert(formats::ranges_valid(...))`, so any drift is a COMPILE error on
+  that table, not a runtime import crash. (Held for all 251 tables.)
+- **AnyX stubs:** nanobind 2.13 stubgen renders a multi-member `types.UnionType`
+  as the mypy-invalid `types.UnionType[...]`; single-member ones collapse to a
+  valid class alias. dbdgen emits `db_stub_patterns.nb` (one PATTERN_FILE entry
+  per multi-range table spelling `AnyMap = MapVanilla | MapTbc | MapWotlk`), and
+  `cmake/ConcatFiles.cmake` merges it with the hand-written `stub_patterns.nb`
+  into the single file `nanobind_add_stub` consumes. Same mechanism as the format
+  AnyX, just generated at scale.
+- **GOTCHA — docstring backslashes:** nanobind emits a docstring containing a
+  backslash as a RAW string `r"""..."""`, but a raw string cannot end in a
+  backslash — a WoWDBDefs comment like `reference to World\Map\ [...] \` produced
+  `r"""...\"""` which runs away and corrupts the whole `.pyi` (mypy then reports a
+  bogus "invalid character U+2014" wherever the runaway hits a later em-dash).
+  dbdgen's `_doc_text` normalizes `\`→`/` (WoW paths read the same), fixing both
+  the C++ literal and the stub. Diagnose stub-syntax breaks with
+  `compile(open(pyi).read(), ...)`, not the misleading mypy line.
+- **Generated-header rebuild race:** when a dbdgen edit changes a table header,
+  ninja may not recompile the consuming shard in the SAME `cmake --build` run
+  (it checks the header's mtime before dbdgen rewrites it) — the headers are not
+  declared command OUTPUTs, only the stamp/shards/registry are. A second build
+  picks it up; clean/CI builds are fine. If a runtime change (e.g. a docstring)
+  doesn't take, build twice.
+- pytest coverage: `tests/python/test_db_tables.py` (facade narrowing, grid
+  rejection, AnyX union, byte-perfect round-trip, edit-survives).
