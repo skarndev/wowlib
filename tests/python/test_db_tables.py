@@ -25,16 +25,19 @@ def test_for_version_narrows_to_the_concrete_class():
     m = tables.Map.for_version(wowlib.Expansion.Wotlk)
     assert type(m) is tables.MapWotlk
     assert isinstance(m, tables.Map)  # native inheritance / isinstance
-    # A collapsed range resolves both of its eras to the one concrete class.
-    assert type(tables.WMOAreaTable.for_version(wowlib.Expansion.Tbc)) is \
-        tables.WMOAreaTableTbcPlus
-    assert type(tables.WMOAreaTable.for_version(wowlib.Expansion.Wotlk)) is \
-        tables.WMOAreaTableTbcPlus
+    # WMOAreaTable collapses tbc+wotlk into one range (shadowlands differs), so
+    # both eras resolve to the same concrete class, distinct from shadowlands'.
+    tbc = type(tables.WMOAreaTable.for_version(wowlib.Expansion.Tbc))
+    wotlk = type(tables.WMOAreaTable.for_version(wowlib.Expansion.Wotlk))
+    shadowlands = type(tables.WMOAreaTable.for_version(wowlib.Expansion.Shadowlands))
+    assert tbc is wotlk
+    assert shadowlands is not tbc
+    assert issubclass(tbc, tables.WMOAreaTable)
 
 
 def test_for_version_rejects_an_unsupported_era():
     # Map has no Cata block in the binding build's era set -> raises, rather than
-    # silently collapsing onto the wotlk range.
+    # silently collapsing onto an adjacent range.
     with pytest.raises(ValueError):
         wowlib.db.tables.Map.for_version(wowlib.Expansion.Cata)
 
@@ -42,7 +45,8 @@ def test_for_version_rejects_an_unsupported_era():
 def test_any_union_folds_the_concrete_classes():
     tables = wowlib.db.tables
     members = set(wowlib.db.tables.AnyMap.__args__)
-    assert members == {tables.MapVanilla, tables.MapTbc, tables.MapWotlk}
+    assert members == {tables.MapVanilla, tables.MapTbc, tables.MapWotlk,
+                       tables.MapShadowlands}
 
 
 def test_map_round_trips_byte_perfect(wotlk_fs):

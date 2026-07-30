@@ -47,6 +47,10 @@ build-type = "Debug"
 WOWLIB_BUILD_PYTHON = "ON"
 CMAKE_C_COMPILER = "gcc-16"
 CMAKE_CXX_COMPILER = "g++-16"
+# The client-database tables the wheel binds: one welded instantiation per era of
+# each of the ~900 tables, so pin the four eras with a local test client to keep
+# the wheel's compile bounded (this is also the WOWLIB_BUILD_PYTHON default).
+WOWLIB_DB_ERAS = "vanilla,tbc,wotlk,shadowlands"
 
 [tool.mypy]
 # The installed wowlib-stubs package (PEP 561) is what mypy resolves once the

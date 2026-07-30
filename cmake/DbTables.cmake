@@ -10,7 +10,19 @@ option(WOWLIB_DB_TABLES "Generate the WoWDBDefs client-database table headers" O
 set(WOWLIB_DBDEFS_DIR "" CACHE PATH
     "Local WoWDBDefs checkout to generate from (its definitions/ dir is used); \
 empty fetches the pinned snapshot")
-set(WOWLIB_DB_ERAS "vanilla,tbc,wotlk,cata,mop,wod,legion,bfa,shadowlands,dragonflight,tww"
+# The Python bindings COMPILE every generated table (each era of each table is a
+# real welded instantiation), so they default to the four eras with a local test
+# client — vanilla 1.12, tbc 2.4.3, wotlk 3.3.5a, shadowlands 9.2.7 — to keep the
+# compile bounded (user decision 2026-07-30). A C++-only build only ever *includes*
+# a handful of table headers on demand (header-only, implicit instantiation), so it
+# defaults to every last-minor expansion. Either way the list is overridable.
+if(WOWLIB_BUILD_PYTHON)
+  set(_wowlib_default_eras "vanilla,tbc,wotlk,shadowlands")
+else()
+  set(_wowlib_default_eras
+      "vanilla,tbc,wotlk,cata,mop,wod,legion,bfa,shadowlands,dragonflight,tww")
+endif()
+set(WOWLIB_DB_ERAS "${_wowlib_default_eras}"
     CACHE STRING "Comma-separated era list dbdgen generates tables for")
 set(WOWLIB_DB_SHARDS "16" CACHE STRING
     "Number of Python binding-shard translation units (parallel compile)")

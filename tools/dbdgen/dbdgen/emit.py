@@ -63,12 +63,16 @@ def _escape(text: str) -> str:
 
 
 def _doc_text(text: str) -> str:
-    """Normalize a DBD comment into safe docstring text. WoWDBDefs comments carry
-    client paths with backslashes (``World\\Map\\...``); nanobind renders a doc as
-    a triple-quoted Python string, where a lone/trailing backslash escapes the
-    closing quote (or forms a stray escape like ``\\n``) and corrupts the .pyi.
-    Forward slashes read the same for a WoW path and are docstring-safe."""
-    return text.replace("\\", "/").strip()
+    r"""Normalize a DBD comment into safe docstring text. nanobind renders a doc as
+    a triple-quoted Python string in the .pyi, so two things in a raw WoWDBDefs
+    comment corrupt the whole stub: a backslash (a WoW path like World\Map\ — a
+    lone or trailing one escapes the closing quote or forms a stray \n; nanobind
+    even switches to a raw string, which then cannot end in a backslash), and a
+    double quote adjacent to the closing delimiter (a comment ending in a quote
+    makes four quotes in a row and closes the string early). Backslashes become
+    forward slashes (a WoW path reads the same) and double quotes become single
+    quotes; both are docstring-safe and read identically."""
+    return text.replace("\\", "/").replace('"', "'").strip()
 
 
 @dataclass(frozen=True)

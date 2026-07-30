@@ -425,3 +425,19 @@ as-is (every expansion's `concrete_name` maps into the grid, the union dedups).
   doesn't take, build twice.
 - pytest coverage: `tests/python/test_db_tables.py` (facade narrowing, grid
   rejection, AnyX union, byte-perfect round-trip, edit-survives).
+
+## Era set: bindings default to the 4 local-client eras (2026-07-30)
+`WOWLIB_DB_ERAS` is shared by the C++ header generation and the binding shards but
+matters very differently: a C++-only build only *includes* a handful of table
+headers on demand (header-only, implicit instantiation — the corpus tests pull
+~8), so it defaults to all 11 last-minor expansions; the bindings COMPILE every
+era of every table as a real welded instantiation, so `DbTables.cmake` defaults
+`WOWLIB_DB_ERAS` to the four eras with a local test client (vanilla/tbc/wotlk/
+shadowlands) whenever `WOWLIB_BUILD_PYTHON` is ON, and `pyproject.toml` pins the
+same for the wheel. Safe because no C++ *db-table* test hard-references a non-local
+era's generated header (the corpus tests use exactly the 4 client versions;
+`test_db_framework.cpp` names bfa/cata only through the engine/synthetic records,
+not `db/tables/*.hpp`). Full-scale numbers at 4 eras: **905 tables → 905
+`db.rowbase` supertypes + 4200 `db.tables` classes**, 32 shards, clean parallel
+compile, all stubs (178k-line `tables.pyi`) compile, 133 binding tests + 24 C++ db
+tests green. Bump the list to widen coverage; the compile scales with it.
