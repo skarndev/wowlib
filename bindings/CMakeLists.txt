@@ -52,12 +52,20 @@ if(WOWLIB_BUILD_PYTHON)
     python/instantiations/m2.cpp
     python/instantiations/wdt.cpp
     python/instantiations/wdl.cpp
-    python/instantiations/adt.cpp)
+    python/instantiations/adt.cpp
+    # Generated client-database binding shards (dbdgen; one TU per shard so the
+    # ~1200 tables compile in parallel). Each welds its slice into db.tables.
+    ${WOWLIB_DB_SHARD_SOURCES})
+  # The shards do not exist at configure time; mark them GENERATED so CMake does
+  # not look for them on disk (their producer is the wowlib_dbdgen command).
+  set_source_files_properties(${WOWLIB_DB_SHARD_SOURCES} PROPERTIES GENERATED TRUE)
   # python/ for the quoted glue includes; the binary dir for the generated
-  # wowlib.opaque.hpp, and a dependency so it is emitted before the module compiles.
+  # wowlib.opaque.hpp; the db_bindings dir for the generated db_shards.hpp; and a
+  # dependency so all of it is emitted before the module compiles.
   target_include_directories(wowlib_py PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/python ${CMAKE_CURRENT_BINARY_DIR})
-  add_dependencies(wowlib_py wowlib_opaque)
+    ${CMAKE_CURRENT_SOURCE_DIR}/python ${CMAKE_CURRENT_BINARY_DIR}
+    ${WOWLIB_DB_BINDINGS_DIR})
+  add_dependencies(wowlib_py wowlib_opaque wowlib_dbdgen)
   target_link_libraries(wowlib_py PRIVATE wowlib welder::headers welder::nanobind)
   if(TARGET wowlib_db_tables)
     target_link_libraries(wowlib_py PRIVATE wowlib_db_tables)

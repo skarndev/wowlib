@@ -12,6 +12,8 @@ set(WOWLIB_DBDEFS_DIR "" CACHE PATH
 empty fetches the pinned snapshot")
 set(WOWLIB_DB_ERAS "vanilla,tbc,wotlk,cata,mop,wod,legion,bfa,shadowlands,dragonflight,tww"
     CACHE STRING "Comma-separated era list dbdgen generates tables for")
+set(WOWLIB_DB_SHARDS "16" CACHE STRING
+    "Number of Python binding-shard translation units (parallel compile)")
 # Pinned WoWDBDefs master of 2026-07-29.
 set(WOWLIB_DBDEFS_PIN "61db72dc2fcace61b086303cc2a2b95c7d42828a")
 
@@ -33,13 +35,34 @@ if(WOWLIB_DB_TABLES)
   file(GLOB _wowlib_dbdgen_sources CONFIGURE_DEPENDS
        "${CMAKE_SOURCE_DIR}/tools/dbdgen/dbdgen/*.py")
 
+  set(_wowlib_dbdgen_args
+      --definitions "${_wowlib_dbdefs_definitions}"
+      --out "${WOWLIB_DB_GENERATED_DIR}"
+      --eras "${WOWLIB_DB_ERAS}")
+  set(_wowlib_dbdgen_outputs "${_wowlib_dbdgen_stamp}")
+
+  # For the Python build, the same dbdgen run also emits the binding shards
+  # (db_shard_N.cpp + db_shards.hpp). WOWLIB_DB_SHARD_SOURCES / the shard include
+  # dir are exposed to the bindings/ subdir (this file is include()d at top-level
+  # scope, so its variables reach the child directory).
+  if(WOWLIB_BUILD_PYTHON)
+    set(WOWLIB_DB_BINDINGS_DIR "${CMAKE_BINARY_DIR}/generated/db_bindings")
+    list(APPEND _wowlib_dbdgen_args
+         --bindings-out "${WOWLIB_DB_BINDINGS_DIR}" --shards "${WOWLIB_DB_SHARDS}")
+    set(WOWLIB_DB_SHARD_SOURCES "")
+    math(EXPR _wowlib_last_shard "${WOWLIB_DB_SHARDS} - 1")
+    foreach(_i RANGE ${_wowlib_last_shard})
+      list(APPEND WOWLIB_DB_SHARD_SOURCES
+           "${WOWLIB_DB_BINDINGS_DIR}/db_shard_${_i}.cpp")
+    endforeach()
+    list(APPEND _wowlib_dbdgen_outputs ${WOWLIB_DB_SHARD_SOURCES}
+         "${WOWLIB_DB_BINDINGS_DIR}/db_shards.hpp")
+  endif()
+
   add_custom_command(
-    OUTPUT "${_wowlib_dbdgen_stamp}"
+    OUTPUT ${_wowlib_dbdgen_outputs}
     COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${CMAKE_SOURCE_DIR}/tools/dbdgen"
-            "${Python3_EXECUTABLE}" -m dbdgen
-            --definitions "${_wowlib_dbdefs_definitions}"
-            --out "${WOWLIB_DB_GENERATED_DIR}"
-            --eras "${WOWLIB_DB_ERAS}"
+            "${Python3_EXECUTABLE}" -m dbdgen ${_wowlib_dbdgen_args}
     COMMAND "${CMAKE_COMMAND}" -E touch "${_wowlib_dbdgen_stamp}"
     DEPENDS ${_wowlib_dbdgen_sources}
     COMMENT "dbdgen: generating client-database table headers (${WOWLIB_DB_ERAS})"

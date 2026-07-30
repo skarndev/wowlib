@@ -349,3 +349,38 @@ for nanobind is preserved: `Table<Record>` is a NON-welded mixin, so `{table}_` 
   green through Python. Test method MUST use `python -S` + explicit PYTHONPATH
   (`build/bindings/bindings/python:$SITE`) or the editable `.pth` finder loads the
   stale installed `wowlib.abi3.so` instead of the fresh build.
+
+## The db tables are SHARDED across TUs — and why weld_type, not weld_namespace (2026-07-30)
+~1200 tables in one TU is a wall of compile; dbdgen fans them out into
+`db_shard_N.cpp` (default 16, `WOWLIB_DB_SHARDS`; round-robin by table for even
+size) compiled in parallel as extra `wowlib_py` sources. `db.hpp` (main walk) now
+carries ONLY the shared vocab (`LocString`, `EncryptedPolicy`, `EncryptedSection`)
+so welder creates the `wowlib.db` submodule; the generated `db_shards.hpp`
+`register_all()` (called from the module body after the walk) `def_submodule`s
+`db.rowbase` / `db.tables` and fans out to each `register_shard_N`.
+- **THE TRAP (cost a full rebuild):** a shard must NOT `weld_namespace<^^db::tables>`.
+  That instantiates `bind_namespace<B, ^^wowlib::db::tables, Style>` with IDENTICAL
+  template arguments in every shard TU, so the instantiation ODR-merges to ONE
+  definition whose `members_of(^^db::tables)` was baked from whichever TU the linker
+  kept — every shard then binds THAT one TU's slice. Symptom: only shard 0's ~16
+  tables surfaced + "type 'Achievement' was already registered" warnings (the other
+  15 shards re-binding shard 0's set). The per-TU-visibility trick the opaque
+  *generator* uses is safe only because it's a single-process text emitter, never
+  linked. **Fix:** each shard `weld_type<T>` per concrete type — `bind_type<B, T,
+  Style>` is keyed on the DISTINCT type `T`, so each specialization lives in exactly
+  one shard and nothing merges.
+- **Order within a shard** (nanobind base linkage needs the base registered first):
+  per table — `weld_type<rb::{table}>(rowbase)` (record base), `weld_type<t::{table}_>
+  (tables)` (table base, `weld_as "{table}"`), then per range `weld_type` the RECORD
+  (`{table}Record{Suffix}`) before its TABLE (`{table}{Suffix}` — its `records`
+  vector element is that record). A record in `db.tables` inheriting a base in
+  `db.rowbase` is fine — nanobind links bases by C++ type identity across modules.
+- **Concrete names = `{table}` + C++ `range_suffix`**, replicated in dbdgen
+  (`emit.range_suffix`): one alias per collapsed RANGE, not per era —
+  `MapVanilla`/`MapTbc`/`MapWotlk` (distinct) vs `WMOAreaTableTbcPlus` (tbc+wotlk
+  collapsed) vs interior `FooVanillaToTbc`. Must match the facade's `concrete_name`
+  (facade.hpp) exactly. The `{var}_grid`/`{var}_pivots` `constexpr` arrays moved
+  into `detail` so `weld_type`/`weld_namespace` never surface them as module attrs.
+- Verified at 254 tables (vanilla/tbc/wotlk): 251 `db.rowbase` supertypes, 981
+  `db.tables` classes, zero collisions, Map round-trip still byte-perfect, 127
+  binding tests green, stubs (RECURSIVE) render db.tables/db.rowbase without error.
