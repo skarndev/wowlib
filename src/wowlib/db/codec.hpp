@@ -2,7 +2,8 @@
 
 /** @file
     The type-erased boundary between the templated Table<Record> facade
-    (table.hpp) and the per-format codecs (wdbc/wdb2/wdc3.{hpp,cpp}).
+    (table.hpp) and the per-format codecs (wdbc.{hpp,cpp}, wdb2.{hpp,cpp},
+    and the WDC family under wdc/).
 
     The codecs are NOT templated on the record type: they drive the record
     vector only through the abstract RecordSink (decode target) / RecordSource
@@ -98,7 +99,8 @@ namespace wowlib::db
     std::uint32_t wdc_layout_hash = 0;   /**< Preserved WDC3 header layout_hash. */
     std::uint32_t wdc_locale = 0;        /**< Preserved WDC3 header locale. */
     std::vector<std::byte> wdc_original; /**< Raw image kept when the file has encrypted sections. */
-    std::vector<std::uint8_t> wdc_kinds; /**< Original per-inline-column compression (Wdc3Compression). */
+    std::vector<std::uint8_t> wdc_kinds; /**< Original per-inline-column compression (WdcCompression). */
+    std::vector<std::byte> wdc5_prefix;  /**< Preserved WDC5 {version, schema string} header prefix. */
 
     /** Reset the per-read state before decoding a fresh image. */
     void reset()
@@ -111,6 +113,7 @@ namespace wowlib::db
       encrypted.clear();
       wdc_original.clear();
       wdc_kinds.clear();
+      wdc5_prefix.clear();
     }
   };
 

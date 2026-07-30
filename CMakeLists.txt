@@ -22,7 +22,9 @@ add_library(wowlib STATIC
   src/wowlib/db/codec_common.cpp
   src/wowlib/db/wdbc.cpp
   src/wowlib/db/wdb2.cpp
-  src/wowlib/db/wdc3.cpp
+  src/wowlib/db/wdc/image.cpp
+  src/wowlib/db/wdc/read.cpp
+  src/wowlib/db/wdc/write.cpp
 )
 # The formats subsystem is header-only: entities, serializer engines and the
 # fs-level io.hpp definitions all live in headers so consumers implicitly

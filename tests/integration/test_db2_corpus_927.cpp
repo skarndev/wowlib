@@ -16,7 +16,7 @@
 #include <wowlib/db/tables/sound_kit.hpp>
 #include <wowlib/db/tables/spell.hpp>
 #include <wowlib/db/tables/spell_name.hpp>
-#include <wowlib/db/wdc3.hpp>
+#include <wowlib/db/wdc/wdc.hpp>
 #include <wowlib/fs/casc/casc_storage.hpp>
 #include <wowlib/fs/csv_listfile.hpp>
 
@@ -75,13 +75,13 @@ TEST_CASE("9.2.7: every DB2 in the corpus is a WDC3 that parses structurally",
       continue;
     std::uint32_t magic = 0;
     std::memcpy(&magic, data->data(), 4);
-    if (magic != db::wdc3_magic)
+    if (magic != db::wdc::wdc3_magic)
     {
       ++other_magic;
       continue;
     }
     ++wdc3;
-    const auto img = db::Wdc3Image::parse(*data);
+    const auto img = db::wdc::WdcImage::parse(*data);
     if (!img)
     {
       if (parse_failures.size() < 20)
@@ -213,6 +213,19 @@ TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
 
   db::tables::SpellName<versions::shadowlands> spells;
   REQUIRE(spells.read(*data).has_value());  // read succeeds despite encryption
+
+  // Multi-section string resolution: a WDC2+ string reference measures the
+  // distance to its string inside the client's concatenated blob (all
+  // sections' records, then all sections' strings), NOT inside the file. In a
+  // 41-section table like this one, a section-0 reference overshoots by every
+  // later section's record bytes unless the decoder maps blob offsets back to
+  // file offsets. Fireball's name is the canary: file-relative math reads
+  // garbage here.
+  const auto fireball = std::ranges::find_if(
+    spells.records, [](const auto& r) { return static_cast<std::uint32_t>(r.id) == 133; });
+  REQUIRE(fireball != spells.records.end());
+  CHECK(fireball->name == "Fireball");
+
   if (!spells.encrypted_sections().empty())
   {
     CHECK_FALSE(spells.fully_decoded());

@@ -5,10 +5,11 @@
     from / encoded to the on-disk table formats. It is a THIN facade: it owns the
     records and the preserved decode state (TableState) and sniffs the format,
     but the byte-level work lives in the non-templated per-format codecs
-    (wdbc/wdb2/wdc3.{hpp,cpp}), which drive the records through the record bridge
-    (record_bridge.hpp) so they compile once rather than once per generated
-    table. Speaks WDBC (every pre-Cataclysm .dbc) and WDB2 (the Cata..WoD .db2);
-    WDC3 (BfA 8.1 .. early Dragonflight) reads and writes canonically.
+    (wdbc.{hpp,cpp}, wdb2.{hpp,cpp}, wdc/), which drive the records through the
+    record bridge (record_bridge.hpp) so they compile once rather than once per
+    generated table. Speaks WDBC (every pre-Cataclysm .dbc), WDB2 (the
+    Cata..WoD .db2), and the whole WDC family — WDC1 (Legion), WDC3 (BfA ..
+    early DF), WDC4 and WDC5 (DF/TWW) — reading and writing canonically.
 
     Round-trip policy (plan of record, 2026-07-29): WDBC and WDB2 are
     byte-perfect (the string block preserves decoded offsets); WDC writes are
@@ -36,7 +37,7 @@
 #include <wowlib/db/schema.hpp>
 #include <wowlib/db/wdb2.hpp>
 #include <wowlib/db/wdbc.hpp>
-#include <wowlib/db/wdc3.hpp>
+#include <wowlib/db/wdc/wdc.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/fs/filesystem.hpp>
@@ -89,8 +90,8 @@ namespace wowlib::db
         return read_wdbc(info(), data, sink, state_);
       if (magic == wdb2_magic)
         return read_wdb2(info(), data, sink, state_);
-      if (magic == wdc3_magic)
-        return read_wdc3(info(), data, sink, state_);
+      if (wdc::is_wdc_magic(magic))
+        return wdc::read_wdc(info(), data, sink, state_);
       return make_error(
         ErrorCode::TableMagicUnknown,
         std::format("{}: magic '{}' is not a client-database format wowlib supports for "
@@ -196,6 +197,22 @@ namespace wowlib::db
       return TableInfo{version, table_name, schema};
     }
 
+    /** The canonical .db2 flavor of this client version (the format a fresh
+        Cataclysm-or-later table is written in).
+        @return the magic to encode. */
+    static constexpr std::uint32_t db2_magic_for_version()
+    {
+      if (version < builds::Legion)
+        return wdb2_magic;
+      if (version < builds::BfA)
+        return wdc::wdc1_magic;
+      if (version < ClientVersion{10, 1, 0, 48480})
+        return wdc::wdc3_magic;
+      if (version < ClientVersion{10, 2, 5, 52432})
+        return wdc::wdc4_magic;
+      return wdc::wdc5_magic;
+    }
+
     /** The canonical on-disk format for a FRESH table of this client version; the
         target path's extension decides in the mixed .dbc/.db2 eras.
         @param path the destination path, when saving through a filesystem.
@@ -206,23 +223,16 @@ namespace wowlib::db
       {
         if (path->ends_with(".dbc"))
           return wdbc_magic;
-        if (path->ends_with(".db2") && version < builds::Legion)
+        if (path->ends_with(".db2"))
           return version < builds::Cata
                    ? make_error(ErrorCode::NotSupported,
                                 std::format("{}: .db2 does not exist before Cataclysm",
                                             table_name))
-                   : Result<std::uint32_t>{wdb2_magic};
+                   : Result<std::uint32_t>{db2_magic_for_version()};
       }
       if (version < builds::Cata)
         return wdbc_magic;
-      if (version < builds::Legion)
-        return wdb2_magic;
-      if (version >= builds::BfA && version.major < 10)
-        return wdc3_magic;
-      return make_error(ErrorCode::NotImplemented,
-                        std::format("{}: writing fresh {}.{} tables (WDC1/WDC4/WDC5) is not "
-                                    "implemented yet",
-                                    table_name, version.major, version.minor));
+      return db2_magic_for_version();
     }
 
     /** Encode as @a magic (a loaded table always passes its source magic). */
@@ -233,8 +243,8 @@ namespace wowlib::db
         return write_wdbc(info(), source, state_);
       if (magic == wdb2_magic)
         return write_wdb2(info(), source, state_);
-      if (magic == wdc3_magic)
-        return write_wdc3(info(), source, state_, policy);
+      if (wdc::is_wdc_magic(magic))
+        return wdc::write_wdc(magic, info(), source, state_, policy);
       return make_error(
         ErrorCode::NotImplemented,
         std::format("{}: writing '{}' tables is not implemented yet", table_name,

@@ -12,7 +12,7 @@
 #include <wowlib/db/locstring.hpp>
 #include <wowlib/db/schema.hpp>
 #include <wowlib/db/table.hpp>
-#include <wowlib/db/wdc3.hpp>
+#include <wowlib/db/wdc/wdc.hpp>
 
 using namespace wowlib;
 
@@ -313,7 +313,7 @@ TEST_CASE("db: the WDC3 bit reader extracts fields at arbitrary bit offsets", "[
   const std::array<std::byte, 8> bytes{
     std::byte{0xB4}, std::byte{0x9A}, std::byte{0x78}, std::byte{0x56},
     std::byte{0x34}, std::byte{0x12}, std::byte{0xF0}, std::byte{0xFF}};
-  db::BitReader reader{bytes.data(), bytes.size()};
+  db::wdc::BitReader reader{bytes.data(), bytes.size()};
 
   CHECK(reader.read(0, 8) == 0xB4);
   CHECK(reader.read(8, 8) == 0x9A);
@@ -448,10 +448,10 @@ TEST_CASE("db: WDC3 write keeps an inline id in the record, not an id_list", "[d
   const auto written = table.write();
   REQUIRE(written.has_value());
 
-  db::Wdc3Header header;
+  db::wdc::Wdc3Header header;
   std::memcpy(&header, written->data(), sizeof header);
-  CHECK((header.flags & db::wdc3_flag_noninline_id) == 0);  // id stays inline
-  db::Wdc3SectionHeader section;
+  CHECK((header.flags & db::wdc::wdc_flag_noninline_id) == 0);  // id stays inline
+  db::wdc::Wdc3SectionHeader section;
   std::memcpy(&section, written->data() + sizeof header, sizeof section);
   CHECK(section.id_list_size == 0);  // no id_list for an inline id
 
@@ -486,9 +486,9 @@ TEST_CASE("db: WDC3 write re-derives a copy table for duplicate-except-id rows",
   const auto written = table.write();
   REQUIRE(written.has_value());
 
-  db::Wdc3Header header;
+  db::wdc::Wdc3Header header;
   std::memcpy(&header, written->data(), sizeof header);
-  db::Wdc3SectionHeader section;
+  db::wdc::Wdc3SectionHeader section;
   std::memcpy(&section, written->data() + sizeof header, sizeof section);
   // Two distinct rows are kept; ids 20 and 40 become copies of id 10.
   CHECK(header.record_count == 2);
@@ -516,7 +516,7 @@ TEST_CASE("db: WDC3 write bitpacks integer columns to their needed width", "[db]
   const auto written = table.write();
   REQUIRE(written.has_value());
 
-  db::Wdc3Header header;
+  db::wdc::Wdc3Header header;
   std::memcpy(&header, written->data(), sizeof header);
   // Values 1..3 need 2 bits, not the declared 32 — a bitpacked record is 1 byte.
   CHECK(header.field_count == 1);        // the id is non-inline (id_list)
