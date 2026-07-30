@@ -45,6 +45,7 @@
 #include "formats/repeated_caster.hpp"
 
 #include "errors.hpp"
+#include "db.hpp"
 #include "formats/adt.hpp"
 #include "formats/m2.hpp"
 #include "formats/wdl.hpp"

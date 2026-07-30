@@ -314,3 +314,38 @@ registration-needed (`!has_native_caster`) binds `Optional[F] = None`
   real Python defaults; only welded-class defaults went lazy.
 - Regression fixture: welder `tests/common/cpp/methods.hpp` (Corner/Span/
   Region/Plot chain) + subprocess shutdown-leak spec in `test_methods.py`.
+
+## ClientDB tables bind via own-welded per-range aliases (proven 2026-07-30, Map wotlk)
+Generated db tables (`dbdgen`) surface through namespace-scope aliases in
+`wowlib::db::tables` (`using MapWotlk = Map<versions::wotlk>;`), same shape as the
+WMORoot per-range aliases. THE RULE that cost a full debug cycle: welder binds a
+class-template instantiation *named by an alias* only when the alias's target type
+is **itself welded** — `welder::alias_welded_for` → `welded_for(dealias(target))`,
+and `welded_for` (reflect.hpp) checks the type's **OWN** `[[=welder::weld]]`
+annotation, NOT inherited bases. So it is not enough for the emitted wrapper /
+record to inherit a welded supertype; each must carry its own weld too.
+`tools/dbdgen/dbdgen/emit.py` therefore emits `[[=welder::weld(py,lua), =doc]]` on
+BOTH (a) every record specialization `detail::{table}Record<versions::era>` (which
+also inherits welded row supertype `db::rowbase::{table}`) and (b) the wrapper
+`detail::{table}Table<V>` (which also inherits welded table supertype
+`db::tables::{table}_`, `weld_as "{table}"`). WMORoot<V> works for the same reason
+— it carries its own weld in addition to inheriting WMORootBase. Single-welded-base
+for nanobind is preserved: `Table<Record>` is a NON-welded mixin, so `{table}_` /
+`rowbase::{table}` are the sole welded bases.
+- **Non-welded mixin members still surface**: `Table<Record>`'s API (`read`,
+  `write`, `records`, `strings`, `encrypted_sections`, `fully_decoded`) binds on
+  the welded wrapper even though `Table` itself is unwelded — welder walks
+  inherited members of a welded class. So the wrapper needs no re-declaration of
+  the engine API.
+- `db.hpp` (bindings) declares+docs the `db`, `db::rowbase`, `db::tables`
+  namespaces, then includes the generated table headers and the per-range aliases.
+  A per-era ERAS mismatch bites: `Map<versions::shadowlands>` when the build only
+  generated vanilla/tbc/wotlk collapses (via `canonical_version`) to
+  `MapTable<wotlk>`, so a `MapShadowlands` alias would duplicate `MapWotlk`'s type
+  and collide in nanobind — only alias eras the build actually generates.
+- Proof harness (real 3.3.5a `Map.dbc`, 135 rows): read via `fs.read_file`, field
+  access incl. `LocString16.at(Locale.enUS)`, byte-perfect `write(Preserve)`,
+  semantic re-read equality, and a `directory` edit surviving round-trip — all
+  green through Python. Test method MUST use `python -S` + explicit PYTHONPATH
+  (`build/bindings/bindings/python:$SITE`) or the editable `.pth` finder loads the
+  stale installed `wowlib.abi3.so` instead of the fresh build.

@@ -131,8 +131,10 @@ class EmitTest(unittest.TestCase):
 
     def test_emit_table_shape(self):
         header = emit_table("Widget", self._ranges())
-        self.assertIn("struct WidgetRecord<versions::vanilla> : db::rowbase::Widget", header)
-        self.assertIn("struct WidgetRecord<versions::wotlk> : db::rowbase::Widget", header)
+        # Each record specialization carries its own weld (so its per-range alias
+        # participates in the welder walk) besides inheriting the row supertype.
+        self.assertIn("WidgetRecord<versions::vanilla> : db::rowbase::Widget", header)
+        self.assertIn("WidgetRecord<versions::wotlk> : db::rowbase::Widget", header)
         self.assertNotIn("versions::tbc>", header)  # no tbc block
         self.assertIn("[[=db::id]]\n      std::int32_t id = 0;", header)
         self.assertIn("std::array<std::uint32_t, 2> flags{};", header)
@@ -142,7 +144,9 @@ class EmitTest(unittest.TestCase):
         # Welded bases + wrapper for the Python/Lua binding surface.
         self.assertIn("=welder::weld(welder::lang::py, welder::lang::lua),", header)
         self.assertIn("namespace wowlib::db::rowbase", header)
-        self.assertIn("struct WidgetTable : Table<WidgetRecord<V>>, db::tablebase::Widget", header)
+        self.assertIn("=welder::weld_as(\"Widget\"),", header)
+        # The wrapper too carries its own weld besides inheriting the table supertype.
+        self.assertIn("WidgetTable : Table<WidgetRecord<V>>, Widget_", header)
         self.assertIn("using Widget = detail::WidgetTable<formats::canonical_version("
                       "V, widget_pivots, widget_grid)>;", header)
 

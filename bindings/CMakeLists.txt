@@ -24,6 +24,9 @@ if(WOWLIB_BUILD_PYTHON)
   # include dirs + PUBLIC -freflection; linking wowlib inherits both (storm/casc are
   # PRIVATE, so the header-only reflect exe doesn't pull them).
   target_link_libraries(wowlib_opaque_gen PRIVATE wowlib)
+  if(TARGET wowlib_db_tables)
+    target_link_libraries(wowlib_opaque_gen PRIVATE wowlib_db_tables)
+  endif()
 
   # Stable ABI (abi3): loads across Python >= 3.13 minors and across the GCC/MSVC
   # boundary (Blender's MSVC CPython included).
@@ -56,6 +59,9 @@ if(WOWLIB_BUILD_PYTHON)
     ${CMAKE_CURRENT_SOURCE_DIR}/python ${CMAKE_CURRENT_BINARY_DIR})
   add_dependencies(wowlib_py wowlib_opaque)
   target_link_libraries(wowlib_py PRIVATE wowlib welder::headers welder::nanobind)
+  if(TARGET wowlib_db_tables)
+    target_link_libraries(wowlib_py PRIVATE wowlib_db_tables)
+  endif()
   set_target_properties(wowlib_py PROPERTIES
     OUTPUT_NAME wowlib
     CXX_SCAN_FOR_MODULES OFF                       # header-only welder use; p1689
