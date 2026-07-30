@@ -254,10 +254,25 @@ single-section tables. Measured: Curve 99%-copies → 62% of original; narrow
 tables unaffected. GOTCHA: string relative offsets are position-dependent, so
 dedup is by VALUE (wdc_value_key), not encoded bytes.
 
-## Open size gaps / next
-- Bitpacking alone loses to Blizzard's pallet/common on some small tables
-  (AnimationData → 162% of original; harmless size, correct round-trip). Adding
-  pallet/common encoding (DBCD-style) would close it — secondary win.
+## Pallet encoding on write — SHIPPED (2026-07-30)
+DBCD reuses each column's ORIGINAL compression KIND (reader.ColumnMeta) and
+recomputes widths from data. We do the same for Pallet/PalletArray: read_wdc3
+captures wdc_kinds_ (per-inline-column storage_type); write_wdc3 keeps that kind
+for INT and FLOAT columns Blizzard palleted (graphics tables pallet floats
+heavily), builds a distinct-value table + bitpacked index (index width =
+unsigned_width(distinct_count)), emits a pallet_data block (per field, in field
+order — reader accumulates additional_data_size for the base), and writes one
+index per record (elem_bits wide) rather than the value. The reader already
+decoded pallet, so round-trip holds. Bitpacked/None columns unchanged.
+- Effect: bloated (>110%, >20KB) fully-decoded tables dropped 32 -> 2; aggregate
+  73% of Blizzard's total (was 80%). DissolveEffect 274%->104%, LightData
+  183%->92% (beats Blizzard), CreatureModelData 210%->98%, AnimationData
+  162%->99%. All round-trip value-equal.
+- GOTCHA: pallet must cover FLOAT columns, not just int — the worst outliers
+  (graphics tables) pallet floats. wdc_u32() bit_casts float slots.
+- Remaining 2 outliers: ManifestInterfaceItemIcon (232% but tiny — fixed header
+  overhead) and CreatureDisplayInfoExtra (137%, likely Common). Common encoding
+  is not implemented (rare in the outliers); it would close CreatureDisplayInfoExtra.
 - SHIPPED: EncryptedPolicy::Drop on write() writes a keyless table as a plain
   WDC3 of just its decoded rows (keyless rows discarded, output unencrypted) —
   the way to apply edits to a table you can't fully decrypt. Default is

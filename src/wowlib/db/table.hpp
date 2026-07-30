@@ -531,6 +531,12 @@ namespace wowlib::db
       wdc_table_hash_ = img.header.table_hash;
       wdc_layout_hash_ = img.header.layout_hash;
       wdc_locale_ = img.header.locale;
+      // Keep each inline column's original compression KIND so write() can
+      // reproduce Blizzard's scheme (pallet/common/bitpacked) and match its
+      // size — widths are recomputed from the data at write time.
+      wdc_kinds_.assign(inline_columns, wire::Wdc3Compression::None);
+      for (std::size_t f = 0; f < inline_columns && f < img.field_storage.size(); ++f)
+        wdc_kinds_[f] = img.field_storage[f].storage_type;
 
       const auto additional = img.field_additional_offsets();
       for (const wire::Wdc3Section& sec : img.sections)
@@ -660,7 +666,7 @@ namespace wowlib::db
         if (p.storage == wire::Wdc3Compression::None)
           record_bits = (record_bits + 7) / 8 * 8;  // byte-align float/string
         p.offset_bits = static_cast<std::uint32_t>(record_bits);
-        record_bits += std::size_t{p.elem_bits} * p.elements;
+        record_bits += p.record_bits();
       }
       const std::uint32_t record_size = static_cast<std::uint32_t>((record_bits + 7) / 8);
 
@@ -702,9 +708,17 @@ namespace wowlib::db
       std::ignore = block.add("");
       std::unordered_map<std::string, std::uint32_t> lookup{{"", 0}};
 
+      // Pallet blocks (one per palleted field) sit between the field-storage
+      // table and the records; the reader accumulates their sizes for the base.
+      std::uint32_t pallet_total = 0;
+      for (const WdcFieldPlan& p : plan)
+        if (p.is_pallet())
+          pallet_total += static_cast<std::uint32_t>(p.pallet.size() * 4);
+
       const std::size_t header_bytes = sizeof(wire::Wdc3Header) + sizeof(wire::Wdc3SectionHeader)
                                        + std::size_t{field_count} * sizeof(wire::Wdc3FieldStructure)
-                                       + std::size_t{field_count} * sizeof(wire::Wdc3FieldStorage);
+                                       + std::size_t{field_count} * sizeof(wire::Wdc3FieldStorage)
+                                       + pallet_total;
       const std::size_t records_at = header_bytes;
       const std::size_t strings_at = records_at + std::size_t{real_count} * record_size;
 
@@ -745,6 +759,7 @@ namespace wowlib::db
       header.total_field_count = field_count;
       header.bitpacked_data_offset = 0;
       header.field_storage_info_size = field_count * sizeof(wire::Wdc3FieldStorage);
+      header.pallet_data_size = pallet_total;
       header.section_count = 1;
 
       wire::Wdc3SectionHeader section;
@@ -765,18 +780,37 @@ namespace wowlib::db
       append(&section, sizeof section);
       for (const WdcFieldPlan& p : plan)
       {
-        wire::Wdc3FieldStructure fstruct{static_cast<std::int16_t>(32 - p.elem_bits),
-                                         static_cast<std::uint16_t>(p.offset_bits / 8)};
+        // field_structure carries the VALUE width (32 bits for pallet/None), not
+        // the packed width; the reader ignores it but the client reads array
+        // extents from it.
+        const std::int16_t size = p.is_pallet() || p.storage == wire::Wdc3Compression::None
+                                    ? std::int16_t{0}
+                                    : static_cast<std::int16_t>(32 - p.elem_bits);
+        wire::Wdc3FieldStructure fstruct{size, static_cast<std::uint16_t>(p.offset_bits / 8)};
         append(&fstruct, sizeof fstruct);
       }
       for (const WdcFieldPlan& p : plan)
       {
         wire::Wdc3FieldStorage fs;
         fs.field_offset_bits = static_cast<std::uint16_t>(p.offset_bits);
-        fs.field_size_bits = static_cast<std::uint16_t>(std::size_t{p.elem_bits} * p.elements);
+        // For a pallet the record stores one index (elem_bits wide); otherwise
+        // the whole field (element width times the element count).
+        fs.field_size_bits = static_cast<std::uint16_t>(
+          p.is_pallet() ? p.elem_bits : std::size_t{p.elem_bits} * p.elements);
         fs.storage_type = p.storage;
+        if (p.is_pallet())
+        {
+          fs.additional_data_size = static_cast<std::uint32_t>(p.pallet.size() * 4);
+          if (p.storage == wire::Wdc3Compression::PalletArray)
+            fs.val3 = p.elements;  // array length per pallet entry (client reads it)
+        }
         append(&fs, sizeof fs);
       }
+      // pallet_data: each palleted field's distinct values, in field order.
+      for (const WdcFieldPlan& p : plan)
+        if (p.is_pallet())
+          for (std::uint32_t v : p.pallet)
+            append(&v, 4);
       out.insert(out.end(), record_region.begin(), record_region.end());
       out.insert(out.end(), string_region.begin(), string_region.end());
       for (std::uint32_t id : ids)
@@ -980,30 +1014,40 @@ namespace wowlib::db
     /** How one inline column is placed and packed by the canonical writer. */
     struct WdcFieldPlan
     {
-      std::uint32_t offset_bits = 0;               /**< Bit offset within a record (assigned by caller). */
-      std::uint16_t elem_bits = 32;                /**< Bits per element. */
+      std::uint32_t offset_bits = 0;               /**< Bit offset within a record. */
+      std::uint16_t elem_bits = 32;                /**< Bits per element; for pallet, the index width. */
       std::uint16_t elements = 1;                  /**< Array length (1 for scalars). */
       wire::Wdc3Compression storage = wire::Wdc3Compression::None;
+      std::vector<std::uint32_t> pallet;           /**< Pallet values, flat (elements per entry). */
+      std::unordered_map<std::string, std::uint32_t> pallet_index;  /**< Value key -> pallet index. */
+
+      /** Whether this field is stored as a pallet index. */
+      bool is_pallet() const
+      {
+        return storage == wire::Wdc3Compression::Pallet
+               || storage == wire::Wdc3Compression::PalletArray;
+      }
+      /** The record bits this field occupies: one index for a pallet, else the
+          value width times the element count. */
+      std::size_t record_bits() const
+      {
+        return is_pallet() ? elem_bits : std::size_t{elem_bits} * elements;
+      }
     };
 
-    /** Build the per-inline-field write plan: integer columns bitpacked to the
-        width their actual values need (bitpacked-signed for signed columns),
-        float and string columns left uncompressed at 32 bits. Element bit
-        widths are set here; offset_bits are assigned by the caller.
+    /** Build the per-inline-field write plan. Integer columns are bitpacked to
+        the width their values need (bitpacked-signed for signed); floats and
+        string refs stay uncompressed at 32 bits. Columns the ORIGINAL file
+        stored as a pallet keep that scheme (a distinct-value table + a bitpacked
+        index) so heavily-palleted tables re-encode near Blizzard's size instead
+        of ballooning under plain bitpacking. offset_bits are assigned by the
+        caller.
         @return one plan per inline column, in column order. */
     std::vector<WdcFieldPlan> plan_wdc3_fields() const
     {
-      // Per-field value ranges (ints only), scanned across all records.
       std::vector<std::int64_t> lo, hi;
-      std::vector<char> is_int;
       for (const Column& col : schema_of<Record>())
-      {
-        if (col.noninline)
-          continue;
-        lo.push_back(0);
-        hi.push_back(0);
-        is_int.push_back(col.type == ColumnType::Int);
-      }
+        if (!col.noninline) { lo.push_back(0); hi.push_back(0); }
       for (const Record& rec : records)
         scan_wdc3_ranges(rec, lo, hi);
 
@@ -1015,24 +1059,102 @@ namespace wowlib::db
           continue;
         WdcFieldPlan p;
         p.elements = col.array_len;
-        if (col.type == ColumnType::Int)
-        {
+        // Reuse the original pallet scheme for int/float columns Blizzard
+        // palleted (graphics tables pallet floats heavily).
+        const bool orig_pallet =
+          f < wdc_kinds_.size()
+          && (wdc_kinds_[f] == wire::Wdc3Compression::Pallet
+              || wdc_kinds_[f] == wire::Wdc3Compression::PalletArray);
+        const bool palletable = col.type == ColumnType::Int || col.type == ColumnType::Float;
+        if (palletable && orig_pallet)
+          p.storage = col.array_len > 1 ? wire::Wdc3Compression::PalletArray
+                                        : wire::Wdc3Compression::Pallet;
+        else if (col.type == ColumnType::Int)
           p.storage = col.is_signed ? wire::Wdc3Compression::BitpackedSigned
                                     : wire::Wdc3Compression::Bitpacked;
-          p.elem_bits = col.is_signed ? signed_width(lo[f], hi[f])
-                                      : unsigned_width(static_cast<std::uint64_t>(hi[f]));
-          p.elem_bits = std::min<std::uint16_t>(p.elem_bits, col.bits);
-        }
         else
-        {
           p.storage = wire::Wdc3Compression::None;  // float / string ref
+
+        if (p.is_pallet())
+          p.elem_bits = 1;  // index width filled in after the pallet is built
+        else if (col.type == ColumnType::Int)
+          p.elem_bits = std::min<std::uint16_t>(
+            col.is_signed ? signed_width(lo[f], hi[f])
+                          : unsigned_width(static_cast<std::uint64_t>(hi[f])),
+            col.bits);
+        else
           p.elem_bits = 32;
-        }
-        plan.push_back(p);
+        plan.push_back(std::move(p));
         ++f;
       }
+
+      // Build the pallets from the actual values, then set each index width.
+      for (const Record& rec : records)
+        collect_wdc3_pallets(rec, plan);
+      for (WdcFieldPlan& p : plan)
+        if (p.is_pallet())
+          p.elem_bits = unsigned_width(static_cast<std::uint64_t>(p.pallet_index.size()));
       return plan;
     }
+
+    /** Add @a record's values to the pallet of every pallet field. */
+    void collect_wdc3_pallets(const Record& record, std::vector<WdcFieldPlan>& plan) const
+    {
+      static constexpr auto members = detail::record_members<Record>();
+      std::size_t field = 0;
+      template for (constexpr auto m : members)
+      {
+        if constexpr (!detail::annotation<detail::noninline_spec, m>().has_value())
+        {
+          if (plan[field].is_pallet())
+            pallet_intern(plan[field], record.[:m:]);
+          ++field;
+        }
+      }
+    }
+
+    /** The 32-bit pallet slot for a value: the float's bits, or the integer
+        widened. */
+    template <typename T>
+    static std::uint32_t wdc_u32(const T& value)
+    {
+      if constexpr (std::same_as<T, float>)
+        return std::bit_cast<std::uint32_t>(value);
+      else
+        return static_cast<std::uint32_t>(value);
+    }
+
+    /** Whether type @a T is a palletable scalar (integer or float). */
+    template <typename T>
+    static constexpr bool palletable_scalar =
+      (std::integral<T> && !std::same_as<T, bool>) || std::same_as<T, float>;
+
+    /** Intern a scalar value into a field's pallet. */
+    template <typename T>
+      requires (palletable_scalar<T>)
+    static void pallet_intern(WdcFieldPlan& p, const T& value)
+    {
+      const std::uint32_t slot = wdc_u32(value);
+      const std::string key{reinterpret_cast<const char*>(&slot), 4};
+      if (p.pallet_index.try_emplace(key, static_cast<std::uint32_t>(p.pallet_index.size())).second)
+        p.pallet.push_back(slot);
+    }
+
+    /** Intern an array value into a field's pallet-array. */
+    template <typename T, std::size_t N>
+      requires (palletable_scalar<T>)
+    static void pallet_intern(WdcFieldPlan& p, const std::array<T, N>& value)
+    {
+      std::array<std::uint32_t, N> slots{};
+      for (std::size_t e = 0; e < N; ++e)
+        slots[e] = wdc_u32(value[e]);
+      const std::string key{reinterpret_cast<const char*>(slots.data()), N * 4};
+      if (p.pallet_index.try_emplace(key, static_cast<std::uint32_t>(p.pallet_index.size())).second)
+        p.pallet.insert(p.pallet.end(), slots.begin(), slots.end());
+    }
+
+    /** String members are never palleted. */
+    static void pallet_intern(WdcFieldPlan&, const auto&) {}
 
     /** The id column value of @a record (the $id$ member). */
     static std::uint32_t wdc_id_of(const Record& record)
@@ -1183,24 +1305,38 @@ namespace wowlib::db
       return id;
     }
 
-    /** Write a bitpacked integer field (signed values keep their two's-complement
-        low bits; sign-extended on read). */
+    /** Write a bitpacked integer field, or a pallet index when the field is
+        palleted (signed values keep their two's-complement low bits, sign-
+        extended on read). */
     template <typename T>
       requires (std::integral<T> && !std::same_as<T, bool>)
     void encode_wdc3_field(const T& value, wire::BitWriter& writer, const WdcFieldPlan& p,
                            formats::StringBlock&, std::unordered_map<std::string, std::uint32_t>&,
                            std::size_t, std::size_t) const
     {
+      if (p.storage == wire::Wdc3Compression::Pallet)
+      {
+        const std::uint32_t slot = static_cast<std::uint32_t>(value);
+        writer.write(p.offset_bits, p.elem_bits, pallet_lookup(p, {reinterpret_cast<const char*>(&slot), 4}));
+        return;
+      }
       const std::uint64_t mask = p.elem_bits >= 64 ? ~std::uint64_t{0}
                                                    : (std::uint64_t{1} << p.elem_bits) - 1;
       writer.write(p.offset_bits, p.elem_bits, static_cast<std::uint64_t>(value) & mask);
     }
 
-    /** Write an uncompressed 32-bit float field. */
+    /** Write an uncompressed 32-bit float field, or a pallet index when the
+        field is palleted. */
     void encode_wdc3_field(const float& value, wire::BitWriter& writer, const WdcFieldPlan& p,
                            formats::StringBlock&, std::unordered_map<std::string, std::uint32_t>&,
                            std::size_t, std::size_t) const
     {
+      if (p.storage == wire::Wdc3Compression::Pallet)
+      {
+        const std::uint32_t slot = std::bit_cast<std::uint32_t>(value);
+        writer.write(p.offset_bits, p.elem_bits, pallet_lookup(p, {reinterpret_cast<const char*>(&slot), 4}));
+        return;
+      }
       writer.write(p.offset_bits, 32, std::bit_cast<std::uint32_t>(value));
     }
 
@@ -1223,20 +1359,39 @@ namespace wowlib::db
       writer.write(p.offset_bits, 32, rel);
     }
 
-    /** Write an array field element by element (each element inherits the plan's
-        element width, at consecutive offsets). */
+    /** Write an array field: one pallet index for a pallet-array, else each
+        element bitpacked/None at consecutive offsets. */
     template <typename T, std::size_t N>
     void encode_wdc3_field(const std::array<T, N>& value, wire::BitWriter& writer,
                            const WdcFieldPlan& p, formats::StringBlock& block,
                            std::unordered_map<std::string, std::uint32_t>& lookup,
                            std::size_t strings_at, std::size_t record_abs) const
     {
+      if constexpr (palletable_scalar<T>)
+        if (p.storage == wire::Wdc3Compression::PalletArray)
+        {
+          std::array<std::uint32_t, N> slots{};
+          for (std::size_t e = 0; e < N; ++e)
+            slots[e] = wdc_u32(value[e]);
+          writer.write(p.offset_bits, p.elem_bits,
+                       pallet_lookup(p, {reinterpret_cast<const char*>(slots.data()), N * 4}));
+          return;
+        }
       for (std::size_t e = 0; e < N; ++e)
       {
-        WdcFieldPlan pe = p;
+        WdcFieldPlan pe;
+        pe.storage = p.storage;
+        pe.elem_bits = p.elem_bits;
         pe.offset_bits = static_cast<std::uint32_t>(p.offset_bits + e * p.elem_bits);
         encode_wdc3_field(value[e], writer, pe, block, lookup, strings_at, record_abs);
       }
+    }
+
+    /** The pallet index for value key @a key in field @a p (0 if unseen). */
+    static std::uint32_t pallet_lookup(const WdcFieldPlan& p, const std::string& key)
+    {
+      const auto it = p.pallet_index.find(key);
+      return it != p.pallet_index.end() ? it->second : 0;
     }
 
     /** Sign-extend @a raw from @a bits to a full width when @a is_signed and the
@@ -1449,6 +1604,7 @@ namespace wowlib::db
     std::uint32_t wdc_layout_hash_ = 0;  /**< Preserved WDC3 header layout_hash. */
     std::uint32_t wdc_locale_ = 0;       /**< Preserved WDC3 header locale. */
     FileBuffer wdc_original_;            /**< Raw image kept when the file has encrypted sections. */
+    std::vector<wire::Wdc3Compression> wdc_kinds_;  /**< Original per-inline-column compression. */
 
     /** The original string-block offset of every string field, row-major in
         record then schema order — the byte-perfect write-back journal. */

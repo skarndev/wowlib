@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <wowlib/db/tables/chr_races.hpp>
+#include <wowlib/db/tables/creature_model_data.hpp>
 #include <wowlib/db/tables/location.hpp>
 #include <wowlib/db/tables/manifest_interface_data.hpp>
 #include <wowlib/db/tables/sound_kit.hpp>
@@ -319,10 +320,11 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
   REQUIRE(storage.has_value());
 
   // A WDC3 write is a canonical re-encode (not byte-identical); the guarantee
-  // is that re-reading it yields identical values. ChrRaces exercises pallet,
-  // bitpacked-signed and array columns, so an equal re-decode proves those
-  // compression kinds decode correctly.
-  const auto check = [&](std::string_view path, auto table) {
+  // is that re-reading it yields identical values. The write reuses each
+  // column's original compression scheme, so an equal re-decode also proves the
+  // pallet / bitpacked-signed / array encoders round-trip. `max_pct` guards that
+  // the re-encode stays near Blizzard's size (pallet reproduced, not exploded).
+  const auto check = [&](std::string_view path, auto table, int max_pct) {
     const auto fdid = listfile->path_to_fdid(path);
     REQUIRE(fdid.has_value());
     const auto data = storage->read_file(FileKey{*fdid});
@@ -333,6 +335,7 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
     const auto written = table.write();
     REQUIRE(written.has_value());
     CHECK(std::memcmp(written->data(), "WDC3", 4) == 0);
+    CHECK(written->size() * 100 <= data->size() * max_pct);
 
     decltype(table) reread;
     REQUIRE(reread.read(*written).has_value());
@@ -341,6 +344,10 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
   };
 
   check("dbfilesclient/manifestinterfacedata.db2",
-        db::tables::ManifestInterfaceData<versions::shadowlands>{});
-  check("dbfilesclient/chrraces.db2", db::tables::ChrRaces<versions::shadowlands>{});
+        db::tables::ManifestInterfaceData<versions::shadowlands>{}, 105);
+  check("dbfilesclient/chrraces.db2", db::tables::ChrRaces<versions::shadowlands>{}, 105);
+  // CreatureModelData is pallet-heavy (21 pallet + 1 pallet-array of floats);
+  // reproducing the pallet keeps it at ~Blizzard size instead of ~2x.
+  check("dbfilesclient/creaturemodeldata.db2",
+        db::tables::CreatureModelData<versions::shadowlands>{}, 110);
 }
