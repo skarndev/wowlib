@@ -43,6 +43,21 @@
 
 namespace wowlib::db
 {
+  /** How write() treats a table that still holds keyless (undecryptable)
+      encrypted sections. */
+  enum class [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        How a client-database write handles keyless encrypted sections: Preserve
+        re-emits the file's original bytes verbatim (encrypted content intact,
+        edits to decoded rows NOT applied); Drop writes only the decoded rows as
+        a plain unencrypted table, discarding the rows behind missing keys.)")
+  ]] EncryptedPolicy
+  {
+    Preserve,  /**< Re-emit the original image verbatim; edits are not applied. */
+    Drop       /**< Write only decoded rows as plaintext; keyless rows are dropped. */
+  };
+
   /** A client database table: the typed records of one DBFilesClient file.
 
       The record type is generated from WoWDBDefs by dbdgen (a flat struct whose
@@ -117,26 +132,36 @@ namespace wowlib::db
     /** Serialize the table. A loaded table re-emits the magic it was read
         from; a fresh table uses its client version's canonical .dbc/.db2
         format (write(fs, key) can override by the target path's extension).
+        @param policy how keyless encrypted sections are handled (WDC only) —
+                      Preserve re-emits verbatim, Drop writes decoded rows as
+                      plaintext (see EncryptedPolicy).
         @return the file image, or why encoding failed. */
     [[=welder::doc("Serialize the table to a file image; a loaded table re-emits "
-                   "the format it was read from."),
+                   "the format it was read from. `policy` decides how keyless "
+                   "encrypted sections are handled."),
       =welder::returns("the file bytes")]]
-    Result<FileBuffer> write() const
+    Result<FileBuffer> write(EncryptedPolicy policy
+                             [[=welder::doc("keyless-section handling (WDC only)")]]
+                             = EncryptedPolicy::Preserve) const
     {
       if (source_magic_ != 0)
-        return write_as(source_magic_);
+        return write_as(source_magic_, policy);
       const auto magic = fresh_magic(std::nullopt);
       if (!magic)
         return std::unexpected{magic.error()};
-      return write_as(*magic);
+      return write_as(*magic, policy);
     }
 
     /** Serialize the table into a client filesystem (project overlay).
-        @param fs  the filesystem gateway.
-        @param key the file to write; needs a resolvable path.
+        @param fs     the filesystem gateway.
+        @param key    the file to write; needs a resolvable path.
+        @param policy how keyless encrypted sections are handled (see write()).
         @return nothing, or why saving failed. */
     Result<void> write(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
-                       const FileKey& key [[=welder::doc("the file to write")]]) const
+                       const FileKey& key [[=welder::doc("the file to write")]],
+                       EncryptedPolicy policy
+                       [[=welder::doc("keyless-section handling (WDC only)")]]
+                       = EncryptedPolicy::Preserve) const
     {
       const FileKey resolved = fs.resolve(key);
       if (!resolved.path)
@@ -145,11 +170,11 @@ namespace wowlib::db
                                       table_name));
       auto data = [&]() -> Result<FileBuffer> {
         if (source_magic_ != 0)
-          return write_as(source_magic_);
+          return write_as(source_magic_, policy);
         const auto magic = fresh_magic(*resolved.path);
         if (!magic)
           return std::unexpected{magic.error()};
-        return write_as(*magic);
+        return write_as(*magic, policy);
       }();
       if (!data)
         return std::unexpected{data.error()};
@@ -232,16 +257,18 @@ namespace wowlib::db
     }
 
     /** Encode as @a magic (a loaded table always passes its source magic).
-        @param magic the wire format to emit.
+        @param magic  the wire format to emit.
+        @param policy keyless encrypted-section handling (WDC only).
         @return the file bytes. */
-    Result<FileBuffer> write_as(std::uint32_t magic) const
+    Result<FileBuffer> write_as(std::uint32_t magic,
+                                EncryptedPolicy policy = EncryptedPolicy::Preserve) const
     {
       if (magic == wire::wdbc_magic)
         return write_wdbc();
       if (magic == wire::wdb2_magic)
         return write_wdb2();
       if (magic == wire::wdc3_magic)
-        return write_wdc3();
+        return write_wdc3(policy);
       return make_error(
         ErrorCode::NotImplemented,
         std::format("{}: writing '{}' tables is not implemented yet", table_name,
@@ -595,16 +622,22 @@ namespace wowlib::db
         are not applied. To edit such a table, register its TACT keys first
         (FileSystem::import_keys / CascStorage::add_encryption_key): the storage
         then delivers decrypted bytes, every section decodes, and this canonical
-        writer applies edits normally.
+        writer applies edits normally. With EncryptedPolicy::Drop, a table that
+        still has keyless sections is written as a plain table of just its
+        decoded rows — the keyless rows are discarded (unrecoverable without the
+        key) and the output is unencrypted; this is the only way to apply edits
+        to a table you cannot fully decrypt.
+        @param policy keyless-section handling (Preserve = verbatim, Drop = write
+                      decoded rows as plaintext).
         @return the file bytes, or why encoding failed. */
-    Result<FileBuffer> write_wdc3() const
+    Result<FileBuffer> write_wdc3(EncryptedPolicy policy = EncryptedPolicy::Preserve) const
     {
       if constexpr (version < builds::Cata)
         return make_error(ErrorCode::NotSupported,
                           std::format("{}: a pre-Cata client does not use WDC3", table_name));
       else
       {
-      if (!encrypted_.empty())
+      if (!encrypted_.empty() && policy == EncryptedPolicy::Preserve)
       {
         if (wdc_original_.empty())
           return make_error(

@@ -258,10 +258,11 @@ dedup is by VALUE (wdc_value_key), not encoded bytes.
 - Bitpacking alone loses to Blizzard's pallet/common on some small tables
   (AnimationData → 162% of original; harmless size, correct round-trip). Adding
   pallet/common encoding (DBCD-style) would close it — secondary win.
-- Editing a table with residual KEYLESS sections still preserves verbatim (no
-  edits). A "write decodable rows as plaintext, dropping keyless rows" opt-in
-  would let users edit keyless tables at the cost of the encrypted rows — the
-  only way to edit without keys (the rows themselves are unrecoverable).
+- SHIPPED: EncryptedPolicy::Drop on write() writes a keyless table as a plain
+  WDC3 of just its decoded rows (keyless rows discarded, output unencrypted) —
+  the way to apply edits to a table you can't fully decrypt. Default is
+  Preserve (verbatim). 9.2.7 has 1283 keyless sections, so this is real and
+  tested (SoundKit: Preserve → byte-identical; Drop → plaintext of decoded rows).
 - BUG fixed during write bring-up: string-ARRAY elements store their relative
   offset from their OWN 4-byte position (field_byte + e*4), not the field
   start — the read side must add e*4 too (was resolving all elements from the

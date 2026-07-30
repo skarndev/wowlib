@@ -11,6 +11,7 @@
 #include <wowlib/db/tables/chr_races.hpp>
 #include <wowlib/db/tables/location.hpp>
 #include <wowlib/db/tables/manifest_interface_data.hpp>
+#include <wowlib/db/tables/sound_kit.hpp>
 #include <wowlib/db/tables/spell.hpp>
 #include <wowlib/db/tables/spell_name.hpp>
 #include <wowlib/db/wire/wdc3.hpp>
@@ -264,6 +265,46 @@ TEST_CASE("9.2.7: TACT key registration is accepted by the CASC storage",
   CHECK(storage->add_encryption_key(0xFA505078126ACB3EULL, key).has_value());
   CHECK(storage->import_keys(
               "FA505078126ACB3E BDC51862ABED79B2A3A4EF1B3556EBD3\n").has_value());
+}
+
+TEST_CASE("9.2.7: a keyless table preserves verbatim, or drops to plaintext",
+          "[integration][db]")
+{
+  const auto clients = tests::require_clients_dir();
+  const auto listfile_csv = tests::require_listfile();
+  auto listfile = CsvListfile::load(listfile_csv);
+  REQUIRE(listfile.has_value());
+  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+                                    .build = 45745});
+  REQUIRE(storage.has_value());
+
+  // soundkit.db2 has keyless (undecryptable, zero-filled) sections in this
+  // repack, so some rows are missing from the decode.
+  const auto fdid = listfile->path_to_fdid("dbfilesclient/soundkit.db2");
+  REQUIRE(fdid.has_value());
+  const auto data = storage->read_file(FileKey{*fdid});
+  REQUIRE(data.has_value());
+
+  db::tables::SoundKit<versions::shadowlands> sound;
+  REQUIRE(sound.read(*data).has_value());
+  if (sound.fully_decoded())
+    return;  // this repack happened to have the keys — nothing to demonstrate
+  const std::size_t decoded_rows = sound.records.size();
+
+  // Preserve (the default): the original image, byte for byte.
+  const auto preserved = sound.write(db::EncryptedPolicy::Preserve);
+  REQUIRE(preserved.has_value());
+  REQUIRE(preserved->size() == data->size());
+  CHECK(std::memcmp(preserved->data(), data->data(), data->size()) == 0);
+
+  // Drop: a plain WDC3 of just the decoded rows — no key needed to load it.
+  const auto dropped = sound.write(db::EncryptedPolicy::Drop);
+  REQUIRE(dropped.has_value());
+  db::tables::SoundKit<versions::shadowlands> reread;
+  REQUIRE(reread.read(*dropped).has_value());
+  CHECK(reread.fully_decoded());                 // the rewrite carries no encryption
+  CHECK(reread.encrypted_sections().empty());
+  CHECK(reread.records.size() == decoded_rows);  // exactly the rows we had
 }
 
 TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
