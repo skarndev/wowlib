@@ -183,3 +183,61 @@ TEST_CASE("unknown versions have no chain spec", "[mpq-chain]")
   CHECK(find_chain_spec(ClientVersion{3, 3, 5, 12340}) != nullptr);
   CHECK(find_chain_spec(ClientVersion{3, 3, 5, 0}) != nullptr);
 }
+TEST_CASE("the 4.3.4 update chain globs wow-update archives ascending by build",
+          "[mpq-chain]")
+{
+  FakeDataDir data;
+  for (const char* archive :
+       {"base-Win.MPQ", "art.MPQ", "sound.MPQ", "world.MPQ", "world2.MPQ",
+        "expansion1.MPQ", "expansion2.MPQ", "expansion3.MPQ",
+        "wow-update-base-15354.MPQ", "wow-update-base-15211.MPQ",
+        "wow-update-base-15595.MPQ"})
+    data.add(archive);
+  for (const char* archive :
+       {"ruRU/locale-ruRU.MPQ", "ruRU/speech-ruRU.MPQ",
+        "ruRU/expansion1-locale-ruRU.MPQ", "ruRU/expansion2-locale-ruRU.MPQ",
+        "ruRU/expansion3-locale-ruRU.MPQ", "ruRU/wow-update-ruRU-15595.MPQ",
+        "ruRU/wow-update-ruRU-15211.MPQ"})
+    data.add(archive);
+  // distractors: not archives of the chain
+  data.add("wow-update-base-15595.MPQ.part");
+  data.add("ruRU/Credits_CT.html");
+
+  const auto* spec = find_chain_spec(versions::cata);
+  REQUIRE(spec != nullptr);
+
+  const auto chain = expand_chain(*spec, data.root, Locale::ruRU);
+  REQUIRE(chain.has_value());
+
+  // Base tier: table order, only the archives on disk (no base-Mac here).
+  CHECK(names(*chain, data.root) ==
+        std::vector<std::string>{
+          "base-Win.MPQ", "art.MPQ", "sound.MPQ", "world.MPQ", "world2.MPQ",
+          "expansion1.MPQ", "expansion2.MPQ", "expansion3.MPQ",
+          "ruRU/locale-ruRU.MPQ", "ruRU/speech-ruRU.MPQ",
+          "ruRU/expansion1-locale-ruRU.MPQ", "ruRU/expansion2-locale-ruRU.MPQ",
+          "ruRU/expansion3-locale-ruRU.MPQ",
+          // The update tier: ascending build, base before locale within a build.
+          "wow-update-base-15211.MPQ", "ruRU/wow-update-ruRU-15211.MPQ",
+          "wow-update-base-15354.MPQ",
+          "wow-update-base-15595.MPQ", "ruRU/wow-update-ruRU-15595.MPQ"});
+
+  // Every update member is an incremental patch with its attach prefix; base
+  // members are standalone archives.
+  for (const auto& member : *chain)
+  {
+    const auto name = member.path.filename().string();
+    if (name.starts_with("wow-update-base-"))
+    {
+      CHECK(member.incremental);
+      CHECK(member.prefix == "base");
+    }
+    else if (name.starts_with("wow-update-ruRU-"))
+    {
+      CHECK(member.incremental);
+      CHECK(member.prefix == "ruRU");
+    }
+    else
+      CHECK_FALSE(member.incremental);
+  }
+}

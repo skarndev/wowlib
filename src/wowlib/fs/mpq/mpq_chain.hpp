@@ -39,8 +39,13 @@ namespace wowlib::fs::detail
                           `patch.MPQ` + single-char `patch-?.MPQ` in `Data/`, and
                           `patch-{locale}[-?].MPQ` in `Data/{locale}/`, merged and
                           sorted by extension-agnostic filename. */
-    UpdateChain,     /**< Cata+: `wow-update-{build}.MPQ` ascending build; not
-                          implemented yet. */
+    UpdateChain,     /**< Cata/MoP incremental updates: `wow-update-{build}.MPQ` /
+                          `wow-update-base-{build}.MPQ` in `Data/` and
+                          `wow-update-{locale}-{build}.MPQ` in `Data/{locale}/`,
+                          ascending build. These are NOT standalone archives: they
+                          hold PTCH deltas under a path prefix ("base" /
+                          "{locale}") and must attach to the base archives via
+                          StormLib's patch-archive mechanism. */
   };
 
   /** A client version's archive chain: the fixed base tier plus how its patch
@@ -53,12 +58,17 @@ namespace wowlib::fs::detail
   };
 
   /** One resolved member of a chain, in load order. A member is served either by
-      StormLib (a real archive file) or as loose files under a directory of the
-      archive's name — the client accepts either. */
+      StormLib (a real archive file), as loose files under a directory of the
+      archive's name — the client accepts either — or, for the Cata+ update
+      tier, as an INCREMENTAL patch that attaches to the base archives of its
+      Data directory instead of opening standalone. */
   struct ChainMember
   {
     std::filesystem::path path; /**< The archive file or loose-dir root on disk. */
     bool is_directory = false;  /**< true => loose files, not a StormLib archive. */
+    bool incremental = false;   /**< true => a wow-update patch to attach, not open. */
+    std::string prefix;         /**< Incremental only: the in-archive path prefix
+                                     ("base" or the locale code). */
   };
 
   /** The chain spec for @a version: exact build match first, then
@@ -78,11 +88,16 @@ namespace wowlib::fs::detail
       real file of the same name would win, though a single Data root cannot hold
       both.
 
+      For the UpdateChain scheme (Cata/MoP), the patch tier instead globs the
+      `wow-update-*` archives of `Data/` (prefix "base") and `Data/{locale}/`
+      (prefix "{locale}") and appends them ascending by build number as
+      INCREMENTAL members — the storage attaches each to the base archives of
+      its directory rather than opening it standalone.
+
       @param spec     the version's chain table.
       @param data_dir the client's Data/ directory.
       @param locale   the locale used for "{locale}" expansion.
-      @return members in load order, or an error for unusable specs (UpdateChain,
-              not implemented yet). */
+      @return members in load order. */
   Result<std::vector<ChainMember>>
   expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir,
                Locale locale);

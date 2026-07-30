@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <format>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -89,10 +91,78 @@ namespace wowlib::fs::detail
       ChainEntry{ChainEntryKind::LocaleFixed, "expansion-speech-{locale}.MPQ"},
     };
 
+    // Cataclysm 4.3.4 (build 15595). The base tier switched to themed archives
+    // (art/sound/world/world2 + per-expansion), localization stays under
+    // Data/{locale}/. The patch tier is the NEW UpdateChain scheme: the client
+    // no longer wildcard-loads standalone patch archives — it attaches the
+    // `wow-update-base-{build}.MPQ` (Data/, in-archive prefix `base\`) and
+    // `wow-update-{locale}-{build}.MPQ` (Data/{locale}/, prefix `{locale}\`)
+    // archives as INCREMENTAL patches (PTCH deltas + added files) over the base
+    // archives, ascending build. Base order among themed archives is immaterial
+    // (they partition the namespace); absent rows (base-Mac on a Windows
+    // install and vice versa) are skipped. DBFilesClient lives in
+    // locale-{locale}.MPQ, patched by the locale updates — the WDB2 corpus
+    // reads resolve through exactly that pair.
+    constexpr std::array cata_base{
+      ChainEntry{ChainEntryKind::Fixed, "base-Win.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "base-Mac.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "art.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "sound.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "world.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "world2.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion1.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion2.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion3.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion1-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion1-speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion2-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion2-speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion3-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion3-speech-{locale}.MPQ"},
+    };
+
+    // Mists of Pandaria 5.4.8 (build 18414). Structurally the Cata scheme with
+    // MoP's themed base set (interface/itemtexture/misc/model/texture join,
+    // world2/art leave, expansion4 arrives) and the same UpdateChain patch
+    // tier. UNVERIFIED against a complete local install yet (the local 5.4.8
+    // download is in progress) — rows for archives a given install lacks are
+    // skipped, so a superset table is safe.
+    constexpr std::array mop_base{
+      ChainEntry{ChainEntryKind::Fixed, "base-Win.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "base-Mac.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "art.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "interface.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "itemtexture.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "misc.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "model.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "sound.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "texture.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "world.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "world2.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion1.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion2.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion3.MPQ"},
+      ChainEntry{ChainEntryKind::Fixed, "expansion4.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion1-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion1-speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion2-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion2-speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion3-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion3-speech-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion4-locale-{locale}.MPQ"},
+      ChainEntry{ChainEntryKind::LocaleFixed, "expansion4-speech-{locale}.MPQ"},
+    };
+
     constexpr std::array chain_specs{
       MpqChainSpec{versions::vanilla, vanilla_base, PatchScheme::ClassicWildcard},
       MpqChainSpec{versions::tbc, tbc_base, PatchScheme::ClassicWildcard},
       MpqChainSpec{versions::wotlk, wotlk_base, PatchScheme::ClassicWildcard},
+      MpqChainSpec{versions::cata, cata_base, PatchScheme::UpdateChain},
+      MpqChainSpec{versions::mop, mop_base, PatchScheme::UpdateChain},
     };
 
     std::string expand_locale(std::string_view pattern, std::string_view code)
@@ -168,6 +238,53 @@ namespace wowlib::fs::detail
         out.push_back({std::move(candidate), true});
     }
 
+    // The build number of a `wow-update-*` archive name (extension-stripped
+    // core): the digits after the last '-'. `wow-update-15595`,
+    // `wow-update-base-15595` and `wow-update-ruRU-15595` all yield 15595;
+    // names whose tail is not purely numeric yield nullopt (not an update).
+    std::optional<std::uint32_t> update_build(std::string_view core)
+    {
+      constexpr std::string_view stem = "wow-update-";
+      if (core.size() <= stem.size()
+          || !ci_equal(core.substr(0, stem.size()), stem))
+        return std::nullopt;
+      const auto dash = core.rfind('-');
+      const std::string_view tail = core.substr(dash + 1);
+      if (tail.empty())
+        return std::nullopt;
+      std::uint32_t build = 0;
+      for (const char c : tail)
+      {
+        if (c < '0' || c > '9')
+          return std::nullopt;
+        build = build * 10 + static_cast<std::uint32_t>(c - '0');
+      }
+      return build;
+    }
+
+    // Collect the `wow-update-*` incremental patches of `dir` into `found`,
+    // keyed by build number for the ascending sort. `prefix` is the in-archive
+    // path prefix the storage passes to StormLib when attaching ("base" for
+    // Data/ updates, the locale code for Data/{locale}/ ones).
+    void collect_updates(std::vector<std::pair<std::uint32_t, ChainMember>>& found,
+                         const fsys::path& dir, std::string_view prefix)
+    {
+      std::error_code ec;
+      for (const auto& entry : fsys::directory_iterator{dir, ec})
+      {
+        const std::string name = entry.path().filename().string();
+        const auto core = mpq_core(name);
+        if (!core)
+          continue;
+        const auto build = update_build(*core);
+        if (!build || !entry.is_regular_file(ec))
+          continue;
+        found.emplace_back(*build, ChainMember{.path = entry.path(),
+                                               .incremental = true,
+                                               .prefix = std::string{prefix}});
+      }
+    }
+
     // Collect the patches of `dir` matching `stem` into `found`, keyed by the
     // extension-stripped filename (the client's sort key). The client globs the
     // single-char wildcard (`patch-?` / `patch-{loc}-?`) plus the bare stem,
@@ -209,11 +326,6 @@ namespace wowlib::fs::detail
   expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir,
                Locale locale)
   {
-    if (spec.patch_scheme == PatchScheme::UpdateChain)
-      return make_error(ErrorCode::NotImplemented,
-                        "wow-update-* incremental chains (Cataclysm/MoP) are not "
-                        "implemented yet");
-
     const std::string code{locale_code(locale)};
     const fsys::path locale_dir = data_dir / code;
 
@@ -246,6 +358,22 @@ namespace wowlib::fs::detail
       std::ranges::stable_sort(patches, ci_less,
                                &std::pair<std::string, ChainMember>::first);
       for (auto& [key, member] : patches)
+        out.push_back(std::move(member));
+    }
+
+    // Update tier (Cata/MoP): the wow-update archives of Data/ and
+    // Data/{locale}/, ascending by build (the client applies older deltas
+    // first). The stable sort keeps base updates ahead of same-build locale
+    // updates — immaterial for attachment (they patch disjoint archives) but
+    // deterministic.
+    if (spec.patch_scheme == PatchScheme::UpdateChain)
+    {
+      std::vector<std::pair<std::uint32_t, ChainMember>> updates;
+      collect_updates(updates, data_dir, "base");
+      collect_updates(updates, locale_dir, code);
+      std::ranges::stable_sort(updates, {},
+                               &std::pair<std::uint32_t, ChainMember>::first);
+      for (auto& [build, member] : updates)
         out.push_back(std::move(member));
     }
 

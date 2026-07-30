@@ -84,6 +84,52 @@ namespace wowlib::tests
         std::format("{}: {}", name, describe_divergence(*data, *written)));
   }
 
+  /** Sweep one table of a mixed .dbc/.db2 era (Cata..WoD): try
+      DBFilesClient/<Name>.db2 first, fall back to <Name>.dbc; decode,
+      re-encode, memcmp — both formats are byte-perfect round-trips.
+      @tparam Tbl the generated table type of the era.
+      @param storage the client's MPQ chain.
+      @param name    the WoWDBDefs table name.
+      @param stats   the sweep tally. */
+  template <typename Tbl>
+  void sweep_table_mixed(fs::MpqStorage& storage, std::string_view name, CorpusStats& stats)
+  {
+    // The one filename that differs from its table name in the WDB2 era.
+    const std::string base = name == "ItemSparse" ? "Item-sparse" : std::string{name};
+    auto data = storage.read_file(FileKey{std::format("DBFilesClient/{}.db2", base)});
+    if (!data)
+      data = storage.read_file(FileKey{std::format("DBFilesClient/{}.dbc", base)});
+    if (!data)
+    {
+      ++stats.missing;
+      return;
+    }
+    ++stats.present;
+    if (data->empty())
+    {
+      ++stats.empty;
+      return;
+    }
+
+    Tbl table;
+    if (const auto r = table.read(*data); !r)
+    {
+      stats.failures.push_back(std::format("{}: read failed: {}", name, r.error().message));
+      return;
+    }
+    const auto written = table.write();
+    if (!written)
+    {
+      stats.failures.push_back(
+        std::format("{}: write failed: {}", name, written.error().message));
+      return;
+    }
+    if (written->size() != data->size()
+        || std::memcmp(written->data(), data->data(), data->size()) != 0)
+      stats.failures.push_back(
+        std::format("{}: {}", name, describe_divergence(*data, *written)));
+  }
+
   /** The failure list joined for a single INFO() block. */
   inline std::string join_failures(const CorpusStats& stats)
   {

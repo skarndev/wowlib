@@ -78,6 +78,34 @@ namespace wowlib::fs
 
     for (const detail::ChainMember& member : *chain)
     {
+      if (member.incremental)
+      {
+        // A wow-update archive holds PTCH deltas and added files under its
+        // path prefix; it attaches to every base archive of its own Data
+        // directory (updates come after all base members in the chain, so
+        // those are open by now). StormLib then serves the patched content
+        // transparently through the base handles.
+        for (OpenedArchive& archive : _archives)
+        {
+          if (archive.is_directory
+              || archive.path.parent_path() != member.path.parent_path())
+            continue;
+          if (!SFileOpenPatchArchive(archive.handle, member.path.c_str(),
+                                     member.prefix.c_str(), 0))
+          {
+            const auto native = SErrGetLastError();
+            close();
+            return make_error(
+              ErrorCode::ArchiveOpenFailed,
+              std::format("SFileOpenPatchArchive failed attaching '{}' to '{}'",
+                          member.path.string(), archive.path.string()),
+              static_cast<std::uint32_t>(native));
+          }
+          archive.patched = true;
+        }
+        continue;
+      }
+
       if (member.is_directory)
       {
         // Loose directory: index every file by its canonical in-game path so
@@ -116,8 +144,9 @@ namespace wowlib::fs
                                       member.path.string()),
                           static_cast<std::uint32_t>(native));
       }
-      _archives.push_back(OpenedArchive{member.path, false, handle,
-                                        std::make_unique<std::mutex>(), {}});
+      _archives.push_back(OpenedArchive{.path = member.path,
+                                        .handle = handle,
+                                        .mtx = std::make_unique<std::mutex>()});
     }
     return {};
   }
@@ -155,15 +184,23 @@ namespace wowlib::fs
 
       std::scoped_lock lock{*archive.mtx};
 
-      if (!SFileHasFile(archive.handle, name.c_str()))
+      // The has-file probe checks the archive's own hash table only — it
+      // cannot see files ADDED by attached wow-update patches, so patched
+      // archives go straight to the open call and treat not-found as a miss.
+      if (!archive.patched && !SFileHasFile(archive.handle, name.c_str()))
         continue;
 
       HANDLE file = nullptr;
       if (!SFileOpenFileEx(archive.handle, name.c_str(), SFILE_OPEN_FROM_MPQ, &file))
+      {
+        const auto native = SErrGetLastError();
+        if (archive.patched && native == ERROR_FILE_NOT_FOUND)
+          continue;
         return make_error(ErrorCode::BackendError,
                           std::format("SFileOpenFileEx failed for '{}' in '{}'", name,
                                       archive.path.string()),
-                          static_cast<std::uint32_t>(SErrGetLastError()));
+                          static_cast<std::uint32_t>(native));
+      }
 
       DWORD size_high = 0;
       const DWORD size_low = SFileGetFileSize(file, &size_high);
@@ -212,6 +249,18 @@ namespace wowlib::fs
       }
 
       std::scoped_lock lock{*archive.mtx};
+      if (archive.patched)
+      {
+        // Probe through the open call so patch-added files count (see
+        // read_file for why the has-file check is blind to them).
+        HANDLE file = nullptr;
+        if (SFileOpenFileEx(archive.handle, key.path->c_str(), SFILE_OPEN_FROM_MPQ, &file))
+        {
+          SFileCloseFile(file);
+          return true;
+        }
+        continue;
+      }
       if (SFileHasFile(archive.handle, key.path->c_str()))
         return true;
     }

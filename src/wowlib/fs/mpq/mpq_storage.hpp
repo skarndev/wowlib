@@ -100,6 +100,12 @@ namespace wowlib::fs
       void* handle = nullptr;          /**< StormLib HANDLE (archive members). */
       std::unique_ptr<std::mutex> mtx; /**< Serializes StormLib calls (archive members). */
 
+      /** Whether wow-update patch archives are attached (Cata+). A patched
+          archive serves files ADDED by its updates too, which StormLib's
+          plain has-file probe cannot see — lookups go through the open call
+          instead. */
+      bool patched = false;
+
       /** Loose members: canonical in-game path -> the file on disk. Built once at
           open, read-only after, so reads need no lock. Case-insensitive lookup
           falls out of both sides being in canonical (lowercased) form. */

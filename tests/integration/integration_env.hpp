@@ -54,4 +54,11 @@ namespace wowlib::tests
   // ruRU locale sets; we open the English (enGB) chain for readable assertions.
   constexpr const char* tbc_client_name = "WoW TBC 2.4.3";
   constexpr Locale tbc_locale = Locale::enGB;
+
+  // Cataclysm 4.3.4 (the first UpdateChain MPQ client: wow-update-* archives
+  // attach as incremental patches). A ruRU install, symlinked from the external
+  // client drive; DBFilesClient serves from locale-ruRU.MPQ + the
+  // wow-update-ruRU updates.
+  constexpr const char* cata_client_name = "WoW Cata 4.3.4";
+  constexpr Locale cata_locale = Locale::ruRU;
 }

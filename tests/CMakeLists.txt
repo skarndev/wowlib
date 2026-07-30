@@ -40,6 +40,7 @@ if(WOWLIB_DB_TABLES)
     integration/test_dbc_corpus_112.cpp
     integration/test_dbc_corpus_243.cpp
     integration/test_dbc_corpus_335.cpp
+    integration/test_dbc_corpus_434.cpp
     integration/test_db2_corpus_927.cpp)
   target_link_libraries(wowlib_tests PRIVATE wowlib_db_tables)
   add_test(NAME dbdgen_unit
