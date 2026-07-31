@@ -159,5 +159,6 @@ nav:
           - ADT entity: python/adt/entity.md
           - Terrain cells: python/adt/cells.md
           - Chunks: python/adt/chunks.md
+      - BLP format: python/blp.md
       - Containers: python/containers.md
   - C++ API Reference: reference.md

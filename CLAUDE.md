@@ -46,6 +46,7 @@ These are presented roughly in order:
 | M2 subsystem (offset engine, external-file baking, staged plan, user decisions) | .claude/context/m2-architecture.md |
 | ADT subsystem (unified entity, split-file routing, alphamap decode, liquids, survey findings) | .claude/context/adt-architecture.md |
 | ClientDB subsystem (DBC/DB2, dbdgen codegen from WoWDBDefs, round-trip policy, encryption) | .claude/context/db-architecture.md |
+| BLP subsystem (unversioned entity, layout replay, codecs, stb_dxt, corpus findings) | .claude/context/blp-notes.md |
 | MPQ load order & chain tables | .claude/context/mpq-load-order.md |
 | CASC storage specifics (repack shim, error codes, test FDIDs) | .claude/context/casc-notes.md |
 | Listfile & custom FileDataID policy | .claude/context/listfile-notes.md |

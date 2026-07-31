@@ -73,7 +73,21 @@ FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
   GIT_TAG 83abe9dc35b2c81ab19572dc1cc6ba810bbd7fd2)
 
-FetchContent_MakeAvailable(StormLib CascLib welder)
+# --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
+# Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
+# makes the pin content-addressed, so a moved/rewritten ref cannot change what
+# we build. Decoding is wowlib's own (stb_dxt only compresses); the header is a
+# PRIVATE implementation detail of formats/blp/blp.cpp — never installed,
+# never in a public wowlib header.
+FetchContent_Declare(stb_dxt
+  URL https://raw.githubusercontent.com/nothings/stb/7023e273f1513b68b8d4086077c6faca555d50df/stb_dxt.h
+  URL_HASH SHA256=807667ef98e0fd749cdb65cca0c2d980bc148109d2fed6f1873c81ae0f449933
+  DOWNLOAD_NO_EXTRACT TRUE)
+
+FetchContent_MakeAvailable(StormLib CascLib welder stb_dxt)
+
+add_library(stb_dxt INTERFACE)
+target_include_directories(stb_dxt INTERFACE ${stb_dxt_SOURCE_DIR})
 
 # Storage libraries are never debugged into and their table/manifest parsing is
 # hot on every storage open — keep them optimized even in Debug configurations.

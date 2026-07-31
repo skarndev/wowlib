@@ -209,6 +209,7 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
            ${_wowlib_stubs}/wowlib/formats/wdl/chunks.pyi
            ${_wowlib_stubs}/wowlib/formats/adt/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/adt/chunks.pyi
+           ${_wowlib_stubs}/wowlib/formats/blp.pyi
     PATTERN_FILE ${_wowlib_patterns}
     PYTHON_PATH $<TARGET_FILE_DIR:wowlib_py>
     DEPENDS wowlib_py ${_wowlib_patterns})

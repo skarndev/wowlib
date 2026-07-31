@@ -14,6 +14,7 @@ add_executable(wowlib_tests
   unit/test_wdt_wdl_binary_layout.cpp
   unit/test_wdl_tiles.cpp
   unit/test_adt_binary_layout.cpp
+  unit/test_blp.cpp
   unit/test_convert.cpp
   unit/test_db_framework.cpp
   unit/test_csv_listfile.cpp
@@ -32,6 +33,7 @@ add_executable(wowlib_tests
   integration/test_m2_roundtrip.cpp
   integration/test_wdt_wdl_roundtrip.cpp
   integration/test_adt_roundtrip.cpp
+  integration/test_blp_roundtrip.cpp
 )
 target_link_libraries(wowlib_tests PRIVATE wowlib Catch2::Catch2WithMain)
 

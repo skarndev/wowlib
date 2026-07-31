@@ -20,6 +20,7 @@ errors.
 | CascLib | 3.0 | target `casc_static`; `CASC_BUILD_STATIC_LIB=ON`, `CASC_BUILD_SHARED_LIB=OFF`, unicode off |
 | welder | commit 83abe9d (no tags yet; opaque std::array members — fixed-size Array* wrappers by reference) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
+| stb_dxt | raw-file URL pin at 7023e27 + SHA256 (DOWNLOAD_NO_EXTRACT) | INTERFACE target `stb_dxt`, PRIVATE into wowlib; only formats/blp/blp.cpp includes it (compress-only: BC1-opaque/BC3/BC4/BC5; wowlib decodes itself) |
 
 ## Bumping the welder pin (we own welder)
 - **Push welder before bumping the wowlib pin.** `FETCHCONTENT_UPDATES_DISCONNECTED

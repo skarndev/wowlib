@@ -19,6 +19,7 @@ add_library(wowlib STATIC
   src/wowlib/fs/mpq/mpq_chain.cpp
   src/wowlib/fs/mpq/mpq_storage.cpp
   src/wowlib/fs/casc/casc_storage.cpp
+  src/wowlib/formats/blp/blp.cpp
   src/wowlib/db/codec_common.cpp
   src/wowlib/db/wdbc.cpp
   src/wowlib/db/wdb2.cpp
@@ -32,7 +33,7 @@ add_library(wowlib STATIC
 # expanded only by the language bindings (bindings/python/instantiations/).
 target_include_directories(wowlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_options(wowlib PRIVATE ${WOWLIB_CXX_FLAGS} PUBLIC ${WOWLIB_REFLECTION_FLAGS})
-target_link_libraries(wowlib PUBLIC welder::headers PRIVATE storm casc_static)
+target_link_libraries(wowlib PUBLIC welder::headers PRIVATE storm casc_static stb_dxt)
 
 if(WOWLIB_BUILD_TESTS)
   enable_testing()

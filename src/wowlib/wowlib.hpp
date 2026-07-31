@@ -294,6 +294,23 @@ namespace wowlib::formats
   }
 }
 
+// The blp namespace opens after adt, fixing the submodule weld order. BLP is
+// version-stable across every client release, so the namespace holds one
+// unversioned entity (plus the Image/EncodeSettings vocabulary) — no chunks
+// submodule and no per-version classes.
+namespace wowlib::formats
+{
+  namespace
+  [[=welder::doc(R"(
+      The BLP texture format: the version-stable BLP2 entity with byte-perfect
+      round-trips, RGBA8 decode of every shipped encoding (palettized,
+      DXT1/3/5, BC5, raw BGRA) and full re-encoding (palette quantization, DXT
+      compression, mip-chain generation).)")]]
+  blp
+  {
+  }
+}
+
 #include <wowlib/formats/wmo/convert.hpp>
 #include <wowlib/formats/m2/convert.hpp>
 #include <wowlib/formats/wdt/convert.hpp>
@@ -307,3 +324,4 @@ namespace wowlib::formats
 #include <wowlib/formats/wdt/wdt.hpp>
 #include <wowlib/formats/wdl/wdl.hpp>
 #include <wowlib/formats/adt/adt.hpp>
+#include <wowlib/formats/blp/blp.hpp>
