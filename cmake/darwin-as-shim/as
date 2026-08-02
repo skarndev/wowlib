@@ -1,0 +1,27 @@
+#!/bin/sh
+# Assembler shim for gcc-16 aarch64-darwin (see CompilerSettings.cmake).
+#
+# GCC emits string/array literals as assembler-local "L.str.N" labels. The
+# Clang assembler strips those, folding the literal bytes into the preceding
+# Mach-O atom. When that atom is a coalescable weak symbol (C++ template or
+# inline data — e.g. the std::span<char>::__v<N> blobs C++26 reflection
+# materializes for every wowlib header), ld keeps ONE TU's whole atom and
+# drops the others, shifting every literal that rode along by whatever the
+# surviving copy carried instead. Observed as std::format("{:016x}") yielding
+# NUL-riddled hex: libstdc++'s "0123456789abcdef" table was anchored at
+# "__v<256> + 4" and moved 4 bytes after coalescing.
+#
+# Renaming L.str.* to the linker-private l.str.* namespace keeps the
+# assembler from stripping them, so every literal is its own atom and
+# references survive weak coalescing. ld still strips l-symbols from the
+# final image.
+for arg in "$@"; do
+  case "$arg" in
+    *.s|*.S)
+      [ -w "$arg" ] && /usr/bin/sed -i '' \
+        -e 's/^L\.str\./l.str./' \
+        -e 's/\([^A-Za-z0-9_.$]\)L\.str\./\1l.str./g' "$arg"
+      ;;
+  esac
+done
+exec /usr/bin/as "$@"
