@@ -175,7 +175,7 @@ namespace wowlib::formats::adt::chunks
         components, 127 == 1.0. One per MCVT height vertex (9x9 + 8x8 = 145).)")
   ]] MCNREntry
   {
-    [[=welder::doc("The normal components, X, Z, Y order; 127 == 1.0, -127 == -1.0.")]]
+    [[=welder::doc("The normal components, plain X, Y, Z order; 127 == 1.0, -127 == -1.0. (The often-quoted X, Z, Y layout is wrong: verified empirically against MCVT-derived gradients, wrender 2026-08.)")]]
     std::array<std::int8_t, 3> normal{};
 
     bool operator==(const MCNREntry&) const = default;

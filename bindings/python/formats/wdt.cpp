@@ -141,7 +141,16 @@ namespace wowlib_py::formats::wdt
         },
         nb::name("read"), nb::scope(base), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
-        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Load the map description — the main file and every satellite present\n"
+        "(_occ/_lgt/_fogs/_mpv) — from a client filesystem, replacing this\n"
+        "entity's contents. Satellites are located by path convention pre-8.1\n"
+        "and by the MPHD FileDataIDs after.\n\n"
+        "Args:\n"
+        "    source: the filesystem gateway\n"
+        "    key: the main .wdt identity (path and/or FileDataID)\n\n"
+        "Returns:\n"
+        "    nothing; raises on a missing file or malformed chunk stream");
 
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
@@ -157,7 +166,14 @@ namespace wowlib_py::formats::wdt
         },
         nb::name("write"), nb::scope(base), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
-        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Serialize the main file and every engaged satellite through the\n"
+        "filesystem's project overlay; satellite names derive from the key.\n\n"
+        "Args:\n"
+        "    dest: the filesystem gateway\n"
+        "    key: the main .wdt identity; must resolve to a path\n\n"
+        "Returns:\n"
+        "    nothing; raises when the key has no path or a file fails to write");
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyWDT fallback
       template for (constexpr auto e : expansion_enumerators)
@@ -181,7 +197,15 @@ namespace wowlib_py::formats::wdt
           return result;
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
-        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyWDT"));
+        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyWDT"),
+        "Rebuild this map description as the target expansion's concrete class,\n"
+        "stepping the version ladder one adjacent release at a time (this\n"
+        "instance is left unchanged). The return type narrows when the target\n"
+        "is a literal.\n\n"
+        "Args:\n"
+        "    target: the expansion to convert to\n\n"
+        "Returns:\n"
+        "    the converted map; raises when a ladder step is not implemented");
     }
   }
 

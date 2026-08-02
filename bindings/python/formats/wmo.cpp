@@ -139,7 +139,14 @@ namespace wowlib_py::formats::wmo
         },
         nb::name("read"), nb::scope(base), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
-        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Load the assembly — the root file and every numbered group file — from\n"
+        "a client filesystem, replacing this entity's contents.\n\n"
+        "Args:\n"
+        "    source: the filesystem gateway\n"
+        "    key: the root file identity; the \"_000\" … group keys derive from it\n\n"
+        "Returns:\n"
+        "    nothing; raises on a missing file or malformed chunk stream");
       // read(root_buffer, group_buffers) — parse in place from bytes / file-likes
       nb::cpp_function(
         [](nb::handle self, nb::object root, nb::object groups)
@@ -163,7 +170,14 @@ namespace wowlib_py::formats::wmo
         nb::name("read"), nb::scope(base), nb::is_method(),
         nb::arg("source"), nb::arg("groups"),
         nb::sig("def read(self, source: collections.abc.Buffer | typing.BinaryIO, "
-                "groups: collections.abc.Sequence[collections.abc.Buffer | typing.BinaryIO]) -> None"));
+                "groups: collections.abc.Sequence[collections.abc.Buffer | typing.BinaryIO]) -> None"),
+        "Parse the assembly from memory: the root image plus one buffer (or\n"
+        "binary file-like) per group file, in group order.\n\n"
+        "Args:\n"
+        "    source (Buffer | BinaryIO): the root file bytes\n"
+        "    groups (Sequence[Buffer | BinaryIO]): every group file's bytes, ordered\n\n"
+        "Returns:\n"
+        "    nothing; raises on a malformed chunk stream");
 
       // write(FileSystem, FileKey) — save; group names inferred from the root key
       nb::cpp_function(
@@ -177,7 +191,15 @@ namespace wowlib_py::formats::wmo
         },
         nb::name("write"), nb::scope(base), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
-        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Serialize the root and every group file through the filesystem's\n"
+        "project overlay.\n\n"
+        "Args:\n"
+        "    dest: the filesystem gateway\n"
+        "    key: the root file identity; must resolve to a path, from which the\n"
+        "        group file names derive\n\n"
+        "Returns:\n"
+        "    nothing; raises when the key has no path or a file fails to write");
       // write(root_sink, group_sinks) — serialize into output buffers, one per group
       nb::cpp_function(
         [](nb::handle self, nb::object dest, nb::object groups)
@@ -203,7 +225,14 @@ namespace wowlib_py::formats::wmo
         nb::name("write"), nb::scope(base), nb::is_method(),
         nb::arg("dest"), nb::arg("groups"),
         nb::sig("def write(self, dest: typing.BinaryIO, "
-                "groups: collections.abc.Sequence[typing.BinaryIO]) -> None"));
+                "groups: collections.abc.Sequence[typing.BinaryIO]) -> None"),
+        "Serialize into binary sinks: the root into dest, each group into its\n"
+        "own sink — exactly one per group, in group order.\n\n"
+        "Args:\n"
+        "    dest (BinaryIO): where the root file bytes are written\n"
+        "    groups (Sequence[BinaryIO]): one binary sink per group file, ordered\n\n"
+        "Returns:\n"
+        "    nothing; raises when the sink count mismatches the group count");
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyWMO fallback
       template for (constexpr auto e : expansion_enumerators)
@@ -227,7 +256,15 @@ namespace wowlib_py::formats::wmo
           return result;
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
-        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyWMO"));
+        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyWMO"),
+        "Rebuild this assembly as the target expansion's concrete class,\n"
+        "stepping the version ladder one adjacent release at a time (this\n"
+        "instance is left unchanged). The return type narrows when the target\n"
+        "is a literal.\n\n"
+        "Args:\n"
+        "    target: the expansion to convert to\n\n"
+        "Returns:\n"
+        "    the converted assembly; raises when a ladder step is not implemented");
     }
   }
 

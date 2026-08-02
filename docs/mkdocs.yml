@@ -116,6 +116,14 @@ plugins:
             members_order: source
             merge_init_into_class: true
             show_if_no_docstring: true
+            # nanobind stubs spell every overloaded binding as a pure @overload
+            # group; the griffe_overloads extension (docs/) promotes those to
+            # real members, and overloads_only shows the overload signatures
+            # without repeating the promoted copy's own.
+            show_overloads: true
+            overloads_only: true
+            extensions:
+              - griffe_overloads
             filters:
               - "!^_"
 
@@ -157,8 +165,11 @@ nav:
       - ADT format:
           - python/adt/index.md
           - ADT entity: python/adt/entity.md
-          - Terrain cells: python/adt/cells.md
-          - Chunks: python/adt/chunks.md
+          - Terrain chunks (MCNK): python/adt/map-chunk.md
+          - Chunk records: python/adt/chunks.md
       - BLP format: python/blp.md
+      - ClientDB (DBC & DB2):
+          - python/db/index.md
+          - Tables & records: python/db/tables.md
       - Containers: python/containers.md
   - C++ API Reference: reference.md

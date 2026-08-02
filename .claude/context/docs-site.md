@@ -202,20 +202,80 @@ enums still render as full single listings.
 - Generated artifacts: `build/docs/` (gitignored) — awesome clone, Doxyfile,
   reference, site.
 
-### ADT docs (2026-07-26)
-ADT is the exception to the FourCC field-badge engine: its `ADT<V>`/`MapChunk<V>`
-members carry NO `=chunk()`/`=since()` annotations (sub-chunks are hand-serialized,
-version-gating is by conditional trait bases), so the entity + cell pages are plain
-mkdocstrings `:::` directives on a REPRESENTATIVE concrete class (ADTBfaPlus,
-MapChunkCataPlus — the fullest layouts) with a prose note on version-gating, NOT
-generated field tables. `adt_reference_config.py` is a minimal `common`-style
-Format (empty sides, `name_re=(?!)`) with WIDTH-ONLY StructPages: CHUNKS
-(adt/chunks.md, the binary structs) + LIQUID (adt/entity.md, the four structured
-liquid records, names_filter'd). Registered in FORMAT_MODULES + the reload shim +
-mkdocs nav (python/adt/{index,entity,cells,chunks}.md). Vendored
-adt_wowdev_anchors.json (extracted from the wiki HTML, HTML-entities decoded).
-Guide: content/guide/maps.md gained an "Editing terrain (ADT)" section with the
-version-agnostic add-a-texture walkthrough. Build is clean.
+### ADT docs (2026-07-26; REWORKED 2026-07-31 — full badge parity)
+ADT now gets the SAME per-version treatment as WMO/M2, via two Sides whose
+`parse_fields` derives since/until **from the stubs** (which `ADT*`/`MapChunk*`
+range classes declare a member — the C++ has no `=chunk()`/`=since()` member
+annotations to parse; version-gating is by conditional trait bases). FourCCs,
+categories and mid-expansion boundary overrides the class grid can't express
+(MDID/MHID 8.1, MTXP MoP) live in hand maps in `adt_reference_config.py`
+(`_TILE_META`/`_CHUNK_META` — a NEW stub field not in the map triggers the
+uncategorized warning, which is the drift guard). Pages: entity.md (tile side,
+`<!-- adt-tile-fields -->` + legend + `::: ADT` base at h3 with injected
+for_version), map-chunk.md (RENAMED from cells.md — "terrain chunks (MCNK)",
+never "cells"; chunk side, `<!-- adt-chunk-fields -->`), chunks.md ("Chunk
+records" in nav; SPLIT into three StructPages over the same page so tile-owned
+and chunk-owned wire structs each backlink their owner side — owner_side is
+single per StructPage). LIQUID sp got owner_side=TILE_SIDE (MH2OData backlinks
+[water]). Python `ADT.read/write/convert` (hand-attached in
+bindings/python/formats/adt.cpp) now carry google-style docstrings.
+
+### 2026-07-31 sweep (fs context manager, overload rendering, db section)
+- **griffe drops all-@overload stub functions** (visitor only attaches
+  overloads to a FOLLOWING primary def; nanobind stubgen never emits one) — so
+  read_file/exists, db read/write, ADT.convert and every __init__ were MISSING
+  from the rendered API. Fixed by `docs/griffe_overloads.py` (griffe extension,
+  registered under the mkdocs.yml python handler `extensions:` +
+  `show_overloads: true`/`overloads_only: true`): promotes the leftover group
+  (docstrings of all overloads concatenated). `for_version` stays skipped —
+  the hand-injected `_inject_for_version` block is the nicer rendering; do NOT
+  let both render (duplicate). Three gotchas baked into the extension:
+  (a) the synthesized Docstring must COPY `parser`/`parser_options` from a
+  loader-created one — mkdocstrings' loader stamps the google parser on
+  docstrings at collection, and a bare `Docstring(...)` renders as one
+  plain-text blob (raw "Args:"); (b) promote the FIRST overload — docstring
+  Parameters tables resolve type/default cells against the primary's
+  signature, and the first Args section describes the first spelling;
+  (c) where a LATER overload reuses a parameter name of the first (WMO
+  read `source`/write `dest`), its table cell would cross-type from the
+  primary signature — spell the type inline in that overload's docstring
+  (`dest (BinaryIO): …`), which overrides the signature lookup.
+- **Facade verbs now carry docstrings** (2026-07-31, user report): every
+  hand-attached `read`/`write`/`convert` in bindings/python/formats/
+  {wmo,m2,wdt,wdl,adt}.cpp (bases + the M2 Skeleton / WDL concrete fs verbs)
+  had `nb::sig` but NO docstring — rendered as bare signature stacks. All have
+  google-style docstrings now; keep new cpp_function verbs documented.
+- **fs.FileSystem context manager**: `__enter__`/`__exit__` got `nb::sig`
+  typed signatures + docstrings (bindings/python/fs.cpp — nb lambdas on
+  nb::object stub as `-> object` otherwise); the class welder::doc gained an
+  `Examples:` section (with-block vs explicit open/close) — welder's cleandoc
+  preserves relative indentation, so fenced code in doc annotations survives
+  to the stubs and renders highlighted. fs.md un-hides the two dunders via
+  filters `["!^_", "^__(enter|exit)__$"]` (last match wins).
+- **ClientDB section** (python/db/{index,tables}.md, nav "ClientDB (DBC &
+  DB2)"): index = concepts (format ladder, table-surface shape, round-trip
+  guarantees, encryption) + `::: wowlib.db` (LocString8/16, EncryptedPolicy/
+  Section); tables.md documents the representative **Map** family — `::: Map`
+  base (+injected for_version), `::: MapTheWarWithin` as the generic Table API
+  (keep this the NEWEST era class), and the `MapRecord*` family through the
+  dedup engine (`db_reference_config.py`, dedup_marker `<!-- db-map-records -->`,
+  name_re `Map(?:Record)?`) — per-member era badges land automatically
+  (map_name renders its LocString8/LocString16/str layouts).
+- **Engine fix**: `_emit_merged_members` clamps a span reaching LATEST_MAJOR to
+  an OPEN-ended badge — db grids name the last era exactly ("TheWarWithin", no
+  Plus), and the old `(last+1,0,0)` until hit `EXPANSIONS[12]` → KeyError,
+  silently eating ALL badges on the page (the on_page_content try swallows it).
+- python/index.md package table now lists every submodule (versions, formats,
+  adt, blp, db, db.tables, db.rowbase); core.md renders `::: wowlib.versions`.
+- build.py serve now watches all reference configs + griffe_overloads.py + all
+  anchors JSONs.
+- **Stale-venv gotcha**: build/bindings had the pre-11-era `WOWLIB_DB_ERAS`
+  cache (the set(CACHE) gotcha) AND `.venv/site-packages/wowlib.abi3.so` +
+  `wowlib-stubs/` were the old 4-era artifacts — pytest imports the INSTALLED
+  module, not the build tree. After a bindings rebuild, copy the fresh .so and
+  rsync the stubs into site-packages (keep `py.typed`). Also the cached
+  `Python_EXECUTABLE` pointed at a dead uv temp dir — reconfigure with
+  `-DPython_EXECUTABLE=$PWD/.venv/bin/python`.
 
 ## Not yet ported from welder (follow-ups)
 - `apilink.py` (auto-link guide code spans to the C++ reference via the Doxygen

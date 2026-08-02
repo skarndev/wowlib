@@ -47,8 +47,10 @@ if(WOWLIB_DB_TABLES)
 
   set(WOWLIB_DB_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated/db")
   set(_wowlib_dbdgen_stamp "${WOWLIB_DB_GENERATED_DIR}/dbdgen.stamp")
+  # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR: wowlib is add_subdirectory()'d by
+  # consumers (wrender), where CMAKE_SOURCE_DIR is the consumer's root.
   file(GLOB _wowlib_dbdgen_sources CONFIGURE_DEPENDS
-       "${CMAKE_SOURCE_DIR}/tools/dbdgen/dbdgen/*.py")
+       "${PROJECT_SOURCE_DIR}/tools/dbdgen/dbdgen/*.py")
 
   set(_wowlib_dbdgen_args
       --definitions "${_wowlib_dbdefs_definitions}"
@@ -77,7 +79,7 @@ if(WOWLIB_DB_TABLES)
 
   add_custom_command(
     OUTPUT ${_wowlib_dbdgen_outputs}
-    COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${CMAKE_SOURCE_DIR}/tools/dbdgen"
+    COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${PROJECT_SOURCE_DIR}/tools/dbdgen"
             "${Python3_EXECUTABLE}" -m dbdgen ${_wowlib_dbdgen_args}
     COMMAND "${CMAKE_COMMAND}" -E touch "${_wowlib_dbdgen_stamp}"
     DEPENDS ${_wowlib_dbdgen_sources}

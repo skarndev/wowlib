@@ -88,7 +88,32 @@ namespace wowlib::fs
         wrong state beyond a moved-from object). The scripting languages, where
         finalization timing belongs to the runtime, additionally get explicit
         control: close() and is_open (welded from the protected surface), and in
-        Python the with-statement.)")]]
+        Python the with-statement.
+
+        Examples:
+            Preferred: scope the storage with a `with` block — `open()` returns
+            the filesystem, `__enter__` hands it to the block, and `__exit__`
+            calls `close()` on the way out, exception or not:
+
+            ```python
+            from wowlib import versions
+            from wowlib.fs import FileSystem, FileSystemSettings
+
+            settings = FileSystemSettings("/Games/WoW 3.3.5a", versions.wotlk)
+            with FileSystem.open(settings) as fs:
+                data = fs.read_file("Interface/FrameXML/UIParent.lua")
+            ```
+
+            Equivalent explicit form, when the lifetime cannot be a single block
+            (a viewer holding the storage across UI events):
+
+            ```python
+            fs = FileSystem.open(settings)
+            try:
+                data = fs.read_file("Interface/FrameXML/UIParent.lua")
+            finally:
+                fs.close()      # storage released now, not at GC time
+            ```)")]]
   FileSystem
   {
   public:

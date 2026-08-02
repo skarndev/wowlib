@@ -136,7 +136,17 @@ namespace wowlib_py::formats::adt
         nb::name("read"), nb::scope(base), nb::is_method(),
         nb::arg("source"), nb::arg("key"), nb::arg("alpha"),
         nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey, "
-                "alpha: wowlib.formats.adt.AlphaFormat) -> None"));
+                "alpha: wowlib.formats.adt.AlphaFormat) -> None"),
+        "Load the tile — every split file present — from a client filesystem,\n"
+        "replacing this entity's contents. The alpha-map bit depth is supplied by\n"
+        "the caller (wowlib does not open the WDT for you).\n\n"
+        "Args:\n"
+        "    source: the filesystem gateway\n"
+        "    key: the tile identity (root .adt path and/or FileDataID)\n"
+        "    alpha: the on-disk alpha-map bit depth for this tile's map (from its\n"
+        "        WDT MPHD flags)\n\n"
+        "Returns:\n"
+        "    nothing; raises on a missing tile or malformed chunk stream");
 
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key,
@@ -154,7 +164,16 @@ namespace wowlib_py::formats::adt
         nb::name("write"), nb::scope(base), nb::is_method(),
         nb::arg("dest"), nb::arg("key"), nb::arg("alpha"),
         nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey, "
-                "alpha: wowlib.formats.adt.AlphaFormat) -> None"));
+                "alpha: wowlib.formats.adt.AlphaFormat) -> None"),
+        "Serialize the tile (and, Cata+, every split file) through the\n"
+        "filesystem's project overlay; the split-file names derive from the key,\n"
+        "which must resolve to a path.\n\n"
+        "Args:\n"
+        "    dest: the filesystem gateway\n"
+        "    key: the tile identity; must resolve to a path\n"
+        "    alpha: the on-disk alpha-map bit depth to encode\n\n"
+        "Returns:\n"
+        "    nothing; raises when the key has no path or a file fails to write");
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyADT fallback
       template for (constexpr auto e : expansion_enumerators)
@@ -178,7 +197,14 @@ namespace wowlib_py::formats::adt
           return result;
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
-        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyADT"));
+        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyADT"),
+        "Rebuild this tile as the target expansion's concrete class, stepping the\n"
+        "version ladder one adjacent release at a time (this instance is left\n"
+        "unchanged). The return type narrows when the target is a literal.\n\n"
+        "Args:\n"
+        "    target: the expansion to convert to\n\n"
+        "Returns:\n"
+        "    the converted tile; raises when a ladder step is not implemented");
     }
   }
 

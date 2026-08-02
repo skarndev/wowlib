@@ -233,8 +233,13 @@ def run_mkdocs(action: str, api_dir: Path) -> None:
         # (the format_reference.py shim reloads the engine + configs on each
         # rebuild).
         for extra in ("format_reference_impl.py", "wmo_reference_config.py",
-                      "m2_reference_config.py", "common_reference_config.py",
-                      "wmo_wowdev_anchors.json", "m2_wowdev_anchors.json"):
+                      "m2_reference_config.py", "wdt_reference_config.py",
+                      "wdl_reference_config.py", "adt_reference_config.py",
+                      "db_reference_config.py", "common_reference_config.py",
+                      "griffe_overloads.py",
+                      "wmo_wowdev_anchors.json", "m2_wowdev_anchors.json",
+                      "wdt_wowdev_anchors.json", "wdl_wowdev_anchors.json",
+                      "adt_wowdev_anchors.json"):
             cmd += ["--watch", str(DOCS_DIR / extra)]
         # Also watch the .pyi stub tree: the Python API is rendered from it, so a
         # bindings rebuild (regenerating stubs) must re-render — otherwise serve

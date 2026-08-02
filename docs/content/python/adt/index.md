@@ -24,13 +24,13 @@ byte-identical — like M2, unlike WMO/WDT/WDL.
 
 Pages:
 
-- **[ADT entity](entity.md)** — the `ADT` tile class and the structured liquid
-  records (`MH2OData`, `MCLQData`).
-- **[Terrain chunks](cells.md)** — the `MapChunk` chunk class: heights, normals,
-  layers, alpha/shadow maps, references and the version-gated vertex colours,
-  baked lighting and legacy liquid.
-- **[Chunks](chunks.md)** — the wire structs (the MCNK header, texture layers,
-  liquid vertex records, flying bounds, sound emitters).
+- **[ADT entity](entity.md)** — the `ADT` tile class, its fields with chunk +
+  expansion badges, and the structured liquid records (`MH2OData`, `MCLQData`).
+- **[Terrain chunks (MCNK)](map-chunk.md)** — the `MapChunk` chunk class:
+  heights, normals, layers, alpha/shadow maps, references and the version-gated
+  vertex colours, baked lighting and legacy liquid.
+- **[Chunk records](chunks.md)** — the wire structs (the MCNK header, texture
+  layers, liquid vertex records, flying bounds, sound emitters).
 
 ## Version-agnostic unions
 

@@ -41,7 +41,7 @@ install.components = ["wowlib_python"]
 # Match the gcc16-bindings preset (Debug) so this install reuses the shared
 # build/bindings tree in place instead of flipping its build type and forcing a
 # full rebuild every time you switch between CLion and `pip install`.
-build-type = "Debug"
+build-type = "Release"
 
 [tool.scikit-build.cmake.define]
 WOWLIB_BUILD_PYTHON = "ON"

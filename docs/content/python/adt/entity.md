@@ -2,19 +2,22 @@
 
 The `ADT` tile class — the 256 terrain chunks plus the tile-wide texture, model
 and placement tables, unified across the split ADT files the tile is stored in.
-Construct the concrete version with `ADT.for_version(expansion)`; the fields a
-given client has are version dependent (MFBO since BC, water/texture-flags since
-WotLK, the split-file `mamp` / `texture_params` since Cataclysm, the
-`diffuse_texture_ids` / `height_texture_ids` FileDataID tables since 8.1). The
-representative class below is the Battle-for-Azeroth-and-later layout with every
-field.
+Like the other versioned formats, every field below documents **once**, badged
+with the chunk it serializes to and the expansion range it exists in (a
+badge-less field is present in every supported version).
 
-::: wowlib.formats.adt.ADTBfaPlus
+<!-- adt-legend -->
+
+## The ADT tile
+
+::: wowlib.formats.adt.ADT
     options:
-      show_root_heading: true
+      heading_level: 3
       show_root_toc_entry: true
-      heading_level: 2
-      members_order: source
+
+## Fields
+
+<!-- adt-tile-fields -->
 
 ## Structured liquid
 

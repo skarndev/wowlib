@@ -63,7 +63,8 @@ STUBS = REPO_ROOT / "build/bindings/bindings/python/stubs"
 # "common" module carries width-only pages (the shared primitive/core types).
 FORMAT_MODULES = ("wmo_reference_config", "m2_reference_config",
                   "wdt_reference_config", "wdl_reference_config",
-                  "adt_reference_config", "common_reference_config")
+                  "adt_reference_config", "db_reference_config",
+                  "common_reference_config")
 
 # Version-RANGE suffixes (welded class names): the library instantiates one
 # class per content-permutation range, so a suffix is a plain expansion name
@@ -1253,8 +1254,12 @@ def _emit_merged_members(sp, blocks, badges, out, stem, fam, value_members):
                 continue                     # a value axis with no version axis
             first, _last = _suffix_span(first_split[1])
             _first, last = _suffix_span(last_split[1])
-            badges[f"{sp.module}.{cls}.{name}"] = (
-                (first, 0, 0), (last + 1, 0, 0) if last is not None else None)
+            # A span reaching the latest supported expansion is open-ended for
+            # display (the db grids name the last era exactly — "TheWarWithin",
+            # not a Plus range — and an until of LATEST+1 has no EXPANSIONS row).
+            until = (None if last is None or last >= LATEST_MAJOR
+                     else (last + 1, 0, 0))
+            badges[f"{sp.module}.{cls}.{name}"] = ((first, 0, 0), until)
 
 
 def _class_docstring(block: str) -> str:

@@ -113,7 +113,15 @@ namespace wowlib_py::formats::wdl
           return result;
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
-        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyWDL"));
+        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyWDL"),
+        "Rebuild this heightmap as the target expansion's concrete class,\n"
+        "stepping the version ladder one adjacent release at a time (this\n"
+        "instance is left unchanged). The return type narrows when the target\n"
+        "is a literal.\n\n"
+        "Args:\n"
+        "    target: the expansion to convert to\n\n"
+        "Returns:\n"
+        "    the converted heightmap; raises when a ladder step is not implemented");
     }
 
     /** @brief Merge the (FileSystem, FileKey) read/write overloads into ONE
@@ -131,7 +139,14 @@ namespace wowlib_py::formats::wdl
         },
         nb::name("read"), nb::scope(concrete), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
-        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Load the .wdl from a client filesystem, replacing this entity's\n"
+        "contents.\n\n"
+        "Args:\n"
+        "    source: the filesystem gateway\n"
+        "    key: the .wdl identity (path and/or FileDataID)\n\n"
+        "Returns:\n"
+        "    nothing; raises on a missing file or malformed chunk stream");
       nb::cpp_function(
         [](const C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
@@ -140,7 +155,13 @@ namespace wowlib_py::formats::wdl
         },
         nb::name("write"), nb::scope(concrete), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
-        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Serialize the .wdl through the filesystem's project overlay.\n\n"
+        "Args:\n"
+        "    dest: the filesystem gateway\n"
+        "    key: the .wdl identity; must resolve to a path\n\n"
+        "Returns:\n"
+        "    nothing; raises when the key has no path or the file fails to write");
     }
 
     /** @brief Attach the filesystem verbs to every concrete class, once per

@@ -11,12 +11,19 @@ docstrings here match what you import.
 | Module | Contents |
 |---|---|
 | [`wowlib`](core.md) | Core vocabulary: `ClientVersion`, `Expansion`, `Locale`, file keys, exceptions |
+| [`wowlib.versions`](core.md) | One `ClientVersion` constant per finished expansion (`versions.wotlk`, …) |
 | [`wowlib.fs`](fs.md) | The filesystem gateway over MPQ / CASC storages |
+| [`wowlib.formats`](common.md) | The chunk framework's shared payload types (`StringBlock`, `ChunkBlob`) and the format subpackages |
 | [`wowlib.formats.common`](common.md) | Shared wire primitives — vectors, matrices, colours, planes |
 | [`wowlib.formats.wmo`](wmo/index.md) | The WMO format — root & group, per-expansion classes |
 | [`wowlib.formats.m2`](m2/index.md) | The M2 model format — body, skins, skeletons and satellites |
 | [`wowlib.formats.wdt`](wdt/index.md) | The WDT map description — main file + `_occ`/`_lgt`/`_fogs`/`_mpv` satellites |
 | [`wowlib.formats.wdl`](wdl/index.md) | The WDL low-resolution heightmap |
+| [`wowlib.formats.adt`](adt/index.md) | The ADT terrain tile — heights, textures, liquids, placements, unified across split files |
+| [`wowlib.formats.blp`](blp.md) | The BLP texture format — decode to/encode from RGBA |
+| [`wowlib.db`](db/index.md) | Client databases (`DBFilesClient/`) — `LocString`, encryption vocabulary |
+| [`wowlib.db.tables`](db/tables.md) | Every client-database table as a typed class, per era (`Map`, `Spell`, …) |
+| [`wowlib.db.rowbase`](db/tables.md) | Version-agnostic row supertypes, one per table |
 | [containers](containers.md) | Opaque `Vector*` types — by-reference, zero-copy NumPy |
 
 !!! tip "Types are shipped"

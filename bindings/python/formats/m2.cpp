@@ -144,7 +144,15 @@ namespace wowlib_py::formats::m2
         },
         nb::name("read"), nb::scope(base), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
-        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Load the model and every satellite file it references (.skin/.anim/\n"
+        ".skel/.bone/.phys) from a client filesystem, replacing this entity's\n"
+        "contents.\n\n"
+        "Args:\n"
+        "    source: the filesystem gateway\n"
+        "    key: the .m2 identity (path and/or FileDataID)\n\n"
+        "Returns:\n"
+        "    nothing; raises on a missing file or malformed model");
 
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
@@ -160,7 +168,15 @@ namespace wowlib_py::formats::m2
         },
         nb::name("write"), nb::scope(base), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
-        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Serialize the model, re-splitting and writing its satellite files,\n"
+        "through the filesystem's project overlay; satellite names derive from\n"
+        "the key.\n\n"
+        "Args:\n"
+        "    dest: the filesystem gateway\n"
+        "    key: the .m2 identity; must resolve to a path\n\n"
+        "Returns:\n"
+        "    nothing; raises when the key has no path or a file fails to write");
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyM2 fallback
       template for (constexpr auto e : expansion_enumerators)
@@ -184,7 +200,14 @@ namespace wowlib_py::formats::m2
           return result;
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
-        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyM2"));
+        nb::sig("def convert(self, target: wowlib.Expansion) -> AnyM2"),
+        "Rebuild this model as the target expansion's concrete class, stepping\n"
+        "the version ladder one adjacent release at a time (this instance is\n"
+        "left unchanged). The return type narrows when the target is a literal.\n\n"
+        "Args:\n"
+        "    target: the expansion to convert to\n\n"
+        "Returns:\n"
+        "    the converted model; raises when a ladder step is not implemented");
     }
 
     /** @brief Merge the (FileSystem, FileKey) read/write overloads into ONE
@@ -202,7 +225,14 @@ namespace wowlib_py::formats::m2
         },
         nb::name("read"), nb::scope(concrete), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
-        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def read(self, source: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Load the .skel (and its .bone files) from a client filesystem,\n"
+        "replacing this entity's contents.\n\n"
+        "Args:\n"
+        "    source: the filesystem gateway\n"
+        "    key: the .skel identity (path and/or FileDataID)\n\n"
+        "Returns:\n"
+        "    nothing; raises on a missing file or malformed chunk stream");
       nb::cpp_function(
         [](const C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
@@ -211,7 +241,14 @@ namespace wowlib_py::formats::m2
         },
         nb::name("write"), nb::scope(concrete), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
-        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"));
+        nb::sig("def write(self, dest: wowlib.fs.FileSystem, key: wowlib.FileKey) -> None"),
+        "Serialize the .skel (and its .bone files) through the filesystem's\n"
+        "project overlay; file names derive from the key.\n\n"
+        "Args:\n"
+        "    dest: the filesystem gateway\n"
+        "    key: the .skel identity; must resolve to a path\n\n"
+        "Returns:\n"
+        "    nothing; raises when the key has no path or a file fails to write");
     }
 
     /** @brief Attach the Skeleton filesystem verbs — skeletons are first-class
