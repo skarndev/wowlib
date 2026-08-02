@@ -76,18 +76,21 @@ namespace wowlib::formats::adt::chunks
   static_assert(sizeof(SMLayer) == 0x10);
 
   /** One MTXF texture-flags record (WotLK+): flags for the same-index MTEX
-      texture. The texture_scale nibble (Legion+) sits in bits 8-11. */
+      texture. The texture_scale nibble sits in bits 4-7 (verified empirically
+      against 9.2.7 Draenor MTXP data; the applied UV scale is 1/(1 << n),
+      i.e. the texture appears 2^n times larger). */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),
     =welder::weld_as("SMTextureFlags"),
     =welder::doc(R"(
         Flags for a tileset texture (MTXF, WotLK+): one per MTEX entry. Bit 0
-        disables specular/height shading and uses a cube map; bits 8-11 hold the
-        Legion+ texture scale (the applied scale is 1 << that nibble).)")
+        disables specular/height shading and uses a cube map; bits 4-7 hold the
+        texture scale exponent (UVs are divided by 1 << that nibble, so the
+        texture appears 2^n times larger).)")
   ]] SMTextureFlags
   {
-    [[=welder::doc("Flags: bit 0 = use cube map (no _s/_h shading); bits 8-11 = texture "
-                   "scale exponent (Legion+).")]]
+    [[=welder::doc("Flags: bit 0 = use cube map (no _s/_h shading); bits 4-7 = texture "
+                   "scale exponent (UVs are divided by 1 << n).")]]
     std::uint32_t flags = 0;
 
     bool operator==(const SMTextureFlags&) const = default;
