@@ -13,6 +13,7 @@
 
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
+#include <wowlib/core/shared_mutex.hpp>
 #include <wowlib/fs/fdid_allocator.hpp>
 #include <wowlib/fs/listfile.hpp>
 
@@ -89,7 +90,7 @@ namespace wowlib::fs
 
   private:
     std::filesystem::path _source;
-    mutable std::shared_mutex _mtx;
+    mutable SharedMutex _mtx;
     std::unordered_map<std::string, FileDataID> _path_to_id;
     std::unordered_map<std::uint32_t, std::string> _id_to_path;
     detail::FdidAllocator _allocator;

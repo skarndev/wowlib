@@ -13,6 +13,7 @@ include(cmake/DbTables.cmake)
 add_library(wowlib STATIC
   src/wowlib/core/path.cpp
   src/wowlib/core/client_version.cpp
+  src/wowlib/core/shared_mutex.cpp
   src/wowlib/fs/csv_listfile.cpp
   src/wowlib/fs/project_directory.cpp
   src/wowlib/fs/filesystem.cpp

@@ -14,6 +14,7 @@
 
 #include <wowlib/core/buffer.hpp>
 #include <wowlib/core/error.hpp>
+#include <wowlib/core/shared_mutex.hpp>
 
 namespace wowlib::fs
 {
@@ -75,7 +76,7 @@ namespace wowlib::fs
     void index_tree_locked();
 
     std::filesystem::path _root;
-    mutable std::shared_mutex _mtx;
+    mutable SharedMutex _mtx;
     std::unordered_map<std::string, std::filesystem::path> _index;   // canonical -> on-disk
   };
 }
