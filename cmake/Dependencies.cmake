@@ -94,6 +94,12 @@ target_include_directories(stb_dxt INTERFACE ${stb_dxt_SOURCE_DIR})
 target_compile_options(storm PRIVATE -O2)
 target_compile_options(casc_static PRIVATE -O2)
 
+if(WIN32)
+  # CascLib's online-CDN sockets need Winsock, but its CMake only links
+  # wininet; MSVC auto-links ws2_32 via pragma, MinGW does not.
+  target_link_libraries(casc_static INTERFACE ws2_32)
+endif()
+
 if(WOWLIB_BUILD_TESTS)
   FetchContent_Declare(Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
