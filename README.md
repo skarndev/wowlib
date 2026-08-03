@@ -3,6 +3,7 @@
 [![ci-linux](https://github.com/skarndev/wowlib/actions/workflows/ci-linux.yml/badge.svg)](https://github.com/skarndev/wowlib/actions/workflows/ci-linux.yml)
 [![ci-macos](https://github.com/skarndev/wowlib/actions/workflows/ci-macos.yml/badge.svg)](https://github.com/skarndev/wowlib/actions/workflows/ci-macos.yml)
 [![ci-windows](https://github.com/skarndev/wowlib/actions/workflows/ci-windows.yml/badge.svg)](https://github.com/skarndev/wowlib/actions/workflows/ci-windows.yml)
+[![docs](https://github.com/skarndev/wowlib/actions/workflows/docs.yml/badge.svg)](https://skarndev.github.io/wowlib/)
 
 **wowlib** reads and writes World of Warcraft client files — a modern **C++26**
 core, automatically bound to **Python** (and, later, Lua) by
@@ -127,9 +128,10 @@ ctest --preset gcc16-debug
 
 ## Documentation
 
-The docs site (guide + typed Python API + Doxygen C++ reference) is built from
-the sources — see [Getting started](docs/content/guide/getting-started.md), or
-build it locally:
+The docs site (guide + typed Python API + Doxygen C++ reference) is hosted at
+**[skarndev.github.io/wowlib](https://skarndev.github.io/wowlib/)** — start
+with [Getting started](https://skarndev.github.io/wowlib/guide/getting-started/).
+To build it locally:
 
 ```bash
 pip install ".[docs]"

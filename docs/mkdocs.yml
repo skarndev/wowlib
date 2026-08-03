@@ -1,4 +1,5 @@
 site_name: wowlib
+site_url: https://skarndev.github.io/wowlib/
 site_description: >-
   Read and write World of Warcraft client files — a C++26 core with Python
   bindings.

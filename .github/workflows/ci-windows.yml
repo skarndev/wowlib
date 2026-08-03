@@ -69,3 +69,81 @@ jobs:
       # runners, so only the client-free unit suite actually runs.
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
+
+  # The shippable-wheel proof, mirroring welder's windows-abi3 job: the gcc-16
+  # (MinGW) built stable-ABI extension must load in stock MSVC CPython — that
+  # is what Blender on Windows runs.
+  bindings-abi3:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC CPython 3.13 (bindings target)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # numpy backs the zero-copy vector views when stubgen imports the module.
+      - name: Install numpy into the MSVC CPython
+        shell: pwsh
+        run: python -m pip install numpy
+
+      - name: Install gcc-16 toolchain (MSYS2 UCRT64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-windows-bindings-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-windows-bindings-
+
+      - name: Configure
+        run: |
+          PYEXE=$(cygpath -m "$pythonLocation/python.exe")
+          echo "MSVC CPython: $PYEXE"
+          cmake --preset gcc16-bindings-release \
+            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
+            -DPython_EXECUTABLE="$PYEXE"
+
+      - name: Build extension + stubs
+        run: cmake --build --preset gcc16-bindings-release --target wowlib_py wowlib_pyi
+
+      - name: Assert stable-ABI linkage (python3.dll, not python313.dll)
+        run: |
+          pyd=$(ls build/release/bindings/python/wowlib*.pyd)
+          echo "== DLL imports of $pyd =="
+          objdump -p "$pyd" | grep "DLL Name" || true
+          objdump -p "$pyd" | grep -qi "DLL Name: python3.dll"
+          if objdump -p "$pyd" | grep -qi "DLL Name: python313.dll"; then
+            echo "extension links the version-specific python313.dll" >&2
+            exit 1
+          fi
+
+      - name: Import smoke test under MSVC CPython
+        shell: pwsh
+        run: |
+          python -c "import sys; assert 'MSC' in sys.version, sys.version; sys.path.insert(0, r'build/release/bindings/python'); import wowlib; print('imported OK:', wowlib.__name__)"
+
+      - name: Upload Python module + stubs
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowlib-python-windows-x86_64
+          path: |
+            build/release/bindings/python/wowlib*.pyd
+            build/release/bindings/python/stubs
+          if-no-files-found: error

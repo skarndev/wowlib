@@ -53,3 +53,53 @@ jobs:
       # runners, so only the client-free unit suite actually runs.
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
+
+  bindings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          brew update
+          brew install gcc ninja cmake
+          gcc-16 --version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # The stable-ABI (abi3) extension targets CPython >= 3.13; numpy backs
+      # the zero-copy vector views when stubgen imports the built module.
+      - name: Set up CPython 3.13
+        run: |
+          uv venv .venv --python 3.13
+          uv pip install numpy
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-linux-bindings-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-linux-bindings-
+
+      - name: Configure
+        run: >-
+          cmake --preset gcc16-bindings-release
+          -DPython_EXECUTABLE=$PWD/.venv/bin/python
+
+      - name: Build extension + stubs
+        run: cmake --build --preset gcc16-bindings-release --target wowlib_py wowlib_pyi
+
+      - name: Upload Python module + stubs
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowlib-python-linux-x86_64
+          path: |
+            build/release/bindings/python/wowlib.abi3.so
+            build/release/bindings/python/stubs
+          if-no-files-found: error

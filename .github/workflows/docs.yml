@@ -1,0 +1,101 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - src/**
+      - bindings/**
+      - pyproject.toml
+      - CMakeLists.txt
+      - cmake/**
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      # Unlike welder's docs job, wowlib's needs the full gcc-16 bindings
+      # build: the Python API pages are mkdocstrings over the .pyi stub tree,
+      # which only the wowlib_pyi target (importing the built extension)
+      # produces.
+      - name: Install gcc-16 toolchain (Homebrew)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          brew update
+          brew install gcc ninja cmake
+          gcc-16 --version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # docs/build.py runs from the project .venv (Dependencies.cmake also
+      # prefers it for the bindings build). Doc deps mirror the pyproject
+      # [docs] extra — installed directly so pip doesn't try to compile the
+      # wowlib extension a second time through scikit-build.
+      - name: Set up CPython 3.13 docs env
+        run: |
+          uv venv .venv --python 3.13
+          uv pip install numpy mkdocs-material "mkdocstrings[python]" lark
+
+      # The C++ reference needs Doxygen >= 1.11 (DOM); the distro archive is
+      # too old, so take the official binary release — same as welder.
+      - name: Install Doxygen + Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+          curl -fsSL https://github.com/doxygen/doxygen/releases/download/Release_1_17_0/doxygen-1.17.0.linux.bin.tar.gz | sudo tar -xz -C /opt
+          sudo ln -sf /opt/doxygen-1.17.0/bin/doxygen /usr/local/bin/doxygen
+          doxygen --version
+          dot -V
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-linux-docs-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-linux-docs-
+
+      # The gcc16-bindings preset (build/bindings) is the tree docs/build.py
+      # hard-codes for the stub tree and the welder Doxygen filter checkout.
+      - name: Configure bindings tree
+        run: cmake --preset gcc16-bindings
+
+      - name: Build extension + stubs
+        run: cmake --build --preset gcc16-bindings --target wowlib_py wowlib_pyi
+
+      - name: Build documentation site
+        run: .venv/bin/python docs/build.py build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/docs/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
