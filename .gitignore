@@ -13,3 +13,16 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# Local tooling config
+.ai/
+
+# CTest run artifacts
+Testing/
+
+# Survey/scratch harness outputs
+temp_wowlib.py
+m2_survey.py
+m2_survey_*.csv
+m2_survey_*.log
+*_m2_decoded.json
