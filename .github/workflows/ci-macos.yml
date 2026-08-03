@@ -1,0 +1,53 @@
+name: ci-macos
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    # Apple Silicon (arm64) — mirrors the reference development platform. The
+    # gcc-16 Mach-O literal-atom workaround (cmake/darwin-as-shim) is applied
+    # automatically by CompilerSettings.cmake.
+    runs-on: macos-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [gcc16-debug, gcc16-release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        run: |
+          brew update
+          brew install gcc ninja cmake
+          gcc-16 --version
+          cmake --version
+          ninja --version
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-macos-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-macos-${{ matrix.preset }}-
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      # Client-integration tests self-skip (Catch2 SKIP + SKIP_RETURN_CODE):
+      # WOWLIB_TEST_CLIENTS_DIR / WOWLIB_TEST_LISTFILE are unset on hosted
+      # runners, so only the client-free unit suite actually runs.
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}

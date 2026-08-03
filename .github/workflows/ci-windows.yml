@@ -1,0 +1,71 @@
+name: ci-windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    # gcc-16 via MSYS2 UCRT64, same toolchain welder's Windows CI proves out.
+    # MSYS2 ships the compiler as plain `gcc`/`g++`, so the preset's pinned
+    # gcc-16 names are overridden on the configure line (CompilerSettings.cmake
+    # checks vendor + version, not the binary name).
+    runs-on: windows-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [gcc16-release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcc-16 toolchain (MSYS2 UCRT64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Toolchain versions
+        run: |
+          gcc --version
+          cmake --version
+          ninja --version
+          python --version
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-windows-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-windows-${{ matrix.preset }}-
+
+      - name: Configure
+        run: >-
+          cmake --preset ${{ matrix.preset }}
+          -DCMAKE_C_COMPILER=gcc
+          -DCMAKE_CXX_COMPILER=g++
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      # Client-integration tests self-skip (Catch2 SKIP + SKIP_RETURN_CODE):
+      # WOWLIB_TEST_CLIENTS_DIR / WOWLIB_TEST_LISTFILE are unset on hosted
+      # runners, so only the client-free unit suite actually runs.
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
