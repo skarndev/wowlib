@@ -129,6 +129,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Format support: status.md
   - Guide:
       - guide/index.md
       - Getting started: guide/getting-started.md

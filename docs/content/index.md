@@ -13,11 +13,13 @@ possible on top of one shared, well-tested file layer.
     One interface over **MPQ** (pre-WoD clients, via StormLib) and **CASC**
     (WoD+ clients, via CascLib), plus the listfile / FileDataID machinery.
 
--   :material-cube-outline: __World-file formats__
+-   :material-cube-outline: __Client file formats__
 
-    A chunk framework and versioned entities. **WMO** (root + group), **M2**
-    (with every satellite file) and the **WDT**/**WDL** map files are fully
-    modelled, with a byte-perfect round-trip guarantee.
+    A chunk framework and versioned entities: **WMO**, **M2** (with its
+    satellite files), **ADT**, **WDT**/**WDL**, **BLP** and the **DBC/DB2**
+    client databases — byte-perfect round-trips where the container allows it,
+    semantic everywhere else. See **[Format support](status.md)** for the full
+    per-client matrix.
 
 -   :material-language-python: __Typed Python bindings__
 
