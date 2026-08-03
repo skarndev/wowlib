@@ -85,12 +85,15 @@ namespace wowlib::fs
         // directory (updates come after all base members in the chain, so
         // those are open by now). StormLib then serves the patched content
         // transparently through the base handles.
+        // StormLib is built ANSI on every platform (TCHAR == char), so paths
+        // cross its API boundary as narrow strings — same as the CascLib side.
+        const std::string patch_path = member.path.string();
         for (OpenedArchive& archive : _archives)
         {
           if (archive.is_directory
               || archive.path.parent_path() != member.path.parent_path())
             continue;
-          if (!SFileOpenPatchArchive(archive.handle, member.path.c_str(),
+          if (!SFileOpenPatchArchive(archive.handle, patch_path.c_str(),
                                      member.prefix.c_str(), 0))
           {
             const auto native = SErrGetLastError();
@@ -135,7 +138,8 @@ namespace wowlib::fs
                                    MPQ_OPEN_NO_ATTRIBUTES | MPQ_OPEN_NO_HEADER_SEARCH;
 
       HANDLE handle = nullptr;
-      if (!SFileOpenArchive(member.path.c_str(), 0, open_flags, &handle))
+      const std::string archive_path = member.path.string();
+      if (!SFileOpenArchive(archive_path.c_str(), 0, open_flags, &handle))
       {
         const auto native = SErrGetLastError();
         close();
