@@ -120,9 +120,12 @@ jobs:
             -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
             -DPython_EXECUTABLE="$PYEXE"
 
-      - name: Build extension + stubs
-        run: cmake --build --preset gcc16-bindings-release --target wowlib_py wowlib_pyi
+      - name: Build extension
+        run: cmake --build --preset gcc16-bindings-release --target wowlib_py
 
+      # Runs before stubgen (which imports the module) so a leftover dynamic
+      # dependency is named here instead of surfacing as a bare
+      # "DLL load failed" from the import.
       - name: Assert stable-ABI linkage (python3.dll, not python313.dll)
         run: |
           pyd=$(ls build/release/bindings/python/wowlib*.pyd)
@@ -133,6 +136,13 @@ jobs:
             echo "extension links the version-specific python313.dll" >&2
             exit 1
           fi
+          if objdump -p "$pyd" | grep -iE "DLL Name: (libstdc|libgcc|libwinpthread|zlib|libz)"; then
+            echo "extension depends on MSYS2-only DLLs and won't import in MSVC CPython" >&2
+            exit 1
+          fi
+
+      - name: Build stubs
+        run: cmake --build --preset gcc16-bindings-release --target wowlib_pyi
 
       - name: Import smoke test under MSVC CPython
         shell: pwsh

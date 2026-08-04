@@ -89,6 +89,14 @@ FetchContent_Declare(stb_dxt
 # StormLib's thread-local dwLastError) cannot enter a shared object.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+if(WIN32)
+  # CascLib links the system ZLIB::ZLIB when found; on MSYS2 that resolves to
+  # the shared zlib1.dll, which MSVC CPython can't find when importing the
+  # .pyd. Force FindZLIB to the static archive so the module stays
+  # self-contained.
+  set(ZLIB_USE_STATIC_LIBS ON)
+endif()
+
 FetchContent_MakeAvailable(StormLib CascLib welder stb_dxt)
 
 add_library(stb_dxt INTERFACE)
