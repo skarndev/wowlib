@@ -136,8 +136,14 @@ jobs:
             echo "extension links the version-specific python313.dll" >&2
             exit 1
           fi
-          if objdump -p "$pyd" | grep -iE "DLL Name: (libstdc|libgcc|libwinpthread|zlib|libz)"; then
-            echo "extension depends on MSYS2-only DLLs and won't import in MSVC CPython" >&2
+          # Allow-list: only the stable-ABI python DLL and OS/UCRT system DLLs
+          # may appear — anything else is an MSYS2-tree dependency that MSVC
+          # CPython cannot resolve at import.
+          unexpected=$(objdump -p "$pyd" | grep "DLL Name" \
+            | grep -viE "python3\.dll|KERNEL32|USER32|ADVAPI32|SHELL32|WININET|WS2_32|ucrtbase|api-ms-win-" || true)
+          if [ -n "$unexpected" ]; then
+            echo "extension depends on non-system DLLs and won't import in MSVC CPython:" >&2
+            echo "$unexpected" >&2
             exit 1
           fi
 

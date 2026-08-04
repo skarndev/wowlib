@@ -90,11 +90,13 @@ FetchContent_Declare(stb_dxt
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(WIN32)
-  # CascLib links the system ZLIB::ZLIB when found; on MSYS2 that resolves to
-  # the shared zlib1.dll, which MSVC CPython can't find when importing the
-  # .pyd. Force FindZLIB to the static archive so the module stays
-  # self-contained.
+  # The .pyd must stay self-contained: MSVC CPython can't resolve MSYS2's
+  # shared zlib1.dll / libbz2-1.dll when importing it. CascLib links the
+  # system ZLIB::ZLIB when found — force FindZLIB to the static archive; and
+  # StormLib prefers system zlib/bzip2 over its bundled copies — keep it on
+  # the bundled sources instead.
   set(ZLIB_USE_STATIC_LIBS ON)
+  set(STORM_USE_BUNDLED_LIBRARIES ON CACHE BOOL "" FORCE)
 endif()
 
 FetchContent_MakeAvailable(StormLib CascLib welder stb_dxt)
