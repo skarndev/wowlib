@@ -108,6 +108,14 @@ if(WOWLIB_BUILD_PYTHON)
                                                    # scanning breaks macro-reliant deps
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python)
 
+  # For a distributable stable-ABI module on MinGW: fold the gcc runtimes in so
+  # the .pyd is self-contained — MSVC CPython cannot resolve libstdc++-6/
+  # libgcc_s/libwinpthread from the MSYS2 tree (same recipe as welder's
+  # nanobind test modules).
+  if(MINGW)
+    target_link_options(wowlib_py PRIVATE -static -static-libgcc -static-libstdc++)
+  endif()
+
   # .pyi typing stubs via nanobind's bundled stubgen (imports the built module).
   # RECURSIVE discovers the submodules (the C++ namespaces) itself and writes a
   # package stub tree under OUTPUT_PATH; OUTPUT lists the expected files for the

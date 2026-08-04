@@ -84,6 +84,11 @@ FetchContent_Declare(stb_dxt
   URL_HASH SHA256=807667ef98e0fd749cdb65cca0c2d980bc148109d2fed6f1873c81ae0f449933
   DOWNLOAD_NO_EXTRACT TRUE)
 
+# Everything (incl. the storage static libs) must be relocatable: they link
+# into the shared Python module, and non-PIC TLS/data relocations (e.g.
+# StormLib's thread-local dwLastError) cannot enter a shared object.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 FetchContent_MakeAvailable(StormLib CascLib welder stb_dxt)
 
 add_library(stb_dxt INTERFACE)
