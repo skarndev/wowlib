@@ -55,11 +55,10 @@ namespace
 TEST_CASE("9.2.7: every DB2 in the corpus is a WDC3 that parses structurally",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -107,11 +106,10 @@ TEST_CASE("9.2.7: every DB2 in the corpus is a WDC3 that parses structurally",
 TEST_CASE("9.2.7: ManifestInterfaceData decodes with resolved strings",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -137,11 +135,10 @@ TEST_CASE("9.2.7: ManifestInterfaceData decodes with resolved strings",
 TEST_CASE("9.2.7: ChrRaces decodes fully (compression kinds, arrays)",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -160,11 +157,10 @@ TEST_CASE("9.2.7: ChrRaces decodes fully (compression kinds, arrays)",
 TEST_CASE("9.2.7: Spell (sparse/offset-map) decodes inline strings by id",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -197,11 +193,10 @@ TEST_CASE("9.2.7: Spell (sparse/offset-map) decodes inline strings by id",
 TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -243,11 +238,10 @@ TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
 TEST_CASE("9.2.7: key-flagged sections that decrypted are decoded, not skipped",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -270,8 +264,7 @@ TEST_CASE("9.2.7: key-flagged sections that decrypted are decoded, not skipped",
 TEST_CASE("9.2.7: TACT key registration is accepted by the CASC storage",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -285,11 +278,10 @@ TEST_CASE("9.2.7: TACT key registration is accepted by the CASC storage",
 TEST_CASE("9.2.7: a keyless table preserves verbatim, or drops to plaintext",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -325,11 +317,10 @@ TEST_CASE("9.2.7: a keyless table preserves verbatim, or drops to plaintext",
 TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile_csv = tests::require_listfile();
   auto listfile = CsvListfile::load(listfile_csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = clients / tests::casc_client_name,
+  auto storage = CascStorage::open({.client_root = tests::casc_client(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 

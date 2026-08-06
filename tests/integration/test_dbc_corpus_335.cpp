@@ -13,8 +13,7 @@ using namespace wowlib::fs;
 TEST_CASE("3.3.5a: the full DBC corpus decodes and round-trips byte-perfectly",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::mpq_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::mpq_client()),
                                   .version = versions::wotlk,
                                   .locale = Locale::enUS});
   REQUIRE(opened.has_value());
@@ -32,8 +31,7 @@ TEST_CASE("3.3.5a: the full DBC corpus decodes and round-trips byte-perfectly",
 
 TEST_CASE("3.3.5a: Map.dbc spot checks against known truth", "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::mpq_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::mpq_client()),
                                   .version = versions::wotlk,
                                   .locale = Locale::enUS});
   REQUIRE(opened.has_value());

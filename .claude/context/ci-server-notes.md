@@ -1,0 +1,46 @@
+# CI server & self-hosted integration runner
+
+## The box
+- `root@157.22.189.150` (sshumakov2015.fvds.ru), Ubuntu 26.04 LTS, 2 cores,
+  3.7 GiB RAM (+16 GiB swapfile at `/swapfile` — gcc-16 needs it), 3.3 TiB disk.
+- Toolchain from apt (Homebrew refuses root): gcc-16 / g++-16, cmake, ninja.
+- Torrent box: transmission-daemon seeds the client downloads from
+  `/var/lib/transmission-daemon/downloads`.
+
+## Client installs — /root/WoWClients/<canonical version>
+One directory per canonical version name (`2.4.3`, `3.3.5a`, `5.4.8`, `6.2.3`,
+`7.3.5`, `8.3.7`, `9.2.7`, `10.2.7`). Directory-shaped torrents are hardlinked
+(`cp -al`, same filesystem — near-zero cost, seeding keeps working); archives
+were extracted (`/root/unpack_clients.sh`, log `/root/unpack_clients.log`).
+- 2.4.3 (WoWCircle, enUS+ruRU, **lowercase `data/`**), 3.3.5a (CircleL enUS),
+  5.4.8 build 18414 (Data dir only, no exe), 6.2.3.20886 (WoD CASC, enGB+ruRU),
+  legion/8.3.7/9.2.7/10.2.7 = WoWCircle CASC repacks (mostly ruRU-tagged).
+- Missing: 1.12.x (the first download was an installer, not an install — user
+  re-downloads), 4.3.4 (never downloaded; its corpus tests skip on the box),
+  TWW 11.x.
+- `community-listfile.csv` lives in `/root/WoWClients/` too; the workflow
+  re-downloads it when older than 30 days.
+
+## Runner
+- `/root/actions-runner`, systemd unit
+  `actions.runner.skarndev-wowlib.wowlib-clients.service`, runs **as root**
+  (needed to read /root/WoWClients; Homebrew was dropped in favour of apt for
+  the same reason). Labels: `self-hosted, Linux, X64, wowlib-clients`.
+- Re-registration: `gh api -X POST repos/skarndev/wowlib/actions/runners/registration-token`,
+  then `RUNNER_ALLOW_RUNASROOT=1 ./config.sh ...`.
+
+## Workflow — .github/workflows/ci-integration.yml
+- push-to-main + workflow_dispatch only. **No pull_request trigger**: public
+  repo + root runner means fork PRs must never reach this box.
+- `checkout` with `clean: false` — build/ (and FetchContent deps) persist
+  between runs; a cold gcc-16 build takes hours on 2 cores.
+- `CMAKE_BUILD_PARALLEL_LEVEL=2` to keep RAM in bounds.
+
+## Test-side environment contract
+`tests/integration/integration_env.hpp` resolves installs by directory name
+under `WOWLIB_TEST_CLIENTS_DIR` — canonical bare-version names first
+(`3.3.5a`), the older descriptive local-Mac names as fallback. Locale and
+`Data/` vs `data/` casing are detected per install, not hardcoded (repacks
+differ). `test_all_clients_open.cpp` sweeps every canonical directory present:
+facade open + probe read (MPQ: `DBFilesClient/Map.dbc`; Legion+: `map.db2` via
+listfile; WoD: open-only — its CASC root is name-hash keyed, no FileDataIDs).

@@ -11,14 +11,12 @@ using namespace wowlib::fs;
 
 TEST_CASE("the 2.4.3 client opens and serves known files", "[integration][mpq]")
 {
-  const auto clients = tests::require_clients_dir();
-
-  auto opened = MpqStorage::open({.data_dir = clients / tests::tbc_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::tbc_client()),
                                   .version = versions::tbc,
-                                  .locale = tests::tbc_locale});
+                                  .locale = tests::tbc_locale()});
   REQUIRE(opened.has_value());
   MpqStorage& storage = *opened;
-  CHECK(storage.locale() == tests::tbc_locale);
+  CHECK(storage.locale() == tests::tbc_locale());
   // common + expansion + the four enGB locale archives + the patch tier.
   CHECK(storage.archives().size() >= 6);
 

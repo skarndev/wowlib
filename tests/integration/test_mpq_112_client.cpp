@@ -11,14 +11,12 @@ using namespace wowlib::fs;
 
 TEST_CASE("the 1.12.2 client opens and serves known files", "[integration][mpq]")
 {
-  const auto clients = tests::require_clients_dir();
-
-  auto opened = MpqStorage::open({.data_dir = clients / tests::vanilla_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::vanilla_client()),
                                   .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale});
+                                  .locale = tests::vanilla_locale()});
   REQUIRE(opened.has_value());
   MpqStorage& storage = *opened;
-  CHECK(storage.locale() == tests::vanilla_locale);
+  CHECK(storage.locale() == tests::vanilla_locale());
   // base media/data archives (base, dbc, model, terrain, texture, wmo, ...) plus
   // the Data/ patch tier; a vanilla install always yields several archives.
   CHECK(storage.archives().size() >= 8);

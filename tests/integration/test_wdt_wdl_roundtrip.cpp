@@ -193,8 +193,7 @@ namespace
 
 TEST_CASE("3.3.5a WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::mpq_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
                                   .version = versions::wotlk});
   REQUIRE(fs.has_value());
 
@@ -227,10 +226,9 @@ TEST_CASE("3.3.5a WDTs and WDLs rewrite byte-for-byte", "[integration][formats][
 
 TEST_CASE("1.12.2 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::vanilla_client(),
                                   .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale});
+                                  .locale = tests::vanilla_locale()});
   REQUIRE(fs.has_value());
 
   // vanilla continents, battlegrounds and WMO-only instances (no TBC/WotLK
@@ -262,10 +260,9 @@ TEST_CASE("1.12.2 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][
 
 TEST_CASE("2.4.3 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::tbc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::tbc_client(),
                                   .version = versions::tbc,
-                                  .locale = tests::tbc_locale});
+                                  .locale = tests::tbc_locale()});
   REQUIRE(fs.has_value());
 
   // vanilla continents + Outland (Expansion01) + TBC instances; entries missing
@@ -296,10 +293,9 @@ TEST_CASE("2.4.3 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][w
 
 TEST_CASE("9.2.7 WDTs and WDLs rewrite byte-for-byte", "[integration][formats][wdt][wdl]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile = tests::require_listfile();
 
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::casc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
                                   .version = versions::shadowlands,
                                   .listfile_csv = listfile});
   REQUIRE(fs.has_value());

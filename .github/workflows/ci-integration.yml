@@ -1,0 +1,54 @@
+name: ci-integration
+
+# Client-integration suite on the self-hosted runner that carries real client
+# installs under /root/WoWClients (one directory per canonical version:
+# 2.4.3, 3.3.5a, 5.4.8, ...). Deliberately not triggered on pull_request:
+# the runner executes workflows as root on the CI box, and this is a public
+# repository — main-branch pushes and manual dispatch only.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    runs-on: [self-hosted, wowlib-clients]
+    timeout-minutes: 360
+    env:
+      WOWLIB_TEST_CLIENTS_DIR: /root/WoWClients
+      WOWLIB_TEST_LISTFILE: /root/WoWClients/community-listfile.csv
+      # The box has 2 cores and little RAM; don't let ninja overcommit.
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      # clean: false keeps build/ (and its FetchContent deps) between runs —
+      # a from-scratch gcc-16 build takes hours on this hardware, an
+      # incremental one minutes.
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Refresh community listfile (monthly)
+        run: |
+          if [ ! -s "$WOWLIB_TEST_LISTFILE" ] || \
+             [ -n "$(find "$WOWLIB_TEST_LISTFILE" -mtime +30)" ]; then
+            url=$(curl -s https://api.github.com/repos/wowdev/wow-listfile/releases/latest |
+                  jq -r '.assets[] | select(.name=="community-listfile.csv") | .browser_download_url')
+            curl -sL "$url" -o "$WOWLIB_TEST_LISTFILE"
+          fi
+          wc -l "$WOWLIB_TEST_LISTFILE"
+
+      - name: Configure
+        run: cmake --preset gcc16-release
+
+      - name: Build
+        run: cmake --build --preset gcc16-release
+
+      # The full suite: units plus every client-integration test — the
+      # integration tests find the clients via WOWLIB_TEST_CLIENTS_DIR and
+      # self-skip only for versions this box does not carry.
+      - name: Test
+        run: ctest --preset gcc16-release

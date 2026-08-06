@@ -112,8 +112,7 @@ namespace
 
 TEST_CASE("3.3.5a BLPs rewrite byte-for-byte and decode", "[integration][formats][blp]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::mpq_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
                                   .version = versions::wotlk});
   REQUIRE(fs.has_value());
 
@@ -161,10 +160,9 @@ TEST_CASE("3.3.5a BLPs rewrite byte-for-byte and decode", "[integration][formats
 
 TEST_CASE("9.2.7 BLPs rewrite byte-for-byte and decode", "[integration][formats][blp]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile = tests::require_listfile();
 
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::casc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
                                   .version = versions::shadowlands,
                                   .listfile_csv = listfile});
   REQUIRE(fs.has_value());

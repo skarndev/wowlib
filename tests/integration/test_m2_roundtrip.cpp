@@ -177,8 +177,7 @@ namespace
 TEST_CASE("3.3.5a M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::mpq_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
                                   .version = versions::wotlk});
   REQUIRE(fs.has_value());
 
@@ -219,10 +218,9 @@ TEST_CASE("3.3.5a M2s re-read equal after a canonical rewrite",
 TEST_CASE("1.12.2 M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::vanilla_client(),
                                   .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale});
+                                  .locale = tests::vanilla_locale()});
   REQUIRE(fs.has_value());
 
   // vanilla creatures, characters and world doodads (skins embedded in the MD20,
@@ -256,10 +254,9 @@ TEST_CASE("1.12.2 M2s re-read equal after a canonical rewrite",
 TEST_CASE("2.4.3 M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::tbc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::tbc_client(),
                                   .version = versions::tbc,
-                                  .locale = tests::tbc_locale});
+                                  .locale = tests::tbc_locale()});
   REQUIRE(fs.has_value());
 
   // vanilla creatures/characters plus TBC's new playable races (Blood Elf,
@@ -293,10 +290,9 @@ TEST_CASE("2.4.3 M2s re-read equal after a canonical rewrite",
 TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile = tests::require_listfile();
 
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::casc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
                                   .version = versions::shadowlands,
                                   .listfile_csv = listfile});
   REQUIRE(fs.has_value());

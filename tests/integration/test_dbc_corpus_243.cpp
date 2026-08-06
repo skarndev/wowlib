@@ -13,10 +13,9 @@ using namespace wowlib::fs;
 TEST_CASE("2.4.3: the full DBC corpus decodes and round-trips byte-perfectly",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::tbc_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::tbc_client()),
                                   .version = versions::tbc,
-                                  .locale = tests::tbc_locale});
+                                  .locale = tests::tbc_locale()});
   REQUIRE(opened.has_value());
 
   tests::CorpusStats stats;
@@ -32,10 +31,9 @@ TEST_CASE("2.4.3: the full DBC corpus decodes and round-trips byte-perfectly",
 
 TEST_CASE("2.4.3: Map.dbc spot checks against known truth", "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::tbc_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::tbc_client()),
                                   .version = versions::tbc,
-                                  .locale = tests::tbc_locale});
+                                  .locale = tests::tbc_locale()});
   REQUIRE(opened.has_value());
 
   const auto data = opened->read_file(FileKey{"DBFilesClient/Map.dbc"});
@@ -50,7 +48,7 @@ TEST_CASE("2.4.3: Map.dbc spot checks against known truth", "[integration][db]")
   const auto azeroth = by_id(0);
   REQUIRE(azeroth != map.records.end());
   CHECK(azeroth->directory == "Azeroth");
-  CHECK_FALSE(azeroth->map_name.at(tests::tbc_locale).empty());
+  CHECK_FALSE(azeroth->map_name.at(tests::tbc_locale()).empty());
 
   const auto outland = by_id(530);
   REQUIRE(outland != map.records.end());

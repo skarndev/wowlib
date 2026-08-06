@@ -51,6 +51,7 @@ These are presented roughly in order:
 | CASC storage specifics (repack shim, error codes, test FDIDs) | .claude/context/casc-notes.md |
 | Listfile & custom FileDataID policy | .claude/context/listfile-notes.md |
 | Dependencies, pins & build quirks | .claude/context/deps-build-notes.md |
+| CI server, self-hosted runner & client installs layout | .claude/context/ci-server-notes.md |
 | Python/Lua bindings (welder rods, casters, naming) | .claude/context/bindings-notes.md |
 | Documentation site (mkdocs-material guide + Python API via mkdocstrings + Doxygen C++ reference) | .claude/context/docs-site.md |
 

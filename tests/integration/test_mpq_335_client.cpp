@@ -11,14 +11,13 @@ using namespace wowlib::fs;
 
 TEST_CASE("the 3.3.5a client opens and serves known files", "[integration][mpq]")
 {
-  const auto clients = tests::require_clients_dir();
-
-  auto opened = MpqStorage::open({.data_dir = clients / tests::mpq_client_name / "Data",
+  const auto locale = tests::mpq_locale();
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::mpq_client()),
                                   .version = versions::wotlk,
-                                  .locale = Locale::enUS});
+                                  .locale = locale});
   REQUIRE(opened.has_value());
   MpqStorage& storage = *opened;
-  CHECK(storage.locale() == Locale::enUS);
+  CHECK(storage.locale() == locale);
   CHECK(storage.archives().size() >= 16);   // full retail chain
 
   SECTION("a locale archive file reads")

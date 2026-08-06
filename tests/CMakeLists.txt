@@ -29,6 +29,7 @@ add_executable(wowlib_tests
   integration/test_mpq_243_client.cpp
   integration/test_casc_927_client.cpp
   integration/test_facade_both.cpp
+  integration/test_all_clients_open.cpp
   integration/test_wmo_roundtrip.cpp
   integration/test_m2_roundtrip.cpp
   integration/test_wdt_wdl_roundtrip.cpp

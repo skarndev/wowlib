@@ -13,10 +13,9 @@ using namespace wowlib::fs;
 TEST_CASE("1.12.2: the full DBC corpus decodes and round-trips byte-perfectly",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::vanilla_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::vanilla_client()),
                                   .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale});
+                                  .locale = tests::vanilla_locale()});
   REQUIRE(opened.has_value());
 
   tests::CorpusStats stats;
@@ -32,10 +31,9 @@ TEST_CASE("1.12.2: the full DBC corpus decodes and round-trips byte-perfectly",
 
 TEST_CASE("1.12.2: Map.dbc spot checks against known truth", "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::vanilla_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::vanilla_client()),
                                   .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale});
+                                  .locale = tests::vanilla_locale()});
   REQUIRE(opened.has_value());
 
   const auto data = opened->read_file(FileKey{"DBFilesClient/Map.dbc"});

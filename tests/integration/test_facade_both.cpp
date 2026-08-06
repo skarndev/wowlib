@@ -31,11 +31,10 @@ namespace
 TEST_CASE("both clients work through the runtime facade alone",
           "[integration][facade]")
 {
-  const auto clients = tests::require_clients_dir();
 
   SECTION("3.3.5a")
   {
-    auto fs = FileSystem::open({.client_path = clients / tests::mpq_client_name,
+    auto fs = FileSystem::open({.client_path = tests::mpq_client(),
                                 .version = versions::wotlk,
                                 .project_directory = fresh_project("facade-mpq")});
     REQUIRE(fs.has_value());
@@ -62,7 +61,7 @@ TEST_CASE("both clients work through the runtime facade alone",
     fsys::copy_file(tests::require_listfile(), listfile_csv,
                     fsys::copy_options::overwrite_existing);
 
-    auto fs = FileSystem::open({.client_path = clients / tests::casc_client_name,
+    auto fs = FileSystem::open({.client_path = tests::casc_client(),
                                 .version = versions::shadowlands,
                                 .project_directory = fresh_project("facade-casc"),
                                 .listfile_csv = listfile_csv});
@@ -80,7 +79,7 @@ TEST_CASE("both clients work through the runtime facade alone",
     CHECK(fs->read_file("world/maps/custom/custom.wdt").value() == bytes("MVER"));
 
     // a fresh open of the same project + listfile remembers the id
-    auto again = FileSystem::open({.client_path = clients / tests::casc_client_name,
+    auto again = FileSystem::open({.client_path = tests::casc_client(),
                                    .version = versions::shadowlands,
                                    .project_directory =
                                      fsys::temp_directory_path() / "wowlib-tests" /

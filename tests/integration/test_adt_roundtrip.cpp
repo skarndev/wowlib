@@ -172,8 +172,7 @@ namespace
 TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
           "[integration][formats][adt]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::mpq_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
                                   .version = versions::wotlk});
   REQUIRE(fs.has_value());
 
@@ -214,10 +213,9 @@ TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
 TEST_CASE("1.12.2 ADTs re-read equal after a canonical rewrite",
           "[integration][formats][adt]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::vanilla_client(),
                                   .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale});
+                                  .locale = tests::vanilla_locale()});
   REQUIRE(fs.has_value());
 
   const std::vector<std::string> maps{"Azeroth", "Kalimdor"};
@@ -255,10 +253,9 @@ TEST_CASE("1.12.2 ADTs re-read equal after a canonical rewrite",
 TEST_CASE("2.4.3 ADTs re-read equal after a canonical rewrite",
           "[integration][formats][adt]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::tbc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::tbc_client(),
                                   .version = versions::tbc,
-                                  .locale = tests::tbc_locale});
+                                  .locale = tests::tbc_locale()});
   REQUIRE(fs.has_value());
 
   // the two vanilla continents plus Outland (Expansion01), TBC's new continent
@@ -297,9 +294,8 @@ TEST_CASE("2.4.3 ADTs re-read equal after a canonical rewrite",
 TEST_CASE("9.2.7 split ADTs re-read equal after a canonical rewrite",
           "[integration][formats][adt]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile = tests::require_listfile();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::casc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
                                   .version = versions::shadowlands,
                                   .listfile_csv = listfile});
   REQUIRE(fs.has_value());

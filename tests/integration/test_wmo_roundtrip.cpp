@@ -136,8 +136,7 @@ namespace
 
 TEST_CASE("3.3.5a WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::mpq_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
                                   .version = versions::wotlk});
   REQUIRE(fs.has_value());
 
@@ -173,10 +172,9 @@ TEST_CASE("3.3.5a WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 
 TEST_CASE("1.12.2 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::vanilla_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::vanilla_client(),
                                   .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale});
+                                  .locale = tests::vanilla_locale()});
   REQUIRE(fs.has_value());
 
   // vanilla-era spread: capitals, inns, farms, a dungeon; entries missing from
@@ -209,10 +207,9 @@ TEST_CASE("1.12.2 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 
 TEST_CASE("2.4.3 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::tbc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::tbc_client(),
                                   .version = versions::tbc,
-                                  .locale = tests::tbc_locale});
+                                  .locale = tests::tbc_locale()});
   REQUIRE(fs.has_value());
 
   // vanilla capitals/dungeons plus TBC's Outland structures; entries missing
@@ -245,10 +242,9 @@ TEST_CASE("2.4.3 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 
 TEST_CASE("9.2.7 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  const auto clients = tests::require_clients_dir();
   const auto listfile = tests::require_listfile();
 
-  auto fs = fs::FileSystem::open({.client_path = clients / tests::casc_client_name,
+  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
                                   .version = versions::shadowlands,
                                   .listfile_csv = listfile});
   REQUIRE(fs.has_value());

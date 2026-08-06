@@ -22,10 +22,9 @@ using namespace wowlib::fs;
 TEST_CASE("4.3.4: the full DBC/DB2 corpus decodes and round-trips byte-perfectly",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::cata_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::cata_client()),
                                   .version = versions::cata,
-                                  .locale = tests::cata_locale});
+                                  .locale = tests::cata_locale()});
   REQUIRE(opened.has_value());
 
   tests::CorpusStats stats;
@@ -41,10 +40,9 @@ TEST_CASE("4.3.4: the full DBC/DB2 corpus decodes and round-trips byte-perfectly
 
 TEST_CASE("4.3.4: Map.dbc spot checks against known truth", "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::cata_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::cata_client()),
                                   .version = versions::cata,
-                                  .locale = tests::cata_locale});
+                                  .locale = tests::cata_locale()});
   REQUIRE(opened.has_value());
 
   const auto data = opened->read_file(FileKey{"DBFilesClient/Map.dbc"});
@@ -73,10 +71,9 @@ TEST_CASE("4.3.4: Map.dbc spot checks against known truth", "[integration][db]")
 TEST_CASE("4.3.4: Item.db2 (WDB2) decodes through the update chain",
           "[integration][db]")
 {
-  const auto clients = tests::require_clients_dir();
-  auto opened = MpqStorage::open({.data_dir = clients / tests::cata_client_name / "Data",
+  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::cata_client()),
                                   .version = versions::cata,
-                                  .locale = tests::cata_locale});
+                                  .locale = tests::cata_locale()});
   REQUIRE(opened.has_value());
 
   const auto data = opened->read_file(FileKey{"DBFilesClient/Item.db2"});
