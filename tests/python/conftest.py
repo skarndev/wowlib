@@ -42,8 +42,16 @@ def clients_dir():
 
 @pytest.fixture
 def wotlk_settings(clients_dir):
+    # Canonical bare-version install name first (the CI server layout), the
+    # descriptive local name as fallback.
+    for name in ("3.3.5a", "World of Warcraft 3.3.5a"):
+        client = os.path.join(clients_dir, name)
+        if os.path.isdir(client):
+            break
+    else:
+        pytest.skip("no 3.3.5a install under WOWLIB_TEST_CLIENTS_DIR")
     return wowlib.fs.FileSystemSettings(
-        client_path=os.path.join(clients_dir, "World of Warcraft 3.3.5a"),
+        client_path=client,
         version=wowlib.versions.wotlk,
     )
 

@@ -1,8 +1,9 @@
 # CI server & self-hosted integration runner
 
 ## The box
-- `root@157.22.189.150` (sshumakov2015.fvds.ru), Ubuntu 26.04 LTS, 2 cores,
-  3.7 GiB RAM (+16 GiB swapfile at `/swapfile` — gcc-16 needs it), 3.3 TiB disk.
+- Dedicated CI VPS (address in the user's private notes — this file is public),
+  Ubuntu 26.04 LTS, 2 cores, 3.7 GiB RAM (+16 GiB swapfile at `/swapfile` —
+  gcc-16 needs it), 3.3 TiB disk. SSH as root with key auth.
 - Toolchain from apt (Homebrew refuses root): gcc-16 / g++-16, cmake, ninja.
 - Torrent box: transmission-daemon seeds the client downloads from
   `/var/lib/transmission-daemon/downloads`.
