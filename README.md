@@ -149,3 +149,7 @@ python docs/build.py serve      # live-reload at http://127.0.0.1:8000/
 - [pywowlib](https://github.com/wowdev/pywowlib) /
   [WoWLib](https://github.com/skarndev/WoWLib) — earlier iterations of this
   effort, superseded by this library.
+
+## License
+
+[MIT](LICENSE).

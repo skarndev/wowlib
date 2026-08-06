@@ -6,6 +6,8 @@ build-backend = "scikit_build_core.build"
 name = "wowlib"
 version = "0.0.1"
 description = "Read and write World of Warcraft client files — a C++26 core with Python bindings."
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 # numpy is a genuine runtime dependency: the opaque vector bindings hand back
 # zero-copy numpy arrays, and the generated stubs import numpy / numpy.typing.
