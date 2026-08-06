@@ -8,6 +8,8 @@
 
 #include <wowlib/fs/csv_listfile.hpp>
 
+#include "unit_env.hpp"
+
 using namespace wowlib;
 using wowlib::fs::CsvListfile;
 
@@ -15,7 +17,7 @@ TEST_CASE("concurrent lookups and registrations keep the maps consistent",
           "[listfile][threads]")
 {
   // work on a disposable copy — registrations append to the working file
-  const auto sample = std::filesystem::path{WOWLIB_TEST_DATA_DIR} /
+  const auto sample = tests::data_root() /
                       "sample-listfile.csv";
   const auto csv = std::filesystem::temp_directory_path() / "wowlib-tests" /
                    "concurrency.csv";

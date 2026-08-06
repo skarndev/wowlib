@@ -1,10 +1,11 @@
 name: ci-integration
 
-# Client-integration suite on the self-hosted runner that carries real client
-# installs under /root/WoWClients (one directory per canonical version:
-# 2.4.3, 3.3.5a, 5.4.8, ...). Deliberately not triggered on pull_request:
-# the runner executes workflows as root on the CI box, and this is a public
-# repository — main-branch pushes and manual dispatch only.
+# Client-integration suite, split for speed: the hosted runner builds the test
+# binary (minutes), the self-hosted wowlib-clients box only runs it against
+# the real client installs under /root/WoWClients (one directory per
+# canonical version: 2.4.3, 3.3.5a, ...). Deliberately not triggered on
+# pull_request: the self-hosted runner executes as root on the CI box and
+# this is a public repository — main-branch pushes and manual dispatch only.
 on:
   push:
     branches: [main]
@@ -15,21 +16,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  integration:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      # gcc-16 is the only toolchain with C++26 reflection; Homebrew-on-Linux
+      # carries it well ahead of the Ubuntu archives.
+      - name: Install gcc-16 toolchain (Homebrew)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          brew update
+          brew install gcc ninja cmake
+          gcc-16 --version
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-linux-integration-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-linux-integration-
+
+      # Static libstdc++/libgcc: the binary must run on the test box, which
+      # has its own (apt) gcc-16 whose runtime need not match Homebrew's.
+      # glibc is fine as-is — the hosted image's is older than the box's.
+      - name: Configure
+        run: >-
+          cmake --preset gcc16-release
+          -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+      - name: Build tests
+        run: cmake --build --preset gcc16-release --target wowlib_tests
+
+      - name: Upload test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowlib-tests-linux-x86_64
+          path: build/release/tests/wowlib_tests
+          if-no-files-found: error
+          retention-days: 3
+
+  test:
+    needs: build
     runs-on: [self-hosted, wowlib-clients]
-    timeout-minutes: 360
+    timeout-minutes: 120
     env:
       WOWLIB_TEST_CLIENTS_DIR: /root/WoWClients
       WOWLIB_TEST_LISTFILE: /root/WoWClients/community-listfile.csv
-      # The box has 2 cores and little RAM; don't let ninja overcommit.
-      CMAKE_BUILD_PARALLEL_LEVEL: 2
+      # The checkout provides the fixture files the travelling binary needs.
+      WOWLIB_TEST_DATA_DIR: ${{ github.workspace }}/tests/data
     steps:
-      # clean: false keeps build/ (and its FetchContent deps) between runs —
-      # a from-scratch gcc-16 build takes hours on this hardware, an
-      # incremental one minutes.
       - uses: actions/checkout@v4
-        with:
-          clean: false
 
       - name: Refresh community listfile (monthly)
         run: |
@@ -41,14 +82,18 @@ jobs:
           fi
           wc -l "$WOWLIB_TEST_LISTFILE"
 
-      - name: Configure
-        run: cmake --preset gcc16-release
+      - name: Download test binary
+        uses: actions/download-artifact@v4
+        with:
+          name: wowlib-tests-linux-x86_64
 
-      - name: Build
-        run: cmake --build --preset gcc16-release
-
-      # The full suite: units plus every client-integration test — the
+      # The full Catch2 suite: units plus every client-integration test — the
       # integration tests find the clients via WOWLIB_TEST_CLIENTS_DIR and
       # self-skip only for versions this box does not carry.
       - name: Test
-        run: ctest --preset gcc16-release
+        run: |
+          chmod +x wowlib_tests
+          ./wowlib_tests --durations yes
+
+      - name: dbdgen unit tests
+        run: PYTHONPATH=tools/dbdgen python3 -m unittest discover -s tools/dbdgen/tests

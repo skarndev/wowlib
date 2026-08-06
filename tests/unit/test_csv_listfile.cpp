@@ -5,12 +5,14 @@
 
 #include <wowlib/fs/csv_listfile.hpp>
 
+#include "unit_env.hpp"
+
 using namespace wowlib;
 using wowlib::fs::CsvListfile;
 
 namespace
 {
-  const std::filesystem::path sample = std::filesystem::path{WOWLIB_TEST_DATA_DIR} /
+  const std::filesystem::path sample = tests::data_root() /
                                        "sample-listfile.csv";
 
   // The loaded CSV is the working database registrations write to, so tests

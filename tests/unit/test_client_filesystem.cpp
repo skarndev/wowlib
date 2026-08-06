@@ -11,6 +11,8 @@
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 #include <wowlib/fs/storage_backend.hpp>
 
+#include "unit_env.hpp"
+
 using namespace wowlib;
 using namespace wowlib::fs;
 namespace fsys = std::filesystem;
@@ -90,7 +92,7 @@ TEST_CASE("the project overlay wins over the backend", "[client-fs]")
 
 TEST_CASE("resolve fills the missing identity half from the listfile", "[client-fs]")
 {
-  auto listfile = CsvListfile::load(fsys::path{WOWLIB_TEST_DATA_DIR} /
+  auto listfile = CsvListfile::load(tests::data_root() /
                                     "sample-listfile.csv");
   REQUIRE(listfile.has_value());
 
@@ -117,7 +119,7 @@ TEST_CASE("add_file allocates a custom id on CASC and persists it in the working
   // the loaded CSV is the working database, so operate on a disposable copy
   const auto csv = fsys::temp_directory_path() / "wowlib-tests" / "cfs-addfile.csv";
   fsys::create_directories(csv.parent_path());
-  fsys::copy_file(fsys::path{WOWLIB_TEST_DATA_DIR} / "sample-listfile.csv", csv,
+  fsys::copy_file(tests::data_root() / "sample-listfile.csv", csv,
                   fsys::copy_options::overwrite_existing);
 
   auto listfile = CsvListfile::load(csv,

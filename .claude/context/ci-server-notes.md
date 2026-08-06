@@ -4,7 +4,12 @@
 - Dedicated CI VPS (address in the user's private notes — this file is public),
   Ubuntu 26.04 LTS, 2 cores, 3.7 GiB RAM (+16 GiB swapfile at `/swapfile` —
   gcc-16 needs it), 3.3 TiB disk. SSH as root with key auth.
-- Toolchain from apt (Homebrew refuses root): gcc-16 / g++-16, cmake, ninja.
+- Toolchain from apt (Homebrew refuses root): gcc-16 / g++-16, cmake, ninja —
+  but apt's gcc-16 trunk snapshot (r16-8246) REJECTS wowlib's reflection code
+  (consteval ICE-grade errors in offset framework), so the box never builds
+  wowlib: the ci-integration build job compiles the test binary on the hosted
+  runner (Homebrew gcc-16, static libstdc++/libgcc) and ships it over as an
+  artifact; the box only executes it. python3 stays needed for dbdgen tests.
 - Torrent box: transmission-daemon seeds the client downloads from
   `/var/lib/transmission-daemon/downloads`.
 
@@ -33,9 +38,14 @@ were extracted (`/root/unpack_clients.sh`, log `/root/unpack_clients.log`).
 ## Workflow — .github/workflows/ci-integration.yml
 - push-to-main + workflow_dispatch only. **No pull_request trigger**: public
   repo + root runner means fork PRs must never reach this box.
-- `checkout` with `clean: false` — build/ (and FetchContent deps) persist
-  between runs; a cold gcc-16 build takes hours on 2 cores.
-- `CMAKE_BUILD_PARALLEL_LEVEL=2` to keep RAM in bounds.
+- Two jobs: `build` on ubuntu-latest (Homebrew gcc-16,
+  `-static-libstdc++ -static-libgcc` so the binary runs against the box's
+  runtime; hosted glibc is older than the box's, so glibc is fine) uploads
+  `wowlib_tests`; `test` on the box downloads it, exports
+  `WOWLIB_TEST_DATA_DIR=$GITHUB_WORKSPACE/tests/data` (runtime override added
+  in tests/unit/unit_env.hpp — the compile-time fixture path is wrong for a
+  travelling binary) and runs the Catch2 suite + dbdgen python tests directly
+  (no ctest on the box — CTest metadata bakes hosted-runner paths).
 
 ## Test-side environment contract
 `tests/integration/integration_env.hpp` resolves installs by directory name
