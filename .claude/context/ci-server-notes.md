@@ -37,17 +37,22 @@ were extracted (`/root/unpack_clients.sh`, log `/root/unpack_clients.log`).
 - Re-registration: `gh api -X POST repos/skarndev/wowlib/actions/runners/registration-token`,
   then `RUNNER_ALLOW_RUNASROOT=1 ./config.sh ...`.
 
-## Workflow — .github/workflows/ci-integration.yml
-- push-to-main + workflow_dispatch only. **No pull_request trigger**: public
-  repo + root runner means fork PRs must never reach this box.
-- Two jobs: `build` on ubuntu-latest (Homebrew gcc-16,
-  `-static-libstdc++ -static-libgcc` so the binary runs against the box's
-  runtime; hosted glibc is older than the box's, so glibc is fine) uploads
-  `wowlib_tests`; `test` on the box downloads it, exports
-  `WOWLIB_TEST_DATA_DIR=$GITHUB_WORKSPACE/tests/data` (runtime override added
-  in tests/unit/unit_env.hpp — the compile-time fixture path is wrong for a
-  travelling binary) and runs the Catch2 suite + dbdgen python tests directly
-  (no ctest on the box — CTest metadata bakes hosted-runner paths).
+## Workflow — integration lives INSIDE .github/workflows/ci-linux.yml
+(ci-integration.yml was folded away 2026-08-07 — its build duplicated the
+ci-linux release build.)
+- The `release` job builds gcc16-release with
+  `-static-libstdc++ -static-libgcc` (binary must run against the box's
+  runtime; hosted glibc is older than the box's, so glibc is fine), runs
+  ctest, patchelfs the Homebrew loader/RUNPATH out, uploads `wowlib_tests`.
+- The `integration` job (`needs: release`, runs-on wowlib-clients) downloads
+  the artifact, exports `WOWLIB_TEST_DATA_DIR=$GITHUB_WORKSPACE/tests/data`
+  (runtime override in tests/unit/unit_env.hpp — the compile-time fixture
+  path is wrong for a travelling binary) and runs the Catch2 suite + dbdgen
+  python tests directly (no ctest on the box — CTest metadata bakes
+  hosted-runner paths).
+- **`if: github.event_name != 'pull_request'` on the integration job is the
+  fork-PR safety gate** (public repo + root runner) — keep it if the workflow
+  is ever restructured. push-to-main has paths-ignore for docs-only changes.
 
 ## Test-side environment contract
 `tests/integration/integration_env.hpp` resolves installs by directory name

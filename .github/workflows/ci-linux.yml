@@ -3,6 +3,12 @@ name: ci-linux
 on:
   push:
     branches: [main]
+    # Docs-only pushes don't need builds or box time.
+    paths-ignore:
+      - '.claude/**'
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
   pull_request:
   workflow_dispatch:
 
@@ -11,13 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
+  debug:
     runs-on: ubuntu-latest
     timeout-minutes: 150
-    strategy:
-      fail-fast: false
-      matrix:
-        preset: [gcc16-debug, gcc16-release]
     steps:
       - uses: actions/checkout@v4
 
@@ -31,28 +33,129 @@ jobs:
           brew update
           brew install gcc ninja cmake
           gcc-16 --version
-          cmake --version
-          ninja --version
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
         with:
           path: build/*/_deps
-          key: deps-linux-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
+          key: deps-linux-gcc16-debug-${{ hashFiles('cmake/Dependencies.cmake') }}
           restore-keys: |
-            deps-linux-${{ matrix.preset }}-
+            deps-linux-gcc16-debug-
 
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }}
+        run: cmake --preset gcc16-debug
 
       - name: Build
-        run: cmake --build --preset ${{ matrix.preset }}
+        run: cmake --build --preset gcc16-debug
 
       # Client-integration tests self-skip (Catch2 SKIP + SKIP_RETURN_CODE):
       # WOWLIB_TEST_CLIENTS_DIR / WOWLIB_TEST_LISTFILE are unset on hosted
       # runners, so only the client-free unit suite actually runs.
       - name: Test
-        run: ctest --preset ${{ matrix.preset }}
+        run: ctest --preset gcc16-debug
+
+  # The release build doubles as the integration-artifact producer: the test
+  # binary it uploads is what the self-hosted job below runs against the real
+  # client fleet — no second build anywhere.
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          brew update
+          brew install gcc ninja cmake
+          gcc-16 --version
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-linux-gcc16-release-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-linux-gcc16-release-
+
+      # Static libstdc++/libgcc so the binary also runs on the integration box,
+      # which has its own (apt) gcc-16 whose runtime need not match Homebrew's.
+      # glibc is fine as-is — the hosted image's is older than the box's.
+      - name: Configure
+        run: >-
+          cmake --preset gcc16-release
+          -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+      - name: Build
+        run: cmake --build --preset gcc16-release
+
+      - name: Test
+        run: ctest --preset gcc16-release
+
+      # Homebrew gcc stamps its own glibc loader as the ELF interpreter and
+      # RUNPATHs under /home/linuxbrew — none of which exist on the test box.
+      # Repoint at the system loader; the remaining NEEDED set is system
+      # libraries only.
+      - name: Make the test binary portable
+        run: |
+          sudo apt-get install -y patchelf
+          patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 --remove-rpath \
+            build/release/tests/wowlib_tests
+          readelf -p .interp build/release/tests/wowlib_tests
+
+      - name: Upload test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowlib-tests-linux-x86_64
+          path: build/release/tests/wowlib_tests
+          if-no-files-found: error
+          retention-days: 3
+
+  # Client-integration suite on the self-hosted runner that carries real
+  # client installs under /root/WoWClients (one directory per canonical
+  # version: 1.12.1, 2.4.3, 3.3.5a, ...). Never runs for pull_request events:
+  # the runner executes as root on the CI box and this is a public repository
+  # — fork PRs must not reach it.
+  integration:
+    if: github.event_name != 'pull_request'
+    needs: release
+    runs-on: [self-hosted, wowlib-clients]
+    timeout-minutes: 120
+    env:
+      WOWLIB_TEST_CLIENTS_DIR: /root/WoWClients
+      WOWLIB_TEST_LISTFILE: /root/WoWClients/community-listfile.csv
+      # The checkout provides the fixture files the travelling binary needs.
+      WOWLIB_TEST_DATA_DIR: ${{ github.workspace }}/tests/data
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refresh community listfile (monthly)
+        run: |
+          if [ ! -s "$WOWLIB_TEST_LISTFILE" ] || \
+             [ -n "$(find "$WOWLIB_TEST_LISTFILE" -mtime +30)" ]; then
+            url=$(curl -s https://api.github.com/repos/wowdev/wow-listfile/releases/latest |
+                  jq -r '.assets[] | select(.name=="community-listfile.csv") | .browser_download_url')
+            curl -sL "$url" -o "$WOWLIB_TEST_LISTFILE"
+          fi
+          wc -l "$WOWLIB_TEST_LISTFILE"
+
+      - name: Download test binary
+        uses: actions/download-artifact@v4
+        with:
+          name: wowlib-tests-linux-x86_64
+
+      # The full Catch2 suite: units plus every client-integration test — the
+      # integration tests find the clients via WOWLIB_TEST_CLIENTS_DIR and
+      # self-skip only for versions this box does not carry.
+      - name: Test
+        run: |
+          chmod +x wowlib_tests
+          ./wowlib_tests --durations yes
+
+      - name: dbdgen unit tests
+        run: PYTHONPATH=tools/dbdgen python3 -m unittest discover -s tools/dbdgen/tests
 
   bindings:
     runs-on: ubuntu-latest
