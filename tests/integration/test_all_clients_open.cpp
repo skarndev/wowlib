@@ -91,9 +91,11 @@ TEST_CASE("every installed client opens and serves a probe read",
                                   .locale = locale,
                                   .project_directory = fresh_project(install.dir),
                                   .listfile_csv = working_listfile});
+      // UNSCOPED_INFO: a scoped INFO inside the if would die before the
+      // assertion below ever fired.
       if (!fs.has_value())
-        INFO(std::format("open failed: {} (native {:#x})", fs.error().message,
-                         fs.error().native_error));
+        UNSCOPED_INFO(std::format("open failed: {} (native {:#x})",
+                                  fs.error().message, fs.error().native_error));
       REQUIRE(fs.has_value());
       CHECK(fs->kind() == install.version.storage_kind());
 
@@ -102,7 +104,7 @@ TEST_CASE("every installed client opens and serves a probe read",
         // Present in every MPQ-era client, with a stable magic to assert on.
         const auto dbc = fs->read_file("DBFilesClient/Map.dbc");
         if (!dbc.has_value())
-          INFO("probe read failed: " + dbc.error().message);
+          UNSCOPED_INFO("probe read failed: " + dbc.error().message);
         REQUIRE(dbc.has_value());
         REQUIRE(dbc->size() >= 4);
         CHECK(std::memcmp(dbc->data(), "WDBC", 4) == 0);

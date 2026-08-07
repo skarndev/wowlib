@@ -140,10 +140,17 @@ namespace wowlib::tests
     return require_client({"4.3.4", "WoW Cata 4.3.4"});
   }
 
-  // Detected locales of the resolved installs (see detect_locale()).
+  // Detected locales of the resolved installs (see detect_locale()). Vanilla
+  // is special: stock 1.x installs are flat (no Data/{locale}/ tier — it
+  // entered the layout with TBC), so absence of a locale directory means "any
+  // locale works", not "broken install".
 
   inline Locale mpq_locale()     { return detect_locale(data_dir(mpq_client())); }
-  inline Locale vanilla_locale() { return detect_locale(data_dir(vanilla_client())); }
   inline Locale tbc_locale()     { return detect_locale(data_dir(tbc_client())); }
   inline Locale cata_locale()    { return detect_locale(data_dir(cata_client())); }
+
+  inline Locale vanilla_locale()
+  {
+    return find_locale(data_dir(vanilla_client())).value_or(Locale::enUS);
+  }
 }

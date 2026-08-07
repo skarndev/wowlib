@@ -22,9 +22,12 @@ FetchContent_Declare(StormLib
 set(CASC_BUILD_SHARED_LIB OFF CACHE BOOL "" FORCE)
 set(CASC_BUILD_STATIC_LIB ON CACHE BOOL "" FORCE)
 set(CASC_BUILD_UNICODE OFF CACHE BOOL "" FORCE)
+# Pinned past 3.0: the 3.0 release cannot open some newer local storages the
+# integration fleet carries (the WoWCircle 8.3.7 / 10.2.7 repacks open with
+# master but not 3.0 — verified with a standalone probe on the CI box).
 FetchContent_Declare(CascLib
   GIT_REPOSITORY https://github.com/ladislav-zezula/CascLib.git
-  GIT_TAG 3.0)
+  GIT_TAG 4d6258f1986c923e3e462eb73ba6fd8ce435a4a3)
 
 # --- welder (binding annotations + rods; header-only, no tags yet -> pin commit) ---
 # Backend options must be set before welder configures. welder finds Python /

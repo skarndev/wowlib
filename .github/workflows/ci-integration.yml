@@ -9,6 +9,12 @@ name: ci-integration
 on:
   push:
     branches: [main]
+    # Docs-only pushes shouldn't supersede an in-flight run on the box.
+    paths-ignore:
+      - '.claude/**'
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 concurrency:
