@@ -76,3 +76,17 @@ APIs (`MpqStorage::enumerate_paths`, `CascStorage::enumerate_fdids`,
 - bindings/CMakeLists stub OUTPUT gained `stubs/wowlib/audit.pyi`.
 - `RoundtripReport::unknown_chunks` (vector<string>) rides the opaque-container
   generator like every other vector member.
+
+## First fleet findings (capped 50/format run, 2026-08-07 — run 31180230256)
+- All 10 clients enumerate and audit — including 6.2.3 WoD (the "name-hash
+  root → empty" expectation was wrong: CascFindFirstFile does yield fdids).
+- **1.12.1 ADT 31/50 failed**: "MCNK sub-chunk MCAL overruns the chunk" on
+  AhnQiraj (+ other early-alphabet) tiles — real vanilla alpha-layer gap, the
+  curated tests never sampled these maps.
+- **2.4.3 development map**: development.wdt/.wdl fail "required chunk MVER is
+  absent" — alpha-era leftovers shipped in the TBC client.
+- **Unmodeled chunks**: MOSB in one WMO each of 8.3.7/9.2.7/10.2.7 (legacy
+  skybox chunk on modern-version entities?); MLDF x3 in 8.3.7 WDLs
+  (undocumented ML-family chunk). All round-tripped verbatim.
+- Modern-client WMO skips (36-41/50) are _lodN variants; 9.2.7+ ADT skips are
+  no-map-wdt (unnamed "unkmaps" tiles).
