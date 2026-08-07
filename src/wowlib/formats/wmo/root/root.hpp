@@ -5,9 +5,9 @@
     materials, group metadata, portals, lights, doodads, fog and the
     later-expansion volume/light extensions. Version-gated chunks live in
     conditionally-inherited trait bases (one unwelded struct per availability
-    range, in wmo::root::detail) — including the pre-8.1-only MOSB (replaced by
-    the 8.1+ MOSI) and the pre-8.3 by-name blocks MOTX/MODN (gone once the client
-    stopped resolving files by name) — while the always-present chunks are the
+    range, in wmo::root::detail) — e.g. the pre-8.3 by-name blocks MOTX/MODN
+    (gone once the client stopped resolving files by name) — while the
+    always-present chunks are the
     entity's own members. A version's WMORoot therefore carries ONLY the chunks that version
     defines. The root binary structs live in wmo::root::chunks. */
 
@@ -90,18 +90,6 @@ namespace wowlib::formats::wmo::root
         =welder::doc(R"(Texture-coordinate translation animations (MOUV, 7.3+), one
                         per material.)")]]
       std::vector<UVAnimation> uv_animations;
-    };
-
-    /** Pre-8.1 root chunks, removed once their FileDataID counterparts arrive. */
-    struct RootPre81
-    {
-      [[
-        =chunk("MOSB"),
-        =until(builds::BfA_TidesOfVengeance),
-        =formats::optional,
-        =welder::doc(R"(Skybox filename (MOSB; pre-8.1); raw bytes — files pad it to
-                        4-byte alignment. Replaced by skybox_fdid (MOSI) in 8.1+.)")]]
-      ChunkBlob skybox_name;
     };
 
     /** Pre-8.3 root chunks: the by-name file-reference blocks. Since 8.3 the client
@@ -308,7 +296,6 @@ namespace wowlib::formats::wmo::root
       : ChunkedFile<WMORoot<V>>, WMORootBase,
         slot<V, builds::Legion_Alpha, RootLegion>,
         slot<V, builds::Legion_ShadowsOfArgus_24473, Root73>,
-        slot<V, ClientVersion{0, 0, 0, 0}, RootPre81, builds::BfA_TidesOfVengeance>,
         slot<V, ClientVersion{0, 0, 0, 0}, RootPre83, builds::BfA_VisionsOfNzoth_32044>,
         slot<V, builds::BfA_TidesOfVengeance, Root81>,
         slot<V, builds::BfA_VisionsOfNzoth_32044, Root83>,
@@ -348,6 +335,17 @@ namespace wowlib::formats::wmo::root
         =welder::mark::no_reassign,
         =welder::doc("Per-group info (MOGI).")]]
       std::vector<SMOGroupInfo> group_infos;
+
+      [[
+        =chunk("MOSB"),
+        =formats::optional,
+        =welder::doc(R"(Skybox filename (MOSB); raw bytes — files pad it to 4-byte
+                        alignment. skybox_fdid (MOSI, 8.1+) functionally replaces
+                        it, but the chunk never left the corpus: a 9.2.7 client
+                        survey (2026-08-08) found MOSB in 5404 of 8148 roots —
+                        always empty, never alongside MOSI — so it stays on every
+                        version as the no-skybox marker exporters still emit.)")]]
+      ChunkBlob skybox_name;
 
       [[
         =chunk("MOPV"),

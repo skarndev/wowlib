@@ -50,11 +50,13 @@ class AuditCollector:
         #                  "stages": Counter, "unknown_chunks": Counter}}
         self.results = {}
 
-    def record(self, client, fmt, rows, unknown_chunks):
+    def record(self, client, fmt, rows, unknown_chunks, unknown_examples=None):
         """Store one test's outcome rows and write its CSV.
 
         rows: list of (path, ok, stage, error) tuples.
         unknown_chunks: Counter of fourcc -> occurrences.
+        unknown_examples: fourcc -> a specimen path carrying it, so findings
+        are actionable straight from the report.
         """
         stages = collections.Counter(stage for _, ok, stage, _ in rows if stage)
         entry = {
@@ -64,7 +66,11 @@ class AuditCollector:
             "skipped": sum(1 for _, ok, stage, _ in rows
                            if ok and stage.startswith("skipped:")),
             "stages": dict(stages),
-            "unknown_chunks": dict(unknown_chunks),
+            "unknown_chunks": {
+                fourcc: {"count": count,
+                         "example": (unknown_examples or {}).get(fourcc, "")}
+                for fourcc, count in unknown_chunks.items()
+            },
         }
         self.results[(client, fmt)] = entry
 

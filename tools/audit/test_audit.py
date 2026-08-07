@@ -64,6 +64,7 @@ def test_roundtrip(client_id, candidates, version_name, fmt, audit_options,
 
     rows = []
     unknown_chunks = collections.Counter()
+    unknown_examples = {}
     for path in work:
         try:
             report = wowlib.audit.Auditor.roundtrip(fs, path, version)
@@ -71,9 +72,11 @@ def test_roundtrip(client_id, candidates, version_name, fmt, audit_options,
             rows.append((path, False, "exception", repr(error)))
             continue
         rows.append((path, report.ok, report.stage, report.error))
-        unknown_chunks.update(report.unknown_chunks)
+        for fourcc in report.unknown_chunks:
+            unknown_chunks[fourcc] += 1
+            unknown_examples.setdefault(fourcc, path)
 
-    entry = collector.record(client_id, fmt, rows, unknown_chunks)
+    entry = collector.record(client_id, fmt, rows, unknown_chunks, unknown_examples)
     print(f"[{client_id}] {fmt}: total={entry['total']} ok={entry['ok']} "
           f"failed={entry['failed']} skipped={entry['skipped']} "
           f"unknown_fourccs={len(entry['unknown_chunks'])} "
