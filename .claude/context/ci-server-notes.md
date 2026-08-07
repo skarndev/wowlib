@@ -18,12 +18,14 @@ One directory per canonical version name (`2.4.3`, `3.3.5a`, `5.4.8`, `6.2.3`,
 `7.3.5`, `8.3.7`, `9.2.7`, `10.2.7`). Directory-shaped torrents are hardlinked
 (`cp -al`, same filesystem — near-zero cost, seeding keeps working); archives
 were extracted (`/root/unpack_clients.sh`, log `/root/unpack_clients.log`).
-- 2.4.3 (WoWCircle, enUS+ruRU, **lowercase `data/`**), 3.3.5a (CircleL enUS),
-  5.4.8 build 18414 (Data dir only, no exe), 6.2.3.20886 (WoD CASC, enGB+ruRU),
-  legion/8.3.7/9.2.7/10.2.7 = WoWCircle CASC repacks (mostly ruRU-tagged).
-- Missing: 1.12.x (the first download was an installer, not an install — user
-  re-downloads), 4.3.4 (never downloaded; its corpus tests skip on the box),
-  TWW 11.x.
+- 1.12.1 (**flat** stock layout, no Data/{locale}/ tier), 2.4.3 (WoWCircle,
+  enUS+ruRU, **lowercase `data/`**), 3.3.5a (CircleL enUS), 4.3.4 build 15595
+  (ruRU), 5.4.8 build 18414 (Data dir only, no exe), 6.2.3.20886 (WoD CASC,
+  enGB+ruRU), 7.3.5/8.3.7/9.2.7/10.2.7 = WoWCircle CASC repacks (mostly
+  ruRU-tagged). **8.3.7 and 10.2.7 need CascLib > 3.0** (pin bumped to master
+  in cmake/Dependencies.cmake — 3.0's open fails on them).
+- Missing: TWW 11.x only. All 10 present clients pass the sweep + full suite
+  (first full-green run 2026-08-07, 165 cases / 614k assertions on the box).
 - `community-listfile.csv` lives in `/root/WoWClients/` too; the workflow
   re-downloads it when older than 30 days.
 

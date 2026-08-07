@@ -126,9 +126,10 @@ namespace wowlib::fs::detail
     // Mists of Pandaria 5.4.8 (build 18414). Structurally the Cata scheme with
     // MoP's themed base set (interface/itemtexture/misc/model/texture join,
     // world2/art leave, expansion4 arrives) and the same UpdateChain patch
-    // tier. UNVERIFIED against a complete local install yet (the local 5.4.8
-    // download is in progress) — rows for archives a given install lacks are
-    // skipped, so a superset table is safe.
+    // tier. Verified against the CI fleet's complete 5.4.8 build-18414 install
+    // (chain opens and serves DBFilesClient through the update tier) — rows
+    // for archives a given install lacks are skipped, so a superset table is
+    // safe.
     constexpr std::array mop_base{
       ChainEntry{ChainEntryKind::Fixed, "base-Win.MPQ"},
       ChainEntry{ChainEntryKind::Fixed, "base-Mac.MPQ"},
