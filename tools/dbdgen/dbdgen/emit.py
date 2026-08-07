@@ -59,7 +59,10 @@ def member_name(dbd_name: str) -> str:
 
 
 def _escape(text: str) -> str:
-    return text.replace("\\", "\\\\").replace('"', '\\"')
+    # \? because gcc still warns about trigraph-looking sequences (some WoWDBDefs
+    # comments open with "??!!"); escaping every ? guarantees no ??x survives.
+    return (text.replace("\\", "\\\\").replace('"', '\\"')
+                .replace("?", "\\?"))
 
 
 def _doc_text(text: str) -> str:
