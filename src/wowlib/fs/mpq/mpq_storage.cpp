@@ -59,9 +59,13 @@ namespace wowlib::fs
 
     // The caller supplies the locale (via FileSystemSettings); we only verify its
     // Data/{code}/ directory is actually present rather than scanning for one.
+    // Pre-TBC clients are exempt: stock vanilla installs are flat (locale
+    // subdirectories entered the layout with TBC), and only some later repacks
+    // retrofit a Data/{code}/ tier — expand_chain mounts it when it exists.
     const std::string code{locale_code(_options.locale)};
     std::error_code ec;
-    if (!std::filesystem::is_directory(_options.data_dir / code, ec))
+    if (_options.version.major >= 2
+        && !std::filesystem::is_directory(_options.data_dir / code, ec))
       return make_error(
         ErrorCode::StorageOpenFailed,
         std::format("locale directory '{}' not found under '{}'", code,

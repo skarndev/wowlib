@@ -52,6 +52,17 @@ jobs:
       - name: Build tests
         run: cmake --build --preset gcc16-release --target wowlib_tests
 
+      # Homebrew gcc stamps its own glibc loader as the ELF interpreter and
+      # RUNPATHs under /home/linuxbrew — none of which exist on the test box.
+      # Repoint at the system loader; with libstdc++/libgcc static, the
+      # remaining NEEDED set is system libraries only.
+      - name: Make the binary portable
+        run: |
+          sudo apt-get install -y patchelf
+          patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 --remove-rpath \
+            build/release/tests/wowlib_tests
+          readelf -p .interp build/release/tests/wowlib_tests
+
       - name: Upload test binary
         uses: actions/upload-artifact@v4
         with:

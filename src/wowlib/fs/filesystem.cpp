@@ -1,9 +1,36 @@
 #include <wowlib/fs/filesystem.hpp>
 
+#include <cctype>
 #include <format>
 
 namespace wowlib::fs
 {
+  namespace
+  {
+    // The client's archive directory is canonically `Data/`, but repacks exist
+    // that ship it lowercase, which matters on case-sensitive filesystems.
+    // Prefer the canonical spelling; otherwise take any case variant present;
+    // fall back to the canonical path so the storage produces its natural
+    // "nothing there" error.
+    std::filesystem::path resolve_data_dir(const std::filesystem::path& client_path)
+    {
+      std::error_code ec;
+      if (std::filesystem::is_directory(client_path / "Data", ec))
+        return client_path / "Data";
+      for (const auto& entry : std::filesystem::directory_iterator{client_path, ec})
+      {
+        const std::string name = entry.path().filename().string();
+        if (name.size() == 4 && entry.is_directory(ec)
+            && std::tolower(static_cast<unsigned char>(name[0])) == 'd'
+            && std::tolower(static_cast<unsigned char>(name[1])) == 'a'
+            && std::tolower(static_cast<unsigned char>(name[2])) == 't'
+            && std::tolower(static_cast<unsigned char>(name[3])) == 'a')
+          return entry.path();
+      }
+      return client_path / "Data";
+    }
+  }
+
   Result<FileSystem> FileSystem::open(FileSystemSettings settings)
   {
     std::optional<ProjectDirectory> project;
@@ -17,7 +44,7 @@ namespace wowlib::fs
 
     if (settings.version.storage_kind() == StorageKind::Mpq)
     {
-      auto storage = MpqStorage::open({.data_dir = settings.client_path / "Data",
+      auto storage = MpqStorage::open({.data_dir = resolve_data_dir(settings.client_path),
                                        .version = settings.version,
                                        .locale = settings.locale});
       if (!storage)
