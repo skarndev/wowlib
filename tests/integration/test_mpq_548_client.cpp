@@ -24,9 +24,14 @@ TEST_CASE("the 5.4.8 client opens and serves known files through the update chai
   // Cata scheme, expansion4 arrives) + the locale archives.
   CHECK(storage.archives().size() >= 10);
 
-  SECTION("the fixed base tier opens in table order (base archives first)")
+  SECTION("the fixed base tier opens before the locale tier")
   {
-    CHECK(storage.archives().front().path.filename().string().starts_with("base"));
+    // Missing table rows are skipped, so the front archive is whichever fixed
+    // Data-root member the install carries (the CI fleet's 5.4.8 ships no
+    // base-*.MPQ at all — its chain starts at interface.MPQ) — never an
+    // archive from the Data/{locale}/ tier.
+    CHECK(storage.archives().front().path.parent_path()
+          == tests::data_dir(tests::mop_client()));
   }
 
   SECTION("the wow-update tier attached (the Cata UpdateChain scheme continues)")
