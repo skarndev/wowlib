@@ -31,8 +31,9 @@ APIs (`MpqStorage::enumerate_paths`, `CascStorage::enumerate_fdids`,
   → `skipped:unsupported-version`; a version not among the 11 targeted
   releases → failed{stage="dispatch"}.
 - **ADT alpha format is re-derived per call** by reading the map's WDT next to
-  the tile (parent dir names the map); nothing is cached. WDT missing/broken →
-  failed{stage="wdt read"/"wdt parse"} — that is data.
+  the tile (parent dir names the map); nothing is cached. An unreadable map
+  WDT → skipped:no-map-wdt (addressing limitation — unnamed "unkmaps" tiles);
+  a WDT that reads but will not parse → failed{stage="wdt parse"} (data).
 - **Gotcha:** driver TUs open `using namespace wowlib(::formats)(::audit)`,
   which makes bare `detail::` ambiguous (audit::detail vs formats::detail vs
   wowlib::detail) — qualify as `audit::detail::`.
