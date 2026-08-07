@@ -27,6 +27,8 @@ add_executable(wowlib_tests
   integration/test_mpq_335_client.cpp
   integration/test_mpq_112_client.cpp
   integration/test_mpq_243_client.cpp
+  integration/test_mpq_434_client.cpp
+  integration/test_mpq_548_client.cpp
   integration/test_casc_927_client.cpp
   integration/test_facade_both.cpp
   integration/test_all_clients_open.cpp

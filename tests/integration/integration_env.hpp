@@ -140,6 +140,11 @@ namespace wowlib::tests
     return require_client({"4.3.4", "WoW Cata 4.3.4"});
   }
 
+  inline std::filesystem::path mop_client()      ///< Mists of Pandaria.
+  {
+    return require_client({"5.4.8"});
+  }
+
   // Detected locales of the resolved installs (see detect_locale()). Vanilla
   // is special: stock 1.x installs are flat (no Data/{locale}/ tier — it
   // entered the layout with TBC), so absence of a locale directory means "any
@@ -148,6 +153,7 @@ namespace wowlib::tests
   inline Locale mpq_locale()     { return detect_locale(data_dir(mpq_client())); }
   inline Locale tbc_locale()     { return detect_locale(data_dir(tbc_client())); }
   inline Locale cata_locale()    { return detect_locale(data_dir(cata_client())); }
+  inline Locale mop_locale()     { return detect_locale(data_dir(mop_client())); }
 
   inline Locale vanilla_locale()
   {
