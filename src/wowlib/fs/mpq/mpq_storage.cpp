@@ -3,6 +3,8 @@
 #include <fstream>
 #include <format>
 #include <ranges>
+#include <set>
+#include <tuple>
 
 #include <wowlib/core/path.hpp>
 
@@ -35,6 +37,25 @@ namespace
                                 std::format("failed to read loose file '{}'",
                                             path.string()));
     return buffer;
+  }
+
+  // The names StormLib synthesizes rather than stores: the archive metadata
+  // pseudo-files, and the "File########.ext" placeholders it invents for
+  // hash-table entries whose real name no listfile covers (reads by such a
+  // name would miss, so listing them would only manufacture failures).
+  bool is_synthetic_name(std::string_view canonical)
+  {
+    for (const std::string_view metadata :
+         {"(listfile)", "(attributes)", "(signature)", "(patch_metadata)"})
+      if (canonical == metadata)
+        return true;
+
+    if (canonical.size() < 13 || !canonical.starts_with("file") || canonical[12] != '.')
+      return false;
+    for (std::size_t i = 4; i < 12; ++i)
+      if (canonical[i] < '0' || canonical[i] > '9')
+        return false;
+    return true;
   }
 }
 
@@ -273,5 +294,50 @@ namespace wowlib::fs
         return true;
     }
     return false;
+  }
+
+  Result<std::vector<std::string>> MpqStorage::enumerate_paths()
+  {
+    if (!is_open())
+      return make_error(ErrorCode::StorageNotOpen, "MPQ storage is not open");
+
+    // A std::set both deduplicates across the chain and hands the paths back
+    // sorted, matching the contract in one structure.
+    std::set<std::string> paths;
+
+    for (const OpenedArchive& archive : _archives)
+    {
+      if (archive.is_directory)
+      {
+        // Loose members are indexed by canonical path already.
+        for (const auto& name : archive.loose | std::views::keys)
+          paths.insert(name);
+        continue;
+      }
+
+      std::scoped_lock lock{*archive.mtx};
+
+      // Archives open with MPQ_OPEN_NO_LISTFILE (see open_chain), so the name
+      // source must be loaded on demand; a nullptr list file means "the
+      // archive's own internal listfile" (StormLib walks the patch chain too).
+      // Failure is fine — the find below then yields only placeholder names,
+      // which are filtered out, effectively skipping the archive.
+      std::ignore = SFileAddListFile(archive.handle, nullptr);
+
+      SFILE_FIND_DATA found{};
+      HANDLE find = SFileFindFirstFile(archive.handle, "*", &found, nullptr);
+      if (!find)
+        continue;  // nothing enumerable in this archive — skip it silently
+      do
+      {
+        std::string canonical = normalize_path(found.cFileName);
+        if (!is_synthetic_name(canonical))
+          paths.insert(std::move(canonical));
+      } while (SFileFindNextFile(find, &found));
+      SFileFindClose(find);
+    }
+
+    return std::vector<std::string>{std::make_move_iterator(paths.begin()),
+                                    std::make_move_iterator(paths.end())};
   }
 }

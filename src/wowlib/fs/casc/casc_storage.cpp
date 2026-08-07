@@ -281,6 +281,34 @@ namespace wowlib::fs
     return {};
   }
 
+  Result<std::vector<FileDataID>> CascStorage::enumerate_fdids()
+  {
+    std::scoped_lock lock{_mtx};
+    if (!_storage)
+      return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
+
+    CASC_FIND_DATA found{};
+    HANDLE find = CascFindFirstFile(_storage, "*", &found, nullptr);
+    if (!find)
+      return make_error(ErrorCode::BackendError, "CascFindFirstFile failed",
+                        static_cast<std::uint32_t>(GetCascError()));
+
+    std::vector<FileDataID> fdids;
+    do
+    {
+      // Only content that is actually present locally and addressable by id;
+      // WoD-era roots are name-hash keyed and report CASC_INVALID_ID.
+      if (found.bFileAvailable && found.dwFileDataId != CASC_INVALID_ID)
+        fdids.push_back(FileDataID{found.dwFileDataId});
+    } while (CascFindNextFile(find, &found));
+    CascFindClose(find);
+
+    std::ranges::sort(fdids);
+    const auto duplicates = std::ranges::unique(fdids);
+    fdids.erase(duplicates.begin(), duplicates.end());
+    return fdids;
+  }
+
   bool CascStorage::exists(const FileKey& key)
   {
     std::scoped_lock lock{_mtx};

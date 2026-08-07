@@ -1,7 +1,9 @@
 #include <wowlib/fs/filesystem.hpp>
 
+#include <algorithm>
 #include <cctype>
 #include <format>
+#include <ranges>
 
 namespace wowlib::fs
 {
@@ -108,6 +110,34 @@ namespace wowlib::fs
       else
         return false;
     }, _impl);
+  }
+
+  Result<std::vector<std::string>> FileSystem::enumerate_paths()
+  {
+    if (auto* mpq_fs = std::get_if<MpqFileSystem>(&_impl))
+      return mpq_fs->backend().enumerate_paths();
+
+    if (auto* casc_fs = std::get_if<CascFileSystem>(&_impl))
+    {
+      // CASC storages are id-addressed; the listing is every id the listfile
+      // can name. Unnamed ids are dropped — a path listing is only as
+      // complete as the listfile, which is the CASC reality anyway.
+      auto fdids = casc_fs->backend().enumerate_fdids();
+      if (!fdids)
+        return std::unexpected(fdids.error());
+
+      std::vector<std::string> paths;
+      paths.reserve(fdids->size());
+      for (const FileDataID fdid : *fdids)
+        if (auto path = casc_fs->listfile().fdid_to_path(fdid))
+          paths.push_back(std::move(*path));
+      std::ranges::sort(paths);
+      const auto duplicates = std::ranges::unique(paths);
+      paths.erase(duplicates.begin(), duplicates.end());
+      return paths;
+    }
+
+    return closed_error();
   }
 
   FileKey FileSystem::resolve(const FileKey& key) const

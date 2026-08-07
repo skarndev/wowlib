@@ -86,6 +86,17 @@ namespace wowlib::fs
         @return true if a read would find it. */
     bool exists(const FileKey& key);
 
+    /** Enumerate every file path reachable through the chain: the members of
+        each archive (named by its internal listfile, loaded on demand — the
+        archives themselves open with MPQ_OPEN_NO_LISTFILE) plus the loose-dir
+        members, canonicalized, deduplicated across the chain and sorted.
+        Best-effort by design: an archive that cannot enumerate (no internal
+        listfile) is skipped silently, as are StormLib's metadata pseudo-files
+        and the nameless hash-table placeholders — a partial listing is more
+        useful than none.
+        @return the sorted canonical paths, or StorageNotOpen. */
+    Result<std::vector<std::string>> enumerate_paths();
+
     /** @return the storage technology tag (Mpq). */
     static constexpr StorageKind kind() { return StorageKind::Mpq; }
 

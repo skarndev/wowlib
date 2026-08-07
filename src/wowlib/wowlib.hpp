@@ -325,3 +325,20 @@ namespace wowlib::formats
 #include <wowlib/formats/wdl/wdl.hpp>
 #include <wowlib/formats/adt/adt.hpp>
 #include <wowlib/formats/blp/blp.hpp>
+
+// The audit namespace opens last: its entry point names fs::FileSystem and
+// ClientVersion in signatures, and everything it touches is registered by now.
+namespace wowlib
+{
+  namespace
+  [[=welder::doc(R"(
+      Exhaustive round-trip auditing: enumerate a client's files (see
+      FileSystem.enumerate_paths) and round-trip them one at a time through
+      the matching format entity, collecting per-file outcome reports —
+      read->write->compare only, no semantic validation.)")]]
+  audit
+  {
+  }
+}
+
+#include <wowlib/audit/roundtrip.hpp>

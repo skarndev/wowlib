@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 #include <wowlib/core/buffer.hpp>
 #include <wowlib/core/client_version.hpp>
@@ -110,6 +111,14 @@ namespace wowlib::fs
         @param key the file identity.
         @return true if a read would find it. */
     bool exists(const FileKey& key);
+
+    /** Enumerate every FileDataID the storage holds: entries whose content is
+        locally available and that carry a valid id, deduplicated and sorted.
+        Modern root manifests are id-keyed, so this is the complete file
+        listing regardless of listfile coverage (name resolution stays the
+        composition layer's job).
+        @return the sorted FileDataIDs, or StorageNotOpen / BackendError. */
+    Result<std::vector<FileDataID>> enumerate_fdids();
 
     /** @return the storage technology tag (Casc). */
     static constexpr StorageKind kind() { return StorageKind::Casc; }

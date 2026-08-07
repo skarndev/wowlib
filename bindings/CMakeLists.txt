@@ -183,6 +183,7 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
     RECURSIVE
     OUTPUT_PATH ${_wowlib_stubs}
     OUTPUT ${_wowlib_stubs}/wowlib/__init__.pyi
+           ${_wowlib_stubs}/wowlib/audit.pyi
            ${_wowlib_stubs}/wowlib/fs.pyi
            ${_wowlib_stubs}/wowlib/versions.pyi
            ${_wowlib_stubs}/wowlib/db/__init__.pyi

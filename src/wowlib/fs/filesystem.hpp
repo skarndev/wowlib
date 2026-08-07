@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 #include <welder/vocabulary.hpp>
 
@@ -169,6 +170,17 @@ namespace wowlib::fs
     {
       return exists(FileKey{fdid});
     }
+
+    [[=welder::doc(R"(
+        Enumerate every client-internal file path reachable in the storage:
+        the union of the MPQ chain's archive listings (loose directories
+        included), or — on CASC clients — every FileDataID the storage holds
+        that the loaded listfile can name (unnamed ids are skipped, and
+        without a listfile the listing is empty). Paths come back canonical,
+        deduplicated and sorted; the project-directory overlay is not
+        included.)"),
+      =welder::returns("the sorted canonical paths")]]
+    Result<std::vector<std::string>> enumerate_paths();
 
     [[=welder::doc(R"(
         Fill the missing half of a key (path or FileDataID) from the listfile,

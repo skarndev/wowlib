@@ -1,0 +1,126 @@
+name: ci-audit
+
+# The exhaustive round-trip audit: every file of every format of every client
+# on the box, driven by pytest over the Python bindings (tools/audit), with
+# the per-file work in C++ (wowlib.audit.Auditor.roundtrip). Round-trip
+# failures are report data, not job failures — the job only fails when the
+# tool layer breaks. Nightly + on demand; never on pull_request (the box's
+# runner executes as root and this is a public repository).
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      audit_clients:
+        description: 'comma-separated client dirs (default all present)'
+        required: false
+        default: ''
+      audit_formats:
+        description: 'comma-separated formats from wmo,m2,adt,wdt,wdl,blp'
+        required: false
+        default: ''
+      max_per_format:
+        description: 'cap on files per client x format (0 = all)'
+        required: false
+        default: '0'
+
+concurrency:
+  group: ci-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          brew update
+          brew install gcc ninja cmake
+          gcc-16 --version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up CPython 3.13
+        run: |
+          uv venv .venv --python 3.13
+          uv pip install numpy
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-linux-audit-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-linux-audit-
+
+      # Static libstdc++/libgcc: the module must import on the box, whose
+      # C++ runtime (apt gcc-16) need not match Homebrew's.
+      - name: Configure
+        run: >-
+          cmake --preset gcc16-bindings-release
+          -DPython_EXECUTABLE=$PWD/.venv/bin/python
+          -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+      - name: Build extension
+        run: cmake --build --preset gcc16-bindings-release --target wowlib_py
+
+      - name: Make the module portable
+        run: |
+          sudo apt-get install -y patchelf
+          patchelf --remove-rpath build/release/bindings/python/wowlib.abi3.so
+
+      - name: Upload module
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowlib-audit-module
+          path: build/release/bindings/python/wowlib.abi3.so
+          if-no-files-found: error
+          retention-days: 3
+
+  audit:
+    needs: build
+    runs-on: [self-hosted, wowlib-clients]
+    timeout-minutes: 1440
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download module
+        uses: actions/download-artifact@v4
+        with:
+          name: wowlib-audit-module
+          path: pymod
+
+      - name: Run the audit
+        env:
+          PYTHONPATH: ${{ github.workspace }}/pymod
+        run: |
+          args=()
+          [ -n "${{ inputs.audit_clients }}" ] && args+=(--audit-clients "${{ inputs.audit_clients }}")
+          [ -n "${{ inputs.audit_formats }}" ] && args+=(--audit-formats "${{ inputs.audit_formats }}")
+          [ -n "${{ inputs.max_per_format }}" ] && [ "${{ inputs.max_per_format }}" != "0" ] && \
+            args+=(--max-per-format "${{ inputs.max_per_format }}")
+          mkdir -p audit-report
+          # Round-trip failures are report data and do not fail tests; a
+          # nonzero pytest exit means the tool layer itself broke, which
+          # should fail the job.
+          /root/audit-venv/bin/python -m pytest tools/audit -q \
+            --clients-dir /root/WoWClients \
+            --listfile /root/WoWClients/community-listfile.csv \
+            --report-dir "$PWD/audit-report" \
+            "${args[@]}" 2>&1 | tee audit-report/console.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: audit-report/
+          if-no-files-found: error
+          retention-days: 30

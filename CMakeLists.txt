@@ -21,6 +21,15 @@ add_library(wowlib STATIC
   src/wowlib/fs/mpq/mpq_storage.cpp
   src/wowlib/fs/casc/casc_storage.cpp
   src/wowlib/formats/blp/blp.cpp
+  # The round-trip audit surface: the dispatcher plus one driver TU per format
+  # (each instantiates its format's full version matrix, so they compile in
+  # parallel).
+  src/wowlib/audit/roundtrip.cpp
+  src/wowlib/audit/roundtrip_wmo.cpp
+  src/wowlib/audit/roundtrip_m2.cpp
+  src/wowlib/audit/roundtrip_adt.cpp
+  src/wowlib/audit/roundtrip_wdt_wdl.cpp
+  src/wowlib/audit/roundtrip_blp.cpp
   src/wowlib/db/codec_common.cpp
   src/wowlib/db/wdbc.cpp
   src/wowlib/db/wdb2.cpp
