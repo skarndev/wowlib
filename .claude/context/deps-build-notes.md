@@ -13,6 +13,57 @@ errors.
   `WOWLIB_TEST_CLIENTS_DIR=/Users/skarn/WoWModding/Clients` and
   `WOWLIB_TEST_LISTFILE=/Users/skarn/WoWModding/Listfiles/community-listfile.csv`.
 
+### The macOS `as` shim (`cmake/darwin-as-shim/`)
+gcc's Darwin port names string literals with assembler-**temporary** labels
+(`L.str.N`). Under `.subsections_via_symbols` a temporary label does not open a
+Mach-O atom, so the literal is absorbed into the atom of the preceding real
+symbol. When that symbol is coalescable — the `std::span<char>::__v<N>` blobs
+reflection materializes in *every* TU including a wowlib header — `ld` keeps one
+TU's atom and drops the rest, and every literal that rode along resolves into the
+survivor at the same offset. It surfaced as `std::format("{:016x}")` returning
+NUL-riddled hex (libstdc++'s digit table sat at `__v<256>+4`), which broke CASC
+opens. Clang is immune: it names literals `l_.str`, the lowercase-l
+*linker-private* class, which opens an atom yet is still stripped from the final
+image. gcc already does this for FP constants (`lCN`) — strings are the gap.
+
+- The shim renames `L.str.*` → `l.str.*` and nothing else. Do **not** widen it:
+  `-Wa,-L` (promote every temporary label) also promotes local branch targets,
+  and aarch64 cannot relocate a conditional branch against an external symbol, so
+  real code stops assembling. `L.str.*` is the only temporary-label class
+  anchoring data in a coalescable section — EH/CFI labels live in `__eh_frame` /
+  `GCC_except_table`, handled separately by the linker.
+- Attached via `-B` on `WOWLIB_REFLECTION_FLAGS`, so it propagates PUBLIC with
+  `-freflection`; consumers (wrender) inherit it automatically.
+- The bug is **runtime-silent**, so `cmake/DarwinAtomProbe.cmake` builds and runs
+  a two-TU reproducer at configure time and hard-fails if the workaround is not
+  in effect. It also reports when the bug stops reproducing *without* the shim,
+  which is the signal that the shim may finally be removable.
+- Landmines the probe exists to catch (all were real): `-pipe` makes gcc feed
+  assembly on stdin with no file to rewrite; a dropped or reordered `-B` falls
+  back to `/usr/bin/as`. Either brings the corruption back with no diagnostic.
+- **Exposure is narrower than "any `L.str`".** `__TEXT,__cstring` is a *literal*
+  section — ld coalesces it by content and never atomizes it by symbol — so
+  literals landing there are safe even unshimmed. Only literals gcc puts in a
+  *regular* section (`__TEXT,__const`, e.g. libstdc++'s to_chars digit table)
+  can ride a weak atom. This is why the third-party targets that do not inherit
+  `-freflection` (imgui, Tracy, CascLib, StormLib) are currently fine: measured
+  2026-08-07, all 5975 of their `L.str` symbols are in `__cstring`, none in
+  `__const`. That is a property of what those TUs happen to instantiate, not a
+  guarantee — a dep that starts using `<format>`/`<charconv>` would become
+  exposed silently. Mixing shimmed and unshimmed TUs in one link is *not* safe
+  in general (verified: an unshimmed TU is still corrupted when a shimmed TU
+  wins coalescing), so if that ever changes, apply the `-B` flag globally
+  instead of hanging it off `-freflection`.
+- Upstream: a **GCC 16 regression** from r16-2939-g4db9571488eb (`for_asan ?
+  'l' : 'L'` in `darwin_encode_section_info`); GCC ≤ 15 is unaffected. As of
+  2026-08 it is unreported on GCC Bugzilla and unfixed on trunk, and no command
+  line option changes the prefix. Worth filing — the fix is to always use `'l'`.
+  **The polarity is the opposite of the commit title** ("…when asan is
+  enabled"): `for_asan` takes the *safe* lowercase `l`, so plain builds are the
+  broken ones and an asan build is accidentally correct (verified on 16.1.0:
+  `-O2` → `L.str.0`, `-O2 -fsanitize=address` → `l.str.0`). asan is not a
+  workaround anyway — it moves literals to `__TEXT,__asan_cstring` wholesale.
+
 ## Pins (FetchContent, cmake/Dependencies.cmake)
 | Dep | Tag | Notes |
 |---|---|---|

@@ -128,6 +128,9 @@ jobs:
       WOWLIB_TEST_LISTFILE: /root/WoWClients/community-listfile.csv
       # The checkout provides the fixture files the travelling binary needs.
       WOWLIB_TEST_DATA_DIR: ${{ github.workspace }}/tests/data
+      # The box's /tmp is a small tmpfs; test scratch (per-client listfile
+      # copies, project overlays) goes to the disk instead.
+      TMPDIR: /root/tmp
     steps:
       - uses: actions/checkout@v4
 

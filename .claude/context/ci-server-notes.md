@@ -62,3 +62,9 @@ under `WOWLIB_TEST_CLIENTS_DIR` — canonical bare-version names first
 differ). `test_all_clients_open.cpp` sweeps every canonical directory present:
 facade open + probe read (MPQ: `DBFilesClient/Map.dbc`; Legion+: `map.db2` via
 listfile; WoD: open-only — its CASC root is name-hash keyed, no FileDataIDs).
+
+## /tmp is a 1.9 GiB tmpfs (learned 2026-08-08 the hard way)
+Box jobs set TMPDIR=/root/tmp (disk). Never park binaries or listfile copies
+in /tmp — an ENOSPC there truncated an audit listfile copy mid-write and
+zeroed 10.2.7's enumeration; the run then died at the end and (pre-fix)
+uploaded no artifact. The audit upload step is if: always() now.

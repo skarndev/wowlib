@@ -88,6 +88,11 @@ jobs:
     needs: build
     runs-on: [self-hosted, wowlib-clients]
     timeout-minutes: 1440
+    env:
+      # The box's /tmp is a 1.9 GiB tmpfs; per-client listfile copies and
+      # project scratch belong on the disk (an ENOSPC there once truncated a
+      # listfile copy and zeroed a client's enumeration).
+      TMPDIR: /root/tmp
     steps:
       - uses: actions/checkout@v4
 
@@ -117,7 +122,10 @@ jobs:
             "${args[@]}" 2>&1 | tee audit-report/console.txt
           exit "${PIPESTATUS[0]}"
 
+      # if: always() — a failed sweep's partial report is exactly the evidence
+      # needed (a 7-hour run once died at the very end and uploaded nothing).
       - name: Upload report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: audit-report

@@ -172,7 +172,12 @@ def client_contexts(audit_options, scratch_dir):
             if audit_options["listfile"]:
                 working = os.path.join(scratch_dir, f"{client_dir_name}-listfile.csv")
                 if not os.path.exists(working):
-                    shutil.copyfile(audit_options["listfile"], working)
+                    # Copy-then-rename: a copy that dies mid-write (ENOSPC on a
+                    # tmpfs /tmp once poisoned a whole client's enumeration with
+                    # a truncated listfile) must never look like a finished one.
+                    partial = working + ".partial"
+                    shutil.copyfile(audit_options["listfile"], partial)
+                    os.replace(partial, working)
                 kwargs["listfile_csv"] = working
 
         try:

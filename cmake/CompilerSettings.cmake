@@ -23,14 +23,20 @@ set(WOWLIB_CXX_FLAGS -Wall -Wextra -Wno-missing-field-initializers)
 # the wowlib target (welder itself checks but does not propagate it).
 set(WOWLIB_REFLECTION_FLAGS -freflection)
 
-# gcc-16 on Apple Silicon breaks the Mach-O atom model: assembler-local literal
-# labels (L.str.N) get folded into the preceding atom, and when that atom is a
-# coalescable weak symbol (the std::span __v<N> blobs reflection materializes in
-# every TU that includes wowlib headers), ld's weak coalescing shifts the
-# literals — libstdc++'s to_chars digit table came back NUL-riddled. The as shim
-# renames L.str.* to linker-private l.str.* so each literal keeps its own atom.
-# Propagated with the reflection flag: every TU compiling wowlib headers is
-# exposed. See cmake/darwin-as-shim/as for the full write-up.
+# gcc-16 on Apple Silicon breaks the Mach-O atom model: string literals carry
+# assembler-temporary labels (L.str.N), which do not open an atom, so they get
+# folded into the preceding one. When that atom is a coalescable weak symbol
+# (the std::span __v<N> blobs reflection materializes in every TU that includes
+# wowlib headers), ld's weak coalescing shifts the literals — libstdc++'s
+# to_chars digit table came back NUL-riddled. The as shim renames L.str.* to
+# linker-private l.str.* so each literal keeps its own atom. Propagated with the
+# reflection flag: every TU compiling wowlib headers is exposed. See
+# cmake/darwin-as-shim/as for the full write-up.
 if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   list(APPEND WOWLIB_REFLECTION_FLAGS -B${CMAKE_CURRENT_LIST_DIR}/darwin-as-shim)
+
+  # The corruption is silent, so never assume the shim took effect — build and
+  # run a reproducer and assert it did.
+  include(${CMAKE_CURRENT_LIST_DIR}/DarwinAtomProbe.cmake)
+  wowlib_verify_darwin_atom_workaround(WOWLIB_REFLECTION_FLAGS)
 endif()
