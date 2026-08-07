@@ -235,3 +235,10 @@ Note: pywowlib sorted ALL `Data/*.MPQ` alphabetically — approximately right fo
   ruRU install symlinked into ~/WoWModding/Clients as "WoW Cata 4.3.4"); the
   MoP table is a safe superset, UNVERIFIED until the local 5.4.8 download
   completes.
+## Vanilla (1.x) locale tier — optional (2026-08-06)
+Stock 1.12 installs are FLAT: `Data/` holds base/dbc/fonts/.../patch-2 with NO
+`Data/{locale}/` subdirectory at all (the locale tier entered the layout with
+TBC). Only some later repacks (e.g. the local "WoW Classic 1.12.2" ruRU one)
+retrofit a locale dir. `MpqStorage::open` therefore requires `Data/{code}/`
+only for major >= 2; for 1.x the `LocaleFixed` entries and locale patches
+mount only when the directory exists. The CI box's `1.12.1` is the flat kind.
