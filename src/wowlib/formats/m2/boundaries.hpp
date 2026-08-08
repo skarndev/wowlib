@@ -174,7 +174,8 @@ namespace wowlib::formats::m2
     builds::BfA_Beta,   // TXID/LDV1
     builds::BfA_TidesOfVengeance,   // RPID/GPID
     builds::BfA_RiseOfAzshara,   // WFV1/WFV2/PGD1
-    builds::SL_Alpha_33978,   // WFV3/PFDC/EDGF/NERF/DBOC
+    builds::BfA_VisionsOfNzoth_35662,   // PFDC (9.0.1-alpha chunk backported)
+    builds::SL_Alpha_33978,   // WFV3/EDGF/NERF/DBOC
     builds::SL_Alpha_34365,   // DETL
     builds::DF,      // AFRA
     builds::TWW_LegacyOfArathor}; // PCOL/DPIV
@@ -190,6 +191,6 @@ namespace wowlib::formats::m2
     m2_split_blend_times, m2_chunked_container, m2_chunked_only,
     builds::Legion_ShadowsOfArgus_24500,  builds::BfA_Beta,
     builds::BfA_TidesOfVengeance,  builds::BfA_RiseOfAzshara,
-    builds::SL_Alpha_33978,  builds::SL_Alpha_34365,
-    builds::DF,     builds::TWW_LegacyOfArathor};
+    builds::BfA_VisionsOfNzoth_35662,  builds::SL_Alpha_33978,
+    builds::SL_Alpha_34365,  builds::DF,  builds::TWW_LegacyOfArathor};
 }

@@ -102,7 +102,15 @@ namespace wowlib::builds
   /** BfA, Visions of N'Zoth, 8.3.0 build 33775 (WMO MPVR). */
   inline constexpr ClientVersion BfA_VisionsOfNzoth_33775{8, 3, 0, 33775};
 
-  /** Shadowlands alpha, 9.0.1 build 33978 (WFV3/PFDC/EDGF/NERF/DBOC). */
+  /** BfA, Visions of N'Zoth, 8.3.7 build 35662 (M2 PFDC inline physics —
+      wowdev dates the chunk to the 9.0.1.33978 alpha, but 8.3.7 shipped
+      during that alpha and carries the backport; 31 item M2s in the 8.3.7
+      fleet client). */
+  inline constexpr ClientVersion BfA_VisionsOfNzoth_35662{8, 3, 7, 35662};
+
+  /** Shadowlands alpha, 9.0.1 build 33978 (WFV3/EDGF/NERF/DBOC; PFDC is
+      dated here by wowdev but reached late BfA too — see
+      BfA_VisionsOfNzoth_35662). */
   inline constexpr ClientVersion SL_Alpha_33978{9, 0, 1, 33978};
 
   /** Shadowlands alpha, 9.0.1 build 34365 (DETL). */

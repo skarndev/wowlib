@@ -352,6 +352,20 @@ namespace wowlib::formats
                                           fourcc_to_string(fourcc, endian), offset, what));
     }
 
+    /** The id layout to display for chunks the entity has no spec for
+        (garbage magics, unknown chunks): the entity's declared
+        `unknown_fourcc_endian` when present (the forward-magic M2 file
+        family), else the reversed common case.
+        @tparam E the chunked entity. */
+    template <typename E>
+    consteval FourCCEndian unknown_fourcc_endian()
+    {
+      if constexpr (requires { E::unknown_fourcc_endian; })
+        return E::unknown_fourcc_endian;
+      else
+        return FourCCEndian::reversed;
+    }
+
     // --- single-value (chunk payload <-> member) transfer ---------------------
 
     /** Read one chunk payload into member @a dst, dispatching on the member
@@ -475,7 +489,8 @@ namespace wowlib::formats
         std::memcpy(&size, data.data() + pos + sizeof fourcc, sizeof size);
         if (size > data.size() - pos - 2 * sizeof(std::uint32_t))
           return detail::chunk_error(ErrorCode::ChunkTruncated, fourcc, pos,
-                                     std::format("size {} overruns the buffer", size));
+                                     std::format("size {} overruns the buffer", size),
+                                     detail::unknown_fourcc_endian<E>());
         const auto payload = data.subspan(pos + 2 * sizeof(std::uint32_t), size);
 
         bool matched = false;

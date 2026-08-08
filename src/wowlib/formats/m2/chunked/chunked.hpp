@@ -69,6 +69,7 @@ namespace wowlib::formats::m2::chunked
   ]] M2ChunkedFile : ChunkedFile<M2ChunkedFile<V>>, M2ChunkedFileBase
   {
     static constexpr ClientVersion version = V;
+    static constexpr FourCCEndian unknown_fourcc_endian = FourCCEndian::forward;
 
     [[
       =chunk("MD21", FourCCEndian::forward),
@@ -248,11 +249,13 @@ namespace wowlib::formats::m2::chunked
 
     [[
       =chunk("PFDC", FourCCEndian::forward),
-      =since(builds::SL_Alpha_33978),
+      =since(builds::BfA_VisionsOfNzoth_35662),
       =formats::optional,
       =welder::doc("Inline physics (PFDC): a whole .phys image plus "
                    "alignment padding, kept verbatim (structured PHYS is a "
-                   "follow-up milestone).")]]
+                   "follow-up milestone). wowdev dates it to the 9.0.1 alpha, "
+                   "but 8.3.7 shipped mid-alpha with the backport — 31 item "
+                   "M2s in the fleet client carry it.")]]
     ChunkBlob inline_phys;
 
     [[

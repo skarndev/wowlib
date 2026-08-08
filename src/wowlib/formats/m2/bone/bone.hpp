@@ -43,6 +43,7 @@ namespace wowlib::formats::m2::bone
   ]] BoneFile : ChunkedFile<BoneFile>
   {
     static constexpr ClientVersion version = versions::wod;
+    static constexpr FourCCEndian unknown_fourcc_endian = FourCCEndian::forward;
 
     [[=formats::header,
       =welder::doc("The raw u32 prelude (version marker).")]]

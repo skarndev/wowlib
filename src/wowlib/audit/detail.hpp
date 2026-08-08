@@ -93,10 +93,11 @@ namespace wowlib::audit::detail
       one fourcc spelling per occurrence.
       @param report the report accumulating the sweep.
       @param extras the entity's chunk bookkeeping. */
-  inline void tally_unknown(RoundtripReport& report, const formats::ChunkExtras& extras)
+  inline void tally_unknown(RoundtripReport& report, const formats::ChunkExtras& extras,
+                            formats::FourCCEndian endian = formats::FourCCEndian::reversed)
   {
     for (const formats::UnknownChunk& unknown : extras.unknown)
-      report.unknown_chunks.push_back(formats::fourcc_to_string(unknown.fourcc));
+      report.unknown_chunks.push_back(formats::fourcc_to_string(unknown.fourcc, endian));
   }
 
   /** Run one file's driver, converting any escaping exception into a failed

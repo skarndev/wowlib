@@ -243,6 +243,7 @@ namespace wowlib::formats::m2
   ]] Skeleton : ChunkedFile<Skeleton<V>>, SkeletonBase
   {
     static constexpr ClientVersion version = V;
+    static constexpr FourCCEndian unknown_fourcc_endian = FourCCEndian::forward;
 
     [[
       =chunk("SKL1", FourCCEndian::forward),

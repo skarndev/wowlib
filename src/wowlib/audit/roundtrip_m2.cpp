@@ -79,13 +79,15 @@ namespace
     bool has_skel = false;
     if constexpr (requires { model.chunks; })
     {
-      audit::detail::tally_unknown(report, model.chunks);
+      // The M2 file family stores its chunk ids forward, unlike every other
+      // chunk format — tally them unreversed (PFDC, not "CDFP").
+      audit::detail::tally_unknown(report, model.chunks, formats::FourCCEndian::forward);
       has_skel =
         !model.chunks.skeleton_fdid.empty() && model.chunks.skeleton_fdid.front() != 0;
       if (has_skel)
       {
         gate_sequences = &model.skel.sequence_block.sequences;
-        audit::detail::tally_unknown(report, model.skel);
+        audit::detail::tally_unknown(report, model.skel, formats::FourCCEndian::forward);
       }
     }
 
