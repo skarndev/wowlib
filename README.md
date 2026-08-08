@@ -44,17 +44,22 @@ the matrix below shows how far each has been *verified*:
 - 🟡 — implemented, awaiting a client install to verify against
 - ➖ — not applicable to that client
 
-| Format | Round-trip | Vanilla<br>1.12.1 | TBC<br>2.4.3 | WotLK<br>3.3.5a | Cata<br>4.3.4 | MoP<br>5.4.8 | WoD<br>6.2.4 | Legion<br>7.3.5 | BfA<br>8.3.7 | SL<br>9.2.7 | DF<br>10.2.7 | TWW<br>11.2.7 |
+✅ file-format cells are backed by the [nightly exhaustive audit](.github/workflows/ci-audit.yml):
+every file of every format in every installed client (~3.4M files) is
+round-tripped, with the handful of shipped-corrupt originals catalogued in the
+audit report artifact.
+
+| Format | Round-trip | Vanilla<br>1.12.1 | TBC<br>2.4.3 | WotLK<br>3.3.5a | Cata<br>4.3.4 | MoP<br>5.4.8 | WoD<br>6.2.3 | Legion<br>7.3.5 | BfA<br>8.3.7 | SL<br>9.2.7 | DF<br>10.2.7 | TWW<br>11.2.7 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **WMO** (root + groups) | byte-perfect | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
-| **M2** (+ `.skin` `.anim` `.skel` `.bone`)¹ | semantic | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
-| **ADT** (root + split files)² | semantic | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
-| **WDT** (+ `_occ` `_lgt` `_fogs` `_mpv`) | byte-perfect | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
-| **WDL** | byte-perfect | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
-| **BLP**³ | byte-perfect | 🟡 | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| **WMO** (root + groups) | byte-perfect | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| **M2** (+ `.skin` `.anim` `.skel` `.bone`)¹ | semantic | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| **ADT** (root + split files)² | semantic | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| **WDT** (+ `_occ` `_lgt` `_fogs` `_mpv`) | byte-perfect | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| **WDL** | byte-perfect | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
+| **BLP**³ | byte-perfect | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | **DBC / DB2**⁴ | byte-perfect (WDBC/WDB2), semantic (WDC*) | ✅ WDBC | ✅ WDBC | ✅ WDBC | ✅ WDB2 | 🟡 WDB2 | 🟡 WDB2 | 🟡 WDC1 | 🟡 WDC3 | ✅ WDC3 | 🟡 WDC5 | 🟡 WDC5 |
-| **MPQ** storage & patch chain⁵ | — | ✅ | ✅ | ✅ | ✅ | 🟡 | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| **CASC** storage | — | ➖ | ➖ | ➖ | ➖ | ➖ | 🟡 | 🟡 | 🟡 | ✅ | 🟡 | 🟡 |
+| **MPQ** storage & patch chain⁵ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| **CASC** storage | — | ➖ | ➖ | ➖ | ➖ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 
 ¹ `.phys` is carried as an opaque blob for now (structured records planned).
 Semantic round-trip means the writer relays out offset tables canonically, so
@@ -62,12 +67,14 @@ output is equivalent, not byte-identical.
 ² Monolithic (WotLK-) and split (Cata+ `_tex0`/`_obj0`/`_obj1`/`_lod`) layouts
 both supported; `_obj1`/`_lod` LOD chunks currently round-trip verbatim as raw
 chunks, structured access planned.
-³ BLP is identical across all client versions; verification spans the corpora
-we have locally. JPEG-encoded BLPs round-trip verbatim but do not decode.
+³ BLP is identical across all client versions; verification spans every
+installed client's full texture corpus. JPEG-encoded BLPs round-trip verbatim
+but do not decode.
 ⁴ WDC4 (10.1–10.2.5) is implemented as well. Encrypted (TACT) DB2 sections are
 preserved and reported; key injection is wired but not yet exercisable locally.
 ⁵ The 3.3.5a patch chain was verified against the client binary itself
-(reverse-engineered); the MoP chain table awaits a 5.4.8 install.
+(reverse-engineered); the 4.3.4 and 5.4.8 UpdateChain-era tables have
+dedicated integration tests against their installs.
 
 ### Not yet implemented
 
