@@ -109,4 +109,11 @@ APIs (`MpqStorage::enumerate_paths`, `CascStorage::enumerate_fdids`,
 - Parser fixes landed from round 1: MCAL/MCLQ header-authoritative-when-empty
   (AQ -2048 garbage), MCSE 52-byte 1.x payloads preserved verbatim via
   SoundEmitterCodec raw fallback (layout awaits RE), zero-byte + encrypted
-  reads reclassified as skips in the audit drivers.
+  reads reclassified as skips in the audit drivers. Post-fix 1.12.2 slice:
+  adt 2478/2478 ok, wmo 815/816.
+- **1.12.2 undercity_144.wmo is shipped-corrupt** (the lone 1.x wmo failure):
+  the file is truncated by exactly 1 byte. MOCV declares 1160 (= 290 vertex
+  colors x 4, matching MOVT's 290 vertices — the size is right) but only 1159
+  bytes exist; the outer MOGP size overruns by the same 1. 3.3.5a ships a
+  rebuilt, fully consistent copy of that group. NOT a parser gap — stays a
+  report failure per the failures-are-data policy; do not add leniency for it.
