@@ -41,7 +41,12 @@ add_executable(wowlib_tests
 target_link_libraries(wowlib_tests PRIVATE wowlib Catch2::Catch2WithMain)
 
 if(WOWLIB_DB_TABLES)
-  target_sources(wowlib_tests PRIVATE
+  # Each corpus sweep TU instantiates every generated table of its era
+  # (up to ~1000); four of those compiling at once OOM-killed a 16 GB hosted
+  # runner. A dedicated Ninja job pool caps their concurrency at two —
+  # non-Ninja generators ignore the property.
+  set_property(GLOBAL APPEND PROPERTY JOB_POOLS wowlib_db_corpus=2)
+  add_library(wowlib_tests_db_corpus OBJECT
     integration/test_dbc_corpus_112.cpp
     integration/test_dbc_corpus_243.cpp
     integration/test_dbc_corpus_335.cpp
@@ -52,6 +57,10 @@ if(WOWLIB_DB_TABLES)
     integration/test_db2_corpus_837.cpp
     integration/test_db2_corpus_927.cpp
     integration/test_db2_corpus_1027.cpp)
+  set_property(TARGET wowlib_tests_db_corpus PROPERTY JOB_POOL_COMPILE wowlib_db_corpus)
+  target_link_libraries(wowlib_tests_db_corpus
+                        PRIVATE wowlib wowlib_db_tables Catch2::Catch2WithMain)
+  target_sources(wowlib_tests PRIVATE $<TARGET_OBJECTS:wowlib_tests_db_corpus>)
   target_link_libraries(wowlib_tests PRIVATE wowlib_db_tables)
   add_test(NAME dbdgen_unit
     COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${CMAKE_SOURCE_DIR}/tools/dbdgen"
