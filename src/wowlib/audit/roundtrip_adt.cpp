@@ -76,12 +76,14 @@ namespace
       return audit::detail::fail_with(report, "wdt locate",
                                "the tile path has no map directory to derive the WDT from");
     const auto raw = fs.read_file(FileKey{wdt_path});
-    if (!raw)
+    if (!raw || raw->empty())
     {
-      // An unreadable map WDT is an addressing limitation, not a parse
-      // failure: community-listfile placeholder maps ("unkmaps/...") derive a
-      // synthetic WDT name no listfile entry or name hash resolves. Without
-      // the WDT there is no alpha format, so the tile cannot be audited.
+      // An unreadable or zero-byte map WDT is an addressing limitation, not a
+      // parse failure: community-listfile placeholder maps ("unkmaps/...")
+      // derive a synthetic WDT name no listfile entry or name hash resolves,
+      // and abandoned maps (2.4.3 development) ship an empty placeholder WDT.
+      // Without the WDT there is no alpha format, so the tile cannot be
+      // audited.
       return audit::detail::skipped("no-map-wdt");
     }
     wdt::root::WDTRoot<V> root;
