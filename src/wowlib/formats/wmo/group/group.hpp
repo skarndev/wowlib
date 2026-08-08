@@ -359,12 +359,16 @@ namespace wowlib::formats::wmo::group
       [[
         =chunk("MOTV"),
         =formats::optional,
-        =repeats(3),
+        =repeats(4),
         =welder::mark::only(welder::lang::py),
-        =welder::doc(R"(Texture-coordinate sets (MOTV), up to three; the active count
+        =welder::doc(R"(Texture-coordinate sets (MOTV), up to four; the active count
                         is driven by the group flags (has_two_motv, has_three_motv).
-                        Binds as a list of the filled sets, by value.)")]]
-      Repeated<std::vector<C2Vector>, 3> texcoords;
+                        Dragonflight groups ship a fourth set with no known flag
+                        (983 roots' groups in the 10.2.7 fleet client — e.g.
+                        Stormwind 8sw_portalroom01 group 2); it engages the
+                        fourth slot here. Binds as a list of the filled sets,
+                        by value.)")]]
+      Repeated<std::vector<C2Vector>, 4> texcoords;
 
       [[
         =chunk("MOBA"),
