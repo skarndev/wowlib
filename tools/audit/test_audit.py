@@ -10,6 +10,7 @@ nothing about a FILE's round-trip is asserted — failures are the audit's data.
 
 import collections
 import os
+import time
 
 import pytest
 
@@ -62,22 +63,50 @@ def test_roundtrip(client_id, candidates, version_name, fmt, audit_options,
     if cap:
         work = work[:cap]
 
+    # Streamed progress: a cell can grind for hours, and pytest's capture
+    # would otherwise leave the CI log silent the whole time (the workflow
+    # runs with -s for exactly this reason). On GitHub Actions each cell
+    # additionally becomes a collapsible ::group:: in the log view.
+    on_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+    if on_actions:
+        print(f"::group::{client_id} {fmt} — {len(work)} files", flush=True)
+
     rows = []
     unknown_chunks = collections.Counter()
     unknown_examples = {}
-    for path in work:
-        try:
-            report = wowlib.audit.Auditor.roundtrip(fs, path, version)
-        except Exception as error:  # the C++ side guards; a raise is tool-layer data
-            rows.append((path, False, "exception", repr(error)))
-            continue
-        rows.append((path, report.ok, report.stage, report.error))
-        for fourcc in report.unknown_chunks:
-            unknown_chunks[fourcc] += 1
-            unknown_examples.setdefault(fourcc, path)
+    ok_n = failed_n = skipped_n = 0
+    started = last_emit = time.monotonic()
+    try:
+        for i, path in enumerate(work, 1):
+            try:
+                report = wowlib.audit.Auditor.roundtrip(fs, path, version)
+            except Exception as error:  # the C++ side guards; a raise is tool-layer data
+                rows.append((path, False, "exception", repr(error)))
+            else:
+                rows.append((path, report.ok, report.stage, report.error))
+                for fourcc in report.unknown_chunks:
+                    unknown_chunks[fourcc] += 1
+                    unknown_examples.setdefault(fourcc, path)
+            _, ok, stage, _ = rows[-1]
+            if not ok:
+                failed_n += 1
+            elif stage.startswith("skipped"):
+                skipped_n += 1
+            else:
+                ok_n += 1
+            now = time.monotonic()
+            if now - last_emit >= 30:
+                rate = i / (now - started)
+                print(f"[{client_id}/{fmt}] {i}/{len(work)} ok={ok_n} "
+                      f"failed={failed_n} skipped={skipped_n} ({rate:.1f} files/s)",
+                      flush=True)
+                last_emit = now
 
-    entry = collector.record(client_id, fmt, rows, unknown_chunks, unknown_examples)
-    print(f"[{client_id}] {fmt}: total={entry['total']} ok={entry['ok']} "
-          f"failed={entry['failed']} skipped={entry['skipped']} "
-          f"unknown_fourccs={len(entry['unknown_chunks'])} "
-          f"diagnostics={dict(classified['diagnostics'])}")
+        entry = collector.record(client_id, fmt, rows, unknown_chunks, unknown_examples)
+        print(f"[{client_id}] {fmt}: total={entry['total']} ok={entry['ok']} "
+              f"failed={entry['failed']} skipped={entry['skipped']} "
+              f"unknown_fourccs={len(entry['unknown_chunks'])} "
+              f"diagnostics={dict(classified['diagnostics'])}", flush=True)
+    finally:
+        if on_actions:
+            print("::endgroup::", flush=True)

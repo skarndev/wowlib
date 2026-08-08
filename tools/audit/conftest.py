@@ -92,6 +92,34 @@ class AuditCollector:
         path = os.path.join(self.report_dir, "summary.json")
         with open(path, "w", encoding="utf-8") as out:
             json.dump(summary, out, indent=2)
+        self._write_step_summary()
+
+    def _write_step_summary(self):
+        """Rewrite the GitHub job Summary page (GITHUB_STEP_SUMMARY) so a
+        killed sweep still surfaces everything recorded before it died. This
+        step is the file's only writer, so a full rewrite per cell is safe."""
+        target = os.environ.get("GITHUB_STEP_SUMMARY")
+        if not target:
+            return
+        lines = ["## Round-trip audit", "",
+                 "| client | format | total | ok | failed | skipped | unknown fourccs |",
+                 "|---|---|---:|---:|---:|---:|---:|"]
+        for (client, fmt), e in sorted(self.results.items()):
+            failed = f"**{e['failed']}**" if e["failed"] else "0"
+            lines.append(f"| {client} | {fmt} | {e['total']} | {e['ok']} | "
+                         f"{failed} | {e['skipped']} | {len(e['unknown_chunks'])} |")
+        unknown = [(client, fmt, fourcc, info)
+                   for (client, fmt), e in sorted(self.results.items())
+                   for fourcc, info in sorted(e["unknown_chunks"].items())]
+        if unknown:
+            lines += ["", "### Unknown chunks", "",
+                      "| client | format | fourcc | count | example |",
+                      "|---|---|---|---:|---|"]
+            lines += [f"| {client} | {fmt} | {fourcc} | {info['count']} | "
+                      f"`{info['example']}` |"
+                      for client, fmt, fourcc, info in unknown]
+        with open(target, "w", encoding="utf-8") as out:
+            out.write("\n".join(lines) + "\n")
 
     def table(self):
         lines = [f"{'client':<10} {'format':<6} {'total':>8} {'ok':>8} "

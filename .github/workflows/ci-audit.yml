@@ -88,7 +88,9 @@ jobs:
           # Round-trip failures are report data and do not fail tests; a
           # nonzero pytest exit means the tool layer itself broke, which
           # should fail the job.
-          /root/audit-venv/bin/python -m pytest tools/audit -q \
+          # -s: no capture, so the sweep's streamed progress lines (and the
+          # ::group:: per-cell folding) reach the live log as they happen.
+          /root/audit-venv/bin/python -m pytest tools/audit -q -s \
             --clients-dir /root/WoWClients \
             --listfile /root/WoWClients/community-listfile.csv \
             --report-dir "$PWD/audit-report" \
