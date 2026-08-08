@@ -158,17 +158,35 @@ namespace wowlib::formats::wdl
       std::vector<TileOcean> ocean_masks;
     };
 
-    /** The Shadowlands sky scenes and undocumented blobs. */
-    struct WdlSL
+    /** The BfA fade distances and WMO-map byte. */
+    struct WdlBfA
     {
       [[
         =chunk("MLDF"),
-        =since(builds::SL),
+        =since(builds::BfA),
         =formats::optional,
-        =welder::doc("MLDF (9.x+, undocumented; 8-byte records); preserved "
-                     "opaque.")]]
-      ChunkBlob mldf;
+        =welder::mark::no_reassign,
+        =welder::doc(R"(Fade-distance ranges for the M2 placements (MLDF, BfA);
+                        same count and order as lod_doodads. Undocumented on
+                        wowdev; the layout and the BfA (not Shadowlands) debut
+                        are survey findings across every 8.3.7 WDL carrying the
+                        chunk.)")]]
+      std::vector<LodDoodadFade> lod_doodad_fades;
 
+      [[
+        =chunk("MLMB"),
+        =since(builds::BfA),
+        =formats::optional,
+        =welder::doc(R"(MLMB (BfA; also on ADT obj files): undocumented,
+                        preserved opaque. Surveyed 8.3.7 carriers are all
+                        WMO-city maps (Boralus, Zuldazar) shipping one byte per
+                        MLMD placement.)")]]
+      ChunkBlob mlmb;
+    };
+
+    /** The Shadowlands sky scenes and undocumented blobs. */
+    struct WdlSL
+    {
       [[
         =chunk("MLDL"),
         =since(builds::SL),
@@ -184,14 +202,6 @@ namespace wowlib::formats::wdl
         =formats::optional,
         =welder::doc("MLDB (9.x+, undocumented); preserved opaque.")]]
       ChunkBlob mldb;
-
-      [[
-        =chunk("MLMB"),
-        =since(builds::SL),
-        =formats::optional,
-        =welder::doc("MLMB (9.x+, undocumented; also on ADT obj files); preserved "
-                     "opaque.")]]
-      ChunkBlob mlmb;
 
       [[
         =chunk("MSSN"),
@@ -284,6 +294,7 @@ namespace wowlib::formats::wdl
         slot<V, ClientVersion{0, 0, 0, 0}, WdlPreLegion, builds::Legion>,
         slot<V, builds::TBC, WdlTbc>,
         slot<V, builds::Legion, WdlLegion>,
+        slot<V, builds::BfA, WdlBfA>,
         slot<V, builds::SL, WdlSL>,
         slot<V, builds::TWW, WdlTww>
     {

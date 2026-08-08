@@ -14,7 +14,8 @@
 #define WOWLIB_WDL_RANGES(X)                                                                       \
   X(Vanilla, vanilla)                                                                              \
   X(TbcToWod, tbc)                                                                                 \
-  X(LegionToBfa, legion)                                                                           \
+  X(Legion, legion)                                                                                \
+  X(Bfa, bfa)                                                                                      \
   X(ShadowlandsToDragonflight, shadowlands)                                                        \
   X(TheWarWithin, tww)
 

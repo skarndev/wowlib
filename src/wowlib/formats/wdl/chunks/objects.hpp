@@ -68,4 +68,23 @@ namespace wowlib::formats::wdl::chunks
     float radius = 0;
   };
   static_assert(sizeof(LodExtent) == 28);
+
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        A fade-distance range for one low-resolution M2 placement (an MLDF
+        record, BfA): undocumented on wowdev; layout established by surveying
+        every 8.3.7 WDL carrying the chunk (33 files) — always exactly one
+        8-byte record per MLDD entry, holding a pair of ascending distances
+        drawn from clean round values ((500, 3500), (3500, 4000),
+        (5000, 5050), (10000, 10050)).)")
+  ]] LodDoodadFade
+  {
+    [[=welder::doc("The distance the fade starts at.")]]
+    float fade_start = 0;
+
+    [[=welder::doc("The distance the fade ends at.")]]
+    float fade_end = 0;
+  };
+  static_assert(sizeof(LodDoodadFade) == 8);
 }

@@ -11,8 +11,11 @@
       MLDD/MLDX/MLMD/MLMX low-resolution placements — though WMO-only maps
       keep shipping the old three, so they carry no until()), drops MAOC and
       adds MAOE;
+    - BfA adds the per-placement MLDF fade distances and the MLMB byte
+      (both undocumented on wowdev, which had them misdated to Shadowlands —
+      the 8.3.7 fleet survey carries 33 MLDF and 4 MLMB files);
     - Shadowlands adds the sky-scene chunks (MSSN/MSSC/MSSO/MSSF) and a few
-      undocumented blobs (MLDF/MLDL/MLDB/MLMB);
+      undocumented blobs (MLDL/MLDB);
     - The War Within adds MSLD/MSLI. */
 
 #include <array>
@@ -36,6 +39,6 @@ namespace wowlib::formats::wdl
     versions::dragonflight, versions::tww};
 
   /** WDL: every chunk-set change point (see the file comment). */
-  inline constexpr std::array wdl_pivots{builds::TBC, builds::Legion, builds::SL,
-                                         builds::TWW};
+  inline constexpr std::array wdl_pivots{builds::TBC, builds::Legion, builds::BfA,
+                                         builds::SL, builds::TWW};
 }
