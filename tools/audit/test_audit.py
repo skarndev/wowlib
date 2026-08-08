@@ -69,7 +69,9 @@ def test_roundtrip(client_id, candidates, version_name, fmt, audit_options,
     # additionally becomes a collapsible ::group:: in the log view.
     on_actions = os.environ.get("GITHUB_ACTIONS") == "true"
     if on_actions:
-        print(f"::group::{client_id} {fmt} — {len(work)} files", flush=True)
+        # The leading newline detaches the marker from pytest's ./s progress
+        # chars (-s interleaves them mid-line otherwise).
+        print(f"\n::group::{client_id} {fmt} — {len(work)} files", flush=True)
 
     rows = []
     unknown_chunks = collections.Counter()
@@ -105,8 +107,7 @@ def test_roundtrip(client_id, candidates, version_name, fmt, audit_options,
         entry = collector.record(client_id, fmt, rows, unknown_chunks, unknown_examples)
         print(f"[{client_id}] {fmt}: total={entry['total']} ok={entry['ok']} "
               f"failed={entry['failed']} skipped={entry['skipped']} "
-              f"unknown_fourccs={len(entry['unknown_chunks'])} "
-              f"diagnostics={dict(classified['diagnostics'])}", flush=True)
+              f"unknown_fourccs={len(entry['unknown_chunks'])}", flush=True)
     finally:
         if on_actions:
             print("::endgroup::", flush=True)

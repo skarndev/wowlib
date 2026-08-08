@@ -216,6 +216,12 @@ def client_contexts(audit_options, scratch_dir):
 
         paths = fs.enumerate_paths()  # a raised wowlib.Error fails the test too
         cache[client_dir_name] = (fs, _classify(paths))
+        # The classification is client-wide; report it here, once, rather than
+        # dragging the same diagnostics through every format cell's line.
+        _, classified = cache[client_dir_name]
+        print(f"\n[{client_dir_name}] enumerated {len(paths)} paths, work "
+              f"{ {fmt: len(items) for fmt, items in classified['work'].items()} } "
+              f"excluded {dict(classified['diagnostics'])}", flush=True)
         return cache[client_dir_name]
 
     return get
