@@ -177,11 +177,17 @@ namespace wowlib::formats::wdl
         =chunk("MLMB"),
         =since(builds::BfA),
         =formats::optional,
-        =welder::doc(R"(MLMB (BfA; also on ADT obj files): undocumented,
-                        preserved opaque. Surveyed 8.3.7 carriers are all
-                        WMO-city maps (Boralus, Zuldazar) shipping one byte per
-                        MLMD placement.)")]]
-      ChunkBlob mlmb;
+        =welder::mark::no_reassign,
+        =welder::doc(R"(One byte per WMO placement (MLMB, BfA; same count and
+                        order as lod_map_objects — the ADT twin pairs with
+                        MODF in _obj0 and MLMD in _obj1). Semantics unknown;
+                        the 8.3.7 fleet survey (1300+ instances) shows an
+                        enum-like value set (0x19/0x20/0x26/0x33/0x40/0x46/
+                        0x80) that clusters per map, varies per instance of
+                        the same asset, and does not correlate with the
+                        placement radius; 0x80 co-occurs with other values on
+                        the same asset like an override state.)")]]
+      std::vector<std::uint8_t> mlmb;
     };
 
     /** The Shadowlands sky scenes and undocumented blobs. */
