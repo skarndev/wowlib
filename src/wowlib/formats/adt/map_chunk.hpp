@@ -341,25 +341,20 @@ namespace wowlib::formats::adt
       }
     };
 
-    /** MCSE codec: modern 28-byte CWSoundEmitter records — or, when the payload
-        is not a whole number of them, the raw bytes preserved verbatim in
-        mcse_raw. The 1.x-era layout is 52 bytes per entry (observed on seven
-        vanilla Azeroth/Kalimdor tiles in the fleet audit; wowdev documents only
-        the 28-byte record and an 0.5.3-era 76-byte one) and stays un-modeled
-        until it is reverse-engineered. */
+    /** MCSE codec: typed emitter records — the era picks the entry
+        (pre-WotLK 52-byte CWSoundEmitterVanilla, 28-byte CWSoundEmitter
+        after; the member's value_type carries the choice). A payload that is
+        not a whole number of entries is preserved verbatim in mcse_raw. */
     struct SoundEmitterCodec
     {
-      /** The observed 1.x MCSE entry stride; only used to re-derive the header
-          count when the raw fallback engages. */
-      static constexpr std::size_t vanilla_entry_bytes = 52;
-
       template <typename Chunk>
       static Result<void> read(Chunk& self, std::span<const std::byte> sub,
                                const MapChunkReadCtx&)
       {
-        if (sub.size() % sizeof(chunks::CWSoundEmitter) == 0)
+        using Entry = std::remove_cvref_t<decltype(self.sound_emitters)>::value_type;
+        if (sub.size() % sizeof(Entry) == 0)
         {
-          self.sound_emitters.resize(sub.size() / sizeof(chunks::CWSoundEmitter));
+          self.sound_emitters.resize(sub.size() / sizeof(Entry));
           std::memcpy(self.sound_emitters.data(), sub.data(), sub.size());
           return {};
         }
@@ -368,13 +363,14 @@ namespace wowlib::formats::adt
       template <typename Chunk>
       static void write(const Chunk& self, FileBuffer& out, const MapChunkWriteCtx&)
       {
+        using Entry = std::remove_cvref_t<decltype(self.sound_emitters)>::value_type;
         if (!self.mcse_raw.empty())
         {
           (void)self.mcse_raw.write(out);
           return;
         }
         append_bytes(out, self.sound_emitters.data(),
-                     self.sound_emitters.size() * sizeof(chunks::CWSoundEmitter));
+                     self.sound_emitters.size() * sizeof(Entry));
       }
       template <typename Chunk>
       static bool engaged(const Chunk& self, const MapChunkWriteCtx&)
@@ -523,14 +519,17 @@ namespace wowlib::formats::adt
       [[=chunk("MCSE"),
         =in_file(InFile::root),
         =serialized_by(^^detail::SoundEmitterCodec),
-        =welder::doc("Sound emitters placed in this chunk (MCSE). Empty on the "
-                     "few 1.x tiles whose un-modeled 52-byte-entry payload is "
-                     "preserved verbatim instead."),
+        =welder::doc("Sound emitters placed in this chunk (MCSE): pre-WotLK "
+                     "versions carry the full 52-byte inline emitter "
+                     "(CWSoundEmitterVanilla), WotLK+ the 28-byte "
+                     "SoundEntriesAdvanced reference (CWSoundEmitter)."),
         =welder::mark::no_reassign]]
-      std::vector<CWSoundEmitter> sound_emitters;
+      std::vector<std::conditional_t<(V < builds::WotLK), CWSoundEmitterVanilla,
+                                     CWSoundEmitter>> sound_emitters;
 
-      /** The raw MCSE payload of a 1.x-era tile (52-byte entries, un-modeled —
-          see detail::SoundEmitterCodec); empty whenever sound_emitters parsed. */
+      /** A malformed MCSE payload (not a whole number of entries), preserved
+          verbatim — see detail::SoundEmitterCodec; empty whenever
+          sound_emitters parsed. */
       [[=welder::mark::exclude]]
       ChunkBlob mcse_raw;
 
@@ -689,9 +688,9 @@ namespace wowlib::formats::adt
         if (auto o = ofs(four_cc("MCSE")); o)
         {
           h.ofs_snd_emitters = *o;
+          using Entry = std::remove_cvref_t<decltype(sound_emitters)>::value_type;
           h.n_snd_emitters = static_cast<std::uint32_t>(
-            mcse_raw.empty() ? sound_emitters.size()
-                             : mcse_raw.size() / SoundEmitterCodec::vanilla_entry_bytes);
+            mcse_raw.empty() ? sound_emitters.size() : mcse_raw.size() / sizeof(Entry));
         }
         std::memcpy(out.data() + base, &h, sizeof(SMChunk));
       }

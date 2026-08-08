@@ -36,6 +36,75 @@ namespace wowlib::formats::adt::chunks
   };
   static_assert(sizeof(CWSoundEmitter) == 0x1C);
 
+  /** One pre-WotLK sound emitter (MCSE, 52 bytes): the full inline emitter
+      parameters later folded into SoundEntriesAdvanced. Field layout per
+      wowdev's 1.12.1 struct, verified field-for-field against the 1.12.2
+      client's seven carrier tiles (positions land inside their tiles' world
+      ranges, times are day-minutes, gaps are milliseconds). 2.4.3 ships no
+      MCSE at all, so the layout is vanilla-only in practice. */
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        A pre-WotLK terrain sound emitter (MCSE, 52 bytes): a SoundEntries
+        foreign key plus the inline distance/time/loop parameters that later
+        moved into SoundEntriesAdvanced.)")
+  ]] CWSoundEmitterVanilla
+  {
+    [[=welder::doc("Sequential emitter id, unique per map.")]]
+    std::uint32_t sound_point_id = 0;
+
+    [[=welder::doc("The sound (a SoundEntries foreign key).")]]
+    std::uint32_t sound_name_id = 0;
+
+    [[=welder::doc("The emitter position, in world coordinates.")]]
+    C3Vector position{};
+
+    [[=welder::doc("Full-volume distance.")]]
+    float min_distance = 0;
+
+    [[=welder::doc("Audible-range distance.")]]
+    float max_distance = 0;
+
+    [[=welder::doc("Cutoff distance.")]]
+    float cutoff_distance = 0;
+
+    [[=welder::doc("Daily start time, minutes.")]]
+    std::uint16_t start_time = 0;
+
+    [[=welder::doc("Daily end time, minutes.")]]
+    std::uint16_t end_time = 0;
+
+    [[=welder::doc("Emitter mode.")]]
+    std::uint16_t mode = 0;
+
+    [[=welder::doc("Minimum loop count.")]]
+    std::uint8_t loop_count_min = 0;
+
+    [[=welder::doc("Maximum loop count.")]]
+    std::uint8_t loop_count_max = 0;
+
+    [[=welder::doc("Minimum group silence, milliseconds.")]]
+    std::uint16_t group_silence_min = 0;
+
+    [[=welder::doc("Maximum group silence, milliseconds.")]]
+    std::uint16_t group_silence_max = 0;
+
+    [[=welder::doc("Minimum concurrent play instances.")]]
+    std::uint16_t play_instances_min = 0;
+
+    [[=welder::doc("Maximum concurrent play instances.")]]
+    std::uint16_t play_instances_max = 0;
+
+    [[=welder::doc("Minimum gap between sounds, milliseconds.")]]
+    std::uint16_t inter_sound_gap_min = 0;
+
+    [[=welder::doc("Maximum gap between sounds, milliseconds.")]]
+    std::uint16_t inter_sound_gap_max = 0;
+
+    bool operator==(const CWSoundEmitterVanilla&) const = default;
+  };
+  static_assert(sizeof(CWSoundEmitterVanilla) == 52);
+
   /** One Shadowlands doodad-set range (MWDR): a [begin, end] span into MWDS. */
   struct [[
     =welder::weld(welder::lang::py, welder::lang::lua),

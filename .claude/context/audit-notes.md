@@ -122,8 +122,11 @@ APIs (`MpqStorage::enumerate_paths`, `CascStorage::enumerate_fdids`,
   MLDF/MLMB (BfA wdl).
 - Parser fixes landed from round 1: MCAL/MCLQ header-authoritative-when-empty
   (AQ -2048 garbage), MCSE 52-byte 1.x payloads preserved verbatim via
-  SoundEmitterCodec raw fallback (layout awaits RE), zero-byte + encrypted
-  reads reclassified as skips in the audit drivers. Post-fix 1.12.2 slice:
+  SoundEmitterCodec raw fallback, zero-byte + encrypted reads reclassified as
+  skips in the audit drivers. (Round 3 follow-up: the 52-byte layout WAS
+  documented on ADT/v18 all along — "WoW 1.12.1 (52 byte)" below the modern
+  struct; we validated it against live 1.12.2 data and typed it as
+  CWSoundEmitterVanilla, era-switched at WotLK. 2.4.3 ships no MCSE at all.) Post-fix 1.12.2 slice:
   adt 2478/2478 ok, wmo 815/816.
 ## Round 3 (2026-08-08): every unknown chunk resolved — all were OUR bugs
 
