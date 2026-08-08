@@ -125,6 +125,27 @@ APIs (`MpqStorage::enumerate_paths`, `CascStorage::enumerate_fdids`,
   SoundEmitterCodec raw fallback (layout awaits RE), zero-byte + encrypted
   reads reclassified as skips in the audit drivers. Post-fix 1.12.2 slice:
   adt 2478/2478 ok, wmo 815/816.
+## Round 3 (2026-08-08): every unknown chunk resolved — all were OUR bugs
+
+- **The audit's WMO rows aggregate root + groups**: a group-file finding is
+  attributed to the ROOT's report row/example path. Cost an investigation
+  detour once ("MOTV in 983 roots" was really a 4th MOTV in their groups).
+- MLDF/MLMB (8.3.7 wdl): were modeled as SL blobs, but the WDL pivot grid had
+  no BfA entry so 8.3.7 parsed with the Legion layout. Now a WdlBfA slot +
+  BfA pivot; MLDF typed (LodDoodadFade, 1 per MLDD; survey: 33 files); MLMB
+  opaque (1 byte per MLMD, WMO-city maps only). WDLLegionToBfa alias split
+  into WDLLegion + WDLBfa.
+- "CDFP" (8.3.7 m2): really PFDC displayed reversed (M2 magics are forward);
+  the gate sat at wowdev's 9.0.1.33978 while 8.3.7 b35662 shipped mid-alpha
+  with the backport. New BfA_VisionsOfNzoth_35662 milestone; entities can
+  declare `unknown_fourcc_endian` (M2 shell/skel/bone = forward) which the
+  scanner diagnostics and audit tally honor.
+- MOTV (10.2.7 "roots"): Dragonflight GROUPS ship a 4th texcoord set;
+  repeats(3) capacity overflowed into the unknown route. Now repeats(4).
+- Verification pattern that worked: extract fleet specimens on the box via a
+  scp'd module + /root/audit-venv script, bring files local, byte-perfect
+  round-trip through the exact per-range Python class.
+
 - **1.12.2 undercity_144.wmo is shipped-corrupt** (the lone 1.x wmo failure):
   the file is truncated by exactly 1 byte. MOCV declares 1160 (= 290 vertex
   colors x 4, matching MOVT's 290 vertices — the size is right) but only 1159
