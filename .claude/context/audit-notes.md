@@ -70,6 +70,20 @@ APIs (`MpqStorage::enumerate_paths`, `CascStorage::enumerate_fdids`,
 - CASC clients get a disposable listfile copy per client (open() appends
   registrations to its working CSV).
 
+## CI shape (ci-audit.yml)
+
+- ci-audit builds NOTHING (since 2026-08-08): the audit job on the box locates
+  the newest successful main ci-linux run holding the
+  `wowlib-python-linux-x86_64` artifact (github-script) and cross-run
+  downloads it (download-artifact v4 run-id + github-token). The ci-linux
+  bindings job produces that module box-portable: static libstdc++/libgcc +
+  patchelf --remove-rpath. The former duplicate hosted build cost ~75 min per
+  nightly; the box itself cannot compile wowlib (apt gcc-16 rejects
+  reflection).
+- Consequence: an audit dispatch right after a source push runs against the
+  PREVIOUS build until that push's ci-linux bindings job finishes — wait for
+  ci-linux before dispatching when the fixes under test just landed.
+
 ## Bindings integration
 
 - Umbrella `wowlib.hpp`: `namespace audit` opens LAST (its signatures name

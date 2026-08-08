@@ -193,13 +193,23 @@ jobs:
           restore-keys: |
             deps-linux-bindings-
 
+      # Static libstdc++/libgcc + no RUNPATH: the module must import anywhere,
+      # including the audit box (ci-audit downloads this artifact instead of
+      # building its own), whose C++ runtime (apt gcc-16) need not match
+      # Homebrew's.
       - name: Configure
         run: >-
           cmake --preset gcc16-bindings-release
           -DPython_EXECUTABLE=$PWD/.venv/bin/python
+          -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
       - name: Build extension + stubs
         run: cmake --build --preset gcc16-bindings-release --target wowlib_py wowlib_pyi
+
+      - name: Make the module portable
+        run: |
+          sudo apt-get install -y patchelf
+          patchelf --remove-rpath build/release/bindings/python/wowlib.abi3.so
 
       - name: Upload Python module + stubs
         uses: actions/upload-artifact@v4
