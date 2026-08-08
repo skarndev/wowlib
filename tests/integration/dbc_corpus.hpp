@@ -7,6 +7,8 @@
     files (tables the era's DBD covers but the client does not ship) are
     counted, not failed; every present file must decode and round-trip. */
 
+#include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <format>
 #include <string>
@@ -14,6 +16,8 @@
 #include <vector>
 
 #include <wowlib/db/wdbc.hpp>
+#include <wowlib/fs/casc/casc_storage.hpp>
+#include <wowlib/fs/csv_listfile.hpp>
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 
 namespace wowlib::tests
@@ -141,5 +145,94 @@ namespace wowlib::tests
       out += '\n';
     }
     return out;
+  }
+
+  /** Sweep one table of a CASC-era client: resolve
+      dbfilesclient/<name>.db2 through the community listfile, decode,
+      re-encode, and compare — byte-perfect for the WDB2 era, semantic
+      (re-decode yields the same record set by id, encrypted images preserved
+      verbatim) for WDC*.
+      @tparam Tbl the generated table type of the era.
+      @param storage  the client's CASC storage.
+      @param listfile the loaded community listfile.
+      @param name     the WoWDBDefs table name.
+      @param stats    the sweep tally.
+      @param byte_perfect require memcmp equality (WDB2) instead of the
+                          semantic compare (WDC*). */
+  template <typename Tbl>
+  void sweep_table_casc(fs::CascStorage& storage, const fs::CsvListfile& listfile,
+                        std::string_view name, CorpusStats& stats, bool byte_perfect)
+  {
+    std::string base = name == "ItemSparseLegacy" ? "Item-sparse" : std::string{name};
+    for (char& c : base)
+      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    const auto fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.db2", base));
+    if (!fdid)
+    {
+      ++stats.missing;
+      return;
+    }
+    const auto data = storage.read_file(FileKey{*fdid});
+    if (!data)
+    {
+      ++stats.missing;  // listed but not shipped (or stripped from the repack)
+      return;
+    }
+    ++stats.present;
+    if (data->empty())
+    {
+      ++stats.empty;
+      return;
+    }
+
+    Tbl table;
+    if (const auto r = table.read(*data); !r)
+    {
+      stats.failures.push_back(std::format("{}: read failed: {}", name, r.error().message));
+      return;
+    }
+    const auto written = table.write();
+    if (!written)
+    {
+      stats.failures.push_back(
+        std::format("{}: write failed: {}", name, written.error().message));
+      return;
+    }
+
+    bool preserve = byte_perfect;
+    if constexpr (requires { table.encrypted_sections(); })
+      preserve = preserve || !table.encrypted_sections().empty();
+    if (preserve)
+    {
+      // WDB2 round-trips byte-perfectly; an encrypted WDC image is preserved
+      // verbatim by write() (the encrypted records share the file layout).
+      if (written->size() != data->size()
+          || std::memcmp(written->data(), data->data(), data->size()) != 0)
+        stats.failures.push_back(
+          std::format("{}: {}", name, describe_divergence(*data, *written)));
+      return;
+    }
+
+    // WDC*: canonical re-encode — re-reading must yield the same record set.
+    // A write coalesces duplicate rows, which can reorder multi-section
+    // tables, so compare sorted by id; id-less records cannot coalesce and
+    // compare in order.
+    Tbl reread;
+    if (const auto r = reread.read(*written); !r)
+    {
+      stats.failures.push_back(
+        std::format("{}: reread failed: {}", name, r.error().message));
+      return;
+    }
+    if constexpr (requires { table.records.front().id; })
+    {
+      const auto by_id = [](const auto& a, const auto& b) { return a.id < b.id; };
+      std::ranges::sort(table.records, by_id);
+      std::ranges::sort(reread.records, by_id);
+    }
+    if (reread.records != table.records)
+      stats.failures.push_back(std::format(
+        "{}: re-decode diverges ({} vs {} records)", name,
+        reread.records.size(), table.records.size()));
   }
 }

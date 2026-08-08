@@ -1,0 +1,32 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include <wowlib/db/tables/manifest_wod.hpp>
+
+#include "dbc_corpus.hpp"
+#include "integration_env.hpp"
+
+using namespace wowlib;
+using namespace wowlib::fs;
+
+// 6.2.3 is the WDB2 era's CASC face: the same byte-perfect sweep as the
+// 4.3.4/5.4.8 MPQ clients, resolved through the community listfile.
+TEST_CASE("6.2.3: the full DB2 corpus decodes and round-trips byte-perfectly (WDB2)",
+          "[integration][db]")
+{
+  auto listfile = CsvListfile::load(tests::require_listfile());
+  REQUIRE(listfile.has_value());
+  auto storage = CascStorage::open({.client_root = tests::wod_client(),
+                                    .build = versions::wod.build});
+  REQUIRE(storage.has_value());
+
+  tests::CorpusStats stats;
+#define X(Name)                                                          \
+  tests::sweep_table_casc<db::tables::Name<versions::wod>>(        \
+    *storage, *listfile, #Name, stats, /*byte_perfect=*/true);
+  WOWLIB_DB_TABLES_WOD(X)
+#undef X
+
+  INFO(tests::join_failures(stats));
+  CHECK(stats.failures.empty());
+  CHECK(stats.present >= 80);
+}

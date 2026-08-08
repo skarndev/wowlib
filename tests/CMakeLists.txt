@@ -46,7 +46,12 @@ if(WOWLIB_DB_TABLES)
     integration/test_dbc_corpus_243.cpp
     integration/test_dbc_corpus_335.cpp
     integration/test_dbc_corpus_434.cpp
-    integration/test_db2_corpus_927.cpp)
+    integration/test_dbc_corpus_548.cpp
+    integration/test_db2_corpus_623.cpp
+    integration/test_db2_corpus_735.cpp
+    integration/test_db2_corpus_837.cpp
+    integration/test_db2_corpus_927.cpp
+    integration/test_db2_corpus_1027.cpp)
   target_link_libraries(wowlib_tests PRIVATE wowlib_db_tables)
   add_test(NAME dbdgen_unit
     COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${CMAKE_SOURCE_DIR}/tools/dbdgen"

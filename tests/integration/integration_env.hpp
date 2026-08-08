@@ -145,6 +145,26 @@ namespace wowlib::tests
     return require_client({"5.4.8"});
   }
 
+  inline std::filesystem::path wod_client()      ///< Warlords of Draenor.
+  {
+    return require_client({"6.2.3", "6.2.4"});
+  }
+
+  inline std::filesystem::path legion_client()   ///< Legion.
+  {
+    return require_client({"7.3.5"});
+  }
+
+  inline std::filesystem::path bfa_client()      ///< Battle for Azeroth.
+  {
+    return require_client({"8.3.7"});
+  }
+
+  inline std::filesystem::path df_client()       ///< Dragonflight.
+  {
+    return require_client({"10.2.7"});
+  }
+
   // Detected locales of the resolved installs (see detect_locale()). Vanilla
   // is special: stock 1.x installs are flat (no Data/{locale}/ tier — it
   // entered the layout with TBC), so absence of a locale directory means "any
