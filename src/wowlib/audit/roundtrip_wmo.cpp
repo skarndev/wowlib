@@ -29,8 +29,8 @@ namespace
     RoundtripReport report;
 
     const auto root_data = fs.read_file(FileKey{path});
-    if (!root_data)
-      return audit::detail::fail_with(report, "root read", root_data.error().message);
+    if (auto outcome = audit::detail::classify_read(report, "root read", root_data))
+      return *outcome;
 
     wmo::WMORoot<V> root;
     if (auto r = root.read(*root_data); !r)
@@ -60,9 +60,9 @@ namespace
         return FileKey{std::format("{}_{:03}.wmo", path.substr(0, path.size() - 4), i)};
       }();
       const auto group_data = fs.read_file(group_key);
-      if (!group_data)
-        return audit::detail::fail_with(report, std::format("group {} read", i),
-                                 group_data.error().message);
+      if (auto outcome =
+            audit::detail::classify_read(report, std::format("group {} read", i), group_data))
+        return *outcome;
 
       wmo::WMOGroup<V> group;
       if (auto r = group.read(*group_data); !r)

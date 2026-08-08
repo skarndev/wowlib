@@ -341,6 +341,48 @@ namespace wowlib::formats::adt
       }
     };
 
+    /** MCSE codec: modern 28-byte CWSoundEmitter records — or, when the payload
+        is not a whole number of them, the raw bytes preserved verbatim in
+        mcse_raw. The 1.x-era layout is 52 bytes per entry (observed on seven
+        vanilla Azeroth/Kalimdor tiles in the fleet audit; wowdev documents only
+        the 28-byte record and an 0.5.3-era 76-byte one) and stays un-modeled
+        until it is reverse-engineered. */
+    struct SoundEmitterCodec
+    {
+      /** The observed 1.x MCSE entry stride; only used to re-derive the header
+          count when the raw fallback engages. */
+      static constexpr std::size_t vanilla_entry_bytes = 52;
+
+      template <typename Chunk>
+      static Result<void> read(Chunk& self, std::span<const std::byte> sub,
+                               const MapChunkReadCtx&)
+      {
+        if (sub.size() % sizeof(chunks::CWSoundEmitter) == 0)
+        {
+          self.sound_emitters.resize(sub.size() / sizeof(chunks::CWSoundEmitter));
+          std::memcpy(self.sound_emitters.data(), sub.data(), sub.size());
+          return {};
+        }
+        return self.mcse_raw.read(sub);
+      }
+      template <typename Chunk>
+      static void write(const Chunk& self, FileBuffer& out, const MapChunkWriteCtx&)
+      {
+        if (!self.mcse_raw.empty())
+        {
+          (void)self.mcse_raw.write(out);
+          return;
+        }
+        append_bytes(out, self.sound_emitters.data(),
+                     self.sound_emitters.size() * sizeof(chunks::CWSoundEmitter));
+      }
+      template <typename Chunk>
+      static bool engaged(const Chunk& self, const MapChunkWriteCtx&)
+      {
+        return !self.sound_emitters.empty() || !self.mcse_raw.empty();
+      }
+    };
+
     /** Vertex colors (MCCV), WotLK+. */
     struct MapChunkColor
     {
@@ -480,9 +522,17 @@ namespace wowlib::formats::adt
 
       [[=chunk("MCSE"),
         =in_file(InFile::root),
-        =welder::doc("Sound emitters placed in this chunk (MCSE)."),
+        =serialized_by(^^detail::SoundEmitterCodec),
+        =welder::doc("Sound emitters placed in this chunk (MCSE). Empty on the "
+                     "few 1.x tiles whose un-modeled 52-byte-entry payload is "
+                     "preserved verbatim instead."),
         =welder::mark::no_reassign]]
       std::vector<CWSoundEmitter> sound_emitters;
+
+      /** The raw MCSE payload of a 1.x-era tile (52-byte entries, un-modeled —
+          see detail::SoundEmitterCodec); empty whenever sound_emitters parsed. */
+      [[=welder::mark::exclude]]
+      ChunkBlob mcse_raw;
 
       /** The 13 undeclared trailing bytes after the MCNR normals (a near-constant
           client pattern, not derived from the normals); preserved for the
@@ -639,7 +689,9 @@ namespace wowlib::formats::adt
         if (auto o = ofs(four_cc("MCSE")); o)
         {
           h.ofs_snd_emitters = *o;
-          h.n_snd_emitters = static_cast<std::uint32_t>(sound_emitters.size());
+          h.n_snd_emitters = static_cast<std::uint32_t>(
+            mcse_raw.empty() ? sound_emitters.size()
+                             : mcse_raw.size() / SoundEmitterCodec::vanilla_entry_bytes);
         }
         std::memcpy(out.data() + base, &h, sizeof(SMChunk));
       }
@@ -660,10 +712,15 @@ namespace wowlib::formats::adt
           return 448;
         if (file_has_header(kind))
         {
-          if (magic == four_cc("MCAL") && header.size_alpha > 8)
-            return header.size_alpha - 8;
-          if (magic == four_cc("MCLQ") && header.size_liquid > 8)
-            return header.size_liquid - 8;
+          // The header's size fields are authoritative for MCAL/MCLQ even when
+          // they say "empty" (<= 8, header only): the vanilla map tool wrote
+          // garbage declared sizes into empty sub-chunk headers (every
+          // AhnQiraj MCAL with no alpha data declares -2048 — 243 tiles in
+          // the 1.12.1 fleet audit).
+          if (magic == four_cc("MCAL") && header.size_alpha != 0)
+            return header.size_alpha <= 8 ? 0 : header.size_alpha - 8;
+          if (magic == four_cc("MCLQ") && header.size_liquid != 0)
+            return header.size_liquid <= 8 ? 0 : header.size_liquid - 8;
         }
         return declared;
       }

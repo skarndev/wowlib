@@ -91,3 +91,22 @@ APIs (`MpqStorage::enumerate_paths`, `CascStorage::enumerate_fdids`,
   (undocumented ML-family chunk). All round-tripped verbatim.
 - Modern-client WMO skips (36-41/50) are _lodN variants; 9.2.7+ ADT skips are
   no-map-wdt (unnamed "unkmaps" tiles).
+
+## Fleet findings round 2 (2026-08-08, post-tmpfs-fix make-up run)
+- The tmpfs truncation had silently DEGRADED late-client enumerations in the
+  first uncapped run (9.2.7 m2 59k -> true 91.7k) — treat that run's late
+  cells as undercounts; the make-up run 31220400689 has the true 9.2.7/10.2.7.
+- True remaining failure surface (before the encrypted/empty reclass): almost
+  everything Legion+ is "unknown TACT key" (=> skipped:encrypted); genuinely
+  broken: 2 corrupt 9.2.7 repack files (garbage fourccs 'acol'/' iU<'),
+  1 9.2.7 adt, 4 cata sentinel m2s, 2.4.3+7.3.5 development-map wdt/wdl
+  (MVER absent).
+- **MOTV appears in 983 10.2.7 ROOT files** (example
+  world/wmo/azeroth/buildings/stormwind/8sw_portalroom01.wmo) — texcoords are
+  historically a group chunk; post-wmo_split_groups (9.2+) roots carrying
+  MOTV is an unmodeled era shift. Also still unmodeled: CDFP (8.3 item m2s),
+  MLDF/MLMB (BfA wdl).
+- Parser fixes landed from round 1: MCAL/MCLQ header-authoritative-when-empty
+  (AQ -2048 garbage), MCSE 52-byte 1.x payloads preserved verbatim via
+  SoundEmitterCodec raw fallback (layout awaits RE), zero-byte + encrypted
+  reads reclassified as skips in the audit drivers.

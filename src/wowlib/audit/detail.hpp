@@ -66,6 +66,29 @@ namespace wowlib::audit::detail
     return std::move(report);
   }
 
+  /** Classify a client-file read for the audit: content behind an unknown TACT
+      key and zero-byte archive entries (classic-era clients ship thousands of
+      empty placeholder files) cannot be round-tripped and are skips, not
+      failures; other errors fail at @a stage.
+      @param report the report under construction.
+      @param stage  the stage label for a genuine read failure.
+      @param result the filesystem read result.
+      @return the outcome to return early, or nullopt when the bytes are usable. */
+  inline std::optional<RoundtripReport> classify_read(RoundtripReport& report,
+                                                      std::string stage,
+                                                      const Result<FileBuffer>& result)
+  {
+    if (!result)
+    {
+      if (result.error().code == ErrorCode::EncryptedContent)
+        return skipped("encrypted");
+      return fail_with(report, std::move(stage), result.error().message);
+    }
+    if (result->empty())
+      return skipped("empty-file");
+    return std::nullopt;
+  }
+
   /** Append every unmodeled chunk of a parsed entity to the report's tally,
       one fourcc spelling per occurrence.
       @param report the report accumulating the sweep.

@@ -57,9 +57,21 @@ namespace
   {
     RoundtripReport report;
 
+    // Pre-classify the body bytes: classic clients ship zero-byte placeholder
+    // models, and Legion+ content can sit behind unknown TACT keys — both are
+    // skips. The assembly read below re-reads the body; that is cheap.
+    if (auto outcome =
+          audit::detail::classify_read(report, "read", fs.read_file(FileKey{path})))
+      return *outcome;
+
     m2::M2<V> model;
     if (auto r = model.read(fs, FileKey{path}); !r)
+    {
+      // Satellite files (.skin/.anim/.skel) can be individually encrypted.
+      if (r.error().code == ErrorCode::EncryptedContent)
+        return audit::detail::skipped("encrypted");
       return audit::detail::fail_with(report, "read", r.error().message);
+    }
 
     // skel-based models keep the external-data gating sequences in the
     // skeleton, and their bone/attachment blocks round-trip separately

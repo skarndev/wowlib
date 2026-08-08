@@ -46,8 +46,8 @@ namespace
   {
     RoundtripReport report;
     const auto raw = fs.read_file(FileKey{path});
-    if (!raw)
-      return audit::detail::fail_with(report, "read", raw.error().message);
+    if (auto outcome = audit::detail::classify_read(report, "read", raw))
+      return *outcome;
 
     wdt::root::WDTRoot<V> root;
     if (auto r = root.read(*raw); !r)
@@ -65,8 +65,8 @@ namespace
   {
     RoundtripReport report;
     const auto raw = fs.read_file(FileKey{path});
-    if (!raw)
-      return audit::detail::fail_with(report, "read", raw.error().message);
+    if (auto outcome = audit::detail::classify_read(report, "read", raw))
+      return *outcome;
 
     wdl::WDL<V> entity;
     if (auto r = entity.read(*raw); !r)

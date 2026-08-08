@@ -109,7 +109,11 @@ namespace
 
     adt::ADT<V> tile;
     if (auto r = tile.read(fs, FileKey{path}, alpha); !r)
+    {
+      if (r.error().code == ErrorCode::EncryptedContent)
+        return audit::detail::skipped("encrypted");
       return audit::detail::fail_with(report, "read", r.error().message);
+    }
 
     const auto first = tile.write_file(adt::FileKind::monolithic, alpha);
     if (!first)
@@ -146,7 +150,11 @@ namespace
 
     adt::ADT<V> tile;
     if (auto r = tile.read(fs, FileKey{path}, alpha); !r)
+    {
+      if (r.error().code == ErrorCode::EncryptedContent)
+        return audit::detail::skipped("encrypted");
       return audit::detail::fail_with(report, "read", r.error().message);
+    }
 
     constexpr std::array kinds{adt::FileKind::root, adt::FileKind::tex0, adt::FileKind::obj0};
     constexpr std::array names{"root", "_tex0", "_obj0"};
