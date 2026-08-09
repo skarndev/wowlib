@@ -28,7 +28,7 @@ TEST_CASE("6.2.3: the full DB2 corpus decodes and round-trips byte-perfectly (WD
 
   INFO(tests::join_failures(stats));
   CHECK(stats.failures.empty());
-  // 6.2.3 ships 517 client databases (270 .db2 + 247 .dbc); the generated WoD
-  // set is 165 tables, most of which the client carries in one form or other.
-  CHECK(stats.present >= 100);
+  // 6.2.3 carries 164 of the 165 generated WoD tables (61 as .db2, 103 as
+  // .dbc; only DeclinedWordCases is absent) — measured against the install.
+  CHECK(stats.present >= 160);
 }

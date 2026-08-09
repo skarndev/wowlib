@@ -256,19 +256,26 @@ namespace wowlib::tests
     for (char& c : base)
       c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     // A CASC-era client is mixed until Legion retires .dbc: 6.2.3 ships 270
-    // .db2 beside 247 .dbc, so a .db2-only lookup finds a third of the corpus.
-    auto fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.db2", base));
-    if (!fdid)
-      fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.dbc", base));
-    if (!fdid)
+    // .db2 beside 247 .dbc. The fallback must key off the READ, not the
+    // listfile lookup: the community listfile spans every expansion, so a
+    // table that is .dbc here still resolves its later .db2 name to a
+    // FileDataID this client does not carry (that alone hid 94 of 6.2.3's
+    // 164 present tables).
+    Result<FileBuffer> data = make_error(ErrorCode::FileNotFound, "no candidate");
+    for (const char* ext : {"db2", "dbc"})
     {
-      ++stats.missing;
-      return;
+      const auto fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.{}", base, ext));
+      if (!fdid)
+        continue;
+      if (auto candidate = storage.read_file(FileKey{*fdid}))
+      {
+        data = std::move(candidate);
+        break;
+      }
     }
-    const auto data = storage.read_file(FileKey{*fdid});
     if (!data)
     {
-      ++stats.missing;  // listed but not shipped (or stripped from the repack)
+      ++stats.missing;  // not listed, or listed but not shipped by this client
       return;
     }
     ++stats.present;
