@@ -119,6 +119,11 @@ namespace
     WMO<V> wmo;
     REQUIRE(wmo.read(fs, root_key).has_value());
     CHECK(wmo.groups.size() == n_groups);
+
+    // a freshly read, unmodified client file passes validation with zero
+    // errors (warnings are allowed - they mark states real files ship)
+    if (const auto valid = wmo.ensure_valid(); !valid)
+      FAIL(std::format("{}: {}", label, valid.error().message));
   }
 
   void dump_histogram(const char* which)

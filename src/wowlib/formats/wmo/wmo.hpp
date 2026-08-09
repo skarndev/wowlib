@@ -118,6 +118,29 @@ namespace wowlib::formats::wmo
                        const FileKey& key
                        [[=welder::doc("the root file identity; must resolve to a path")]]) const;
 
+    /** Check the whole object's logical integrity — the root's and every
+        group's own validate() plus the cross-file contracts only the assembly
+        can see: the MOGI table describing exactly the groups held, the groups'
+        annotated references into the root's arrays (indexes_in_root: MOLR,
+        MODR, the 9.0+ volume/light refs), the header portal ranges into MOPR,
+        and every rendered face's material resolving in MOMT. Validation is a
+        separate pass — write() never runs it; call this before writing to know
+        the files will load in the client. A freshly read, unmodified client
+        WMO reports zero errors. Excluded from the bindings until the facade
+        verbs land (stage 4).
+        @return every violated contract, prefixed "root"/"groups[i]". */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    ValidationReport validate() const;
+
+    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
+        chains before a write.
+        @return success when validate() reports no errors; otherwise one
+                InvalidEntityState error listing the findings. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    Result<void> ensure_valid() const;
+
   private:
     // --- internal fs-I/O helpers (definitions at the bottom of this header;
     // --- private so the Python/Lua surface and the C++ API stay verbs-only) -
@@ -160,6 +183,119 @@ namespace wowlib::formats::wmo
     if (stem.ends_with(".wmo"))
       stem.remove_suffix(4);
     return std::format("{}_{:03}.wmo", stem, index);
+  }
+
+  template <ClientVersion V>
+  ValidationReport detail::WMO<V>::validate() const
+  {
+    ValidationReport report;
+    {
+      const std::size_t mark = report.size();
+      formats::detail::validate_entity(root, report);
+      report.prefix_from(mark, "root");
+    }
+    for (std::size_t i = 0; i < groups.size(); ++i)
+    {
+      const std::size_t mark = report.size();
+      formats::detail::validate_entity(groups[i], report);
+      report.prefix_from(mark, std::format("groups[{}]", i));
+    }
+
+    // the MOGI table must describe exactly the groups the assembly holds
+    if (root.group_infos.size() != groups.size())
+      report.add_error("root.group_infos",
+                       std::format("count {} != {} group files held", root.group_infos.size(),
+                                   groups.size()));
+
+    // Legion+: GFID locates the group files - too few cannot load; LOD WMOs
+    // repeat the table per level, so any whole multiple is fine
+    if constexpr (requires { root.group_fdids; })
+      if (!groups.empty() && !root.group_fdids.empty())
+      {
+        if (root.group_fdids.size() < groups.size())
+          report.add_error("root.group_fdids",
+                           std::format("count {} < {} group files held",
+                                       root.group_fdids.size(), groups.size()));
+        else if (root.group_fdids.size() % groups.size() != 0)
+          report.add_warning("root.group_fdids",
+                             std::format("count {} is not a whole multiple of the {} groups "
+                                         "(LOD tables repeat per level)",
+                                         root.group_fdids.size(), groups.size()));
+      }
+
+    constexpr std::size_t max_reported = 8;
+    const std::size_t material_count = root.materials.size();
+    for (std::size_t i = 0; i < groups.size(); ++i)
+    {
+      const auto& body = groups[i].body;
+      const std::string prefix = std::format("groups[{}].body", i);
+
+      // the groups' declarative references into the root's arrays
+      static constexpr auto body_members =
+        formats::detail::members_of<std::remove_cvref_t<decltype(body)>>();
+      template for (constexpr auto m : body_members)
+      {
+        if constexpr (constexpr auto ir =
+                        formats::detail::annotation<formats::detail::indexes_in_root_spec, m>();
+                      ir.has_value())
+        {
+          constexpr auto target = formats::detail::member_named<WMORoot<V>>(ir->view());
+          static_assert(target != std::meta::info{},
+                        "indexes_in_root names no member of the root entity");
+          constexpr const char* ident = std::define_static_string(std::meta::identifier_of(m));
+          formats::detail::validate_index_elements(body.[:m:], root.[:target:].size(),
+                                                   std::format("{}.{}", prefix, ident),
+                                                   ir->view(), report);
+        }
+      }
+
+      // the header's portal slice references MOPR
+      if (body.header.portal_count > 0
+          && body.header.portal_start + body.header.portal_count > root.portal_refs.size())
+        report.add_error(std::format("{}.header", prefix),
+                         std::format("portal range [{}, {}) overruns the {} portal references",
+                                     body.header.portal_start,
+                                     body.header.portal_start + body.header.portal_count,
+                                     root.portal_refs.size()));
+
+      // every rendered face and batch must resolve its material in MOMT
+      // (0xFF marks a collision-only face with no material)
+      std::size_t bad_polys = 0;
+      for (std::size_t j = 0; j < body.polys.size(); ++j)
+        if (body.polys[j].material_id != 0xFF && body.polys[j].material_id >= material_count)
+          if (++bad_polys <= max_reported)
+            report.add_error(std::format("{}.polys[{}]", prefix, j),
+                             std::format("material {} out of range: {} materials",
+                                         body.polys[j].material_id, material_count));
+      if (bad_polys > max_reported)
+        report.add_error(std::format("{}.polys", prefix),
+                         std::format("... and {} more unresolvable materials",
+                                     bad_polys - max_reported));
+      for (std::size_t j = 0; j < body.batches.size(); ++j)
+      {
+        const auto& batch = body.batches[j];
+        std::size_t material = batch.material_id;
+        if constexpr (requires { batch.material_id_large; })
+          if ((batch.flags & 0x2) != 0)
+            material = batch.material_id_large;
+        if (material >= material_count)
+          report.add_error(std::format("{}.batches[{}]", prefix, j),
+                           std::format("material {} out of range: {} materials", material,
+                                       material_count));
+      }
+
+      // note: MOGI flags are deliberately NOT compared against the group
+      // header's - real files differ on runtime-managed bits in nearly every
+      // group (corpus: hundreds of divergences per client), so a mirror check
+      // is pure noise
+    }
+    return report;
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::WMO<V>::ensure_valid() const
+  {
+    return validate().to_result();
   }
 
   template <ClientVersion V>

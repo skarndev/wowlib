@@ -8,6 +8,7 @@ add_executable(wowlib_tests
   unit/test_expansion.cpp
   unit/test_fourcc.cpp
   unit/test_chunk_framework.cpp
+  unit/test_validation.cpp
   unit/test_offset_framework.cpp
   unit/test_m2_layout.cpp
   unit/test_wmo_binary_layout.cpp

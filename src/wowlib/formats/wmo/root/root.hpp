@@ -14,7 +14,9 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <format>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include <wowlib/core/client_builds.hpp>
@@ -86,6 +88,7 @@ namespace wowlib::formats::wmo::root
         =chunk("MOUV"),
         =since(builds::Legion_ShadowsOfArgus_24473),
         =formats::optional,
+        =formats::count_matches("materials"),
         =welder::mark::no_reassign,
         =welder::doc(R"(Texture-coordinate translation animations (MOUV, 7.3+), one
                         per material.)")]]
@@ -148,6 +151,7 @@ namespace wowlib::formats::wmo::root
         =chunk("MDDI"),
         =since(builds::BfA_VisionsOfNzoth_32044),
         =formats::optional,
+        =formats::count_matches("doodad_defs"),
         =welder::mark::no_reassign,
         =welder::doc(R"(Per-doodad color multipliers (MDDI, 8.3+), applied to the
                         MODD color.)")]]
@@ -196,6 +200,7 @@ namespace wowlib::formats::wmo::root
         =chunk("MFED"),
         =since(builds::SL_Alpha_33978),
         =formats::optional,
+        =formats::count_matches("fogs"),
         =welder::mark::no_reassign,
         =welder::doc("Fog extra data (MFED, 9.0+); same count as MFOG.")]]
       std::vector<FogExtra> fog_extras;
@@ -204,6 +209,7 @@ namespace wowlib::formats::wmo::root
         =chunk("MGI2"),
         =since(builds::SL_Alpha_33978),
         =formats::optional,
+        =formats::count_matches("group_infos"),
         =welder::mark::no_reassign,
         =welder::doc(R"(Group info v2 (MGI2, 9.0+); same count as MOGI, overrides LOD
                         selection.)")]]
@@ -308,6 +314,7 @@ namespace wowlib::formats::wmo::root
 
       [[
         =chunk("MVER"),
+        =formats::expected_value(wmo_version_v17),
         =welder::doc("The WMO format version; 17 for every supported client.")]]
       std::uint32_t mver = wmo_version_v17;
 
@@ -457,6 +464,132 @@ namespace wowlib::formats::wmo::root
         h.n_portals = static_cast<std::uint32_t>(portals.size());
         h.n_doodad_sets = static_cast<std::uint32_t>(doodad_sets.size());
         std::memcpy(payload.data(), &h, sizeof h);
+      }
+
+      /** Validation hook (see detail::validate_entity): the root contracts the
+          annotations cannot express — doodad-set/portal/visible-block ranges,
+          string-block references and the doodad name/FileDataID resolution.
+          The MOHD counts patch_chunk derives (n_groups, n_portals,
+          n_doodad_sets) need no check — every write restamps them — and the
+          counts real files ship stale (n_textures, n_lights, n_doodad_defs,
+          n_doodad_names; see SMOHeader) are deliberately not validated.
+          Cross-entity contracts (MOGI vs the group files, group references
+          into this root) are the assembly's validate().
+          @param report the report findings land in. */
+      [[=welder::mark::exclude]]
+      void validate_extra(ValidationReport& report) const
+      {
+        // MODS: (start_index, count) ranges into MODD
+        for (std::size_t i = 0; i < doodad_sets.size(); ++i)
+          if (doodad_sets[i].start_index + doodad_sets[i].count > doodad_defs.size())
+            report.add_error(std::format("doodad_sets[{}]", i),
+                             std::format("range [{}, {}) overruns the {} doodad placements",
+                                         doodad_sets[i].start_index,
+                                         doodad_sets[i].start_index + doodad_sets[i].count,
+                                         doodad_defs.size()));
+
+        // MODD name references: MODN byte offsets pre-8.3, MODI indices once
+        // the names block is gone (8.1/8.2 carry both - an engaged MODN marks
+        // the by-name fallback mode, so it stays authoritative)
+        constexpr std::size_t max_reported = 8;
+        std::size_t bad_names = 0;
+        for (std::size_t i = 0; i < doodad_defs.size(); ++i)
+        {
+          const std::uint32_t name = doodad_defs[i].name_index();
+          bool resolvable = false;
+          std::string_view space;
+          std::size_t bound = 0;
+          if constexpr (requires { this->doodad_names; })
+            if (!this->doodad_names.empty())
+            {
+              resolvable = name < this->doodad_names.size();
+              space = "doodad_names blob byte";
+              bound = this->doodad_names.size();
+            }
+          if constexpr (requires { this->doodad_fdids; })
+            if (space.empty())
+            {
+              resolvable = name < this->doodad_fdids.size();
+              space = "doodad FileDataID";
+              bound = this->doodad_fdids.size();
+            }
+          if (space.empty())
+          {
+            resolvable = false;
+            space = "doodad name source (none engaged)";
+          }
+          if (!resolvable && ++bad_names <= max_reported)
+            report.add_error(std::format("doodad_defs[{}]", i),
+                             std::format("name reference {} does not resolve: {} count {}", name,
+                                         space, bound));
+        }
+        if (bad_names > max_reported)
+          report.add_error("doodad_defs", std::format("... and {} more unresolvable name "
+                                                      "references",
+                                                      bad_names - max_reported));
+
+        // MOPT: vertex ranges into MOPV
+        for (std::size_t i = 0; i < portals.size(); ++i)
+          if (portals[i].start_vertex + portals[i].count > portal_vertices.size())
+            report.add_error(std::format("portals[{}]", i),
+                             std::format("vertex range [{}, {}) overruns the {} portal vertices",
+                                         portals[i].start_vertex,
+                                         portals[i].start_vertex + portals[i].count,
+                                         portal_vertices.size()));
+
+        // MOPR: indices into MOPT and MOGI
+        for (std::size_t i = 0; i < portal_refs.size(); ++i)
+        {
+          if (portal_refs[i].portal_index >= portals.size())
+            report.add_error(std::format("portal_refs[{}]", i),
+                             std::format("portal_index {} out of range: {} portals",
+                                         portal_refs[i].portal_index, portals.size()));
+          if (portal_refs[i].group_index >= group_infos.size())
+            report.add_error(std::format("portal_refs[{}]", i),
+                             std::format("group_index {} out of range: {} groups",
+                                         portal_refs[i].group_index, group_infos.size()));
+        }
+
+        // MOVB: vertex ranges into MOVV
+        for (std::size_t i = 0; i < visible_blocks.size(); ++i)
+          if (visible_blocks[i].first_vertex + visible_blocks[i].count
+              > visible_block_vertices.size())
+            report.add_error(std::format("visible_blocks[{}]", i),
+                             std::format("vertex range [{}, {}) overruns the {} visible block "
+                                         "vertices",
+                                         visible_blocks[i].first_vertex,
+                                         visible_blocks[i].first_vertex + visible_blocks[i].count,
+                                         visible_block_vertices.size()));
+
+        // MOGI: group-name offsets into MOGN (-1 marks the unnamed group)
+        for (std::size_t i = 0; i < group_infos.size(); ++i)
+          if (group_infos[i].name_offset >= 0
+              && static_cast<std::size_t>(group_infos[i].name_offset) >= group_names.size())
+            report.add_error(std::format("group_infos[{}]", i),
+                             std::format("name offset {} out of range: {} blob bytes",
+                                         group_infos[i].name_offset, group_names.size()));
+
+        // MOMT texture references are MOTX byte offsets while the names block
+        // is engaged (pre-8.1 always; 8.1/8.2 fallback mode). Only texture_1
+        // is validated: real vanilla/TBC-era files ship raw float garbage in
+        // the texture_2/texture_3 slots (corpus: Stormwind.wmo, Subway.wmo),
+        // which the client evidently never dereferences.
+        if constexpr (requires { this->textures; })
+          if (!this->textures.empty())
+            for (std::size_t i = 0; i < materials.size(); ++i)
+              if (materials[i].texture_1 >= this->textures.size())
+                report.add_error(std::format("materials[{}]", i),
+                                 std::format("texture_1 offset {} out of range: {} blob bytes",
+                                             materials[i].texture_1, this->textures.size()));
+
+        // MOLV (9.1+): entries reference lights by index
+        if constexpr (requires { this->light_extensions; })
+          for (std::size_t i = 0; i < this->light_extensions.size(); ++i)
+            if (const auto index = this->light_extensions[i].light_index;
+                index < 0 || static_cast<std::size_t>(index) >= lights.size())
+              report.add_error(std::format("light_extensions[{}]", i),
+                               std::format("light_index {} out of range: {} lights", index,
+                                           lights.size()));
       }
     };
   }

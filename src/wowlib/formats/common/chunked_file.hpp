@@ -39,6 +39,7 @@
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/string_block.hpp>
+#include <wowlib/formats/common/validation.hpp>
 
 namespace wowlib::formats
 {
@@ -101,6 +102,27 @@ namespace wowlib::formats
     [[=welder::doc("Serialize this entity."),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write() const;
+
+    /** Check the entity's logical integrity contracts — the conditions a file
+        must satisfy to LOAD in the client (companion-chunk counts, index
+        ranges, flag/presence coherence), which write() deliberately never
+        enforces: annotation-declared contracts first (count_matches, indexes,
+        expected_value, ...), then the entity's validate_extra hook when it
+        declares one. A freshly read, unmodified client file reports zero
+        errors (warnings mark states real files ship). Excluded from the
+        bindings until the facade verbs land (stage 4).
+        @return every violated contract, in member order. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    ValidationReport validate() const;
+
+    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
+        chains before a write.
+        @return success when validate() reports no errors; otherwise one
+                InvalidEntityState error listing the findings. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    Result<void> ensure_valid() const;
 
     [[=welder::mark::exclude]]
     bool operator==(const ChunkedFile&) const = default;
@@ -869,6 +891,169 @@ namespace wowlib::formats
         return {};
       }
     }
+
+    // --- the validation walker (behind ChunkedFile::validate()) ---------------
+
+    /** The reflected member of @a E named @a name (public bases flattened, like
+        members_of), or the null reflection when no member carries the name —
+        how the count_matches / indexes annotations resolve their sibling at
+        compile time (a typo is a static_assert at the check site).
+        @tparam E    the entity type.
+        @param  name the member identifier to find. */
+    template <typename E>
+    consteval std::meta::info member_named(std::string_view name)
+    {
+      for (auto m : members_of<E>())
+        if (std::meta::has_identifier(m) && std::meta::identifier_of(m) == name)
+          return m;
+      return {};
+    }
+
+    /** Report every element of @a values that is not a valid index into a
+        @a target_count-element target, capped so a corrupt file cannot flood
+        the report.
+        @param values       the index elements to check.
+        @param target_count the indexed member's element count.
+        @param member       the checked member's path (for the findings).
+        @param target       the indexed member's name (for the findings).
+        @param report       the report findings land in. */
+    template <std::integral T>
+    void validate_index_elements(const std::vector<T>& values, std::size_t target_count,
+                                 std::string_view member, std::string_view target,
+                                 ValidationReport& report)
+    {
+      constexpr std::size_t max_reported = 8;
+      std::size_t bad = 0;
+      for (std::size_t i = 0; i < values.size(); ++i)
+        if (static_cast<std::size_t>(values[i]) >= target_count)
+          if (++bad <= max_reported)
+            report.add_error(std::format("{}[{}]", member, i),
+                             std::format("index {} out of range: {} holds {} element(s)",
+                                         values[i], target, target_count));
+      if (bad > max_reported)
+        report.add_error(std::string{member},
+                         std::format("... and {} more out-of-range indices into {}",
+                                     bad - max_reported, target));
+    }
+
+    /** Apply one member's count_matches contract against its resolved sibling
+        count (see the annotation): engaged (non-empty) values only.
+        @param count  the member's element count.
+        @param scale  the annotation's scale factor.
+        @param target_count the sibling's element count.
+        @param member the checked member's path (for the findings).
+        @param target the sibling's name (for the findings).
+        @param report the report findings land in. */
+    inline void validate_count_matches(std::size_t count, std::uint32_t scale,
+                                       std::size_t target_count, std::string_view member,
+                                       std::string_view target, ValidationReport& report)
+    {
+      if (count == 0 || count * scale == target_count)
+        return;
+      report.add_error(std::string{member},
+                       scale == 1
+                         ? std::format("count {} != {} count {}", count, target, target_count)
+                         : std::format("count {} x {} != {} count {}", count, scale, target,
+                                       target_count));
+    }
+
+    /** Walk @a entity's annotation-declared validation contracts (and its
+        validate_extra hook, when declared), appending findings to @a report —
+        the engine behind ChunkedFile::validate(); see that method for the
+        contract. Nested container entities are walked recursively, their
+        findings prefixed with the member path.
+        @param entity the entity to validate.
+        @param report the report findings land in. */
+    template <ChunkedEntity E>
+    void validate_entity(const E& entity, ValidationReport& report)
+    {
+      static constexpr auto members = detail::members_of<E>();
+      template for (constexpr auto m : members)
+      {
+        if constexpr (detail::version_active<E::version, m>())
+        {
+          constexpr const char* ident = std::define_static_string(std::meta::identifier_of(m));
+          using M = [:std::meta::type_of(m):];
+          const M& value = entity.[:m:];
+
+          if constexpr (constexpr auto ev = detail::annotation<detail::expected_value_spec, m>();
+                        ev.has_value())
+          {
+            static_assert(std::is_integral_v<M>, "expected_value applies to integral members");
+            if (static_cast<std::uint64_t>(value) != ev->value)
+              report.add_error(ident, std::format("value {} != required {}", value, ev->value));
+          }
+
+          if constexpr (detail::annotation<detail::nonempty_spec, m>().has_value())
+          {
+            static_assert(requires { value.empty(); },
+                          "nonempty applies to members with observable emptiness");
+            if (value.empty())
+              report.add_error(ident, "must not be empty");
+          }
+
+          if constexpr (constexpr auto cmo =
+                          detail::annotation<detail::count_multiple_of_spec, m>();
+                        cmo.has_value())
+          {
+            static_assert(detail::is_vector_v<M>, "count_multiple_of applies to vector members");
+            if (!value.empty() && value.size() % cmo->divisor != 0)
+              report.add_error(ident, std::format("count {} is not a multiple of {}",
+                                                  value.size(), cmo->divisor));
+          }
+
+          if constexpr (constexpr auto cm = detail::annotation<detail::count_matches_spec, m>();
+                        cm.has_value())
+          {
+            constexpr auto sibling = detail::member_named<E>(cm->view());
+            static_assert(sibling != std::meta::info{},
+                          "count_matches names no member of this entity");
+            using S = [:std::meta::type_of(sibling):];
+            static_assert(detail::is_vector_v<S>, "count_matches sibling must be a vector");
+            const S& target = entity.[:sibling:];
+            if constexpr (detail::repeated_traits<M>::value)
+            {
+              for (std::size_t slot = 0; slot < value.size(); ++slot)
+                detail::validate_count_matches(value[slot].size(), cm->scale, target.size(),
+                                               std::format("{}[{}]", ident, slot), cm->view(),
+                                               report);
+            }
+            else
+            {
+              static_assert(detail::is_vector_v<M>,
+                            "count_matches applies to vector or Repeated members");
+              detail::validate_count_matches(value.size(), cm->scale, target.size(), ident,
+                                             cm->view(), report);
+            }
+          }
+
+          if constexpr (constexpr auto ix = detail::annotation<detail::indexes_spec, m>();
+                        ix.has_value())
+          {
+            static_assert(detail::is_vector_v<M> && std::is_integral_v<typename M::value_type>,
+                          "indexes applies to integral vector members");
+            constexpr auto sibling = detail::member_named<E>(ix->view());
+            static_assert(sibling != std::meta::info{}, "indexes names no member of this entity");
+            using S = [:std::meta::type_of(sibling):];
+            static_assert(detail::is_vector_v<S>, "indexes sibling must be a vector");
+            detail::validate_index_elements(value, entity.[:sibling:].size(), ident, ix->view(),
+                                            report);
+          }
+
+          if constexpr (ChunkedEntity<M>)
+          {
+            const std::size_t mark = report.size();
+            detail::validate_entity(value, report);
+            report.prefix_from(mark, ident);
+          }
+        }
+      }
+
+      // the imperative complement: record-interior and flag/presence contracts
+      // the annotations cannot express
+      if constexpr (requires { entity.validate_extra(report); })
+        entity.validate_extra(report);
+    }
   }
 
   // --- ChunkedFile method definitions (declared above) -----------------
@@ -886,5 +1071,19 @@ namespace wowlib::formats
     if (auto r = detail::write_entity(static_cast<const Derived&>(*this), out); !r)
       return std::unexpected{r.error()};
     return out;
+  }
+
+  template <typename Derived>
+  ValidationReport ChunkedFile<Derived>::validate() const
+  {
+    ValidationReport report;
+    detail::validate_entity(static_cast<const Derived&>(*this), report);
+    return report;
+  }
+
+  template <typename Derived>
+  Result<void> ChunkedFile<Derived>::ensure_valid() const
+  {
+    return validate().to_result();
   }
 }

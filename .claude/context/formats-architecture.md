@@ -480,6 +480,59 @@ satellite sides sharing satellites.md) and five StructPages sharing chunks.md
 (per-marker); vendored wdt/wdl_wowdev_anchors.json; map_placements.hpp joined
 COMMON_TYPES headers; guide/maps.md.
 
+## Validation (2026-08-09, stage 1: framework + WMO)
+
+`validate()` asserts the logical-integrity contracts a file must satisfy to
+LOAD in the client — a SEPARATE pass the user invokes before writing; write()
+never runs it (user decision). Approved staging: 1 framework+WMO (landed),
+2 ADT+M2, 3 WDT/WDL predicate migration + DB + BLP, 4 bindings facade + docs.
+
+- **Vocabulary** (formats/common/validation.hpp): ValidationSeverity /
+  ValidationIssue {severity, path, message} / ValidationReport (linter-style:
+  collects ALL findings; `ok()` = no errors, `to_result()` folds into ONE
+  InvalidEntityState, `prefix_from(mark, prefix)` scopes sub-entity walks).
+  SEVERITY POLICY: error = the client would misread a file WE write; warning =
+  real client files ship it. A freshly read client file must report ZERO
+  errors — the WMO corpus round-trips assert exactly that (the calibration
+  loop: write the check as error, run the corpus, demote/delete what fires).
+- **Annotations** (annotations.hpp): `count_matches(name, scale=1)` (engaged ⇒
+  size()*scale == sibling's; applies per filled Repeated slot),
+  `count_multiple_of(n)`, `indexes(name)` (every element < sibling count),
+  `indexes_in_root(name)` (checked by the ASSEMBLY against its root entity —
+  the member's own entity skips it), `expected_value(v)`, `nonempty`. Sibling
+  names resolve via `detail::member_named<E>` at compile time (typo =
+  static_assert).
+- **Walker** (chunked_file.hpp): `detail::validate_entity(entity, report)` —
+  `template for` over members_of (traits flattened), applies the specs, recurses
+  into container members with path prefixing, then calls the optional
+  `validate_extra(ValidationReport&) const` hook (imperative complement:
+  record-interior ranges, flag↔presence, anything cross-member). ChunkedFile
+  gains `validate()` + `ensure_valid()` (both `mark::exclude` until stage 4 —
+  ValidationReport is not welded yet, binding them would break assert_bindable).
+  Index findings are capped at 8 per member + "and N more".
+- **WMO**: group MOPY/MOVI/MONR/MOTV/MOCV/MOC2/MOVX/MORB annotated; MOLR/MODR/
+  MAVR/MBVR/MFVR/MNLR carry indexes_in_root; group hook = MOBA index/vertex
+  ranges + header batch partition (trans+int+ext == MOBA count) + BSP node/face
+  ranges + flag↔presence + MLIQ grid arithmetic + MOPL cap 32 + MLSP/MLSK set
+  ranges. Root hook = MODS/MOPT/MOVB ranges, MOPR indices, MOGI name offsets,
+  MODD name resolution (MODN offsets while engaged, else MODI indices),
+  MOMT texture_1 offset, MOLV light indices. `WMO<V>::validate()` (assembly,
+  not a ChunkedFile — own method) = root+groups walks + MOGI count == groups +
+  GFID coverage + indexes_in_root resolution + header portal slices into MOPR
+  + poly/batch material ids < MOMT count (0xFF = collision-only sentinel).
+- **Corpus calibration findings** (baked in as comments): vanilla/TBC files
+  ship raw FLOAT garbage in SMOMaterial texture_2/texture_3 (Stormwind.wmo,
+  Subway.wmo) — only texture_1 is validated; a BfA kultiras group ships
+  has_two_mocv with ONE MOCV layer — multi-layer flag shortfalls are warnings
+  (base has_vertex_colors with zero layers stays an error); MOGI flags diverge
+  from group-header flags on runtime-managed bits in ~every real group — the
+  mirror check was DELETED as pure noise. MOHD derived counts (n_groups etc.)
+  are not validated (patch_chunk restamps); the stale legacy counts
+  (n_textures, ...) are deliberately unchecked.
+- Tests: tests/unit/test_validation.cpp (annotation kinds, hooks, assembly
+  cross-checks, ensure_valid folding); test_wmo_roundtrip.cpp asserts
+  `ensure_valid()` on every corpus WMO after the byte-perfect check.
+
 ## Adding a new format (the recipe)
 
 1. `formats/<fmt>/data_structs.hpp`: binary structs (trivially copyable,

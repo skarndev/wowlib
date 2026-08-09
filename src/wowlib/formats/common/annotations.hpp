@@ -123,6 +123,58 @@ namespace wowlib::formats
 
       constexpr std::string_view view() const { return name; }
     };
+
+    // --- validation specs (validate(), never the serializer) ------------------
+
+    /** Stored form of `count_matches`: when the member is engaged, its element
+        count times @a scale must equal the named sibling member's count. */
+    struct count_matches_spec
+    {
+      const char* name;     /**< The sibling member (interned, see offset_after_spec). */
+      std::uint32_t scale;  /**< This member's count is 1/scale of the sibling's. */
+
+      constexpr std::string_view view() const { return name; }
+    };
+
+    /** Stored form of `count_multiple_of`: the member's element count must be
+        a multiple of @a divisor. */
+    struct count_multiple_of_spec
+    {
+      std::uint32_t divisor;
+    };
+
+    /** Stored form of `indexes`: every element of the (integral) vector member
+        must be a valid index into the named sibling member. */
+    struct indexes_spec
+    {
+      const char* name;  /**< The sibling member the elements index. */
+
+      constexpr std::string_view view() const { return name; }
+    };
+
+    /** Stored form of `indexes_in_root`: every element of the (integral)
+        vector member must be a valid index into the named member of the
+        ASSEMBLY's root entity. The member's own entity cannot check this — the
+        assembly's validate() resolves the target and applies it. */
+    struct indexes_in_root_spec
+    {
+      const char* name;  /**< The root-entity member the elements index. */
+
+      constexpr std::string_view view() const { return name; }
+    };
+
+    /** Stored form of `expected_value`: the (integral) data member must hold
+        exactly this value (format-version fields). */
+    struct expected_value_spec
+    {
+      std::uint32_t value;
+    };
+
+    /** Stored form of `nonempty`: the member must hold data for the file to be
+        meaningful to the client, even though read() tolerates its absence. */
+    struct nonempty_spec
+    {
+    };
   }
 
   /** Declare the chunk a member maps to.
@@ -199,4 +251,63 @@ namespace wowlib::formats
   {
     return {std::define_static_string(name)};
   }
+
+  // --- validation annotations (validate() contracts, never the serializer) ----
+
+  /** Declare a companion-count contract: when this member is engaged
+      (non-empty), its element count times @a scale must equal the named
+      sibling member's count. Examples: normals `count_matches("vertices")`
+      (one normal per vertex); polys `count_matches("indices", 3)` (one
+      per-triangle record per three indices). On a Repeated<> member the
+      contract applies to every filled slot. The sibling name is checked
+      against the entity's members at compile time.
+      @param name  the sibling member whose count is the reference.
+      @param scale this member's count is 1/scale of the sibling's. */
+  consteval detail::count_matches_spec count_matches(std::string_view name,
+                                                     std::uint32_t scale = 1)
+  {
+    return {std::define_static_string(name), scale};
+  }
+
+  /** Declare a granularity contract: the member's element count must be a
+      multiple of @a divisor (triangle index arrays: 3).
+      @param divisor the required granularity. */
+  consteval detail::count_multiple_of_spec count_multiple_of(std::uint32_t divisor)
+  {
+    return {divisor};
+  }
+
+  /** Declare a referential contract: every element of this (integral) vector
+      member is an index into the named sibling member, so each must be less
+      than the sibling's element count. The sibling name is checked against the
+      entity's members at compile time.
+      @param name the sibling member the elements index. */
+  consteval detail::indexes_spec indexes(std::string_view name)
+  {
+    return {std::define_static_string(name)};
+  }
+
+  /** Declare a cross-entity referential contract: every element of this
+      (integral) vector member is an index into the named member of the
+      ASSEMBLY's root entity (a WMO group's light_refs into the root's
+      lights). The member's own entity validates nothing for it — the
+      assembly's validate() resolves the target and applies the check.
+      @param name the root-entity member the elements index. */
+  consteval detail::indexes_in_root_spec indexes_in_root(std::string_view name)
+  {
+    return {std::define_static_string(name)};
+  }
+
+  /** Declare an exact-value contract on an integral data member (format
+      version fields: WMO MVER is always 17).
+      @param value the only valid member value. */
+  consteval detail::expected_value_spec expected_value(std::uint32_t value)
+  {
+    return {value};
+  }
+
+  /** Declare a presence contract: the member must hold data for the file to be
+      meaningful to the client, even though read() tolerates its absence (a
+      required-content marker for optional-on-read chunks). */
+  inline constexpr detail::nonempty_spec nonempty{};
 }
