@@ -43,9 +43,10 @@ namespace wowlib::fs::detail
                           `wow-update-base-{build}.MPQ` in `Data/` and
                           `wow-update-{locale}-{build}.MPQ` in `Data/{locale}/`,
                           ascending build. These are NOT standalone archives: they
-                          hold PTCH deltas under a path prefix ("base" /
-                          "{locale}") and must attach to the base archives via
-                          StormLib's patch-archive mechanism. */
+                          hold PTCH deltas and added files that must attach to the
+                          base archives via StormLib's patch-archive mechanism.
+                          Retail archives store entries under BARE paths, so the
+                          attach passes no prefix (see mpq_storage.cpp). */
   };
 
   /** A client version's archive chain: the fixed base tier plus how its patch
@@ -67,8 +68,11 @@ namespace wowlib::fs::detail
     std::filesystem::path path; /**< The archive file or loose-dir root on disk. */
     bool is_directory = false;  /**< true => loose files, not a StormLib archive. */
     bool incremental = false;   /**< true => a wow-update patch to attach, not open. */
-    std::string prefix;         /**< Incremental only: the in-archive path prefix
-                                     ("base" or the locale code). */
+    std::string prefix;         /**< Incremental only: which update group the
+                                     member came from ("base" or the locale
+                                     code). Informational — the attach lets
+                                     StormLib detect the real in-archive prefix
+                                     (retail updates use none). */
   };
 
   /** The chain spec for @a version: exact build match first, then

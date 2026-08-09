@@ -105,11 +105,23 @@ namespace wowlib::fs
     {
       if (member.incremental)
       {
-        // A wow-update archive holds PTCH deltas and added files under its
-        // path prefix; it attaches to every base archive of its own Data
-        // directory (updates come after all base members in the chain, so
-        // those are open by now). StormLib then serves the patched content
-        // transparently through the base handles.
+        // A wow-update archive holds PTCH deltas and added files; it attaches
+        // to every base archive of its own Data directory (updates come after
+        // all base members in the chain, so those are open by now). StormLib
+        // then serves the patched content transparently through the base
+        // handles.
+        //
+        // The prefix is passed as NULL on purpose — that is what makes
+        // patching WORK. StormLib's FindPatchPrefix treats a non-null prefix
+        // as an override and prepends it to every lookup in the patch
+        // archive; retail WoW updates store their entries under BARE paths
+        // ("dbfilesclient\achievement.dbc"), so an explicit "base"/"enUS"
+        // makes every lookup miss and the base file is served unpatched, with
+        // no error anywhere. NULL selects StormLib's own detection, which
+        // recognizes the prefixed Cata-beta archives by their
+        // "base\(patch_metadata)" marker and assumes no prefix otherwise.
+        // (Found 2026-08-09: the 5.4.8 client appeared to ship 5.0.x
+        // databases because 18 locale updates' DBC deltas were all ignored.)
         // StormLib is built ANSI on every platform (TCHAR == char), so paths
         // cross its API boundary as narrow strings — same as the CascLib side.
         const std::string patch_path = member.path.string();
@@ -118,8 +130,7 @@ namespace wowlib::fs
           if (archive.is_directory
               || archive.path.parent_path() != member.path.parent_path())
             continue;
-          if (!SFileOpenPatchArchive(archive.handle, patch_path.c_str(),
-                                     member.prefix.c_str(), 0))
+          if (!SFileOpenPatchArchive(archive.handle, patch_path.c_str(), nullptr, 0))
           {
             const auto native = SErrGetLastError();
             close();
