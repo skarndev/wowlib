@@ -10,12 +10,15 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <filesystem>
 #include <format>
+#include <fstream>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include <wowlib/db/wdbc.hpp>
+#include <wowlib/db/wdc/wdc.hpp>
 #include <wowlib/fs/casc/casc_storage.hpp>
 #include <wowlib/fs/csv_listfile.hpp>
 #include <wowlib/fs/mpq/mpq_storage.hpp>
@@ -137,6 +140,92 @@ namespace wowlib::tests
 
   /** The failure list joined for a single INFO() block. */
   inline std::string join_failures(const CorpusStats& stats)
+  {
+    std::string out;
+    for (const std::string& failure : stats.failures)
+    {
+      out += failure;
+      out += '\n';
+    }
+    return out;
+  }
+
+  /** The tally of a structural (untyped) DB2 sweep. */
+  struct ImageStats
+  {
+    int present = 0;                    /**< Files the client ships. */
+    int parsed = 0;                     /**< Images the codec accepted. */
+    int encrypted = 0;                  /**< Images carrying encrypted sections. */
+    std::vector<std::string> failures;  /**< One line per parse failure. */
+  };
+
+  /** Every dbfilesclient/*.db2 path in a listfile CSV (CsvListfile resolves
+      single paths but does not enumerate).
+      @param csv the listfile path.
+      @return the lowercased db2 paths. */
+  inline std::vector<std::string> db2_paths(const std::filesystem::path& csv)
+  {
+    std::vector<std::string> out;
+    std::ifstream in{csv};
+    std::string line;
+    while (std::getline(in, line))
+    {
+      while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+        line.pop_back();
+      const auto semi = line.find(';');
+      if (semi == std::string::npos)
+        continue;
+      std::string path = line.substr(semi + 1);
+      for (char& c : path)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      if (path.starts_with("dbfilesclient/") && path.ends_with(".db2"))
+        out.push_back(path);
+    }
+    return out;
+  }
+
+  /** Structurally sweep a CASC client's WHOLE database corpus: parse every
+      shipped .db2 as a raw WDC image (sections, field metadata, palettes) with
+      NO generated schema involved. This is the breadth half of a CASC-era
+      corpus proof — it covers every table the client ships without
+      instantiating a thousand table templates in one TU (a Dragonflight
+      all-tables TU peaks at 5.3 GB and OOM-kills hosted runners); the typed
+      round-trip depth comes from the representative tables swept alongside.
+      @param storage  the client's CASC storage.
+      @param listfile the loaded community listfile.
+      @param csv      the listfile path (enumerated directly).
+      @param stats    the sweep tally. */
+  inline void sweep_db2_images(fs::CascStorage& storage, const fs::CsvListfile& listfile,
+                               const std::filesystem::path& csv, ImageStats& stats)
+  {
+    for (const std::string& path : db2_paths(csv))
+    {
+      const auto fdid = listfile.path_to_fdid(path);
+      if (!fdid)
+        continue;
+      const auto data = storage.read_file(FileKey{*fdid});
+      if (!data || data->size() < 4)
+        continue;
+      std::uint32_t magic = 0;
+      std::memcpy(&magic, data->data(), 4);
+      if (!db::wdc::is_wdc_magic(magic))
+        continue;  // pre-Legion WDB2 images are swept typed instead
+      ++stats.present;
+      const auto img = db::wdc::WdcImage::parse(*data);
+      if (!img)
+      {
+        if (stats.failures.size() < 20)
+          stats.failures.push_back(path + ": " + img.error().message);
+        continue;
+      }
+      ++stats.parsed;
+      if (std::ranges::any_of(img->sections, [](const auto& s) { return s.encrypted; }))
+        ++stats.encrypted;
+    }
+  }
+
+  /** The image-sweep failure list joined for a single INFO() block. */
+  inline std::string join_failures(const ImageStats& stats)
   {
     std::string out;
     for (const std::string& failure : stats.failures)
