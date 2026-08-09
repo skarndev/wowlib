@@ -480,7 +480,7 @@ satellite sides sharing satellites.md) and five StructPages sharing chunks.md
 (per-marker); vendored wdt/wdl_wowdev_anchors.json; map_placements.hpp joined
 COMMON_TYPES headers; guide/maps.md.
 
-## Validation (2026-08-09, stage 1: framework + WMO)
+## Validation (2026-08-09, stages 1-2: framework + WMO + M2 + ADT)
 
 `validate()` asserts the logical-integrity contracts a file must satisfy to
 LOAD in the client — a SEPARATE pass the user invokes before writing; write()
@@ -532,6 +532,82 @@ never runs it (user decision). Approved staging: 1 framework+WMO (landed),
 - Tests: tests/unit/test_validation.cpp (annotation kinds, hooks, assembly
   cross-checks, ensure_valid folding); test_wmo_roundtrip.cpp asserts
   `ensure_valid()` on every corpus WMO after the byte-perfect check.
+
+### Stage 2 (2026-08-09): the walker generalized, M2 + ADT covered
+
+The walker was NOT chunk-specific, so it moved out of the chunk engine:
+- **`formats/common/entity_reflect.hpp`** (new) holds the reflection helpers
+  ALL three engines share — `annotation`, `version_active`, `is_vector_v`,
+  `collect_members`, `members_of`, `member_named`, plus `nested_in_std` /
+  `is_std_type`. Same `wowlib::formats::detail` namespace as before, so every
+  call site is unchanged; only the header moved (out of chunked_file.hpp).
+- **The walker itself now lives in validation.hpp** and drives ANY entity with
+  `static constexpr ClientVersion version` (`VersionedEntity`) — chunked files,
+  M2 offset blocks, ADT tiles and map chunks alike. `validate_members<V, T>`
+  applies the specs; `validate_value<V, T>` dispatches entity / record /
+  sequence-of-either and calls `validate_extra`; `validate_entity` is the entry.
+  `M2OffsetBlock` gained validate()/ensure_valid() next to ChunkedFile's.
+- **Recursion is content-driven**: `has_validation_content<T>()` (consteval)
+  answers "can validating this produce anything" — declares validate_extra, or
+  carries an annotated member, or holds something that does. Trivially-copyable
+  types stop it (binary structs carry no annotations by policy) and so do std
+  class types (`is_std_type`), EXCEPT that sequences are followed into their
+  element type first. So `vector<M2Bone>` is walked, `std::string` is not, and
+  entities pay nothing for members with no contracts.
+- **Path prefixing**: `prefix_from` joins a path that starts with `[` without a
+  dot, so element walks read `bones[3].rotation`, not `bones.[3].rotation`.
+- **Report cap**: `ValidationReport::max_findings` = 1000; `add()` drops past it
+  and sets `truncated()`, and every element loop checks `full()` — a corrupt
+  million-element array cannot make validating the memory problem.
+- New annotations: `count_exactly(n)` (fixed grids), `indexes_optional(name)`
+  (the client's "none" sentinel — negative signed, all-ones unsigned — is legal).
+- **GOTCHAS (gcc 16)**: a TYPE splice as a template argument needs
+  `typename [:...:]` — parenthesizing (`([:...:])`, right for VALUE splices, as
+  in def_wmo_factories) makes it an expression splice and fails. And the
+  "is this member a nested array or a slot container?" question must NOT be
+  guessed from shape: `std::array<u8,4>` (a per-vertex bone quad) and
+  `vector<vector<u8>>` (ADT alpha maps) both look sequence-shaped but mean
+  different things. Resolution: only `std::vector` elements count as nesting,
+  and `Repeated<>` opts into per-slot semantics with
+  `static constexpr bool validation_slots = true` (`SlotSequence`). Both
+  mis-classifications were caught by the corpus, not by review.
+
+**M2** (`indexes_optional` on sequence/replacable-texture/transparency/
+transform/attachment/camera lookups; `count_multiple_of(3)` + `indexes` on
+collision_triangles; `count_matches("collision_triangles", 3)` on
+collision_normals; `count_matches("timestamps")` on M2Track values — which
+covers BOTH eras, the WotLK+ per-sequence arrays pairing element-wise too —
+plus FBlock/M2PartTrack). Hooks: M2Root validates the bone hierarchy (parents
+exist and PRECEDE their children) and alias-sequence chains (dangling, self-
+referential, cyclic); M2SkinProfile validates submesh vertex/index slices
+(index_start is extended by `level << 16`) and batch submesh indices. The
+assembly `M2<V>::validate()` does the cross-file half: each skin's local->global
+vertex lookup into the body's vertices, submesh bone-lookup slices, batch
+material/color/texture-lookup resolution, and BOTH bone lookups against
+whichever list supplies the bones.
+- **Corpus corrections** (baked in as comments): a skel-based model (Legion+)
+  leaves `root.bones` EMPTY and keeps its bones in the .skel, so
+  bone_lookup_table/key_bone_lookup could NOT stay annotated on the body —
+  they moved to the assembly, which picks the effective list. And
+  `texture_count` governs only the TEXTURE lookup slice: real files overrun the
+  transparency/transform tables freely (3.3.5a humanmale spans 6 over a 2-entry
+  table), so only those slices' START entry is checked, and only when the table
+  is non-empty.
+
+**ADT** (`count_exactly(mcvt_count)` on heights/normals/vertex_colors/
+vertex_lighting, `count_exactly(alpha_texels)` on shadow_map,
+`count_matches("layers")` on alpha_maps, `indexes_in_root` on MCRD/MCRW).
+MapChunk's hook checks each engaged alpha surface is the full decoded 4096
+texels (layer 0's is ignored → warning). `ADT<V>::validate()` does the
+tile-wide half: the 256-chunk grid, layer texture ids against MTEX **or** the
+MDID FileDataIDs (whichever `uses_texture_fdids` selects), chunk refs into
+MDDF/MODF, and placement `name_id`s into the name-offset tables — skipping
+records whose `entry_is_fdid` flag makes the id a FileDataID instead.
+`chunks_per_tile` (256) is now a named constant in adt/boundaries.hpp.
+
+Corpus assertions: test_m2_roundtrip.cpp and test_adt_roundtrip.cpp (both
+helpers) call `ensure_valid()` on every freshly read file. Full local suite
+after stage 2: 609k+ assertions, zero findings across all four clients.
 
 ## Adding a new format (the recipe)
 

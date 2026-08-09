@@ -112,6 +112,10 @@ namespace
     REQUIRE(a.chunks.size() == 256);
     for (std::size_t i = 0; i < a.chunks.size(); ++i)
       check_chunk(a.chunks[i], i, label);
+    // a freshly read, unmodified client tile passes validation with zero
+    // errors (warnings are allowed - they mark states real files ship)
+    if (const auto valid = a.ensure_valid(); !valid)
+      FAIL(std::format("{}: {}", label, valid.error().message));
 
     const auto buf = a.write_file(adt::FileKind::monolithic, af);
     REQUIRE(buf.has_value());
@@ -147,6 +151,8 @@ namespace
     REQUIRE(a.chunks.size() == 256);
     for (std::size_t i = 0; i < a.chunks.size(); ++i)
       check_chunk(a.chunks[i], i, label);
+    if (const auto valid = a.ensure_valid(); !valid)
+      FAIL(std::format("{}: {}", label, valid.error().message));
 
     adt::ADT<V> b;
     b.alpha_format = af;

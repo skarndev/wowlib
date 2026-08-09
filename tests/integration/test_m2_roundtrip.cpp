@@ -93,6 +93,10 @@ namespace
       REQUIRE(r.has_value());
     }
     CHECK(model.root.magic == md20_magic);
+    // a freshly read, unmodified client model passes validation with zero
+    // errors (warnings are allowed - they mark states real files ship)
+    if (const auto valid = model.ensure_valid(); !valid)
+      FAIL(std::format("{}: {}", label, valid.error().message));
     constexpr auto era = m2_format_version_range(V);
     CHECK(model.root.format_version >= era.first);
     CHECK(model.root.format_version <= era.second);

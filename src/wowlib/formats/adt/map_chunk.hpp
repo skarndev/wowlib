@@ -384,6 +384,7 @@ namespace wowlib::formats::adt
     {
       [[=chunk("MCCV"),
         =in_file(InFile::root),
+        =formats::count_exactly(mcvt_count),
         =welder::doc("Per-vertex colors (MCCV, WotLK+): 145 BGRA entries blended onto the "
                      "terrain (0x7F = neutral)."),
         =welder::mark::no_reassign]]
@@ -399,6 +400,7 @@ namespace wowlib::formats::adt
     {
       [[=chunk("MCLV"),
         =in_file(InFile::root),
+        =formats::count_exactly(mcvt_count),
         =welder::doc("Per-vertex baked lighting (MCLV, Cata+): 145 ARGB entries from "
                      "level-designer omni lights."),
         =welder::mark::no_reassign]]
@@ -466,6 +468,7 @@ namespace wowlib::formats::adt
 
       [[=chunk("MCVT"),
         =in_file(InFile::root),
+        =formats::count_exactly(detail::mcvt_count),
         =welder::doc("The 9x9 + 8x8 = 145 terrain heights (MCVT), relative to the chunk "
                      "origin, in the interleaved outer/inner row order."),
         =welder::mark::no_reassign]]
@@ -474,6 +477,7 @@ namespace wowlib::formats::adt
       [[=chunk("MCNR"),
         =in_file(InFile::root),
         =serialized_by(^^detail::NormalCodec),
+        =formats::count_exactly(detail::mcvt_count),
         =welder::doc("The 145 terrain normals (MCNR), X Z Y signed bytes."),
         =welder::mark::no_reassign]]
       std::vector<MCNREntry> normals;
@@ -489,6 +493,7 @@ namespace wowlib::formats::adt
       [[=chunk("MCAL"),
         =in_file(InFile::tex),
         =serialized_by(^^detail::AlphaCodec),
+        =formats::count_matches("layers"),
         =welder::doc("One decoded 64x64 (4096-byte) alpha map per layer, aligned with "
                      "layers (layer 0's is empty); 0 = base texture, 255 = this layer."),
         =welder::mark::no_reassign]]
@@ -497,6 +502,7 @@ namespace wowlib::formats::adt
       [[=chunk("MCSH"),
         =in_file(InFile::tex),
         =serialized_by(^^detail::ShadowCodec),
+        =formats::count_exactly(detail::alpha_texels),
         =welder::doc("The decoded 64x64 (4096-byte) shadow map (MCSH), 0/1 per texel; "
                      "empty when the chunk casts no baked shadow."),
         =welder::mark::no_reassign]]
@@ -504,6 +510,7 @@ namespace wowlib::formats::adt
 
       [[=chunk("MCRD"),
         =in_file(InFile::obj),
+        =formats::indexes_in_root("doodad_placements"),
         =welder::doc("Doodad references (MCRF doodad part pre-Cata, MCRD Cata+): indices "
                      "into the tile's MDDF placements drawn in this chunk."),
         =welder::mark::no_reassign]]
@@ -511,6 +518,7 @@ namespace wowlib::formats::adt
 
       [[=chunk("MCRW"),
         =in_file(InFile::obj),
+        =formats::indexes_in_root("wmo_placements"),
         =welder::doc("Object references (MCRF object part pre-Cata, MCRW Cata+): indices "
                      "into the tile's MODF placements drawn in this chunk."),
         =welder::mark::no_reassign]]
@@ -538,6 +546,29 @@ namespace wowlib::formats::adt
           semantic round-trip. Read/written as part of MCNR by NormalCodec. */
       [[=welder::mark::exclude]]
       std::array<std::uint8_t, 13> mcnr_padding{};
+
+      /** Validation hook (see formats::detail::validate_value): the terrain
+          chunk's contracts the annotations cannot express — the decoded alpha
+          surfaces' fixed size and the layer/alpha relationship. Contracts
+          reaching into the TILE (layer texture ids, doodad and object
+          references) belong to the ADT's validate(), which is where the
+          texture and placement tables live.
+          @param report the report findings land in. */
+      [[=welder::mark::exclude]]
+      void validate_extra(ValidationReport& report) const
+      {
+        // wowlib always holds alpha maps decoded to the full 64x64 edit
+        // surface, whatever encoding they had on disk; layer 0 is opaque and
+        // carries none
+        for (std::size_t i = 0; i < alpha_maps.size(); ++i)
+          if (!alpha_maps[i].empty() && alpha_maps[i].size() != detail::alpha_texels)
+            report.add_error(std::format("alpha_maps[{}]", i),
+                             std::format("decoded alpha map holds {} texels, not {}",
+                                         alpha_maps[i].size(), detail::alpha_texels));
+        if (!alpha_maps.empty() && !alpha_maps[0].empty())
+          report.add_warning("alpha_maps[0]",
+                             "layer 0 is the opaque base layer; its alpha map is ignored");
+      }
 
       // --- physical-file serialization (definitions below) -------------------
 

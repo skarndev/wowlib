@@ -161,7 +161,9 @@ namespace wowlib::formats::m2::root::record
       [[=welder::doc("The global timeline's keyframe timestamps.")]]
       std::vector<std::uint32_t> timestamps;
 
-      [[=welder::doc("The keyframe values, one per timestamp.")]]
+      [[
+        =formats::count_matches("timestamps"),
+        =welder::doc("The keyframe values, one per timestamp.")]]
       std::vector<T> values;
 
       bool operator==(const M2Track&) const = default;
@@ -190,6 +192,7 @@ namespace wowlib::formats::m2::root::record
 
       [[
         =formats::sequence_data,
+        =formats::count_matches("timestamps"),
         =welder::doc("Keyframe values, per sequence, parallel to timestamps.")]]
       std::vector<std::vector<T>> values;
 
@@ -274,7 +277,9 @@ namespace wowlib::formats::m2::root::record
     [[=welder::doc("Sequence-independent keyframe timestamps.")]]
     std::vector<std::uint16_t> timestamps;
 
-    [[=welder::doc("The keys, one per timestamp.")]]
+    [[
+      =formats::count_matches("timestamps"),
+      =welder::doc("The keys, one per timestamp.")]]
     std::vector<T> keys;
 
     bool operator==(const FBlock&) const = default;
@@ -290,7 +295,9 @@ namespace wowlib::formats::m2::root::record
     [[=welder::doc("Normalized fixed16 key times.")]]
     std::vector<fixed16> times;
 
-    [[=welder::doc("The values, one per time.")]]
+    [[
+      =formats::count_matches("times"),
+      =welder::doc("The values, one per time.")]]
     std::vector<T> values;
 
     bool operator==(const M2PartTrack&) const = default;

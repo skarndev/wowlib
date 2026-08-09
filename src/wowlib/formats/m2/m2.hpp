@@ -201,6 +201,28 @@ namespace wowlib::formats::m2
                        const FileKey& key
                        [[=welder::doc("the .m2 file identity; must resolve to a path")]]) const;
 
+    /** Check the whole model's logical integrity — the body's and every skin's
+        own validate() plus the cross-file contracts only the assembly can see:
+        each skin's local->global vertex lookup landing inside the body's
+        vertex list, and every render batch resolving its material, color,
+        texture and transparency through the body's lookup tables. Validation
+        is a separate pass — write() never runs it; call this before writing to
+        know the model will load in the client. A freshly read, unmodified
+        client model reports zero errors. Excluded from the bindings until the
+        facade verbs land (stage 4).
+        @return every violated contract, prefixed "root"/"skins[i]". */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    ValidationReport validate() const;
+
+    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
+        chains before a write.
+        @return success when validate() reports no errors; otherwise one
+                InvalidEntityState error listing the findings. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    Result<void> ensure_valid() const;
+
     bool operator==(const M2&) const = default;
 
   private:
@@ -943,6 +965,133 @@ namespace wowlib::formats::m2
       stream.phys_fdid.push_back(r->value);
     }
     return {};
+  }
+
+  namespace detail
+  {
+    /** Check one skin profile's references INTO the model body — the half of a
+        skin's contracts that needs both files: the local->global vertex lookup
+        and the lookup-table slices every render batch and submesh addresses.
+        A profile's self-contained contracts (submesh ranges, batch submesh
+        indices) are its own validate_extra.
+        @param profile the LOD view's tables.
+        @param root    the model body the profile refers into.
+        @param report  the report findings land in. */
+    template <typename Profile, typename Root>
+    void validate_profile_against_root(const Profile& profile, const Root& root,
+                                       ValidationReport& report)
+    {
+      formats::detail::validate_index_elements(profile.vertices, root.vertices.size(), "vertices",
+                                               "the model vertices", report);
+
+      for (std::size_t i = 0; i < profile.submeshes.size() && !report.full(); ++i)
+      {
+        const auto& submesh = profile.submeshes[i];
+        if (std::size_t{submesh.bone_combo_index} + submesh.bone_count
+            > root.bone_lookup_table.size())
+          report.add_error(std::format("submeshes[{}]", i),
+                           std::format("bone-lookup range [{}, {}) overruns the {} entries",
+                                       submesh.bone_combo_index,
+                                       submesh.bone_combo_index + submesh.bone_count,
+                                       root.bone_lookup_table.size()));
+      }
+
+      for (std::size_t i = 0; i < profile.batches.size() && !report.full(); ++i)
+      {
+        const auto& batch = profile.batches[i];
+        const std::string path = std::format("batches[{}]", i);
+        if (batch.material_index >= root.materials.size())
+          report.add_error(path, std::format("material_index {} out of range: {} materials",
+                                             batch.material_index, root.materials.size()));
+        if (!formats::detail::is_no_index(batch.color_index)
+            && batch.color_index >= root.colors.size())
+          report.add_error(path, std::format("color_index {} out of range: {} colors",
+                                             batch.color_index, root.colors.size()));
+
+        // A batch addresses `texture_count` consecutive TEXTURE-lookup entries.
+        // The weight and transform lookups do NOT follow texture_count — real
+        // files routinely declare a longer run than those tables hold (a 3.3.5a
+        // humanmale batch spans 6 over a 2-entry transparency table, the
+        // Northrend glue screen 2 over 10 from index 9), so only their starting
+        // entry is validated, and only when the table exists at all.
+        if (std::size_t{batch.texture_combo_index} + batch.texture_count
+            > root.texture_lookup_table.size())
+          report.add_error(path,
+                           std::format("texture-lookup range [{}, {}) overruns the {} entries",
+                                       batch.texture_combo_index,
+                                       batch.texture_combo_index + batch.texture_count,
+                                       root.texture_lookup_table.size()));
+        const auto lookup_start = [&](std::uint16_t first, const auto& table,
+                                      std::string_view what) {
+          if (!table.empty() && first >= table.size())
+            report.add_error(path, std::format("{} start {} out of range: {} entries", what,
+                                               first, table.size()));
+        };
+        lookup_start(batch.texture_weight_combo_index, root.transparency_lookup_table,
+                     "transparency-lookup");
+        lookup_start(batch.texture_transform_combo_index, root.texture_transforms_lookup_table,
+                     "texture-transform-lookup");
+      }
+    }
+  }
+
+  template <ClientVersion V>
+  ValidationReport detail::M2<V>::validate() const
+  {
+    ValidationReport report;
+    {
+      const std::size_t mark = report.size();
+      formats::detail::validate_entity(root, report);
+      report.prefix_from(mark, "root");
+    }
+
+    // The bone lookups address whichever list actually supplies the bones: a
+    // skel-based model (Legion+) leaves root.bones empty and keeps them in the
+    // .skel, so only the assembly can resolve this.
+    {
+      const auto* bones = &root.bones;
+      if constexpr (requires { this->skel.bone_block.bones; })
+        if (root.bones.empty() && !this->skel.bone_block.bones.empty())
+          bones = &this->skel.bone_block.bones;
+      formats::detail::validate_optional_index_elements(
+        root.bone_lookup_table, bones->size(), "root.bone_lookup_table", "the model bones",
+        report);
+      formats::detail::validate_optional_index_elements(
+        root.key_bone_lookup, bones->size(), "root.key_bone_lookup", "the model bones", report);
+    }
+
+    // the LOD views: external .skin files WotLK+, embedded profiles before
+    if constexpr (requires { this->skins; })
+    {
+      const auto walk = [&](const auto& views, std::string_view what) {
+        for (std::size_t i = 0; i < views.size() && !report.full(); ++i)
+        {
+          const std::size_t mark = report.size();
+          formats::detail::validate_entity(views[i], report);
+          detail::validate_profile_against_root(views[i].profile, root, report);
+          report.prefix_from(mark, std::format("{}[{}]", what, i));
+        }
+      };
+      walk(this->skins, "skins");
+      if constexpr (requires { this->lod_skins; })  // the LOD bands are Legion+
+        walk(this->lod_skins, "lod_skins");
+    }
+    else
+    {
+      for (std::size_t i = 0; i < root.skin_profiles.size() && !report.full(); ++i)
+      {
+        const std::size_t mark = report.size();
+        detail::validate_profile_against_root(root.skin_profiles[i], root, report);
+        report.prefix_from(mark, std::format("root.skin_profiles[{}]", i));
+      }
+    }
+    return report;
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::M2<V>::ensure_valid() const
+  {
+    return validate().to_result();
   }
 }
 

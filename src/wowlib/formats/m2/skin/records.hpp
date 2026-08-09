@@ -9,13 +9,16 @@
     whichever file carries it. */
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <format>
 #include <vector>
 
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
+#include <wowlib/formats/common/validation.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
@@ -185,9 +188,14 @@ namespace detail
     {
       [[=welder::doc("Local -> global vertex lookup.")]]
       std::vector<std::uint16_t> vertices;
-      [[=welder::doc("Triangle list into the local vertices.")]]
+      [[
+        =formats::count_multiple_of(3),
+        =formats::indexes("vertices"),
+        =welder::doc("Triangle list into the local vertices.")]]
       std::vector<std::uint16_t> indices;
-      [[=welder::doc("Per-vertex 4-bone indices.")]]
+      [[
+        =formats::count_matches("vertices"),
+        =welder::doc("Per-vertex 4-bone indices.")]]
       std::vector<std::array<std::uint8_t, 4>> bones;
       // through the skin:: alias, NOT the sibling detail raw — member types
     // must collapse to the same canonical the welded classes use
@@ -202,6 +210,48 @@ namespace detail
         =since(m2_multitex_particles),
         =welder::doc("Shadow batches (Cata+).")]]
       std::vector<M2ShadowBatch> shadow_batches;
+
+      /** Validation hook (see formats::detail::validate_value): the submesh and
+          batch slices the annotations cannot express. Contracts reaching into
+          the MODEL (batch material/color/texture-combo indices, a submesh's
+          bone-lookup slice) belong to the M2 assembly's validate(), which is
+          where both sides exist.
+
+          A submesh's index slice starts at `index_start + (level << 16)` — the
+          level field extends the 16-bit start, since index lists outgrow 64k
+          before vertex lists do.
+          @param report the report findings land in. */
+      [[=welder::mark::exclude]]
+      void validate_extra(ValidationReport& report) const
+      {
+        for (std::size_t i = 0; i < submeshes.size(); ++i)
+        {
+          const auto& submesh = submeshes[i];
+          const std::size_t index_start =
+            std::size_t{submesh.index_start} + (std::size_t{submesh.level} << 16);
+          if (std::size_t{submesh.vertex_start} + submesh.vertex_count > vertices.size())
+            report.add_error(std::format("submeshes[{}]", i),
+                             std::format("vertex range [{}, {}) overruns the {} local vertices",
+                                         submesh.vertex_start,
+                                         submesh.vertex_start + submesh.vertex_count,
+                                         vertices.size()));
+          if (index_start + submesh.index_count > indices.size())
+            report.add_error(std::format("submeshes[{}]", i),
+                             std::format("index range [{}, {}) overruns the {} indices",
+                                         index_start, index_start + submesh.index_count,
+                                         indices.size()));
+          if (submesh.index_count % 3 != 0)
+            report.add_error(std::format("submeshes[{}]", i),
+                             std::format("index count {} is not a multiple of 3",
+                                         submesh.index_count));
+        }
+
+        for (std::size_t i = 0; i < batches.size(); ++i)
+          if (batches[i].skin_section_index >= submeshes.size())
+            report.add_error(std::format("batches[{}]", i),
+                             std::format("skin_section_index {} out of range: {} submeshes",
+                                         batches[i].skin_section_index, submeshes.size()));
+      }
 
       bool operator==(const M2SkinProfile&) const = default;
     };

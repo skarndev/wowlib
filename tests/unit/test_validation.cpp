@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <string_view>
 
+#include <wowlib/formats/adt/adt.hpp>
+#include <wowlib/formats/m2/m2.hpp>
 #include <wowlib/formats/wmo/wmo.hpp>
 
 using namespace wowlib;
@@ -196,5 +198,214 @@ TEST_CASE("validate: assembly cross-entity contracts", "[formats][wmo][validatio
     REQUIRE(!result.has_value());
     CHECK(result.error().code == ErrorCode::InvalidEntityState);
     CHECK(result.error().message.find("root.group_infos") != std::string::npos);
+  }
+}
+
+// --- M2: the offset-entity side of the walker --------------------------------
+
+namespace
+{
+  namespace m2n = wowlib::formats::m2;
+
+  /** A minimal internally consistent model body: two bones in hierarchy order,
+      one sequence, one keyframed translation track. */
+  m2n::M2Root<versions::wotlk> small_root()
+  {
+    m2n::M2Root<versions::wotlk> root;
+    root.sequences.emplace_back();
+    auto& parent = root.bones.emplace_back();
+    parent.parent_bone = -1;
+    auto& child = root.bones.emplace_back();
+    child.parent_bone = 0;
+    // WotLK+ tracks hold one timestamp array and one value array per sequence
+    child.translation.timestamps.push_back({0, 100});
+    child.translation.values.push_back({{0, 0, 0}, {1, 0, 0}});
+    return root;
+  }
+}
+
+TEST_CASE("validate: M2 track arrays pair per sequence", "[formats][m2][validation]")
+{
+  auto root = small_root();
+  CHECK(root.validate().ok());
+
+  SECTION("the outer per-sequence counts must match")
+  {
+    root.bones[1].translation.values.emplace_back();
+    CHECK(reports(root.validate(), "bones[1].translation.values",
+                  "count 2 != timestamps count 1"));
+  }
+
+  SECTION("and so must each sequence's inner arrays")
+  {
+    root.bones[1].translation.values[0].pop_back();
+    CHECK(reports(root.validate(), "bones[1].translation.values[0]",
+                  "count 1 != timestamps[0] count 2"));
+  }
+}
+
+TEST_CASE("validate: M2 lookup tables tolerate the none sentinel",
+          "[formats][m2][validation]")
+{
+  auto root = small_root();
+
+  SECTION("-1 and 0xFFFF reference nothing and are legal")
+  {
+    root.key_bone_lookup = {-1, 1};
+    root.texture_lookup_table = {0xFFFF};
+    CHECK(root.validate().ok());
+  }
+
+  SECTION("a real out-of-range index is still an error")
+  {
+    root.replacable_texture_lookup = {7};
+    CHECK(reports(root.validate(), "replacable_texture_lookup[0]",
+                  "index 7 out of range: textures holds 0"));
+  }
+}
+
+TEST_CASE("validate: M2 bone hierarchy and alias chains", "[formats][m2][validation]")
+{
+  SECTION("a parent must exist and precede its child")
+  {
+    auto root = small_root();
+    root.bones[0].parent_bone = 1;
+    CHECK(reports(root.validate(), "bones[0]", "does not precede the child"));
+
+    root.bones[0].parent_bone = 9;
+    CHECK(reports(root.validate(), "bones[0]", "out of range: 2 bones"));
+  }
+
+  SECTION("an alias chain must reach a sequence that owns data")
+  {
+    auto root = small_root();
+    root.sequences[0].flags = 0x40;  // alias
+    root.sequences[0].alias_next = 0;
+    CHECK(reports(root.validate(), "sequences[0]", "points at itself"));
+
+    root.sequences[0].alias_next = 5;
+    CHECK(reports(root.validate(), "sequences[0]", "alias_next 5 out of range"));
+  }
+}
+
+TEST_CASE("validate: M2 collision hull", "[formats][m2][validation]")
+{
+  auto root = small_root();
+  root.collision_vertices.assign(3, {});
+  root.collision_triangles = {0, 1, 2};
+  root.collision_normals.assign(1, {});
+  CHECK(root.validate().ok());
+
+  SECTION("indices are whole triangles into the hull vertices")
+  {
+    root.collision_triangles = {0, 1, 9};
+    const auto report = root.validate();
+    CHECK(reports(report, "collision_triangles[2]",
+                  "index 9 out of range: collision_vertices holds 3"));
+
+    root.collision_triangles = {0, 1};
+    CHECK(reports(root.validate(), "collision_triangles", "not a multiple of 3"));
+  }
+
+  SECTION("one normal per face")
+  {
+    root.collision_normals.emplace_back();
+    CHECK(reports(root.validate(), "collision_normals",
+                  "count 2 x 3 != collision_triangles count 3"));
+  }
+}
+
+// --- ADT: the bespoke-entity side of the walker ------------------------------
+
+namespace
+{
+  namespace adtn = wowlib::formats::adt;
+
+  /** A minimal internally consistent WotLK tile: a full chunk grid, one
+      texture, and one chunk carrying a single layer. */
+  adtn::ADT<versions::wotlk> small_tile()
+  {
+    adtn::ADT<versions::wotlk> tile;
+    tile.textures.add("tileset/generic/black.blp");
+    tile.chunks.assign(adtn::chunks_per_tile, adtn::MapChunk<versions::wotlk>{});
+    auto& chunk = tile.chunks[0];
+    chunk.heights.assign(145, 0.0f);
+    chunk.normals.assign(145, {});
+    chunk.layers.emplace_back();
+    chunk.alpha_maps.emplace_back();  // layer 0 is opaque: no alpha surface
+    return tile;
+  }
+}
+
+TEST_CASE("validate: ADT chunk grids are fixed size", "[formats][adt][validation]")
+{
+  auto tile = small_tile();
+  CHECK(tile.validate().ok());
+
+  SECTION("heights and normals hold the full 145-vertex grid")
+  {
+    tile.chunks[0].heights.pop_back();
+    CHECK(reports(tile.validate(), "chunks[0].heights", "count 144 != required 145"));
+  }
+
+  SECTION("a decoded shadow map covers all 4096 texels")
+  {
+    tile.chunks[0].shadow_map.assign(512, 0);  // the on-disk 1-bit size, not decoded
+    CHECK(reports(tile.validate(), "chunks[0].shadow_map", "count 512 != required 4096"));
+  }
+
+  SECTION("the tile is a full 16x16 chunk grid")
+  {
+    tile.chunks.pop_back();
+    CHECK(reports(tile.validate(), "chunks", "count 255 != the 256 chunks"));
+  }
+}
+
+TEST_CASE("validate: ADT alpha maps align with layers", "[formats][adt][validation]")
+{
+  auto tile = small_tile();
+
+  SECTION("one alpha map per layer")
+  {
+    tile.chunks[0].layers.emplace_back();
+    CHECK(reports(tile.validate(), "chunks[0].alpha_maps", "count 1 != layers count 2"));
+  }
+
+  SECTION("an engaged map is the decoded 64x64 surface")
+  {
+    tile.chunks[0].layers.emplace_back();
+    tile.chunks[0].alpha_maps.emplace_back().assign(2048, 0);
+    CHECK(reports(tile.validate(), "chunks[0].alpha_maps[1]", "holds 2048 texels, not 4096"));
+  }
+}
+
+TEST_CASE("validate: ADT tile-wide references", "[formats][adt][validation]")
+{
+  auto tile = small_tile();
+
+  SECTION("layer texture ids resolve in the tile's texture table")
+  {
+    tile.chunks[0].layers[0].texture_id = 3;
+    CHECK(reports(tile.validate(), "chunks[0].layers[0]",
+                  "texture_id 3 out of range: 1 textures"));
+  }
+
+  SECTION("chunk references land in the tile's placement tables")
+  {
+    tile.chunks[0].doodad_refs = {0};
+    CHECK(reports(tile.validate(), "chunks[0].doodad_refs[0]",
+                  "index 0 out of range: doodad_placements holds 0"));
+  }
+
+  SECTION("a placement resolves its model through the name-offset table")
+  {
+    auto& placement = tile.doodad_placements.emplace_back();
+    placement.name_id = 2;
+    CHECK(reports(tile.validate(), "doodad_placements[0]",
+                  "name_id 2 out of range: model_name_offsets holds 0"));
+
+    // ... unless the flag makes it a FileDataID the client loads directly
+    placement.flags = std::to_underlying(wowlib::formats::common::DoodadDefFlags::entry_is_fdid);
+    CHECK(tile.validate().ok());
   }
 }

@@ -296,6 +296,28 @@ namespace wowlib::formats::adt
                          AlphaFormat alpha
                          [[=welder::doc("the on-disk alpha-map bit depth to encode")]]) const;
 
+      /** Check the tile's logical integrity — every terrain chunk's own
+          validate() plus the tile-wide contracts only this entity can see:
+          each chunk's texture layers resolving in the tile's texture table,
+          its doodad and object references landing in MDDF/MODF, the placement
+          records' own name references, and the 256-chunk grid itself.
+          Validation is a separate pass — write() never runs it; call this
+          before writing to know the tile will load in the client. A freshly
+          read, unmodified client tile reports zero errors. Excluded from the
+          bindings until the facade verbs land (stage 4).
+          @return every violated contract, prefixed "chunks[i]". */
+      [[nodiscard]]
+      [[=welder::mark::exclude]]
+      ValidationReport validate() const;
+
+      /** The monadic face of validate(), for `ensure_valid().and_then(...)`
+          chains before a write.
+          @return success when validate() reports no errors; otherwise one
+                  InvalidEntityState error listing the findings. */
+      [[nodiscard]]
+      [[=welder::mark::exclude]]
+      Result<void> ensure_valid() const;
+
       /** Parse one split file's chunk stream into this entity (merging), by
           reflecting over the `chunk()`-annotated members.
           @param data the file bytes.
@@ -405,6 +427,76 @@ namespace wowlib::formats::adt
     {
       for (auto& chunk : chunks)
         chunk.header.flags |= std::to_underlying(MapChunkFlags::do_not_fix_alpha_map);
+    }
+
+    template <ClientVersion V>
+    ValidationReport ADT<V>::validate() const
+    {
+      ValidationReport report;
+
+      // a tile is a full 16x16 grid; the client indexes chunks positionally
+      if (!chunks.empty() && chunks.size() != chunks_per_tile)
+        report.add_error("chunks", std::format("count {} != the {} chunks of a tile",
+                                               chunks.size(), chunks_per_tile));
+
+      // the texture table a layer's texture_id addresses: MTEX names, or the
+      // MDID FileDataIDs once the tile uses them (a per-MAP choice, not a
+      // version one - see uses_texture_fdids)
+      const std::size_t texture_count = [&] {
+        if constexpr (requires { this->diffuse_texture_ids; })
+          if (this->uses_texture_fdids)
+            return this->diffuse_texture_ids.size();
+        return textures.entries().size();
+      }();
+
+      for (std::size_t i = 0; i < chunks.size() && !report.full(); ++i)
+      {
+        const std::size_t mark = report.size();
+        const auto& chunk = chunks[i];
+        formats::detail::validate_entity(chunk, report);
+
+        for (std::size_t j = 0; j < chunk.layers.size(); ++j)
+          if (chunk.layers[j].texture_id >= texture_count)
+            report.add_error(std::format("layers[{}]", j),
+                             std::format("texture_id {} out of range: {} textures",
+                                         chunk.layers[j].texture_id, texture_count));
+
+        // the chunk's placement references index the TILE's tables
+        formats::detail::validate_index_elements(chunk.doodad_refs, doodad_placements.size(),
+                                                 "doodad_refs", "doodad_placements", report);
+        formats::detail::validate_index_elements(chunk.object_refs, wmo_placements.size(),
+                                                 "object_refs", "wmo_placements", report);
+        report.prefix_from(mark, std::format("chunks[{}]", i));
+      }
+
+      // A placement's name_id indexes the tile's name-offset table, EXCEPT
+      // when its entry_is_fdid flag makes it a FileDataID the client loads
+      // directly (Legion+) — then there is nothing local to resolve against.
+      const auto check_placements = [&](const auto& placements, auto fdid_flag,
+                                        const auto& offsets, std::string_view what,
+                                        std::string_view table) {
+        for (std::size_t i = 0; i < placements.size() && !report.full(); ++i)
+        {
+          if (has_flag(placements[i].flags, fdid_flag))
+            continue;
+          if (placements[i].name_id >= offsets.size())
+            report.add_error(std::format("{}[{}]", what, i),
+                             std::format("name_id {} out of range: {} holds {} entries",
+                                         placements[i].name_id, table, offsets.size()));
+        }
+      };
+      check_placements(doodad_placements, common::DoodadDefFlags::entry_is_fdid,
+                       model_name_offsets, "doodad_placements", "model_name_offsets");
+      check_placements(wmo_placements, common::MapObjDefFlags::entry_is_fdid, wmo_name_offsets,
+                       "wmo_placements", "wmo_name_offsets");
+
+      return report;
+    }
+
+    template <ClientVersion V>
+    Result<void> ADT<V>::ensure_valid() const
+    {
+      return validate().to_result();
     }
 
     template <ClientVersion V>

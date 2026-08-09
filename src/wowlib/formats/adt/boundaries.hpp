@@ -24,6 +24,11 @@ namespace wowlib::formats::adt
   /** The ADT format version every supported client writes (the MVER payload). */
   inline constexpr std::uint32_t adt_version_18 = 18;
 
+  /** The terrain chunks a tile is divided into: a 16x16 grid, indexed
+      row-major (y * 16 + x) — the client addresses them positionally, so the
+      count is fixed for every version. */
+  inline constexpr std::size_t chunks_per_tile = 16 * 16;
+
   // --- layout pivots (documented boundaries that change ADT<V> content) -------
 
   /** 8.1.0.27826: MDID/MHID diffuse+height FileDataID tables arrive in _tex0

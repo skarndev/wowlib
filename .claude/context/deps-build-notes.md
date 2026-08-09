@@ -75,6 +75,26 @@ image. gcc already does this for FP constants (`lCN`) — strings are the gap.
   `_wk`, extern SIGNED; lowercase `l.str.*` relocates against the literal and
   fixes it). Not yet shown: `-S` output from a real x86_64-darwin gcc-16 host —
   we only have Apple Silicon.
+- Reproducer POC built 2026-08-09 for Iain Sandoe (attachment + comment drafted;
+  Bugzilla is behind Anubis so posting is manual). Two new facts came out of it:
+  - **It reproduces from plain C++ source**, no libstdc++ involvement: two TUs
+    sharing a header-defined coalesced constant, each with a local
+    `constexpr char t[] = {'0','1',…}` — a *braced, non-NUL-terminated* char
+    array, which is what pushes an anonymous string constant into
+    `__TEXT,__const` instead of `__cstring`. That is precisely the shape of
+    libstdc++'s `__to_chars_16::__digits[16]`; a `constexpr char t[] = "…"`
+    string-literal initializer stays in `__cstring` and is safe.
+  - **Whether a TU is exposed depends on gcc's emission order.** gcc flushes the
+    shared constant pool *before* the varpool at `-O1`/`-O2`, so in small TUs the
+    literal lands at the section start with no weak symbol in front of it and
+    relocates against `ltmp1` — harmless. At `-O0` (or `-O2
+    -fno-toplevel-reorder`) the weak var is emitted first and the literal is
+    absorbed. Big real TUs interleave, which is why this bites optimized builds.
+    So a passing small test proves nothing about the shim being unnecessary — the
+    configure probe's hand-written `.s` is the reliable detector, by design.
+  - x86_64 now confirmed at *runtime*, not just by reloc inspection: the
+    hand-written x86_64 pair mis-links the same way and runs wrong under Rosetta 2
+    (still no native x86_64 gcc-16 `-S`).
 
 ## Pins (FetchContent, cmake/Dependencies.cmake)
 | Dep | Tag | Notes |

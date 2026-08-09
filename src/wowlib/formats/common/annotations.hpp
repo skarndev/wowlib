@@ -143,9 +143,26 @@ namespace wowlib::formats
       std::uint32_t divisor;
     };
 
+    /** Stored form of `count_exactly`: the member's element count is fixed by
+        the format (an ADT map chunk's 145 height samples). */
+    struct count_exactly_spec
+    {
+      std::uint32_t count;
+    };
+
     /** Stored form of `indexes`: every element of the (integral) vector member
         must be a valid index into the named sibling member. */
     struct indexes_spec
+    {
+      const char* name;  /**< The sibling member the elements index. */
+
+      constexpr std::string_view view() const { return name; }
+    };
+
+    /** Stored form of `indexes_optional`: like `indexes`, but the client's
+        "no reference" sentinel (a negative value, or the all-ones value of an
+        unsigned element) is a legal element. */
+    struct indexes_optional_spec
     {
       const char* name;  /**< The sibling member the elements index. */
 
@@ -277,12 +294,33 @@ namespace wowlib::formats
     return {divisor};
   }
 
+  /** Declare a fixed-size contract: when engaged, the member holds exactly
+      @a count elements because the format fixes the grid (an ADT map chunk's
+      145 height samples, its 4096-byte shadow map). Absence stays legal —
+      combine with `nonempty` when the data is also mandatory.
+      @param count the required element count. */
+  consteval detail::count_exactly_spec count_exactly(std::uint32_t count)
+  {
+    return {count};
+  }
+
   /** Declare a referential contract: every element of this (integral) vector
       member is an index into the named sibling member, so each must be less
       than the sibling's element count. The sibling name is checked against the
       entity's members at compile time.
       @param name the sibling member the elements index. */
   consteval detail::indexes_spec indexes(std::string_view name)
+  {
+    return {std::define_static_string(name)};
+  }
+
+  /** Declare a referential contract that tolerates the "none" sentinel: like
+      `indexes`, except an element that is negative (signed lookup) or all-ones
+      (an unsigned `-1`, e.g. M2's 0xFFFF) means "no reference" and is skipped.
+      The M2 lookup tables are the motivating case — key bones, replacable
+      textures and transform lookups all leave unused slots at -1.
+      @param name the sibling member the elements index. */
+  consteval detail::indexes_optional_spec indexes_optional(std::string_view name)
   {
     return {std::define_static_string(name)};
   }

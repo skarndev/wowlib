@@ -14,7 +14,9 @@
     an absent one is a compile error. */
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <format>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -208,6 +210,7 @@ namespace wowlib::formats::m2::root
     std::vector<M2Sequence<V>> sequences;
 
     [[=welder::mark::no_reassign,
+      =formats::indexes_optional("sequences"),
       =welder::doc("Animation-id hash table: AnimationData.dbc id -> sequence "
                    "index, quadratic probing, -1 empty.")]]
     std::vector<std::int16_t> sequence_lookups;
@@ -216,6 +219,10 @@ namespace wowlib::formats::m2::root
       =welder::doc("The bones (MAX_BONES nominally 256).")]]
     std::vector<M2CompBone<V>> bones;
 
+    // NOT indexes_optional("bones"): a skel-based model (Legion+) keeps its
+    // bones in the .skel file, leaving this body's `bones` empty while the
+    // lookups still address the skeleton's. The M2 assembly's validate()
+    // checks both lookups against whichever list actually supplies the bones.
     [[=welder::mark::no_reassign,
       =welder::doc("Key-bone lookup: key bone slot -> bone index, -1 if none.")]]
     std::vector<std::int16_t> key_bone_lookup;
@@ -241,6 +248,7 @@ namespace wowlib::formats::m2::root
     std::vector<M2TextureTransform<V>> texture_transforms;
 
     [[=welder::mark::no_reassign,
+      =formats::indexes_optional("textures"),
       =welder::doc("Replacable-texture reverse lookup: replacable id -> "
                    "texture index or -1.")]]
     std::vector<std::int16_t> replacable_texture_lookup;
@@ -249,11 +257,13 @@ namespace wowlib::formats::m2::root
       =welder::doc("Materials: render flags + blending modes.")]]
     std::vector<M2Material> materials;
 
+    // see key_bone_lookup: the effective bone list may live in the .skel
     [[=welder::mark::no_reassign,
       =welder::doc("Bone lookup: skin sections select bone subsets through it.")]]
     std::vector<std::uint16_t> bone_lookup_table;
 
     [[=welder::mark::no_reassign,
+      =formats::indexes_optional("textures"),
       =welder::doc("Texture lookup: batches select textures through it.")]]
     std::vector<std::uint16_t> texture_lookup_table;
 
@@ -263,11 +273,13 @@ namespace wowlib::formats::m2::root
     std::vector<std::int16_t> texture_mapping_lookup_table;
 
     [[=welder::mark::no_reassign,
+      =formats::indexes_optional("texture_weights"),
       =welder::doc("Transparency lookup: batches select texture weights "
                    "through it.")]]
     std::vector<std::uint16_t> transparency_lookup_table;
 
     [[=welder::mark::no_reassign,
+      =formats::indexes_optional("texture_transforms"),
       =welder::doc("Texture-transform lookup: batches select UV animations "
                    "through it, -1 static.")]]
     std::vector<std::int16_t> texture_transforms_lookup_table;
@@ -285,6 +297,8 @@ namespace wowlib::formats::m2::root
     float collision_sphere_radius = 0;
 
     [[=welder::mark::no_reassign,
+      =formats::count_multiple_of(3),
+      =formats::indexes("collision_vertices"),
       =welder::doc("Collision-hull triangle indices (3 per face).")]]
     std::vector<std::uint16_t> collision_triangles;
 
@@ -293,6 +307,7 @@ namespace wowlib::formats::m2::root
     std::vector<C3Vector> collision_vertices;
 
     [[=welder::mark::no_reassign,
+      =formats::count_matches("collision_triangles", 3),
       =welder::doc("Collision-hull per-face normals.")]]
     std::vector<C3Vector> collision_normals;
 
@@ -301,6 +316,7 @@ namespace wowlib::formats::m2::root
     std::vector<M2Attachment<V>> attachments;
 
     [[=welder::mark::no_reassign,
+      =formats::indexes_optional("attachments"),
       =welder::doc("Attachment lookup: attachment id -> index.")]]
     std::vector<std::uint16_t> attachment_lookup_table;
 
@@ -317,6 +333,7 @@ namespace wowlib::formats::m2::root
     std::vector<M2Camera<V>> cameras;
 
     [[=welder::mark::no_reassign,
+      =formats::indexes_optional("cameras"),
       =welder::doc("Camera lookup: camera type -> index.")]]
     std::vector<std::uint16_t> camera_lookup_table;
 
@@ -327,6 +344,65 @@ namespace wowlib::formats::m2::root
     [[=welder::mark::no_reassign,
       =welder::doc("Particle emitters.")]]
     std::vector<M2Particle<V>> particle_emitters;
+
+    /** Validation hook (see formats::detail::validate_value): the model-body
+        contracts the annotations cannot express — the bone hierarchy, the
+        alias-sequence chains the client follows to find track data, and the
+        global-sequence references tracks carry. Contracts spanning the
+        satellite files (skins into this body, .anim coverage) belong to the
+        M2 assembly's validate().
+        @param report the report findings land in. */
+    [[=welder::mark::exclude]]
+    void validate_extra(ValidationReport& report) const
+    {
+      // the bone hierarchy: parents exist, precede their children (the client
+      // resolves transforms in one forward pass) and never form a cycle
+      for (std::size_t i = 0; i < bones.size(); ++i)
+      {
+        const std::int16_t parent = bones[i].parent_bone;
+        if (parent < 0)
+          continue;
+        if (static_cast<std::size_t>(parent) >= bones.size())
+          report.add_error(std::format("bones[{}]", i),
+                           std::format("parent_bone {} out of range: {} bones", parent,
+                                       bones.size()));
+        else if (static_cast<std::size_t>(parent) >= i)
+          report.add_error(std::format("bones[{}]", i),
+                           std::format("parent_bone {} does not precede the child", parent));
+      }
+
+      // alias sequences own no track data: the client follows alias_next until
+      // it reaches a non-alias, so a dangling or self-referential link hangs it
+      for (std::size_t i = 0; i < sequences.size(); ++i)
+      {
+        if (!sequences[i].is_alias())
+          continue;
+        std::size_t at = i;
+        std::size_t steps = 0;
+        while (steps++ <= sequences.size())
+        {
+          const std::size_t next = sequences[at].alias_next;
+          if (next >= sequences.size())
+          {
+            report.add_error(std::format("sequences[{}]", at),
+                             std::format("alias_next {} out of range: {} sequences", next,
+                                         sequences.size()));
+            break;
+          }
+          if (next == at)
+          {
+            report.add_error(std::format("sequences[{}]", at), "alias_next points at itself");
+            break;
+          }
+          at = next;
+          if (!sequences[at].is_alias())
+            break;
+        }
+        if (steps > sequences.size())
+          report.add_error(std::format("sequences[{}]", i),
+                           "alias chain does not reach a non-alias sequence (cycle)");
+      }
+    }
 
     bool operator==(const M2Root&) const = default;
   };

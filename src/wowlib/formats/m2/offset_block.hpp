@@ -245,6 +245,33 @@ namespace wowlib::formats::m2
       return false;
     }
 
+    /** Check the block's logical integrity contracts — the conditions a file
+        must satisfy to LOAD in the client (companion-array counts, lookup
+        ranges), which write() deliberately never enforces. Same contract as
+        ChunkedFile::validate(): annotation-declared checks first, then the
+        entity's validate_extra hook, with a freshly read client file
+        reporting zero errors.
+        @return every violated contract, in member order. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    ValidationReport validate() const
+    {
+      ValidationReport report;
+      formats::detail::validate_entity(static_cast<const Derived&>(*this), report);
+      return report;
+    }
+
+    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
+        chains before a write.
+        @return success when validate() reports no errors; otherwise one
+                InvalidEntityState error listing the findings. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    Result<void> ensure_valid() const
+    {
+      return validate().to_result();
+    }
+
     /** The entity's image footprint in bytes for Derived's version: every
         version-active member's layout_size, plus any engaged gated_by member.
         This is the exact size of the header/inline image that precedes the

@@ -338,3 +338,29 @@ this session — the C++ suite (incl. both corpus round-trips) is the coverage.
 Fixing it needs excluding the static consteval `member_offset` from the welder
 walk (formats-architecture says static members should be invisible to welder — a
 welder-pin regression), which is M2/welder scope, left for the user.
+
+## Validation (2026-08-09, stage 2)
+
+`validate()` / `ensure_valid()` on `ADT<V>`; MapChunk validates through the
+shared walker (it carries `version`, so no ChunkedFile membership is needed).
+Full design + the walker: formats-architecture.md "Validation".
+
+- Annotations: `count_exactly(detail::mcvt_count)` on heights / normals /
+  vertex_colors / vertex_lighting, `count_exactly(detail::alpha_texels)` on
+  shadow_map, `count_matches("layers")` on alpha_maps, `indexes_in_root` on
+  MCRD/MCRW (resolved by the tile against doodad_placements / wmo_placements).
+- MapChunk's hook: every engaged alpha surface is the full decoded 4096 texels
+  (wowlib always holds them decoded, whatever the on-disk encoding was);
+  layer 0's alpha map is ignored by the client -> warning, not error.
+- `ADT<V>::validate()` covers the tile-wide half: the 256-chunk grid
+  (`chunks_per_tile`, new named constant in boundaries.hpp), layer texture ids
+  against MTEX **or** the MDID FileDataIDs — whichever `uses_texture_fdids`
+  selects, since that is a per-MAP choice — and placement `name_id`s into the
+  name-offset tables, SKIPPING records whose `entry_is_fdid` flag makes the id
+  a FileDataID the client loads directly.
+- GOTCHA the corpus caught: `alpha_maps` is `vector<vector<u8>>` and its
+  sibling `layers` is flat, which a shape heuristic read as "slots" and
+  compared 4096 against the layer count. Nested-vs-slot is now explicit —
+  only `Repeated<>` opts into per-slot contracts (`validation_slots`).
+- Corpus assertions live in both test_adt_roundtrip.cpp helpers (monolithic and
+  split), asserting zero errors on every freshly read tile of both clients.

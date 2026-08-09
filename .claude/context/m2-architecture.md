@@ -470,3 +470,30 @@ rebuilt clean). CURRENT NAMES supersede the history above:
   stay clean). The recursive per-element loops (read/write_array_elements) stay
   index-based — enumerate's signed index would fight the `ref.offset + i*elem`
   pointer math (sign-conversion). No C-style casts existed to remove.
+
+## Validation (2026-08-09, stage 2)
+
+`validate()` / `ensure_valid()` on M2OffsetBlock (so every offset entity has
+them) and on the `M2<V>` assembly. Full design + the shared walker: see
+formats-architecture.md "Validation". M2-specific findings the corpus forced:
+
+- **A skel-based model (Legion+) leaves `root.bones` EMPTY** — the bones live in
+  the .skel — while `bone_lookup_table` / `key_bone_lookup` still address them.
+  So those two could NOT carry an `indexes_optional("bones")` annotation on the
+  body; the assembly's validate() picks the effective list
+  (`skel.bone_block.bones` when root.bones is empty) and checks both there.
+  Caught by lightforgeddraeneimale in the 9.2.7 sweep.
+- **`M2Batch::texture_count` governs only the TEXTURE lookup slice.** Real files
+  overrun the transparency and texture-transform tables routinely (3.3.5a
+  humanmale batch 0 spans 6 entries over a 2-entry transparency table; the
+  Northrend glue screen spans [9,11) over 10), so those two are validated only
+  by their START entry, and only when the table is non-empty.
+- `count_matches("timestamps")` on M2Track `values` expresses BOTH eras: the
+  pre-WotLK flat arrays and the WotLK+ per-sequence arrays, which additionally
+  pair element-wise (walker rule: both sides `vector<vector<...>>`).
+- The M2Root hook enforces what the client's single forward transform pass
+  needs: a bone's parent must exist AND precede it; alias chains (flag 0x40)
+  must terminate at a non-alias (dangling / self-referential / cyclic all
+  error).
+- M2SkinProfile's hook validates submesh slices — its index slice starts at
+  `index_start + (level << 16)`, the documented 16-bit extension.
