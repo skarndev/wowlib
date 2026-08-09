@@ -337,10 +337,13 @@ namespace wowlib::formats::wmo::group
         =welder::doc("The group header leading the MOGP payload.")]]
       SMOGroupHeader<V> header{};
 
+      // NOT count_matches("indices", 3): a 9.0+ large-mesh group carries its
+      // indices in MOVX instead, leaving MOVI empty — the poly/face
+      // relationship is checked against whichever list is active, in
+      // validate_extra.
       [[
         =chunk("MOPY"),
         =formats::optional,
-        =formats::count_matches("indices", 3),
         =welder::mark::no_reassign,
         =welder::doc("Per-triangle material info (MOPY).")]]
       std::vector<SMOPoly> polys;
@@ -495,6 +498,18 @@ namespace wowlib::formats::wmo::group
       void validate_extra(ValidationReport& report) const
       {
         const std::size_t index_count = active_index_count();
+
+        // one per-triangle record per three indices, against whichever index
+        // list is active (MOVI, or MOVX on a large mesh)
+        const auto per_triangle = [&](const auto& records, std::string_view what) {
+          if (!records.empty() && records.size() * 3 != index_count)
+            report.add_error(std::string{what},
+                             std::format("count {} x 3 != the {} active triangle indices",
+                                         records.size(), index_count));
+        };
+        per_triangle(polys, "polys");
+        if constexpr (requires { this->polys2; })
+          per_triangle(this->polys2, "polys2");
 
         // MOBA ranges: the client draws [start_index, start_index + count) and
         // uploads vertices up to max_index

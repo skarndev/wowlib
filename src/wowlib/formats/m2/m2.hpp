@@ -1068,7 +1068,13 @@ namespace wowlib::formats::m2
         {
           const std::size_t mark = report.size();
           formats::detail::validate_entity(views[i], report);
-          detail::validate_profile_against_root(views[i].profile, root, report);
+          {
+            // the cross-file findings sit on the same member the entity walk
+            // reports under, so they read "skins[0].profile.vertices" too
+            const std::size_t profile_mark = report.size();
+            detail::validate_profile_against_root(views[i].profile, root, report);
+            report.prefix_from(profile_mark, "profile");
+          }
           report.prefix_from(mark, std::format("{}[{}]", what, i));
         }
       };

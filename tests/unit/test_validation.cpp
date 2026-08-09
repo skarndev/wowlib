@@ -72,7 +72,7 @@ TEST_CASE("validate: companion-count contracts (count_matches)", "[formats][wmo]
 
   auto polys = small_group();
   polys.body.polys.emplace_back();
-  CHECK(reports(polys.validate(), "body.polys", "count 2 x 3 != indices count 3"));
+  CHECK(reports(polys.validate(), "body.polys", "count 2 x 3 != the 3 active triangle indices"));
 }
 
 TEST_CASE("validate: index contracts (indexes, count_multiple_of)",
