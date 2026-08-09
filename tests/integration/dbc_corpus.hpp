@@ -255,7 +255,11 @@ namespace wowlib::tests
     std::string base = name == "ItemSparseLegacy" ? "Item-sparse" : std::string{name};
     for (char& c : base)
       c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    const auto fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.db2", base));
+    // A CASC-era client is mixed until Legion retires .dbc: 6.2.3 ships 270
+    // .db2 beside 247 .dbc, so a .db2-only lookup finds a third of the corpus.
+    auto fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.db2", base));
+    if (!fdid)
+      fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.dbc", base));
     if (!fdid)
     {
       ++stats.missing;
