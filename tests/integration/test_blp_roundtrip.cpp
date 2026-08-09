@@ -66,6 +66,10 @@ namespace
     const auto parsed = blp.read(*data);
     if (!parsed)
       FAIL(std::format("{}: read failed: {}", label, parsed.error().message));
+    // a freshly read, unmodified client texture passes validation with zero
+    // errors (warnings are allowed - they mark states real files ship)
+    if (const auto valid = blp.ensure_valid(); !valid)
+      FAIL(std::format("{}: {}", label, valid.error().message));
 
     const auto rewritten = blp.write();
     REQUIRE(rewritten.has_value());

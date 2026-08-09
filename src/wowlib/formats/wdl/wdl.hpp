@@ -378,12 +378,22 @@ namespace wowlib::formats::wdl
         =welder::returns("one heightmap ordinal per ocean mask")]]
       std::vector<std::uint32_t> ocean_mask_tiles() const;
 
+      /** Validation hook (see formats::detail::validate_value): the tile-table
+          pairing invariants — the MAOF table's shape, and the ordinal pairing
+          that makes the i-th nonzero slot own the i-th heightmap. These are
+          the SAME contracts the write path must hold to lay out a rebuilt
+          journal, so write() checks them through this hook rather than
+          restating them (see resequenced_journal).
+          @param report the report findings land in. */
+      [[=welder::mark::exclude]]
+      void validate_extra(ValidationReport& report) const;
+
       /** Serializer hook (see write_entity): once the stored journal no
           longer matches the tile data (tiles added/removed, or a fresh
           entity), rebuild the emission order — every non-tile chunk in
           canonical order, then each tile's MARE/(MAOC/MAOE)/MAHO interleaved
-          after MAOF, preserved unknown chunks last. Validates the tile-table
-          pairing invariants.
+          after MAOF, preserved unknown chunks last. Requires the tile-table
+          pairing invariants (validate_extra) to hold.
           @return nullopt to replay the stored journal, the rebuilt journal
                   otherwise, or the validation error. */
       [[=welder::mark::exclude]]
@@ -466,6 +476,44 @@ namespace wowlib::formats::wdl
   }
 
   template <ClientVersion V>
+  void detail::WDL<V>::validate_extra(ValidationReport& report) const
+  {
+    const std::size_t n_tiles = heightmaps.size();
+    std::size_t engaged_slots = 0;
+    for (const std::uint32_t offset : tile_offsets)
+      engaged_slots += (offset != 0);
+
+    // MAOF is a fixed 64x64 slot table; a zero slot means "no tile here"
+    if ((n_tiles != 0 || engaged_slots != 0) && tile_offsets.size() != wdl_tile_slots)
+      report.add_error("tile_offsets",
+                       std::format("the MAOF table holds {} offsets, not 64*64 — resize "
+                                   "tile_offsets to {} (0 = tile absent)",
+                                   tile_offsets.size(), wdl_tile_slots));
+    if (engaged_slots != n_tiles)
+      report.add_error("heightmaps",
+                       std::format("{} nonzero tile_offsets slots but {} heightmaps — the "
+                                   "i-th nonzero slot owns the i-th heightmap, so the "
+                                   "counts must match",
+                                   engaged_slots, n_tiles));
+
+    if constexpr (requires { this->holes; })
+      if (!this->holes.empty() && this->holes.size() != n_tiles)
+        report.add_error("holes",
+                         std::format("{} hole masks but {} heightmaps — hole masks are "
+                                     "all-or-nothing (empty, or one per heightmap)",
+                                     this->holes.size(), n_tiles));
+    if constexpr (requires { this->ocean_masks; })
+      if (this->ocean_masks.size() > n_tiles)
+        report.add_error("ocean_masks", std::format("{} ocean masks but only {} heightmaps",
+                                                    this->ocean_masks.size(), n_tiles));
+    if constexpr (requires { this->occlusion_meshes; })
+      if (this->occlusion_meshes.size() > n_tiles)
+        report.add_error("occlusion_meshes",
+                         std::format("{} occlusion meshes but only {} heightmaps",
+                                     this->occlusion_meshes.size(), n_tiles));
+  }
+
+  template <ClientVersion V>
   Result<std::optional<std::vector<JournalEntry>>> detail::WDL<V>::resequenced_journal() const
   {
     constexpr auto mare_idx = formats::detail::chunk_member_index<WDL>(four_cc("MARE"));
@@ -500,29 +548,14 @@ namespace wowlib::formats::wdl
         && journal_count(maoc_idx) == n_occlusion)
       return std::optional<std::vector<JournalEntry>>{};
 
-    // rebuild path: enforce the tile-table pairing invariants first
-    std::size_t engaged_slots = 0;
-    for (const std::uint32_t offset : tile_offsets)
-      engaged_slots += (offset != 0);
-    if ((n_tiles != 0 || engaged_slots != 0) && tile_offsets.size() != 64 * 64)
-      return make_error(ErrorCode::InvalidEntityState,
-                        std::format("the MAOF table holds {} offsets, not 64*64 — resize "
-                                    "tile_offsets to 4096 (0 = tile absent)",
-                                    tile_offsets.size()));
-    if (engaged_slots != n_tiles)
-      return make_error(ErrorCode::InvalidEntityState,
-                        std::format("{} nonzero tile_offsets slots but {} heightmaps — the "
-                                    "i-th nonzero slot owns the i-th heightmap, so the "
-                                    "counts must match",
-                                    engaged_slots, n_tiles));
-    if (n_holes != 0 && n_holes != n_tiles)
-      return make_error(ErrorCode::InvalidEntityState,
-                        std::format("{} hole masks but {} heightmaps — hole masks are "
-                                    "all-or-nothing (empty, or one per heightmap)",
-                                    n_holes, n_tiles));
-    if (n_ocean > n_tiles)
-      return make_error(ErrorCode::InvalidEntityState,
-                        std::format("{} ocean masks but only {} heightmaps", n_ocean, n_tiles));
+    // rebuild path: the layout below only makes sense once the tile-table
+    // pairing holds, so require it through the same hook validate() uses
+    {
+      ValidationReport report;
+      validate_extra(report);
+      if (auto r = report.to_result(); !r)
+        return std::unexpected{r.error()};
+    }
 
     // Per-tile attachment of the sparse chunks (MAOE/MAOC): pair through the
     // stored journal's interleave when it still covers them, else the
@@ -629,14 +662,14 @@ namespace wowlib::formats::wdl
     if (maof_payload == image.size())
       return make_error(ErrorCode::InvalidEntityState,
                         "heightmap chunks without a MAOF table to point at them");
-    if (maof_size != 64 * 64 * sizeof(std::uint32_t))
+    if (maof_size != wdl_tile_slots * sizeof(std::uint32_t))
       return make_error(ErrorCode::InvalidEntityState,
                         std::format("the written MAOF table holds {} bytes, not 64*64 "
-                                    "offsets — resize tile_offsets to 4096",
-                                    maof_size));
+                                    "offsets — resize tile_offsets to {}",
+                                    maof_size, wdl_tile_slots));
 
     std::size_t next = 0;
-    for (std::size_t slot = 0; slot < 64 * 64; ++slot)
+    for (std::size_t slot = 0; slot < wdl_tile_slots; ++slot)
     {
       std::uint32_t value = 0;
       std::byte* at = image.data() + maof_payload + slot * sizeof value;

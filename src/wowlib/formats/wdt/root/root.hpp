@@ -112,6 +112,7 @@ namespace wowlib::formats::wdt::root
 
       [[
         =chunk("MVER"),
+        =formats::expected_value(wdt_version_18),
         =welder::doc("The WDT format version; 18 for every supported client.")]]
       std::uint32_t mver = wdt_version_18;
 
@@ -156,6 +157,34 @@ namespace wowlib::formats::wdt::root
         four_cc("MVER"), four_cc("MPHD"), four_cc("MAIN"), four_cc("MAID"),
         four_cc("MWMO"), four_cc("MODF"), four_cc("MANM"),
       };
+
+      /** Validation hook (see formats::detail::validate_value): the map-wide
+          tables the client indexes POSITIONALLY, so their size is the
+          contract — the 64x64 MAIN grid and, when engaged, the matching MAID
+          grid — plus the global-WMO records a WMO-only map is limited to.
+          @param report the report findings land in. */
+      [[=welder::mark::exclude]]
+      void validate_extra(ValidationReport& report) const
+      {
+        // the client addresses a tile as tiles[y * 64 + x]; a short table
+        // silently reads the wrong tiles rather than failing
+        if (!tiles.empty() && tiles.size() != wdt_tile_slots)
+          report.add_error("tiles", std::format("the MAIN table holds {} records, not 64*64",
+                                                tiles.size()));
+
+        // MAID is the same grid: engaged, it must cover every tile
+        if constexpr (requires { this->map_fdids; })
+          if (!this->map_fdids.empty() && this->map_fdids.size() != wdt_tile_slots)
+            report.add_error("map_fdids",
+                             std::format("the MAID table holds {} records, not 64*64",
+                                         this->map_fdids.size()));
+
+        // a WMO-only map places exactly one global object
+        if (global_wmo.size() > 1)
+          report.add_error("global_wmo",
+                           std::format("{} global WMO placements; a map has at most one",
+                                       global_wmo.size()));
+      }
     };
   }
 

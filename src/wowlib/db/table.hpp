@@ -23,6 +23,7 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <welder/vocabulary.hpp>
@@ -40,6 +41,7 @@
 #include <wowlib/db/wdc/wdc.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/string_block.hpp>
+#include <wowlib/formats/common/validation.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
 namespace wowlib::db
@@ -188,6 +190,72 @@ namespace wowlib::db
       =welder::doc("Whether the whole table decoded — false when encrypted sections "
                    "were skipped.")]]
     bool fully_decoded() const { return state_.encrypted.empty(); }
+
+    /** Check the table's logical integrity — what must hold for the records to
+        survive a write and load in the client. Validation is a SEPARATE pass;
+        write() never runs it.
+
+        Two contracts the record types cannot express on their own: the primary
+        key stays unique (the client indexes records by id), and no string
+        holds an embedded NUL — the string block terminates entries with it, so
+        such a value would silently come back truncated.
+
+        Note there is deliberately NO "value fits its column" check: a column's
+        width IS its member's width (schema.hpp derives one from the other), and
+        the WDC writer sizes each bit-packed field from the actual value range
+        it is given, so no value reachable through the typed API can overflow
+        what encodes it.
+        @return every violated contract, in record order. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    formats::ValidationReport validate() const
+    {
+      formats::ValidationReport report;
+      static constexpr auto schema = schema_of<Record>();
+      const TypedRecordSource<Record> source{records};
+
+      // Plenty of client tables are KEYLESS — pure lookup rows with no $id$
+      // column (CharBaseInfo, CharacterFacialHairStyles, ItemSubClass, ...).
+      // There is no primary key to keep unique there, and record_id() reports
+      // 0 for every row.
+      static constexpr bool has_id =
+        std::ranges::any_of(schema, [](const Column& c) { return c.is_id; });
+      std::unordered_map<std::uint32_t, std::size_t> first_seen;
+      for (std::size_t r = 0; r < records.size() && !report.full(); ++r)
+      {
+        for (std::size_t c = 0; c < schema.size(); ++c)
+        {
+          const Column& column = schema[c];
+          const std::size_t slots = column.string_slots();
+          for (std::size_t e = 0; e < slots; ++e)
+            if (source.get_string(r, c, e).find('\0') != std::string_view::npos)
+              report.add_error(slots > 1 ? std::format("records[{}].{}[{}]", r,
+                                                       column.name_view(), e)
+                                         : std::format("records[{}].{}", r, column.name_view()),
+                               "the string holds an embedded NUL; the string block "
+                               "terminates entries with it, so it would read back truncated");
+        }
+
+        if constexpr (has_id)
+        {
+          const std::uint32_t id = detail::record_id(records[r]);
+          if (const auto [at, fresh] = first_seen.try_emplace(id, r); !fresh)
+            report.add_error(std::format("records[{}]", r),
+                             std::format("duplicate id {} (already used by records[{}]); the "
+                                         "client indexes records by id",
+                                         id, at->second));
+        }
+      }
+      return report;
+    }
+
+    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
+        chains before a write.
+        @return success when validate() reports no errors; otherwise one
+                InvalidEntityState error listing the findings. */
+    [[nodiscard]]
+    [[=welder::mark::exclude]]
+    Result<void> ensure_valid() const { return validate().to_result(); }
 
   private:
     /** The table identity + schema the codecs work from. */

@@ -373,3 +373,60 @@ TEST_CASE("non-power-of-two and tall/wide mip chains stay well-formed", "[format
   CHECK(decoded->width == 1);
   CHECK(decoded->height == 1);
 }
+
+TEST_CASE("blp: validate() checks the mip chain and dimensions",
+          "[formats][blp][validation]")
+{
+  BLP blp;
+  blp.color_encoding = ColorEncoding::Bgra;
+  blp.preferred_format = PixelFormat::Argb8888;
+  blp.alpha_depth = 8;
+  blp.width = 4;
+  blp.height = 4;
+  blp.mips.emplace_back(4 * 4 * 4, std::byte{0});
+  CHECK(blp.validate().ok());
+
+  SECTION("a texture needs its base level")
+  {
+    blp.mips.clear();
+    CHECK_FALSE(blp.validate().ok());
+  }
+
+  SECTION("zero dimensions cannot size a texture")
+  {
+    blp.width = 0;
+    CHECK_FALSE(blp.validate().ok());
+  }
+
+  SECTION("more levels than the header can address")
+  {
+    blp.mips.assign(blp_max_mips + 1, FileBuffer(4 * 4 * 4, std::byte{0}));
+    CHECK_FALSE(blp.validate().ok());
+  }
+
+  SECTION("a short raw level only warns — the decoders pad it")
+  {
+    blp.mips[0].resize(4);
+    const auto report = blp.validate();
+    CHECK(report.ok());
+    CHECK(report.warning_count() == 1);
+  }
+
+  SECTION("a short palettized level errors — the client would read past it")
+  {
+    blp.color_encoding = ColorEncoding::Palettized;
+    blp.alpha_depth = 0;
+    blp.mips[0].resize(4);  // needs 4*4 indices
+    CHECK_FALSE(blp.validate().ok());
+  }
+
+  SECTION("a junk alpha depth is fatal only where it sizes a plane")
+  {
+    blp.alpha_depth = 136;  // as 3.3.5a Textures/SunGlare.blp ships it
+    CHECK(blp.validate().ok());
+    CHECK(blp.validate().warning_count() == 1);
+
+    blp.color_encoding = ColorEncoding::Palettized;
+    CHECK_FALSE(blp.validate().ok());
+  }
+}

@@ -634,3 +634,43 @@ after stage 2: 609k+ assertions, zero findings across all four clients.
    formats/common includes (namespace position = submodule weld order, and
    NSDMI defaults of common types convert eagerly at registration — see Known
    issues, 2026-07-20).
+
+### Stage 3 (2026-08-09): WDT/WDL migrated, ClientDB + BLP covered
+
+- **WDL: the write-time guard and validate() are now ONE hook.** The tile-table
+  pairing invariants (MAOF slot count, the ordinal pairing that makes the i-th
+  nonzero slot own the i-th heightmap, all-or-nothing hole masks) moved out of
+  `resequenced_journal()` into `validate_extra`; the rebuild path calls the hook
+  and folds the report through `to_result()`, so write() still fails with
+  InvalidEntityState and the existing pairing tests pass unchanged. Named
+  constants replaced the `64 * 64` literals (`wdl_tile_slots`, `wdt_tile_slots`).
+- **WDT** gained `expected_value` on MVER plus a hook for the positional tables
+  (MAIN and, when engaged, MAID must both cover the full 64x64 grid — the client
+  indexes them as `[y * 64 + x]`) and the at-most-one global WMO placement.
+- **BLP is unversioned**, so it does NOT go through the reflective walker (its
+  `version` member is a u32 format field, not a ClientVersion — the
+  VersionedEntity concept correctly rejects it). `BLP::validate()` is a plain
+  method in blp.cpp: base level present, non-zero dimensions, mip count within
+  the header's 16 slots, and each level's payload covering the pixels its
+  dimensions imply.
+  - **Corpus corrections**: a SHORT payload is a documented client quirk for the
+    block/raw encodings (the decoders pad with transparent black) → warning; for
+    palettized data the client would index past the buffer → error. And
+    `alpha_depth` carries junk in shipped files (3.3.5a Textures/SunGlare.blp
+    ships 136 on a DXT texture), so a bad depth is an error only for Palettized,
+    where it actually sizes the alpha plane.
+- **ClientDB** (`Table<Record>::validate()`): id uniqueness — gated on the
+  schema actually HAVING an `$id$` column, since plenty of client tables are
+  keyless lookup rows (CharBaseInfo, ItemSubClass, ...) — and no embedded NUL in
+  any string or LocString slot, which the string block would silently truncate.
+  - **A "value fits its column" check was written, then DELETED as dead code**:
+    a column's width IS its member's width (schema.hpp derives one from the
+    other) and the WDC writer sizes each bit-packed field from the actual value
+    range it is given (`write.cpp`: `min(unsigned_width(hi), col.bits)`), so no
+    value reachable through the typed API can overflow what encodes it. The
+    premise "the encoder writes the low bits of whatever it is given" was wrong.
+    A unit test that could not be made to fail is what surfaced it — worth
+    remembering as the smell.
+- Corpus assertions now cover every format: the three `dbc_corpus.hpp` sweeps
+  call `ensure_valid()` per table, and test_blp_roundtrip / test_wdt_wdl_roundtrip
+  do the same per file.

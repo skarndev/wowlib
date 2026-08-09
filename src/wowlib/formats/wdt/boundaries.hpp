@@ -24,6 +24,11 @@ namespace wowlib::formats::wdt
       _occ.wdt MVER payload; _lgt/_fogs/_mpv carry their own numbering). */
   inline constexpr std::uint32_t wdt_version_18 = 18;
 
+  /** The tile-table slot count of a map: the 64x64 grid MAIN (and, since 8.1,
+      MAID) covers, row-major with y outer — the client indexes it
+      positionally, so the size is part of the format. */
+  inline constexpr std::size_t wdt_tile_slots = 64 * 64;
+
   /** 8.1.0.28294: the MPHD unused tail becomes the satellite FileDataIDs and
       MAID arrives — the namehash-removal preparation. A layout pivot for
       SMMapHeader. */

@@ -863,3 +863,59 @@ TEST_CASE("db: a non-inline relation column round-trips through the relationship
   REQUIRE(reread.read(*written).has_value());
   CHECK(reread.records == table.records);  // owner restored from the relationship map
 }
+
+namespace
+{
+  /** Whether any finding of @a report anchors at @a path. */
+  bool reports_path(const formats::ValidationReport& report, std::string_view path)
+  {
+    return std::ranges::any_of(report.issues(), [&](const formats::ValidationIssue& issue) {
+      return issue.path == path;
+    });
+  }
+}
+
+TEST_CASE("db: validate() guards the contracts the record types cannot",
+          "[db][validation]")
+{
+  db::Table<TestRecord> table;
+  auto& record = table.records.emplace_back();
+  record.id = 1;
+  record.name = "first";
+  CHECK(table.validate().ok());
+
+  SECTION("a string holding an embedded NUL would read back truncated")
+  {
+    record.name = std::string("two\0parts", 9);
+    const auto report = table.validate();
+    CHECK_FALSE(report.ok());
+    CHECK(report.issues().front().path == "records[0].name");
+    CHECK(report.issues().front().message.find("embedded NUL") != std::string::npos);
+  }
+
+  SECTION("localized slots are checked too")
+  {
+    record.title.values[2] = std::string("bad\0", 4);
+    CHECK(reports_path(table.validate(), "records[0].title[2]"));
+  }
+
+  SECTION("duplicate ids are rejected when the table has a key")
+  {
+    auto& second = table.records.emplace_back();
+    second.id = 1;
+    const auto report = table.validate();
+    CHECK_FALSE(report.ok());
+    CHECK(report.issues().front().message.find("duplicate id 1") != std::string::npos);
+
+    second.id = 2;
+    CHECK(table.validate().ok());
+  }
+
+  SECTION("ensure_valid folds findings into an InvalidEntityState error")
+  {
+    table.records.emplace_back().id = 1;
+    const auto result = table.ensure_valid();
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code == ErrorCode::InvalidEntityState);
+  }
+}

@@ -78,6 +78,10 @@ namespace wowlib::tests
       stats.failures.push_back(std::format("{}: read failed: {}", name, r.error().message));
       return;
     }
+    // a freshly read, unmodified client table passes validation with zero
+    // errors (every stored value fits its column, ids are unique)
+    if (const auto valid = table.ensure_valid(); !valid)
+      stats.failures.push_back(std::format("{}: {}", name, valid.error().message));
     const auto written = table.write();
     if (!written)
     {
@@ -125,6 +129,10 @@ namespace wowlib::tests
       stats.failures.push_back(std::format("{}: read failed: {}", name, r.error().message));
       return;
     }
+    // a freshly read, unmodified client table passes validation with zero
+    // errors (every stored value fits its column, ids are unique)
+    if (const auto valid = table.ensure_valid(); !valid)
+      stats.failures.push_back(std::format("{}: {}", name, valid.error().message));
     const auto written = table.write();
     if (!written)
     {
@@ -291,6 +299,10 @@ namespace wowlib::tests
       stats.failures.push_back(std::format("{}: read failed: {}", name, r.error().message));
       return;
     }
+    // a freshly read, unmodified client table passes validation with zero
+    // errors (every stored value fits its column, ids are unique)
+    if (const auto valid = table.ensure_valid(); !valid)
+      stats.failures.push_back(std::format("{}: {}", name, valid.error().message));
     const auto written = table.write();
     if (!written)
     {

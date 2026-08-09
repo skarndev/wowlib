@@ -30,6 +30,10 @@ namespace wowlib::formats::wdl
   /** The WDL format version every supported client uses (MVER payload). */
   inline constexpr std::uint32_t wdl_version_18 = 18;
 
+  /** The MAOF tile table's slot count: one per map tile of the 64x64 grid,
+      row-major, a zero offset meaning the tile has no heightmap. */
+  inline constexpr std::size_t wdl_tile_slots = 64 * 64;
+
   /** The versions WDL is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
   inline constexpr std::array wdl_versions{

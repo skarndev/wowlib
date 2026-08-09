@@ -988,4 +988,83 @@ namespace wowlib::formats::blp
     mips[level].assign(data.begin(), data.end());
     return {};
   }
+
+  ValidationReport BLP::validate() const
+  {
+    ValidationReport report;
+
+    if (width == 0 || height == 0)
+      report.add_error("width", std::format("zero dimension ({}x{}): the client cannot size "
+                                            "the texture", width, height));
+    // alpha_depth SIZES the separate alpha plane of a palettized file, but is
+    // only a block-format hint elsewhere — and shipped files carry junk in it
+    // there (3.3.5a Textures/SunGlare.blp: 136 on a DXT texture), so a bad
+    // value is only load-bearing when it decides a payload size.
+    if (alpha_depth != 0 && alpha_depth != 1 && alpha_depth != 4 && alpha_depth != 8)
+    {
+      const std::string what =
+        std::format("{} is not one of the 0/1/4/8 depths the client reads", alpha_depth);
+      if (color_encoding == ColorEncoding::Palettized)
+        report.add_error("alpha_depth", what + " and sizes this file's alpha plane");
+      else
+        report.add_warning("alpha_depth", what + "; ignored for this encoding");
+    }
+    if (mips.size() > blp_max_mips)
+      report.add_error("mips", std::format("{} levels exceed the {} the header can address",
+                                           mips.size(), blp_max_mips));
+    if (mips.empty() || mips[0].empty())
+      report.add_error("mips[0]", "level 0 carries no payload; every texture needs its base level");
+
+    if (color_encoding == ColorEncoding::Jpeg)
+    {
+      report.add_warning("color_encoding",
+                         "JPEG-encoded BLPs never shipped in WoW clients; the payload "
+                         "round-trips verbatim but cannot be decoded");
+      return report;
+    }
+
+    // Each level's payload must cover the pixels its dimensions imply. A SHORT
+    // payload is a documented client quirk for the block/raw encodings (the
+    // decoders pad the missing tail with transparent black), so it only warns;
+    // for palettized data the client would index past the buffer, so it errors.
+    for (std::size_t level = 0; level < mips.size() && !report.full(); ++level)
+    {
+      if (mips[level].empty())
+        continue;
+      const auto index = static_cast<std::uint32_t>(level);
+      const std::uint32_t w = mip_width(index);
+      const std::uint32_t h = mip_height(index);
+      const std::size_t pixels = std::size_t{w} * h;
+      const std::size_t have = mips[level].size();
+
+      std::size_t want = 0;
+      switch (color_encoding)
+      {
+        case ColorEncoding::Palettized:
+          want = pixels + pixels * alpha_depth / 8;
+          break;
+        case ColorEncoding::Dxt:
+          want = detail::DxtCodec{resolve_dxt_format(preferred_format, alpha_depth)}
+                   .encoded_size(w, h);
+          break;
+        case ColorEncoding::Bgra:
+        case ColorEncoding::BgraAlt:
+          want = pixels * 4;
+          break;
+        case ColorEncoding::Jpeg:
+          break;
+      }
+      if (have >= want)
+        continue;
+      const std::string path = std::format("mips[{}]", level);
+      const std::string what =
+        std::format("{} bytes for a {}x{} level, {} needed", have, w, h, want);
+      if (color_encoding == ColorEncoding::Palettized)
+        report.add_error(path, what + " — the client would read past the payload");
+      else
+        report.add_warning(path, what + " — short levels decode as transparent black "
+                                        "(a known client quirk)");
+    }
+    return report;
+  }
 }

@@ -106,6 +106,10 @@ namespace
     REQUIRE(root.read(*raw).has_value());
     CHECK(root.mver == wdt::wdt_version_18);
     CHECK(root.tiles.size() == 64 * 64);
+    // a freshly read, unmodified client file passes validation with zero
+    // errors (warnings are allowed - they mark states real files ship)
+    if (const auto valid = root.ensure_valid(); !valid)
+      FAIL(std::format("{} (main): {}", label, valid.error().message));
     require_roundtrip(root, *raw, label + " (main)", unknown_histogram_wdt);
 
     wdt::WDT<V> assembly;
@@ -176,6 +180,8 @@ namespace
     REQUIRE(entity.read(*raw).has_value());
     CHECK(entity.mver == wdl::wdl_version_18);
     REQUIRE(entity.tile_offsets.size() == 64 * 64);
+    if (const auto valid = entity.ensure_valid(); !valid)
+      FAIL(std::format("{}: {}", label, valid.error().message));
 
     // the pairing invariants the repeating-member model builds on
     std::size_t engaged = 0;
