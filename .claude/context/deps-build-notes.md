@@ -63,6 +63,18 @@ image. gcc already does this for FP constants (`lCN`) — strings are the gap.
   broken ones and an asan build is accidentally correct (verified on 16.1.0:
   `-O2` → `L.str.0`, `-O2 -fsanitize=address` → `l.str.0`). asan is not a
   workaround anyway — it moves literals to `__TEXT,__asan_cstring` wholesale.
+- Filed 2026-08-07 as **GCC PR 126723** (target, wrong-code/ABI, WAITING). Drea
+  Pinski asked (a) to mirror it to iains/gcc-darwin-arm64 since aarch64-darwin
+  is not upstream and (b) whether x86_64-darwin is affected. **It is** —
+  verified 2026-08-08: the renaming lives in target-shared
+  `gcc/config/darwin.cc:darwin_encode_section_info` with no arch conditional,
+  and `gcc/config/i386/darwin.h:185` wires it in via
+  `SUBTARGET_ENCODE_SECTION_INFO`; r16-2939 touched only shared Darwin files
+  and `releases/gcc-15` has no such block. The ld64 half reproduces identically
+  in x86_64 asm (`leaq L.str.900(%rip)` → `otool -rv` shows the reloc against
+  `_wk`, extern SIGNED; lowercase `l.str.*` relocates against the literal and
+  fixes it). Not yet shown: `-S` output from a real x86_64-darwin gcc-16 host —
+  we only have Apple Silicon.
 
 ## Pins (FetchContent, cmake/Dependencies.cmake)
 | Dep | Tag | Notes |
