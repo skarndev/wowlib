@@ -71,6 +71,14 @@
 #     corruption.
 #  4. Fail loudly. A shim that cannot do its job must not quietly assemble
 #     anyway; the failure mode it guards against is invisible at runtime.
+#  5. Do not leak the temp dir. This bit hard: the script used to end in
+#     `exec "$real_as"`, which replaces the shell's process image, so the EXIT
+#     trap never ran and EVERY invocation of EVERY build leaked. Each dir holds
+#     a whole rewritten .s, which for a reflection-heavy TU runs 150 MB - 1 GB,
+#     so it is not a rounding error: 1132 orphans totalling 99 GB filled a
+#     460 GB disk here in three days. The assembler therefore runs as a CHILD
+#     (see the bottom of this script), and need_tmp() additionally sweeps stale
+#     dirs so a build that really is SIGKILLed still gets its space back.
 set -eu
 
 real_as=/usr/bin/as
@@ -82,8 +90,28 @@ trap cleanup EXIT HUP INT TERM
 
 die() { echo "darwin-as-shim: $*" >&2; exit 1; }
 
+# Best-effort reclaim of dirs a killed build left behind (invariant 5). Two
+# things keep this cheap and safe:
+#   - A marker file rate-limits it to one scan an hour. The sweep would
+#     otherwise stat every orphan on each of the thousands of assembler
+#     invocations a build makes.
+#   - The age cut is far longer than any single assembly, so a dir belonging to
+#     a LIVE sibling job (ninja runs many in parallel) is never a candidate.
+# Nothing here may fail the build: a full or read-only TMPDIR must still
+# assemble, so every step swallows its errors. The marker is a plain file and
+# the sweep matches -type d, so it cannot delete itself.
+sweep_stale_tmpdirs() {
+  tmproot=${TMPDIR:-/tmp}
+  marker=$tmproot/darwin-as-shim.sweep
+  [ -n "$(find "$marker" -mmin -60 2>/dev/null)" ] && return 0
+  : > "$marker" 2>/dev/null || return 0
+  find "$tmproot" -maxdepth 1 -type d -name 'darwin-as-shim.*' -mmin +120 \
+    -exec rm -rf {} + 2>/dev/null || true
+}
+
 need_tmp() {
   [ -n "$tmpdir" ] && return 0
+  sweep_stale_tmpdirs
   tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/darwin-as-shim.XXXXXX") || die "cannot create temp dir"
 }
 
@@ -139,4 +167,13 @@ while [ "$i" -lt "$argc" ]; do
   set -- "$@" "$a"
 done
 
-exec "$real_as" "$@"
+# Deliberately NOT `exec` (invariant 5): exec replaces this shell's process
+# image, so the EXIT trap never runs and every invocation leaks its temp dir.
+# Running the assembler as a child costs one idle shell for the duration and
+# lets cleanup happen. The status is captured and re-raised by hand so it
+# passes through exactly, without depending on `set -e` semantics.
+set +e
+"$real_as" "$@"
+status=$?
+set -e
+exit "$status"
