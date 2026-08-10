@@ -54,6 +54,7 @@ These are presented roughly in order:
 | Dependencies, pins & build quirks | .claude/context/deps-build-notes.md |
 | CI server, self-hosted runner & client installs layout | .claude/context/ci-server-notes.md |
 | Python/Lua bindings (welder rods, casters, naming) | .claude/context/bindings-notes.md |
+| C#/.NET bindings (bare-weld convention, unmarshallable shapes, build shape) | .claude/context/csharp-bindings.md |
 | Documentation site (mkdocs-material guide + Python API via mkdocstrings + Doxygen C++ reference) | .claude/context/docs-site.md |
 
 # Important notes

@@ -78,7 +78,9 @@ namespace wowlib::formats::wdt::mpv
         =formats::optional,
         =formats::repeating,
         =welder::mark::no_reassign,
-        =welder::doc("One PVPD point array per volume group.")]]
+        =welder::doc("One PVPD point array per volume group."),
+        // Nested container (a sequence of sequences): no C# wire form yet.
+        =welder::mark::exclude(welder::lang::cs)]]
       std::vector<std::vector<ParticulatePoint>> point_groups;
 
       [[
@@ -87,7 +89,9 @@ namespace wowlib::formats::wdt::mpv
         =formats::repeating,
         =welder::mark::no_reassign,
         =welder::doc("One PVBD bounds array per volume group; reading a PVBD "
-                     "finalizes the group.")]]
+                     "finalizes the group."),
+        // Nested container (a sequence of sequences): no C# wire form yet.
+        =welder::mark::exclude(welder::lang::cs)]]
       std::vector<std::vector<ParticulateBounds>> bound_groups;
 
       /** The canonical chunk-stream order the serializer emits a fresh entity

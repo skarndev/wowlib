@@ -324,7 +324,8 @@ is **itself welded** — `welder::alias_welded_for` → `welded_for(dealias(targ
 and `welded_for` (reflect.hpp) checks the type's **OWN** `[[=welder::weld]]`
 annotation, NOT inherited bases. So it is not enough for the emitted wrapper /
 record to inherit a welded supertype; each must carry its own weld too.
-`tools/dbdgen/dbdgen/emit.py` therefore emits `[[=welder::weld(py,lua), =doc]]` on
+`tools/dbdgen/dbdgen/emit.py` therefore emits `[[=welder::weld, =doc]]` (bare —
+all languages, see `csharp-bindings.md`) on
 BOTH (a) every record specialization `detail::{table}Record<versions::era>` (which
 also inherits welded row supertype `db::rowbase::{table}`) and (b) the wrapper
 `detail::{table}Table<V>` (which also inherits welded table supertype

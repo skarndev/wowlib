@@ -273,7 +273,7 @@ namespace wowlib::formats::adt
 
       // --- fs I/O (definitions at the bottom of this header) ------------------
 
-      [[=welder::mark::only(welder::lang::lua),
+      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
         =welder::doc("Load the tile — every split file present — from a client "
                      "filesystem, replacing this entity's contents. The alpha-map bit "
                      "depth (from the map's WDT) is supplied by the caller.")]]
@@ -285,7 +285,7 @@ namespace wowlib::formats::adt
                         [[=welder::doc("the on-disk alpha-map bit depth for this tile's "
                                        "map (from its WDT MPHD flags)")]]);
 
-      [[=welder::mark::only(welder::lang::lua),
+      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
         =welder::doc("Serialize the tile (and, Cata+, every split file) through the "
                      "filesystem's project overlay; the file names derive from the key, "
                      "which must resolve to a path. The alpha-map bit depth to encode is "

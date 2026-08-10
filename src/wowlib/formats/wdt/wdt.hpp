@@ -129,19 +129,20 @@ namespace wowlib::formats::wdt
       [[=welder::doc("The main file contents.")]]
       WDTRoot<V> root{};
 
-      // read()/write() weld the (FileSystem, FileKey) load/save on LUA ONLY —
-      // on Python the module glue attaches the read()/write()/convert()/
+      // read()/write() weld the (FileSystem, FileKey) load/save on LUA AND C#
+      // ONLY — on Python the module glue attaches the read()/write()/convert()/
       // for_version() surface to WDTBase instead (dispatching to the concrete
-      // version), so the per-version Python classes stay pure data.
+      // version), so the per-version Python classes stay pure data. Lua and C#
+      // have no such glue, so they take these methods directly.
 
-      [[=welder::mark::only(welder::lang::lua),
+      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
         =welder::doc("Load the WDT and every satellite file present from a client "
                      "filesystem, replacing this entity's contents.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                         const FileKey& key
                         [[=welder::doc("the main file identity (path and/or FileDataID)")]]);
 
-      [[=welder::mark::only(welder::lang::lua),
+      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
         =welder::doc("Serialize and store the WDT (main file and every engaged "
                      "satellite) through the filesystem's project overlay; satellite "
                      "file names are derived from the main key, which must resolve "

@@ -407,14 +407,14 @@ namespace wowlib::formats::wdl
       [[=welder::mark::exclude]]
       Result<void> patch_file(std::span<std::byte> image) const;
 
-      [[=welder::mark::only(welder::lang::lua),
+      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
         =welder::doc("Load the WDL from a client filesystem, replacing this "
                      "entity's contents.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                         const FileKey& key
                         [[=welder::doc("the file identity (path and/or FileDataID)")]]);
 
-      [[=welder::mark::only(welder::lang::lua),
+      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
         =welder::doc("Serialize and store the WDL through the filesystem's project "
                      "overlay.")]]
       Result<void> write(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],

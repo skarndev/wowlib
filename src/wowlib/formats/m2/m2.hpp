@@ -182,18 +182,19 @@ namespace wowlib::formats::m2
                    "after read).")]]
     M2Root<V> root{};
 
-    // read()/write() weld the (FileSystem, FileKey) load/save on LUA ONLY —
-    // mirroring WMO: on Python the module glue attaches the richer
+    // read()/write() weld the (FileSystem, FileKey) load/save on LUA AND C#
+    // ONLY — mirroring WMO: on Python the module glue attaches the richer
     // read/write/convert/for_version surface to M2Base instead (stage 4).
+    // Lua and C# have no such glue, so they take these methods directly.
 
-    [[=welder::mark::only(welder::lang::lua),
+    [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
       =welder::doc("Load the model and all its satellite files from a client "
                    "filesystem, replacing this entity's contents.")]]
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                       const FileKey& key
                       [[=welder::doc("the .m2 file identity (path and/or FileDataID)")]]);
 
-    [[=welder::mark::only(welder::lang::lua),
+    [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
       =welder::doc("Serialize and store the model and every satellite file "
                    "through the filesystem's project overlay; satellite names "
                    "derive from the key, which must resolve to a path.")]]

@@ -179,7 +179,10 @@ namespace wowlib::fs
         without a listfile the listing is empty). Paths come back canonical,
         deduplicated and sorted; the project-directory overlay is not
         included.)"),
-      =welder::returns("the sorted canonical paths")]]
+      =welder::returns("the sorted canonical paths"),
+      // A sequence of strings: welder's C# rod marshals scalar/enum sequences
+      // only (a string[] needs a pointer-array wire it does not emit yet).
+      =welder::mark::exclude(welder::lang::cs)]]
     Result<std::vector<std::string>> enumerate_paths();
 
     [[=welder::doc(R"(
