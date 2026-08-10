@@ -39,6 +39,17 @@ It does **not** yet have a wire form for:
 | `vector<array<T, N>>` | `M2ChunkedFile::texture_ac`, `M2SkinProfile::bones` |
 | `vector<string>` | `RoundtripReport::unknown_chunks`, `FileSystem::enumerate_paths()` |
 
+One further exclusion is a **welder bug workaround**, not a missing type family:
+`ChunkedFile::read(span)` and `ChunkedFile::write()`. They are flattened onto
+every versioned entity, which ALSO welds a per-version `read(fs, key)` /
+`write(fs, key)` for `cs` — so C# sees two `read` overloads whose declaring
+scopes are both class-template specializations. Those have no spellable name, so
+welder's C# rod anchors both on the bound type and mangles both to the same C
+symbol (`..._m_read_0`); its duplicate-symbol `#error` catches it. The fs-level
+pair is the one C# keeps — it is the only way to load the multi-file entities
+(WMO groups, M2 satellites, split ADTs). Drop the excludes once welder indexes
+overloads over the same flattened sequence its shim-side lookup searches.
+
 Drop the `mark::exclude(welder::lang::cs)` at those sites when welder grows the
 family. Everything else in the C++ API binds.
 
