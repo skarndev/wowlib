@@ -211,6 +211,21 @@ jobs:
           sudo apt-get install -y patchelf
           patchelf --remove-rpath build/release/bindings/python/wowlib.abi3.so
 
+      # Runs AFTER patchelf and BEFORE the upload, so what is exercised is the
+      # exact artifact that ships (ci-audit consumes it) and a broken module is
+      # never published. The tools mirror pyproject's `dev` group; the project
+      # itself is deliberately NOT installed, since that would have
+      # scikit-build rebuild the extension we just built. PYTHONPATH points the
+      # import at the build tree (nothing is installed into .venv), MYPYPATH at
+      # the matching stubs — pyproject anchors mypy_path at the DEBUG preset's
+      # tree, which does not exist here.
+      - name: Python binding tests
+        run: |
+          uv pip install pytest pytest-mypy-testing mypy
+          PYTHONPATH=$PWD/build/release/bindings/python \
+          MYPYPATH=$PWD/build/release/bindings/python/stubs \
+          .venv/bin/python -m pytest tests/python -q
+
       - name: Upload Python module + stubs
         uses: actions/upload-artifact@v4
         with:
