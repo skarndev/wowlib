@@ -118,27 +118,26 @@ namespace wowlib::formats::wmo
                        const FileKey& key
                        [[=welder::doc("the root file identity; must resolve to a path")]]) const;
 
-    /** Check the whole object's logical integrity — the root's and every
-        group's own validate() plus the cross-file contracts only the assembly
-        can see: the MOGI table describing exactly the groups held, the groups'
-        annotated references into the root's arrays (indexes_in_root: MOLR,
-        MODR, the 9.0+ volume/light refs), the header portal ranges into MOPR,
-        and every rendered face's material resolving in MOMT. Validation is a
-        separate pass — write() never runs it; call this before writing to know
-        the files will load in the client. A freshly read, unmodified client
-        WMO reports zero errors. Excluded from the bindings until the facade
-        verbs land (stage 4).
-        @return every violated contract, prefixed "root"/"groups[i]". */
+    // Beyond the root's and each group's own contracts, this sees the ones
+    // only the assembly can: MOGI describing exactly the groups held, the
+    // groups' indexes_in_root references, the header portal ranges into MOPR,
+    // and every rendered face resolving its material in MOMT.
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc(R"(
+        Check the logical integrity contracts this object must satisfy to LOAD
+        in the client — across the root file AND every group file — which
+        write() deliberately never enforces. Call it before writing when you
+        want to know the files will load. An object read from a client and left
+        unmodified reports no errors; warnings mark states real client files
+        ship.)"),
+      =welder::returns(R"(every violated contract, each with its member path
+                          ("root..." / "groups[i]..."))")]]
     ValidationReport validate() const;
 
-    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
-        chains before a write.
-        @return success when validate() reports no errors; otherwise one
-                InvalidEntityState error listing the findings. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc("Validate and raise on the first error instead of returning "
+                   "a report — the assert-style face of validate()."),
+      =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const;
 
   private:

@@ -104,25 +104,21 @@ namespace wowlib::formats
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write() const;
 
-    /** Check the entity's logical integrity contracts — the conditions a file
-        must satisfy to LOAD in the client (companion-chunk counts, index
-        ranges, flag/presence coherence), which write() deliberately never
-        enforces: annotation-declared contracts first (count_matches, indexes,
-        expected_value, ...), then the entity's validate_extra hook when it
-        declares one. A freshly read, unmodified client file reports zero
-        errors (warnings mark states real files ship). Excluded from the
-        bindings until the facade verbs land (stage 4).
-        @return every violated contract, in member order. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc(R"(
+        Check the logical integrity contracts this file must satisfy to LOAD in
+        the client — companion-chunk counts, index ranges, flag/presence
+        coherence — which write() deliberately never enforces. Call it before
+        writing when you want to know the result will load. A file read from a
+        client and left unmodified reports no errors; warnings mark states real
+        client files ship.)"),
+      =welder::returns("every violated contract, in member order")]]
     ValidationReport validate() const;
 
-    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
-        chains before a write.
-        @return success when validate() reports no errors; otherwise one
-                InvalidEntityState error listing the findings. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc("Validate and raise on the first error instead of returning "
+                   "a report — the assert-style face of validate()."),
+      =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const;
 
     [[=welder::mark::exclude]]

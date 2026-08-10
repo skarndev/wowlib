@@ -296,26 +296,27 @@ namespace wowlib::formats::adt
                          AlphaFormat alpha
                          [[=welder::doc("the on-disk alpha-map bit depth to encode")]]) const;
 
-      /** Check the tile's logical integrity — every terrain chunk's own
-          validate() plus the tile-wide contracts only this entity can see:
-          each chunk's texture layers resolving in the tile's texture table,
-          its doodad and object references landing in MDDF/MODF, the placement
-          records' own name references, and the 256-chunk grid itself.
-          Validation is a separate pass — write() never runs it; call this
-          before writing to know the tile will load in the client. A freshly
-          read, unmodified client tile reports zero errors. Excluded from the
-          bindings until the facade verbs land (stage 4).
-          @return every violated contract, prefixed "chunks[i]". */
+      // Beyond each terrain chunk's own contracts, this sees the tile-wide
+      // ones: layers resolving in the tile's texture table (MTEX names or MDID
+      // FileDataIDs, whichever the tile uses), chunk references landing in
+      // MDDF/MODF, the placements' own name references, and the 256-chunk grid.
       [[nodiscard]]
-      [[=welder::mark::exclude]]
+      [[=welder::doc(R"(
+          Check the logical integrity contracts this tile must satisfy to LOAD
+          in the client — across every terrain chunk AND the tile-wide tables —
+          which write() deliberately never enforces. Call it before writing when
+          you want to know the tile will load. A tile read from a client and
+          left unmodified reports no errors; warnings mark states real client
+          files ship.)"),
+        =welder::returns(R"(every violated contract, each with its member path
+                            ("chunks[i]..."))")]]
       ValidationReport validate() const;
 
-      /** The monadic face of validate(), for `ensure_valid().and_then(...)`
-          chains before a write.
-          @return success when validate() reports no errors; otherwise one
-                  InvalidEntityState error listing the findings. */
       [[nodiscard]]
-      [[=welder::mark::exclude]]
+      [[=welder::doc("Validate and raise on the first error instead of "
+                     "returning a report — the assert-style face of "
+                     "validate()."),
+        =welder::returns("nothing; raises when validate() finds any error")]]
       Result<void> ensure_valid() const;
 
       /** Parse one split file's chunk stream into this entity (merging), by

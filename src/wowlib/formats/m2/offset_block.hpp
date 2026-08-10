@@ -245,15 +245,15 @@ namespace wowlib::formats::m2
       return false;
     }
 
-    /** Check the block's logical integrity contracts — the conditions a file
-        must satisfy to LOAD in the client (companion-array counts, lookup
-        ranges), which write() deliberately never enforces. Same contract as
-        ChunkedFile::validate(): annotation-declared checks first, then the
-        entity's validate_extra hook, with a freshly read client file
-        reporting zero errors.
-        @return every violated contract, in member order. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc(R"(
+        Check the logical integrity contracts this file must satisfy to LOAD in
+        the client — companion-array counts, lookup ranges — which write()
+        deliberately never enforces. Call it before writing when you want to
+        know the result will load. A file read from a client and left
+        unmodified reports no errors; warnings mark states real client files
+        ship.)"),
+      =welder::returns("every violated contract, in member order")]]
     ValidationReport validate() const
     {
       ValidationReport report;
@@ -261,12 +261,10 @@ namespace wowlib::formats::m2
       return report;
     }
 
-    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
-        chains before a write.
-        @return success when validate() reports no errors; otherwise one
-                InvalidEntityState error listing the findings. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc("Validate and raise on the first error instead of returning "
+                   "a report — the assert-style face of validate()."),
+      =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const
     {
       return validate().to_result();

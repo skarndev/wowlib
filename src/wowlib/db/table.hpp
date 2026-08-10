@@ -191,23 +191,18 @@ namespace wowlib::db
                    "were skipped.")]]
     bool fully_decoded() const { return state_.encrypted.empty(); }
 
-    /** Check the table's logical integrity — what must hold for the records to
-        survive a write and load in the client. Validation is a SEPARATE pass;
-        write() never runs it.
-
-        Two contracts the record types cannot express on their own: the primary
-        key stays unique (the client indexes records by id), and no string
-        holds an embedded NUL — the string block terminates entries with it, so
-        such a value would silently come back truncated.
-
-        Note there is deliberately NO "value fits its column" check: a column's
-        width IS its member's width (schema.hpp derives one from the other), and
-        the WDC writer sizes each bit-packed field from the actual value range
-        it is given, so no value reachable through the typed API can overflow
-        what encodes it.
-        @return every violated contract, in record order. */
+    // There is deliberately NO "value fits its column" check: a column's width
+    // IS its member's width (schema.hpp derives one from the other) and the WDC
+    // writer sizes each bit-packed field from the actual value range it is
+    // given, so nothing reachable through the typed API can overflow what
+    // encodes it.
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc(R"(
+        Check the logical integrity contracts the records must satisfy to
+        survive a write and load in the client: the primary key stays unique,
+        and no string holds an embedded NUL the string block would truncate.
+        write() never runs this.)"),
+      =welder::returns("every violated contract, in record order")]]
     formats::ValidationReport validate() const
     {
       formats::ValidationReport report;
@@ -249,12 +244,10 @@ namespace wowlib::db
       return report;
     }
 
-    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
-        chains before a write.
-        @return success when validate() reports no errors; otherwise one
-                InvalidEntityState error listing the findings. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc("Validate and raise on the first error instead of returning "
+                   "a report — the assert-style face of validate()."),
+      =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const { return validate().to_result(); }
 
   private:

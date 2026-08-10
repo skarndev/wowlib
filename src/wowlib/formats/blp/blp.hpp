@@ -355,23 +355,20 @@ namespace wowlib::formats::blp
       return std::max<std::uint32_t>(1, height >> level);
     }
 
-    /** Check the texture's logical integrity — what must hold for the client
-        to decode it. Validation is a SEPARATE pass; write() never runs it
-        (it replays whatever layout the entity carries).
-
-        BLP is unversioned, so this is a plain method rather than the
-        reflective walk the versioned formats share.
-        @return every violated contract, in level order. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc(R"(
+        Check the logical integrity contracts this texture must satisfy for the
+        client to decode it — the base level's presence, the dimensions, and
+        every stored level covering the pixels its size implies. write() never
+        runs this; call it before writing when you want to know the result will
+        load.)"),
+      =welder::returns("every violated contract, in level order")]]
     ValidationReport validate() const;
 
-    /** The monadic face of validate(), for `ensure_valid().and_then(...)`
-        chains before a write.
-        @return success when validate() reports no errors; otherwise one
-                InvalidEntityState error listing the findings. */
     [[nodiscard]]
-    [[=welder::mark::exclude]]
+    [[=welder::doc("Validate and raise on the first error instead of returning "
+                   "a report — the assert-style face of validate()."),
+      =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const { return validate().to_result(); }
 
     bool operator==(const BLP&) const = default;
