@@ -268,3 +268,26 @@ in the report. The 3.05M-file / 99.95% headline is measured over a corpus missin
 Not yet diagnosed: whether the chain's base archives are skipped when building
 the path index, or their `(listfile)` is not read. Note enumerating that install
 takes ~50 min from a USB HDD, so iterate against a local-disk copy.
+
+### Resolved 2026-08-10: it is not a wowlib bug, and the audit now covers it
+
+Re-diagnosed. `MpqStorage::enumerate_paths()` names files from each archive's
+OWN internal `(listfile)` and documents that it skips archives lacking one.
+Cataclysm-era archives stopped shipping that listfile — which is why community
+listfiles exist — so 4.3.4/5.4.8 legitimately enumerate almost nothing while
+reads by path work perfectly. wowlib cannot fall back internally either: MPQ
+clients compose as `ClientFileSystem<MpqStorage, NullListfile>`, discarding
+`settings.listfile_csv` by design (MPQ is path-addressed).
+
+The real defect was that the AUDIT could not tell "this client has 35 files"
+from "we could only NAME 35 files", and reported the client green either way.
+Fixed in tools/audit/conftest.py: for MPQ clients it now seeds the work list
+from the community listfile (auditable extensions only), confirming every
+candidate with `exists()` so a listfile spanning all expansions cannot inject
+files the client lacks, and prints how many paths were recovered that way.
+
+Measured: 3.3.5a enumerates 204,187 paths and recovers 0 (it has internal
+listfiles — no regression, and no false positives from ~1.3M probes); the whole
+probe costs ~15 s per client. 4.3.4/5.4.8 recovery is unverified locally — the
+external drive was unmounted before it could be measured — so check the next
+nightly's "recovered via the listfile" figure for those two.

@@ -17,6 +17,7 @@ Run it explicitly (it is not part of the bindings-contract suite)::
 
 import collections
 import csv
+import functools
 import json
 import os
 import shutil
@@ -30,7 +31,9 @@ def pytest_addoption(parser):
     group.addoption("--clients-dir", action="store", default=None,
                     help="directory containing the client installs (required)")
     group.addoption("--listfile", action="store", default=None,
-                    help="community listfile CSV for CASC clients")
+                    help="community listfile CSV: resolves FileDataIDs for CASC "
+                         "clients, and supplies the names Cata-era MPQ archives "
+                         "no longer carry internally")
     group.addoption("--report-dir", action="store", default="./audit-report",
                     help="where the CSVs and summary JSON land")
     group.addoption("--max-per-format", action="store", type=int, default=0,
@@ -215,16 +218,58 @@ def client_contexts(audit_options, scratch_dir):
             pytest.fail(f"{client_dir_name}: FileSystem.open failed: {error}")
 
         paths = fs.enumerate_paths()  # a raised wowlib.Error fails the test too
+        recovered = 0
+        if is_mpq and audit_options["listfile"]:
+            known = set(paths)
+            candidates = _listfile_candidates(audit_options["listfile"]) - known
+            paths = list(paths) + [p for p in candidates if fs.exists(p)]
+            recovered = len(paths) - len(known)
+
         cache[client_dir_name] = (fs, _classify(paths))
         # The classification is client-wide; report it here, once, rather than
         # dragging the same diagnostics through every format cell's line.
         _, classified = cache[client_dir_name]
-        print(f"\n[{client_dir_name}] enumerated {len(paths)} paths, work "
+        print(f"\n[{client_dir_name}] enumerated {len(paths)} paths "
+              f"({recovered} recovered via the listfile), work "
               f"{ {fmt: len(items) for fmt, items in classified['work'].items()} } "
               f"excluded {dict(classified['diagnostics'])}", flush=True)
         return cache[client_dir_name]
 
     return get
+
+
+
+@functools.lru_cache(maxsize=1)
+def _listfile_candidates(listfile_path):
+    """Auditable paths the community listfile knows, canonicalized MPQ-style.
+
+    An MPQ archive can only enumerate itself through its own internal
+    `(listfile)`, and Cataclysm-era archives stopped shipping one — so
+    `enumerate_paths()` legitimately returns almost nothing for 4.3.4 and
+    5.4.8 (a full 4.3.4 install yields 125 paths, all from the wow-update
+    archives that do carry a listfile), while reads by path work perfectly.
+    Trusting enumeration alone therefore audited those clients into a green
+    35-file report. The community listfile is the outside name source that
+    fills the gap; every candidate is confirmed with exists() before use, so a
+    listfile spanning every expansion cannot inject files this client lacks.
+
+    Restricted to the audited extensions: the listfile has well over a million
+    rows and probing each against the chain is the expensive half.
+
+    Args:
+        listfile_path: the community CSV ('fileDataId;filepath').
+
+    Returns:
+        A frozenset of canonical (backslash-separated, lowercase) paths.
+    """
+    wanted = (".wmo", ".m2", ".adt", ".wdt", ".wdl", ".blp")
+    out = set()
+    with open(listfile_path, encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            path = line.split(";", 1)[-1].strip().lower()
+            if path.endswith(wanted):
+                out.add(path.replace("/", "\\"))
+    return frozenset(out)
 
 
 def _detect_locale(wowlib, client_root):
