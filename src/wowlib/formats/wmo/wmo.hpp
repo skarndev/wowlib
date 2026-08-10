@@ -173,7 +173,7 @@ namespace wowlib::formats::wmo
 // so the definitions must be visible for implicit instantiation anyway — the
 // library ships NO explicit instantiations; every consumer TU instantiates
 // exactly the versions it uses (the bindings expand the full matrix in their
-// own translation units, see bindings/python/instantiations/).
+// own translation units, see bindings/instantiations/).
 namespace wowlib::formats::wmo
 {
   template <ClientVersion V>
@@ -436,4 +436,4 @@ namespace wowlib::formats::wmo
 // header and the chunk serializer). The language bindings, which weld and expand
 // the FULL version matrix, declare the range alias tables and the
 // instantiation matrix in their own translation units — see
-// bindings/python/instantiations/wmo_ranges.hpp and wmo_matrix.inl.
+// bindings/instantiations/wmo_ranges.hpp and wmo_matrix.inl.

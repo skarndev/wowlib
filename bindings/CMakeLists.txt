@@ -25,8 +25,11 @@ if(WOWLIB_BUILD_PYTHON)
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wowlib.opaque.hpp)
   # The generator TU reflects <wowlib/wowlib.hpp>, so it needs wowlib's public
   # include dirs + PUBLIC -freflection; linking wowlib inherits both (storm/casc are
-  # PRIVATE, so the header-only reflect exe doesn't pull them).
+  # PRIVATE, so the header-only reflect exe doesn't pull them). It also includes the
+  # welded per-range alias tables, so it needs the bindings root (see the note on
+  # instantiations/ below).
   target_link_libraries(wowlib_opaque_gen PRIVATE wowlib)
+  target_include_directories(wowlib_opaque_gen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   if(TARGET wowlib_db_tables)
     target_link_libraries(wowlib_opaque_gen PRIVATE wowlib_db_tables)
   endif()
@@ -41,6 +44,9 @@ if(WOWLIB_BUILD_PYTHON)
   # instantiations/*.cpp expand the FULL per-version entity+serializer matrix
   # (the library ships none) — one TU per format so they compile in parallel
   # with the welder walk; the other TUs include instantiations/*.hpp externs.
+  # That tree sits at the bindings ROOT, not under python/: nothing in it names a
+  # target language (it is welded aliases + explicit instantiations), and the C#
+  # target below reflects the very same headers.
   # NOMINSIZE: drop nanobind's default -Os. On gcc-16/macOS -Os emits the
   # standard-library exception typeinfos (typeinfo for std::bad_alloc, ...) as
   # STRONG per-TU symbols instead of leaving them undefined (resolved from
@@ -56,11 +62,11 @@ if(WOWLIB_BUILD_PYTHON)
     python/formats/wdt.cpp
     python/formats/wdl.cpp
     python/formats/adt.cpp
-    python/instantiations/wmo.cpp
-    python/instantiations/m2.cpp
-    python/instantiations/wdt.cpp
-    python/instantiations/wdl.cpp
-    python/instantiations/adt.cpp
+    instantiations/wmo.cpp
+    instantiations/m2.cpp
+    instantiations/wdt.cpp
+    instantiations/wdl.cpp
+    instantiations/adt.cpp
     # Generated client-database binding shards (dbdgen; one TU per shard so the
     # ~1200 tables compile in parallel). Each welds its slice into db.tables.
     ${WOWLIB_DB_SHARD_SOURCES})
@@ -94,12 +100,14 @@ if(WOWLIB_BUILD_PYTHON)
   if(TARGET wowlib_opaque_gen)
     set_target_properties(wowlib_opaque_gen PROPERTIES JOB_POOL_COMPILE wowlib_py_compile)
   endif()
-  # python/ for the quoted glue includes; the binary dir for the generated
-  # wowlib.opaque.hpp; the db_bindings dir for the generated db_shards.hpp; and a
-  # dependency so all of it is emitted before the module compiles.
+  # python/ for the quoted glue includes ("formats/wmo.hpp", "result_casters.hpp");
+  # the bindings root for the language-neutral "instantiations/…" includes; the
+  # binary dir for the generated wowlib.opaque.hpp; the db_bindings dir for the
+  # generated db_shards.hpp; and a dependency so all of it is emitted before the
+  # module compiles.
   target_include_directories(wowlib_py PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/python ${CMAKE_CURRENT_BINARY_DIR}
-    ${WOWLIB_DB_BINDINGS_DIR})
+    ${CMAKE_CURRENT_SOURCE_DIR}/python ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR} ${WOWLIB_DB_BINDINGS_DIR})
   add_dependencies(wowlib_py wowlib_opaque wowlib_dbdgen)
   target_link_libraries(wowlib_py PRIVATE wowlib welder::headers welder::nanobind)
   if(TARGET wowlib_db_tables)
@@ -262,16 +270,16 @@ if(WOWLIB_BUILD_CSHARP)
   list(APPEND CMAKE_MODULE_PATH ${welder_SOURCE_DIR}/cmake)
   include(WelderCSharpModule)
 
-  # INCLUDE_DIRS carries `python/` because the per-range welded alias tables
-  # (instantiations/*_ranges.hpp) live there and are language-neutral — see the
-  # note in csharp/surface.hpp. The generator and the shim both compile against
-  # this same surface.
+  # INCLUDE_DIRS: csharp/ for the surface header the generated shim #includes by
+  # name, and the bindings root for the per-range welded alias tables
+  # (instantiations/*_ranges.hpp) it pulls in. The generator and the shim compile
+  # against that one surface, so the two TUs cannot reflect different declarations.
   welder_csharp_generate_bindings(wowlib_cs
     SOURCES csharp/gen.cpp
     LIBRARY wowlib_native
     OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/csharp
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/csharp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/python
+                 ${CMAKE_CURRENT_SOURCE_DIR}
     LINK wowlib
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/csharp/surface.hpp)
 

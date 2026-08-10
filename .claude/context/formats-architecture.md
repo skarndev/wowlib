@@ -259,7 +259,7 @@ page (`content/python/wmo/fields.md`) no longer lists a class; it carries two ma
 ## Instantiation & I/O layout (2026-07-24 refactor)
 
 - **The library ships NO explicit instantiations.** The all-versions
-  entity + serializer matrix moved to bindings/python/instantiations/
+  entity + serializer matrix moved to bindings/instantiations/
   ({wmo,m2}.hpp extern declarations included by every binding TU; one .cpp
   per format expands the matrix, parallel to the welder walk). Library
   consumers implicitly instantiate exactly the versions they use.

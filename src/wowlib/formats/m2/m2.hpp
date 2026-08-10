@@ -433,7 +433,7 @@ namespace wowlib::formats::m2
 // so the definitions must be visible for implicit instantiation anyway — the
 // library ships NO explicit instantiations; every consumer TU instantiates
 // exactly the versions it uses (the bindings expand the full matrix in their
-// own translation units, see bindings/python/instantiations/).
+// own translation units, see bindings/instantiations/).
 namespace wowlib::formats::m2
 {
   template <ClientVersion V>
@@ -1109,4 +1109,4 @@ namespace wowlib::formats::m2
 // header and the serializer engines). The language bindings,
 // which weld and expand the FULL version matrix, declare the range alias
 // tables and the instantiation matrix in their own translation units — see
-// bindings/python/instantiations/m2_ranges.hpp and m2_matrix.inl.
+// bindings/instantiations/m2_ranges.hpp and m2_matrix.inl.

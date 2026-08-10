@@ -78,10 +78,12 @@ cmake --build build/csharp --target wowlib_cs
   into `libwowlib_native.dylib`) and `Bindings.cs`.
 - `bindings/csharp/surface.hpp` is the single header BOTH the generator and the
   generated shim reflect, so the two TUs cannot see different declarations. It
-  pulls in the per-range welded alias tables from
-  `bindings/python/instantiations/*_ranges.hpp` — those are language-neutral and
-  should be hoisted to `bindings/instantiations/` when it is worth touching the
-  Python target's include paths.
+  pulls in the per-range welded alias tables from `bindings/instantiations/`.
+  That tree sits at the bindings **root**, not under a backend: nothing in it
+  names a target language (welded aliases + the explicit instantiations of the
+  version matrix), and both backends reflect the same headers. Every include of
+  it is spelled `"instantiations/<file>"`, resolved by putting the bindings root
+  on the include path — so a third backend needs only that one include dir.
 - Both TUs are as reflection-heavy as `wowlib_py`'s module TU (multi-GB, minutes
   each), so they share the `wowlib_py_compile` Ninja job pool.
 

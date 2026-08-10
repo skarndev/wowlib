@@ -258,7 +258,7 @@ index_start.
   read/write definitions moved from m2.cpp/skeleton.cpp into
   formats/m2/io.hpp (helpers now documented m2::detail templates); consumers
   implicitly instantiate only the versions they use. The full matrix lives in
-  bindings/python/instantiations/{m2,wmo}.{hpp,cpp} (extern header included
+  bindings/instantiations/{m2,wmo}.{hpp,cpp} (extern header included
   by every binding TU + one instantiation TU per format). GOTCHA:
   `template for` ranges inside a consteval fn must be `static constexpr`
   (wire_offset_of failed constant evaluation only for versions no test
@@ -331,7 +331,7 @@ Supersedes the naming/layout notes above (kept as history):
   formats.m2.chunked(.record).
 - **X-macros live in the bindings now**: every WOWLIB_*_RANGES table, the
   welded per-range aliases and the ranges_valid checks moved from
-  m2.hpp/wmo.hpp to `bindings/python/instantiations/{m2,wmo}_ranges.hpp`
+  m2.hpp/wmo.hpp to `bindings/instantiations/{m2,wmo}_ranges.hpp`
   (included by instantiations/{m2,wmo}.hpp). GOTCHA: opaque_gen.cpp MUST
   include both ranges headers — the opaque-container walk finds welded
   per-version entities only through the aliases; without them it emits an

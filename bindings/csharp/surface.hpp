@@ -13,12 +13,12 @@
     The per-range alias tables are what make the versioned formats visible at all:
     welder welds a class-template instantiation through a namespace-scope alias
     whose identifier becomes the target-language name, and the library ships none
-    (C++ consumers instantiate `WMO<V>` on demand). Those tables are
-    language-NEUTRAL — nothing in them mentions Python — but they still live under
-    `bindings/python/instantiations/`, from where the first backend to need them
-    put them; the C# target adds `bindings/python` to its include path to reach
-    them. Hoist the tree to `bindings/instantiations/` when it is worth touching
-    the Python target's includes for. */
+    (C++ consumers instantiate `WMO<V>` on demand). They live at the bindings
+    ROOT (`bindings/instantiations/`) rather than under any one backend, because
+    nothing in them names a target language — they are welded aliases plus the
+    explicit instantiations of the version matrix, and every backend reflects the
+    same ones. Both this target and the Python module put the bindings root on
+    their include path, which is what resolves the quoted paths below. */
 
 #include <wowlib/wowlib.hpp>
 

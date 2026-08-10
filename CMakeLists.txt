@@ -44,7 +44,7 @@ add_library(wowlib STATIC
 # The formats subsystem is header-only: entities, serializer engines and the
 # fs-level io.hpp definitions all live in headers so consumers implicitly
 # instantiate exactly the ClientVersions they use. The full version matrix is
-# expanded only by the language bindings (bindings/python/instantiations/).
+# expanded only by the language bindings (bindings/instantiations/).
 target_include_directories(wowlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_options(wowlib PRIVATE ${WOWLIB_CXX_FLAGS} PUBLIC ${WOWLIB_REFLECTION_FLAGS})
 target_link_libraries(wowlib PUBLIC welder::headers PRIVATE storm casc_static stb_dxt)
