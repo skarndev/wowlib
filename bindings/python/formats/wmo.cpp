@@ -299,6 +299,14 @@ namespace wowlib_py::formats::wmo
     // Runtime AnyX union aliases (importable TypeAliases; stubgen renders them
     // natively — see def_any_alias). Each lands on the submodule that owns its
     // concretes. A new Expansion grows every union with no edit here.
+    // the abstract bases speak the validation verbs too, so code annotated
+    // against the family (def check(w: WMO)) type-checks (see facade.hpp)
+    def_validation_verbs<fwmo::WMO>(wmo.attr("WMO"), "WMO");
+    def_validation_verbs<fwmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot");
+    def_validation_verbs<fwmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup");
+    def_validation_verbs<fwmo::group::WMOGroupBody>(group.attr("WMOGroupBody"),
+                                                    "WMOGroupBody");
+
     def_any_alias<fwmo::WMO>(wmo, "WMO", fwmo::wmo_assembly_pivots, fwmo::wmo_versions);
     def_any_alias<fwmo::root::WMORoot>(root, "WMORoot", fwmo::wmo_root_pivots,
                                        fwmo::wmo_versions);

@@ -246,6 +246,15 @@ namespace wowlib_py::formats::wdt
 
     // Runtime AnyX union aliases (importable TypeAliases) on the family's own
     // submodule; the satellite families fold only the expansions they exist for.
+    def_validation_verbs<fwdt::WDT>(wdt.attr("WDT"), "WDT");
+    def_validation_verbs<fwdt::root::WDTRoot>(root.attr("WDTRoot"), "WDTRoot");
+    def_validation_verbs<fwdt::occlusion::WDTOcclusion>(occlusion.attr("WDTOcclusion"),
+                                                        "WDTOcclusion");
+    def_validation_verbs<fwdt::lights::WDTLights>(lights.attr("WDTLights"), "WDTLights");
+    def_validation_verbs<fwdt::fogs::WDTFogs>(fogs.attr("WDTFogs"), "WDTFogs");
+    def_validation_verbs<fwdt::mpv::WDTParticulates>(mpv.attr("WDTParticulates"),
+                                                     "WDTParticulates");
+
     def_any_alias<fwdt::WDT>(wdt, "WDT", fwdt::wdt_assembly_pivots, fwdt::wdt_versions);
     def_any_alias<fwdt::root::WDTRoot>(root, "WDTRoot", fwdt::wdt_root_pivots,
                                        fwdt::wdt_versions);

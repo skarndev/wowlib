@@ -88,6 +88,39 @@ def test_validate_is_available_across_the_formats():
         assert hasattr(entity, "ensure_valid"), type(entity).__name__
 
 
+def test_the_verbs_live_on_the_abstract_bases_too():
+    """welder binds both on every concrete, which is enough to CALL them; the
+    facade also binds them on the family base so code annotated against the
+    abstract family type-checks. Calling through the base's unbound method is
+    what proves the dispatch actually reaches the concrete."""
+    from wowlib.formats import adt as adt_mod
+    from wowlib.formats import m2 as m2_mod
+    from wowlib.formats import wdl as wdl_mod
+
+    for base in (wmo_mod.WMO, m2_mod.M2, adt_mod.ADT, wdl_mod.WDL):
+        assert hasattr(base, "validate"), base.__name__
+        assert hasattr(base, "ensure_valid"), base.__name__
+
+    entity = wmo_mod.WMO.for_version(wowlib.Expansion.Wotlk)
+    assert isinstance(wmo_mod.WMO.validate(entity), ValidationReport)
+    assert wmo_mod.WMO.ensure_valid(entity) is None
+
+
+def test_binary_struct_families_do_not_gain_the_verbs():
+    """A base method that could only ever raise is worse than an absent one, so
+    families whose concretes have no validate() skip the binding entirely."""
+    from wowlib.formats.wmo.group import chunks as group_chunks
+
+    assert not hasattr(group_chunks.WMOBatch, "validate")
+
+
+def test_dispatching_a_foreign_instance_raises_type_error():
+    from wowlib.formats import adt as adt_mod
+
+    with pytest.raises(TypeError):
+        wmo_mod.WMO.validate(adt_mod.ADT.for_version(wowlib.Expansion.Wotlk))
+
+
 # --- real-client end to end ---------------------------------------------------
 
 

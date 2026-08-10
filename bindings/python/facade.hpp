@@ -29,7 +29,10 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/expansion.hpp>
 #include <wowlib/core/reflect.hpp>
+#include <wowlib/formats/common/validation.hpp>
 #include <wowlib/formats/common/version_range.hpp>
+
+#include "result_casters.hpp"
 
 namespace wowlib_py
 {
@@ -160,6 +163,114 @@ namespace wowlib_py
       nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
       nb::sig(persist("def for_version(expansion: wowlib.Expansion) -> Any"
                       + std::string{base_name})));
+  }
+
+  /** @brief Run @p fn against @p self cast to concrete @c F<X>, if it is one.
+      @return true when @p self was an @c F<X> and @p fn ran. */
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X, typename Fn>
+  bool family_try(nb::handle self, Fn&& fn)
+  {
+    if constexpr (family_has<F, X>)
+    {
+      using Concrete = typename concrete_of<F, X>::type;
+      if (nb::isinstance<Concrete>(self))
+      {
+        fn(nb::cast<Concrete&>(self));
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** @brief Dispatch @p fn to @p self's concrete @c F<X> via isinstance.
+
+      The format-agnostic twin of each facade TU's hand-written dispatcher, for
+      verbs that need no per-version signature narrowing. Expansions sharing a
+      canonical range resolve to the same class, so the first isinstance hit is
+      the right one.
+      @param self the instance the verb was called on.
+      @param base_name the family base name, for the type error.
+      @param fn the callable to run against the concrete reference.
+      @throws nanobind::type_error when @p self is not of this family. */
+  template <template <wowlib::ClientVersion> class F, typename Fn>
+  void family_dispatch(nb::handle self, std::string_view base_name, Fn&& fn)
+  {
+    bool done = false;
+    template for (constexpr auto e : expansion_enumerators)
+      if (!done)
+        done = family_try<F, ([:e:])>(self, fn);
+    if (!done)
+      throw nb::type_error(persist("expected a " + std::string{base_name} + " instance"));
+  }
+
+  /** @brief Bind @c validate / @c ensure_valid on a family's abstract base.
+
+      welder already binds both on every CONCRETE class (they are plain members
+      of the entity), which is enough to CALL them. This adds them to the base
+      so that code annotated against the abstract family — @c def @c check(w:
+      @c WMO) — type-checks, exactly as @c read / @c write already do. The
+      concrete's own binding shadows this one at runtime; both dispatch to the
+      same C++ method, so which wins does not matter.
+      @tparam F the family class template.
+      @param base the family's welded base handle.
+      @param base_name the family base name, e.g. @c "WMO". */
+  /** @brief Whether any of family @p F's concretes carries @c validate().
+
+      Binary-struct families (@c WMOBatch, @c WDTHeader) and the entities that
+      have no contracts of their own do not, so the verbs must not be bound for
+      them — a base method that can only ever raise is worse than an absent one.
+      Lets every facade call @c def_validation_verbs unconditionally. */
+  template <template <wowlib::ClientVersion> class F>
+  consteval bool family_validates()
+  {
+    bool any = false;
+    template for (constexpr auto e : expansion_enumerators)
+      if constexpr (family_has<F, ([:e:])>)
+        if constexpr (requires(const typename concrete_of<F, ([:e:])>::type& x) { x.validate(); })
+          any = true;
+    return any;
+  }
+
+  template <template <wowlib::ClientVersion> class F>
+  void def_validation_verbs(nb::handle base, std::string_view base_name)
+  {
+    if constexpr (!family_validates<F>())
+      return;
+    else
+    {
+    const char* name = persist(std::string{base_name});
+    nb::cpp_function(
+      [name](nb::handle self)
+      {
+        wowlib::formats::ValidationReport report;
+        family_dispatch<F>(self, name, [&](auto& entity) { report = entity.validate(); });
+        return report;
+      },
+      nb::name("validate"), nb::scope(base), nb::is_method(),
+      nb::sig("def validate(self) -> wowlib.formats.ValidationReport"),
+      "Check the logical integrity contracts this file must satisfy to LOAD in\n"
+      "the client, which write() deliberately never enforces. Call it before\n"
+      "writing when you want to know the result will load. A file read from a\n"
+      "client and left unmodified reports no errors; warnings mark states real\n"
+      "client files ship.\n\n"
+      "Returns:\n"
+      "    every violated contract, each with its member path");
+    nb::cpp_function(
+      [name](nb::handle self)
+      {
+        family_dispatch<F>(self, name, [&](auto& entity)
+        {
+          if (auto r = entity.ensure_valid(); !r)
+            throw wowlib::result_error(r.error());
+        });
+      },
+      nb::name("ensure_valid"), nb::scope(base), nb::is_method(),
+      nb::sig("def ensure_valid(self) -> None"),
+      "Validate and raise on the first error instead of returning a report —\n"
+      "the assert-style face of validate().\n\n"
+      "Returns:\n"
+      "    nothing; raises when validate() finds any error");
+    }
   }
 
   /** @brief Build the runtime @c AnyX union alias and bind it on @p module.

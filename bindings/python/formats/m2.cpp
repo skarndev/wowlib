@@ -304,6 +304,13 @@ namespace wowlib_py::formats::m2
 
     // Runtime AnyX union aliases (importable TypeAliases) on the family's own
     // submodule; the subset families fold only the expansions they exist for.
+    def_validation_verbs<fm2::M2>(m2.attr("M2"), "M2");
+    def_validation_verbs<fm2::M2Root>(root.attr("M2Root"), "M2Root");
+    def_validation_verbs<fm2::Skin>(skin.attr("Skin"), "Skin");
+    def_validation_verbs<fm2::M2ChunkedFile>(chunked.attr("M2ChunkedFile"),
+                                             "M2ChunkedFile");
+    def_validation_verbs<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton");
+
     def_any_alias<fm2::M2>(m2, "M2", fm2::m2_assembly_pivots, fm2::m2_versions);
     def_any_alias<fm2::M2Root>(root, "M2Root", fm2::m2_data_pivots, fm2::m2_versions);
     def_any_alias<fm2::Skin>(skin, "Skin", fm2::m2_skin_pivots, fm2::m2_skin_versions);

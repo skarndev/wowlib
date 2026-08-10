@@ -219,6 +219,9 @@ namespace wowlib_py::formats::adt
                                     fadt::adt_versions);
     def_adt_ops(adt.attr("ADT"));
 
+    def_validation_verbs<fadt::ADT>(adt.attr("ADT"), "ADT");
+    def_validation_verbs<fadt::MapChunk>(adt.attr("MapChunk"), "MapChunk");
+
     def_any_alias<fadt::ADT>(adt, "ADT", fadt::adt_pivots, fadt::adt_versions);
     def_any_alias<fadt::MapChunk>(adt, "MapChunk", fadt::map_chunk_pivots, fadt::adt_versions);
   }

@@ -191,6 +191,8 @@ namespace wowlib_py::formats::wdl
     def_for_version<fwdl::WDL>(wdl.attr("WDL"), "WDL", fwdl::wdl_pivots, fwdl::wdl_versions);
     def_wdl_convert(wdl.attr("WDL"));
     def_wdl_fs_verbs();
+    def_validation_verbs<fwdl::WDL>(wdl.attr("WDL"), "WDL");
+
     def_any_alias<fwdl::WDL>(wdl, "WDL", fwdl::wdl_pivots, fwdl::wdl_versions);
   }
 }
