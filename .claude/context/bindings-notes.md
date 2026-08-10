@@ -441,3 +441,30 @@ not `db/tables/*.hpp`). Full-scale numbers at 4 eras: **905 tables → 905
 `db.rowbase` supertypes + 4200 `db.tables` classes**, 32 shards, clean parallel
 compile, all stubs (178k-line `tables.pyi`) compile, 133 binding tests + 24 C++ db
 tests green. Bump the list to widen coverage; the compile scales with it.
+
+## Validation vocabulary welded (2026-08-10, stage 4)
+
+`ValidationSeverity` / `ValidationIssue` / `ValidationReport`
+(formats/common/validation.hpp) are welded for py+lua, following the
+StringBlock precedent (doxygen folded into `welder::doc`; enumerators carry
+`welder::doc` after the name).
+
+- **The Python surface is read-only and minimal** (house rule): `ok`,
+  `issues`, `size`, `error_count`, `warning_count`, `truncated` bind as
+  `welder::getter` properties. The mutators (`add`/`add_error`/`add_warning`),
+  the walker plumbing (`prefix_from`, `full`) and `to_result` are
+  `mark::exclude`d — Python gets the raising form through the entities'
+  `ensure_valid()`, so `to_result` would be a second spelling of it.
+- `max_findings` is a STATIC member, so welder never sees it (same reason
+  `version`/`chunk_order` stay invisible).
+- **KNOWN WART**: `report.issues` binds as an opaque vector wrapper named
+  `VectorWowlibFormatsValidationIssue` — welder's namespace-qualified
+  `derive_name`, not the `VectorValidationIssue` our `wowlib_opaque_naming`
+  hook would produce. The hook is MEMBER-driven
+  (`transform_opaque_container(enclosing, container, member)`); a container
+  reached through a METHOD return type has no member, so the hook is bypassed.
+  Cosmetic only (the wrapper iterates and indexes normally, and users never
+  spell the type), but it is why this one vector looks unlike
+  `VectorSMOMaterial` and friends. Compare `StringBlock::entries()`, which is
+  NOT `welder::getter` and whose element is a NESTED struct — it converts to a
+  plain Python `list` instead of getting an opaque wrapper at all.

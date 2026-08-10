@@ -28,38 +28,54 @@
 #include <type_traits>
 #include <vector>
 
+#include <welder/vocabulary.hpp>
+
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/formats/common/entity_reflect.hpp>
 
 namespace wowlib::formats
 {
-  /** How a validation finding affects the file's fitness for the client. */
-  enum class ValidationSeverity : std::uint8_t
+  enum class [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("How a validation finding affects the file's fitness for the "
+                 "client.")
+  ]] ValidationSeverity : std::uint8_t
   {
-    warning,  /**< Suspicious, but real client files ship it; the file loads. */
-    error     /**< The client would misread or crash on a file written like this. */
+    warning [[=welder::doc("Suspicious, but real client files ship it; the file "
+                           "loads.")]],
+    error [[=welder::doc("The client would misread or crash on a file written "
+                         "like this.")]]
   };
 
-  /** One validate() finding: where it is, how bad it is, what is wrong. */
-  struct ValidationIssue
+  struct [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc("One validate() finding: where it is, how bad it is, and what "
+                 "is wrong.")
+  ]] ValidationIssue
   {
-    /** The finding's severity (see the file-level policy). */
+    [[=welder::doc("Whether the client would misread the file (error) or merely "
+                   "find it unusual (warning).")]]
     ValidationSeverity severity = ValidationSeverity::error;
 
-    /** Member path from the validated entity, e.g. "groups[3].body.indices". */
+    [[=welder::doc(R"(Member path from the validated entity, e.g.
+                      "groups[3].body.indices".)")]]
     std::string path;
 
-    /** What is wrong, with the numbers involved. */
+    [[=welder::doc("What is wrong, with the numbers involved.")]]
     std::string message;
 
     bool operator==(const ValidationIssue&) const = default;
   };
 
-  /** Everything one validate() pass found, in member order. A linter-style
-      collection — validation never stops at the first finding, so a broken
-      entity reports every violated contract at once. */
-  class ValidationReport
+  class [[
+    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::doc(R"(
+        Everything one validate() pass found, in member order. Validation is
+        linter-style — it never stops at the first finding, so a broken entity
+        reports every violated contract at once. A report is ok() when it holds
+        no errors; warnings mark states real client files ship.)")
+  ]] ValidationReport
   {
   public:
     /** The most findings one report holds. A walk over a corrupt file can
@@ -73,6 +89,7 @@ namespace wowlib::formats
         @param path     member path from the validated entity ("" for
                         entity-level findings; nesting walkers prefix it).
         @param message  what is wrong, with the numbers involved. */
+    [[=welder::mark::exclude]]
     void add(ValidationSeverity severity, std::string path, std::string message)
     {
       if (full())
@@ -85,14 +102,19 @@ namespace wowlib::formats
 
     /** @return whether the report has reached max_findings — walkers check
                 this to abandon per-element loops early. */
-    [[nodiscard]] bool full() const { return issues_.size() >= max_findings; }
+    [[nodiscard]] [[=welder::mark::exclude]]
+    bool full() const { return issues_.size() >= max_findings; }
 
-    /** @return whether findings were dropped because the report filled up. */
-    [[nodiscard]] bool truncated() const { return truncated_; }
+    [[nodiscard]]
+    [[=welder::getter,
+      =welder::doc("Whether findings were dropped because the report hit its "
+                   "size cap.")]]
+    bool truncated() const { return truncated_; }
 
     /** Record an error finding (see add()).
         @param path    member path from the validated entity.
         @param message what is wrong, with the numbers involved. */
+    [[=welder::mark::exclude]]
     void add_error(std::string path, std::string message)
     {
       add(ValidationSeverity::error, std::move(path), std::move(message));
@@ -101,38 +123,47 @@ namespace wowlib::formats
     /** Record a warning finding (see add()).
         @param path    member path from the validated entity.
         @param message what is wrong, with the numbers involved. */
+    [[=welder::mark::exclude]]
     void add_warning(std::string path, std::string message)
     {
       add(ValidationSeverity::warning, std::move(path), std::move(message));
     }
 
-    /** @return whether the entity is fit to write: no error-severity findings
-                (warnings do not fail a report). */
-    [[nodiscard]] bool ok() const
+    [[nodiscard]]
+    [[=welder::getter,
+      =welder::doc("Whether the entity is fit to write: no error-severity "
+                   "findings (warnings do not fail a report).")]]
+    bool ok() const
     {
       return std::ranges::none_of(issues_, [](const ValidationIssue& issue) {
         return issue.severity == ValidationSeverity::error;
       });
     }
 
-    /** @return the number of error-severity findings. */
-    [[nodiscard]] std::size_t error_count() const
+    [[nodiscard]]
+    [[=welder::getter, =welder::doc("The number of error-severity findings.")]]
+    std::size_t error_count() const
     {
       return static_cast<std::size_t>(
         std::ranges::count(issues_, ValidationSeverity::error, &ValidationIssue::severity));
     }
 
-    /** @return the number of warning-severity findings. */
-    [[nodiscard]] std::size_t warning_count() const
+    [[nodiscard]]
+    [[=welder::getter, =welder::doc("The number of warning-severity findings.")]]
+    std::size_t warning_count() const
     {
       return issues_.size() - error_count();
     }
 
-    /** @return every finding, in the order the walk recorded them. */
-    [[nodiscard]] const std::vector<ValidationIssue>& issues() const { return issues_; }
+    [[nodiscard]]
+    [[=welder::getter,
+      =welder::doc("Every finding, in the order the walk recorded them.")]]
+    const std::vector<ValidationIssue>& issues() const { return issues_; }
 
-    /** @return the total finding count (errors and warnings). */
-    [[nodiscard]] std::size_t size() const { return issues_.size(); }
+    [[nodiscard]]
+    [[=welder::getter,
+      =welder::doc("The total finding count (errors and warnings).")]]
+    std::size_t size() const { return issues_.size(); }
 
     /** Prefix the paths of every finding recorded since @a mark with
         @a prefix — how a nesting walk scopes a sub-entity's findings
@@ -141,6 +172,7 @@ namespace wowlib::formats
         member reads "bones[3].rotation" rather than "bones.[3].rotation".
         @param mark   the size() observed before the sub-entity's walk.
         @param prefix the sub-entity's member path. */
+    [[=welder::mark::exclude]]
     void prefix_from(std::size_t mark, std::string_view prefix)
     {
       for (std::size_t i = mark; i < issues_.size(); ++i)
@@ -157,7 +189,8 @@ namespace wowlib::formats
         @return success when ok(); otherwise an InvalidEntityState error whose
                 message lists the first findings (capped, with a remainder
                 note). */
-    [[nodiscard]] Result<void> to_result() const
+    [[nodiscard]] [[=welder::mark::exclude]]
+    Result<void> to_result() const
     {
       if (ok())
         return {};
