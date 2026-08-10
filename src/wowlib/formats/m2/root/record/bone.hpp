@@ -16,7 +16,7 @@
 namespace wowlib::formats::m2::root::record
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("M2CompBone flags: parent-transform exemptions, billboarding "
                  "and physics participation.")
   ]] BoneFlags : std::uint32_t
@@ -44,7 +44,7 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V < m2_compressed_bones)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
     ]] M2CompBone<V>
     {
@@ -71,7 +71,7 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V >= m2_compressed_bones)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A bone (TBC+): compressed-quaternion rotations plus the debug name "
                    "CRC; the track era inside follows the entity version.")
     ]] M2CompBone<V>

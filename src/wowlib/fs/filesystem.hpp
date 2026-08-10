@@ -32,7 +32,7 @@ namespace wowlib::fs
   using CascFileSystem = ClientFileSystem<CascStorage, CsvListfile>;
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         Everything needed to open a client filesystem: where the client is, which
         version it is, and the optional listfile / project directory / locale
@@ -76,7 +76,7 @@ namespace wowlib::fs
   };
 
   class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::policy::weld_protected,
     =welder::doc(R"(
         The runtime gateway to one client's files. Picks the storage backend from

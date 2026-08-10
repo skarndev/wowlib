@@ -15,7 +15,7 @@
 namespace wowlib::formats::wdl::chunks
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One sky scene (an MSSN record, Shadowlands+), tying a "
                  "SkySceneID to its condition and object ranges.")
   ]] SkyScene
@@ -53,7 +53,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(SkyScene) == 32);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One sky-scene condition (an MSSC record, Shadowlands+).")
   ]] SkySceneCondition
   {
@@ -83,7 +83,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(SkySceneCondition) == 28);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One sky-scene object (an MSSO record, Shadowlands+): a placed "
                  "distant M2.")
   ]] SkySceneObject
@@ -115,7 +115,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(SkySceneObject) == 48);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One sky-scene object params record (an MSSF record; documented "
                  "as Dragonflight+ but observed in 9.2.7 files).")
   ]] SkySceneObjectParams
@@ -129,7 +129,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(SkySceneObjectParams) == 8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One scene-living (world) definition (an MSLD record, The War "
                  "Within+): a time-windowed scene schedule.")
   ]] SceneLivingDef

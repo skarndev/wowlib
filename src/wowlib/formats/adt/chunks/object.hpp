@@ -17,7 +17,7 @@ namespace wowlib::formats::adt::chunks
   /** One sound emitter (MCSE, 28 bytes): the client reads 0x1C bytes per entry
       — a sound-entry id and a position/size pair. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A terrain sound emitter (MCSE, 28 bytes): a SoundEntriesAdvanced foreign
         key and a position/size pair placing an ambient sound in the cell.)")
@@ -43,7 +43,7 @@ namespace wowlib::formats::adt::chunks
       ranges, times are day-minutes, gaps are milliseconds). 2.4.3 ships no
       MCSE at all, so the layout is vanilla-only in practice. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A pre-WotLK terrain sound emitter (MCSE, 52 bytes): a SoundEntries
         foreign key plus the inline distance/time/loop parameters that later
@@ -107,7 +107,7 @@ namespace wowlib::formats::adt::chunks
 
   /** One Shadowlands doodad-set range (MWDR): a [begin, end] span into MWDS. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A doodad-set range (MWDR, Shadowlands+): an inclusive [begin, end] span
         into the MWDS index list, selecting which WMO doodad sets a placement

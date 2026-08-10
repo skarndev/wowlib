@@ -77,7 +77,7 @@ namespace wowlib::formats::adt
   // --- alpha-format context ---------------------------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The on-disk MCAL alpha-map bit depth for a tile, decided by the map's
         WDT MPHD flags (adt_has_big_alpha 0x4 / adt_has_height_texturing 0x80),

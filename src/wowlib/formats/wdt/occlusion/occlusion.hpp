@@ -21,7 +21,7 @@ namespace wowlib::formats::wdt::occlusion
       "WDTOcclusion"); bindings-only, like every *Base.
       @see https://wowdev.wiki/WDT#occ */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDTOcclusion"),
     =welder::doc(R"(
         A _occ.wdt occlusion satellite (WoD+), abstract over the client
@@ -42,7 +42,7 @@ namespace wowlib::formats::wdt::occlusion
         @see https://wowdev.wiki/WDT#occ */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A _occ.wdt occlusion satellite for one client version (WoD+):
           per-tile occlusion heightmaps. Each MAOI index record locates one

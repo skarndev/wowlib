@@ -46,7 +46,7 @@ namespace wowlib::formats::m2::root
 
   /** M2Root::global_flags bits. */
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("M2 global flags: tilt behavior, the texture-combiner-combo "
                  "gate, physics participation and exporter-era markers.")
   ]] GlobalFlags : std::uint32_t
@@ -76,7 +76,7 @@ namespace wowlib::formats::m2::root
 
       @see https://wowdev.wiki/M2 */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("M2Root"),
     =welder::doc(R"(
         An MD20 model body, abstract over the client version. Construct a
@@ -170,7 +170,7 @@ namespace wowlib::formats::m2::root
       @see https://wowdev.wiki/M2 */
   template <ClientVersion V>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         An MD20 model body for one client version: header scalars plus every
         offset-addressed block, decoded. A version's class carries ONLY the

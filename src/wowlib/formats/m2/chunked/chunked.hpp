@@ -37,7 +37,7 @@ namespace wowlib::formats::m2::chunked
 
       @see https://wowdev.wiki/M2#Chunks */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("M2ChunkedFile"),
     =welder::doc(R"(
         A chunked .m2 shell (Legion+), abstract over the client version.
@@ -61,7 +61,7 @@ namespace wowlib::formats::m2::chunked
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The chunked .m2 shell for one Legion+ client version: the MD21 image
         blob plus the satellite chunks. An untouched shell rewrites
@@ -122,7 +122,9 @@ namespace wowlib::formats::m2::chunked
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Texture transform flags (TXAC), one 2-byte record per "
-                   "material then per particle emitter.")]]
+                   "material then per particle emitter."),
+      // Nested container (a sequence of fixed arrays): no C# wire form yet.
+      =welder::mark::exclude(welder::lang::cs)]]
     std::vector<std::array<std::uint8_t, 2>> texture_ac;
 
     [[

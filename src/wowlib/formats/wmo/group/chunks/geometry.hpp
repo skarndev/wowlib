@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::group::chunks
   // --- MOPY / MPY2 / MOBA / MORB / MOBS / MOBN --------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Per-triangle flag bits (MOPY and MPY2).")
   ]] PolyFlags : std::uint8_t
   {
@@ -34,7 +34,7 @@ namespace wowlib::formats::wmo::group::chunks
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Per-triangle material info (MOPY).")
   ]] SMOPoly
   {
@@ -47,7 +47,7 @@ namespace wowlib::formats::wmo::group::chunks
   static_assert(sizeof(SMOPoly) == 0x2);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         Per-triangle material info v2 (MPY2, 10.0+): the MOPY replacement with
         16-bit fields for multiple-material support.)")
@@ -71,7 +71,7 @@ namespace wowlib::formats::wmo::group::chunks
       use the concrete SMOBatch<V> directly. It is an empty (elided) base, so the
       binary specializations stay trivially copyable and 0x18 bytes. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WMOBatch"),
     =welder::doc("A MOBA render batch, abstract over the client version. "
                  "Construct a concrete version with "
@@ -93,7 +93,7 @@ namespace detail
     template <ClientVersion V>
       requires(V < wmo_batch_large_material)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("One MOBA render batch: an index range sharing one material, "
                    "with its low-resolution culling box.")
     ]] WOWLIB_EMPTY_BASES SMOBatch<V> : WMOBatchBase
@@ -126,7 +126,7 @@ namespace detail
     template <ClientVersion V>
       requires(V >= wmo_batch_large_material)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("One MOBA render batch: an index range sharing one material "
                    "(Legion+ layout with the 16-bit material id).")
     ]] WOWLIB_EMPTY_BASES SMOBatch<V> : WMOBatchBase
@@ -169,7 +169,7 @@ namespace detail
   static_assert(sizeof(SMOBatch<versions::shadowlands>) == 0x18);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MORB entry (Cata+): a triangle-strip override of the matching MOBA
         batch's start and count. Same count as MOBA; ignored unless the client
@@ -188,7 +188,7 @@ namespace detail
   static_assert(sizeof(RenderBatchOverride) == 0x8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOBS shadow batch (Cata+): the shadow-pass counterpart of "
                  "a MOBA render batch.")
   ]] ShadowBatch
@@ -217,7 +217,7 @@ namespace detail
   static_assert(sizeof(ShadowBatch) == 0x18);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOBN BSP node for collision: a split plane or a leaf "
                  "referencing faces through MOBR.")
   ]] CAaBspNode

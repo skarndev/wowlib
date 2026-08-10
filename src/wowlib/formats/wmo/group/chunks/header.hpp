@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::group::chunks
   // --- MOGP header ------------------------------------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Group flag bits (MOGP and MOGI flags).")
   ]] GroupFlags : std::uint32_t
   {
@@ -49,7 +49,7 @@ namespace wowlib::formats::wmo::group::chunks
   };
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Extended group flag bits (MOGP.flags2 and MGI2).")
   ]] GroupFlags2 : std::uint32_t
   {
@@ -69,7 +69,7 @@ namespace wowlib::formats::wmo::group::chunks
       you use the concrete SMOGroupHeader<V> directly. It is an empty (elided)
       base, so the binary specializations stay trivially copyable and 0x44 bytes. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WMOGroupHeader"),
     =welder::doc("A MOGP group header, abstract over the client version. "
                  "Construct a concrete version with "
@@ -90,7 +90,7 @@ namespace detail
     template <ClientVersion V>
       requires(V < wmo_split_groups)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("The MOGP group header: names, flags, bounds, portal and batch "
                    "ranges, fog and liquid.")
     ]] WOWLIB_EMPTY_BASES SMOGroupHeader<V> : WMOGroupHeaderBase
@@ -145,7 +145,7 @@ namespace detail
     template <ClientVersion V>
       requires(V >= wmo_split_groups)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("The MOGP group header: names, flags, bounds, portal and batch "
                    "ranges, fog, liquid and split-group links (9.2+).")
     ]] WOWLIB_EMPTY_BASES SMOGroupHeader<V> : WMOGroupHeaderBase

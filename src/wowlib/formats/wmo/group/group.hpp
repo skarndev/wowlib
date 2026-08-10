@@ -43,7 +43,7 @@ namespace wowlib::formats::wmo::group
 
       @see https://wowdev.wiki/WMO */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WMOGroupBody"),
     =welder::doc(R"(
         The MOGP container payload, abstract over the client version. Construct a
@@ -62,7 +62,7 @@ namespace wowlib::formats::wmo::group
 
       @see https://wowdev.wiki/WMO */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WMOGroup"),
     =welder::doc(R"(
         One WMO group file, abstract over the client version. A group file holds
@@ -322,7 +322,7 @@ namespace wowlib::formats::wmo::group
         @see https://wowdev.wiki/WMO */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           The MOGP payload for one client version: the group header and the geometry
           subchunks (triangles, vertices, normals, batches, BSP, liquid, lights).
@@ -656,7 +656,7 @@ namespace wowlib::formats::wmo::group
         @see https://wowdev.wiki/WMO */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           One WMO group file for one client version: the format version and the MOGP
           container holding the group's geometry (see WMOGroupBody). A group holds

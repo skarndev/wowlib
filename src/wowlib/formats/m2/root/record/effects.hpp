@@ -26,7 +26,7 @@ namespace detail
     // aliases below, never directly.
       template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A ribbon (trail) emitter; the priority/color-index tail exists "
                    "WotLK+.")
     ]] M2Ribbon
@@ -93,7 +93,7 @@ namespace detail
 
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 2D vector of 6.9 fixed-point values (raw u16 storage).")
   ]] M2Vec2FP69
   {
@@ -116,7 +116,7 @@ namespace detail
     template <ClientVersion V>
       requires (V < m2_compressed_bones)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A particle emitter, vanilla layout: wide u16 blending/emitter header, "
                    "static color/scale/UV ramps, a single spin value.")
     ]] M2Particle<V>
@@ -229,7 +229,7 @@ namespace detail
     template <ClientVersion V>
       requires (V >= m2_compressed_bones && V < m2_per_sequence_timelines)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A particle emitter, TBC layout: byte-packed blending/emitter beside "
                    "the ParticleColor.dbc index; ramps still static.")
     ]] M2Particle<V>
@@ -344,7 +344,7 @@ namespace detail
     template <ClientVersion V>
       requires (V >= m2_per_sequence_timelines && V < m2_multitex_particles)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A particle emitter, WotLK-era layout (476 bytes): FBlock ramps, "
                    "lifespan/emission variation, four spin fields.")
     ]] M2Particle<V>
@@ -466,7 +466,7 @@ namespace detail
     template <ClientVersion V>
       requires (V >= m2_multitex_particles)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A particle emitter (Cata+, 492 bytes): multi-textured — packed "
                    "texture ids, multiTexScale, trailing scroll parameters.")
     ]] M2Particle<V>

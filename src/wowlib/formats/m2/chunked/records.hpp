@@ -20,7 +20,7 @@ namespace wowlib::formats::m2::chunked::record
 {
   /** One AFID entry: which FileDataID serves a sequence's .anim data. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An AFID entry: the .anim FileDataID for one (animation, "
                  "variation) pair; 0 means none.")
   ]] AnimFileEntry
@@ -39,7 +39,7 @@ namespace wowlib::formats::m2::chunked::record
   /** One EXPT record: the pre-EXP2 extended particle parameters (the client
       reconstructs EXP2 from these when EXP2 is absent). */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An EXPT record: z-source, color and alpha multipliers for "
                  "one particle emitter.")
   ]] M2ExtendedParticleSimple
@@ -57,7 +57,7 @@ namespace wowlib::formats::m2::chunked::record
   static_assert(sizeof(M2ExtendedParticleSimple) == 12);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An EXP2 record: the EXPT parameters plus the per-lifetime "
                  "alpha-cutoff ramp.")
   ]] M2ExtendedParticle
@@ -78,7 +78,7 @@ namespace wowlib::formats::m2::chunked::record
   /** One DETL record: per-light shadow/diffuse overrides (9.0+); the halves
       are raw IEEE half-floats. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A DETL record (9.0+): per-light flags, shadow-RT scale and "
                  "diffuse multiplier (raw half-floats).")
   ]] M2LightDetail
@@ -108,7 +108,7 @@ namespace wowlib::formats::m2::chunked::record
   // no per-shell-version instantiation.
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The EXP2 chunk payload: extended particle records, one per "
                  "particle emitter.")
   ]] Exp2Data : M2OffsetBlock<Exp2Data>
@@ -128,7 +128,7 @@ namespace wowlib::formats::m2::chunked::record
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The PABC chunk payload: the parent-model sequence-id "
                  "blacklist ('BlacklistAnimData').")
   ]] PabcData : M2OffsetBlock<PabcData>
@@ -149,7 +149,7 @@ namespace wowlib::formats::m2::chunked::record
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The PSBC chunk payload: parent sequence bounds.")
   ]] PsbcData : M2OffsetBlock<PsbcData>
   {
@@ -168,7 +168,7 @@ namespace wowlib::formats::m2::chunked::record
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The PGD1 chunk payload: per-particle-emitter geoset "
                  "assignments.")
   ]] Pgd1Data : M2OffsetBlock<Pgd1Data>

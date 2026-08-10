@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MOLT / MOLV / MNLD -----------------------------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The kind of a WMO light (SMOLight.type).")
   ]] LightType : std::uint8_t
   {
@@ -30,7 +30,7 @@ namespace wowlib::formats::wmo::root::chunks
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOLT light. Not rendered by classic-era clients, but baked "
                  "into vertex colors by the exporter.")
   ]] SMOLight
@@ -65,7 +65,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(SMOLight) == 0x30);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MOLV entry (9.1+): a directional-gradient extension to a MOLT
         light. Multiple entries may extend the same light.)")
@@ -93,7 +93,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(LightExtension) == 0x64);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MNLD entry (9.0+): a Shadowlands dynamic light - point or spot -
         used for everything from torch fires to window-light projection.)")

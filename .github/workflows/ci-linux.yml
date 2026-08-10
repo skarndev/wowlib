@@ -222,6 +222,14 @@ jobs:
       - name: Python binding tests
         run: |
           uv pip install pytest pytest-mypy-testing mypy
+          # Despite the static-libstdc++ link flags above, the module still
+          # resolves libstdc++ dynamically and needs GLIBCXX_3.4.35, which the
+          # runner's system copy predates — so importing it here fails where the
+          # audit box (apt gcc-16 installed) succeeds. Point the loader at the
+          # toolchain that built it. NOTE this makes the artifact's portability
+          # claim untested: it is a real gap, not a test-only quirk.
+          export LD_LIBRARY_PATH="$(dirname "$(find "$(brew --prefix gcc)/lib" \
+            -name libstdc++.so.6 | head -1)"):${LD_LIBRARY_PATH:-}"
           PYTHONPATH=$PWD/build/release/bindings/python \
           MYPYPATH=$PWD/build/release/bindings/python/stubs \
           .venv/bin/python -m pytest tests/python -q

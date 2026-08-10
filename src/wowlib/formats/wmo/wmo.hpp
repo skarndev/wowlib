@@ -39,7 +39,7 @@ namespace wowlib::formats::wmo
 
       @see https://wowdev.wiki/WMO */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WMO"),
     =welder::doc(R"(
         A whole world map object, abstract over the client version — the root
@@ -68,7 +68,7 @@ namespace wowlib::formats::wmo
       @see https://wowdev.wiki/WMO */
   template <ClientVersion V>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A whole world map object for one client version: the root file and all
         its group files as one entity. Group files are located by GFID (Legion+

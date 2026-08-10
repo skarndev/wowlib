@@ -41,7 +41,7 @@ namespace wowlib::formats::wdt
 
       @see https://wowdev.wiki/WDT */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDT"),
     =welder::doc(R"(
         A whole map description, abstract over the client version — the main
@@ -109,7 +109,7 @@ namespace wowlib::formats::wdt
         @see https://wowdev.wiki/WDT */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A whole map description for one client version: the main .wdt file
           and its era's satellite files (_occ/_lgt since WoD, _fogs since

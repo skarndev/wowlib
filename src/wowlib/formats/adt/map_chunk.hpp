@@ -70,7 +70,7 @@ namespace wowlib::formats::adt
       `monolithic` file carrying every chunk; Cata+ tiles distribute chunks over
       the split ADT files (root/_tex0/_obj0/_obj1/_lod). */
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The physical ADT file a chunk belongs to. Pre-Cataclysm tiles are a single
         `monolithic` .adt; Cataclysm split the tile into a `root` .adt and the
@@ -159,7 +159,7 @@ namespace wowlib::formats::adt
       language bindings attach for_version here and give the per-version chunks a
       common welded supertype. No role in the C++ API. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("MapChunk"),
     =welder::doc(R"(
         A terrain chunk (MCNK), abstract over the client version. Usually obtained
@@ -438,7 +438,7 @@ namespace wowlib::formats::adt
         canonicalizing adt::MapChunk alias. */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           One terrain chunk (MCNK) of a map tile, fully decoded: the chunk header, the
           9x9+8x8 height and normal grids, the texture layers with their decoded
@@ -496,7 +496,11 @@ namespace wowlib::formats::adt
         =formats::count_matches("layers"),
         =welder::doc("One decoded 64x64 (4096-byte) alpha map per layer, aligned with "
                      "layers (layer 0's is empty); 0 = base texture, 255 = this layer."),
-        =welder::mark::no_reassign]]
+        =welder::mark::no_reassign,
+        // Nested container (a sequence of sequences): welder's C# rod has no wire
+        // form for one yet, so it is excluded there rather than blocking the whole
+        // module. Python and Lua bind it normally.
+        =welder::mark::exclude(welder::lang::cs)]]
       std::vector<std::vector<std::uint8_t>> alpha_maps;
 
       [[=chunk("MCSH"),

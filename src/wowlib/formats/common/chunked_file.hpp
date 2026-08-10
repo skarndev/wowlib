@@ -126,7 +126,7 @@ namespace wowlib::formats
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An unparsed chunk payload, preserved verbatim for round-trip. "
                  "Backs chunks wowlib keeps opaque — offset-based (MOTA, MDDL) "
                  "or undocumented (MPVD, MOMX).")

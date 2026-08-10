@@ -25,7 +25,7 @@ namespace wowlib::formats::wdt::fogs
       bindings-only, like every *Base.
       @see https://wowdev.wiki/WDT#fogs */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDTFogs"),
     =welder::doc(R"(
         A _fogs.wdt volumetric-fog satellite (Legion 7.2.5+), abstract over
@@ -74,7 +74,7 @@ namespace wowlib::formats::wdt::fogs
         @see https://wowdev.wiki/WDT#fogs */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A _fogs.wdt volumetric-fog satellite for one client version (Legion
           7.2.5+): the map's placed fog volumes. Most maps ship it empty. See

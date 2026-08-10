@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MOHD -------------------------------------------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Root header flag bits (SMOHeader.flags).")
   ]] HeaderFlags : std::uint16_t
   {
@@ -32,7 +32,7 @@ namespace wowlib::formats::wmo::root::chunks
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The MOHD root header: entity counts, ambient color, bounds and "
                  "root-wide flags.")
   ]] SMOHeader

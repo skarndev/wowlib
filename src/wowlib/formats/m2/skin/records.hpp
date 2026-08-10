@@ -34,7 +34,7 @@ namespace detail
     template <ClientVersion V>
       requires (V < m2_compressed_bones)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A skin submesh, vanilla layout (no sort data yet).")
     ]] M2SkinSection<V>
     {
@@ -67,7 +67,7 @@ namespace detail
     template <ClientVersion V>
       requires (V >= m2_compressed_bones)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A skin submesh (TBC+): adds the sort center and radius.")
     ]] M2SkinSection<V>
     {
@@ -113,7 +113,7 @@ namespace detail
   static_assert(sizeof(M2SkinSection<versions::wotlk>) == 48);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An M2 skin render batch (texture unit): submesh + material "
                  "+ the lookup bases the shaders consume.")
   ]] M2Batch
@@ -150,7 +150,7 @@ namespace detail
   static_assert(sizeof(M2Batch) == 24);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An M2 skin shadow batch (Cata+); the client can also "
                  "generate these from the render batches.")
   ]] M2ShadowBatch
@@ -180,7 +180,7 @@ namespace detail
     // aliases below, never directly.
       template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("One LOD view: local vertex/bone lookups into the model, submeshes and "
                    "render batches; embedded in the model pre-WotLK, an own .skin file "
                    "after.")
@@ -195,7 +195,9 @@ namespace detail
       std::vector<std::uint16_t> indices;
       [[
         =formats::count_matches("vertices"),
-        =welder::doc("Per-vertex 4-bone indices.")]]
+        =welder::doc("Per-vertex 4-bone indices."),
+        // Nested container (a sequence of fixed arrays): no C# wire form yet.
+        =welder::mark::exclude(welder::lang::cs)]]
       std::vector<std::array<std::uint8_t, 4>> bones;
       // through the skin:: alias, NOT the sibling detail raw — member types
     // must collapse to the same canonical the welded classes use

@@ -30,7 +30,7 @@ namespace wowlib::formats::m2::skin
 
       @see https://wowdev.wiki/M2/.skin */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("Skin"),
     =welder::doc(R"(
         An external model LOD view (.skin file), abstract over the client
@@ -53,7 +53,7 @@ namespace wowlib::formats::m2::skin
   template <ClientVersion V>
     requires (V >= m2_per_sequence_timelines)
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One external LOD view (.skin file, WotLK+): the 'SKIN' magic plus the
         profile tables (local lookups, submeshes, render batches). See

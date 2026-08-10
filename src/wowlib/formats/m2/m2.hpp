@@ -50,7 +50,7 @@ namespace wowlib::formats::m2
 
       @see https://wowdev.wiki/M2 */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("M2"),
     =welder::doc(R"(
         A whole model, abstract over the client version — the MD20 body with
@@ -164,7 +164,7 @@ namespace wowlib::formats::m2
       @see https://wowdev.wiki/M2 */
   template <ClientVersion V>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A whole model for one client version: the MD20 body with skins and
         external sequence data baked in. A written model is canonical-layout

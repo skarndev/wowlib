@@ -37,7 +37,7 @@
 namespace wowlib::formats
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("How a validation finding affects the file's fitness for the "
                  "client.")
   ]] ValidationSeverity : std::uint8_t
@@ -49,7 +49,7 @@ namespace wowlib::formats
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One validate() finding: where it is, how bad it is, and what "
                  "is wrong.")
   ]] ValidationIssue
@@ -69,7 +69,7 @@ namespace wowlib::formats
   };
 
   class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         Everything one validate() pass found, in member order. Validation is
         linter-style — it never stops at the first finding, so a broken entity

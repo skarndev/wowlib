@@ -54,7 +54,7 @@ namespace wowlib::formats::m2
   {
   template <ClientVersion V>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The SKL1 payload: the skeleton's identity.")
   ]] SkelHeader : M2OffsetBlock<SkelHeader<V>>
   {
@@ -74,7 +74,7 @@ namespace wowlib::formats::m2
 
   template <ClientVersion V>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The SKS1 payload: the sequence set that moved out of the "
                  "model.")
   ]] SkelSequences : M2OffsetBlock<SkelSequences<V>>
@@ -108,7 +108,7 @@ namespace wowlib::formats::m2
 
   template <ClientVersion V>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The SKB1 payload: the bones that moved out of the model "
                  "(external sequences' track data lives in the .anim AFSB "
                  "chunks).")
@@ -135,7 +135,7 @@ namespace wowlib::formats::m2
 
   template <ClientVersion V>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The SKA1 payload: the attachments that moved out of the "
                  "model (external sequences' track data lives in the .anim "
                  "AFSA chunks).")
@@ -182,7 +182,7 @@ namespace wowlib::formats::m2
       (e.g. lightforgeddraeneimale -> draeneimale_hd; the child shares the
       parent's AFID/BFID files while keeping its own SK*1 chunks). */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The SKPD parent-skeleton link: the parent .skel FileDataID "
                  "whose AFID/BFID satellite files this skeleton shares.")
   ]] SkelParentData
@@ -206,7 +206,7 @@ namespace wowlib::formats::m2
 
       @see https://wowdev.wiki/M2/.skel */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("Skeleton"),
     =welder::doc(R"(
         A shared model skeleton (.skel, Legion 7.3+), abstract over the client
@@ -235,7 +235,7 @@ namespace wowlib::formats::m2
   template <ClientVersion V>
     requires (V >= m2_chunked_container)
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A shared model skeleton (.skel, Legion 7.3+): bones, attachments and
         sequences for skel-based models, shareable between models via the

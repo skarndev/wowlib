@@ -16,7 +16,7 @@
 namespace wowlib::formats::common
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("WMO placement flag bits (SMMapObjDef.flags).")
   ]] MapObjDefFlags : std::uint16_t
   {
@@ -32,7 +32,7 @@ namespace wowlib::formats::common
   };
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("M2 placement flag bits (SMDoodadDef.flags).")
   ]] DoodadDefFlags : std::uint16_t
   {
@@ -50,7 +50,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A WMO placement (the 64-byte MODF record of WDT, WDL and ADT): which
         object, where, and how it is instanced.)")
@@ -92,7 +92,7 @@ namespace wowlib::formats::common
   static_assert(sizeof(SMMapObjDef) == 0x40);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         An M2 (doodad) placement (the 36-byte MDDF record of ADT, reused by the
         WDL MLDD low-resolution set): which model, where, and at what scale.)")

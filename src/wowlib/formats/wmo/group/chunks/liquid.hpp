@@ -26,7 +26,7 @@ namespace wowlib::formats::wmo::group::chunks
   // --- MLIQ -------------------------------------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The magma/slime reading of an MLIQ vertex (8 bytes): two int16 texture
         coordinates sharing the layout with the water reading (SMOLVert). Obtain
@@ -46,7 +46,7 @@ namespace wowlib::formats::wmo::group::chunks
   static_assert(sizeof(SMOMVert) == 0x8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MLIQ liquid vertex (8 bytes). The byte layout is fixed but its
         interpretation depends on the group's liquid type: water/ocean read the
@@ -83,7 +83,7 @@ namespace wowlib::formats::wmo::group::chunks
   static_assert(sizeof(SMOLVert) == 0x8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MLIQ tile flag byte: bits 0-5 the legacy liquid type, "
                  "bit 6 fishable, bit 7 shared with an adjacent group.")
   ]] SMOLTile
@@ -94,7 +94,7 @@ namespace wowlib::formats::wmo::group::chunks
   static_assert(sizeof(SMOLTile) == 0x1);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         Structured MLIQ liquid data: a vertex grid and a tile-flag grid with a
         base position and material id. The on-disk header is 30 bytes (the

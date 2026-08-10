@@ -3,6 +3,10 @@ project(wowlib LANGUAGES C CXX)
 
 option(WOWLIB_BUILD_TESTS "Build wowlib tests" ON)
 option(WOWLIB_BUILD_PYTHON "Build the Python 3.13 extension (nanobind, stable ABI)" OFF)
+# The C# rod is build-time and framework-free: it emits a shim + a [LibraryImport]
+# wrapper from pure reflection, so this needs no .NET SDK (only consuming the
+# emitted Bindings.cs does).
+option(WOWLIB_BUILD_CSHARP "Build the C#/.NET bindings (welder C# rod: native shim + Bindings.cs)" OFF)
 # The Lua module (LuaBridge3) is deferred until the library is feature-complete;
 # the welder annotations still weld a lang::lua surface for when it returns.
 
@@ -50,6 +54,6 @@ if(WOWLIB_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-if(WOWLIB_BUILD_PYTHON)
+if(WOWLIB_BUILD_PYTHON OR WOWLIB_BUILD_CSHARP)
   add_subdirectory(bindings)
 endif()

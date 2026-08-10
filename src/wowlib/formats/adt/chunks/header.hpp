@@ -21,7 +21,7 @@
 namespace wowlib::formats::adt::chunks
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Per-cell MCNK header flag bits (SMChunk.flags).")
   ]] MapChunkFlags : std::uint32_t
   {
@@ -48,7 +48,7 @@ namespace wowlib::formats::adt::chunks
       from the bindings; author the flags, indices, area, holes, detail-doodad
       maps and origin. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("SMChunk"),
     =welder::doc(R"(
         A terrain cell header (MCNK, 128 bytes): the flags, its (x, y) position in
@@ -136,7 +136,7 @@ namespace wowlib::formats::adt::chunks
   static_assert(sizeof(SMChunk) == 0x80);
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Tile header flag bits (MHDRData.flags).")
   ]] MapHeaderFlags : std::uint32_t
   {
@@ -148,7 +148,7 @@ namespace wowlib::formats::adt::chunks
       fields are DERIVED (stamped on write from the final layout) and hidden; the
       flags and the Cata+ MAMP override are the authored content. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("MHDRData"),
     =welder::doc(R"(
         The tile header (MHDR, 64 bytes): flags plus offsets to the tile's other
@@ -186,7 +186,7 @@ namespace wowlib::formats::adt::chunks
   /** The flying bounding box (MFBO, BC+): two 3x3 grids of int16 heights — a
       maximum plane you fall through and a minimum plane below the world. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The flying bounds (MFBO, BC+): a maximum and a minimum plane, each a 3x3
         grid of int16 heights, limiting where a player may fly on this tile.)")

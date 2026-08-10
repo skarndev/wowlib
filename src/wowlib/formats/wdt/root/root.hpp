@@ -34,7 +34,7 @@ namespace wowlib::formats::wdt::root
 
       @see https://wowdev.wiki/WDT */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDTRoot"),
     =welder::doc(R"(
         A WDT main file, abstract over the client version. The main file says
@@ -96,7 +96,7 @@ namespace wowlib::formats::wdt::root
         @see https://wowdev.wiki/WDT */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A WDT main file for one client version: the map header, the 64x64
           tile table (row-major, y outer), the per-tile FileDataIDs (8.1+) and

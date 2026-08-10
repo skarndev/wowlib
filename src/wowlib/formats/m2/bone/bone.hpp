@@ -18,7 +18,7 @@ namespace wowlib::formats::m2::bone
 {
   /** The .bone raw prelude: a version marker, always 1 so far. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The .bone file prelude: a version marker (always 1).")
   ]] BoneFilePrelude
   {
@@ -35,7 +35,7 @@ namespace wowlib::formats::m2::bone
       chunk framework; no chunk here is version-gated).
       @see https://wowdev.wiki/BONE */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A .bone file (WoD+): facial-pose (FacePose 808) bone offset matrices,
         one file per pose variant, referenced by BFID. See

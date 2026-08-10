@@ -24,7 +24,7 @@ namespace wowlib::formats::wdt::lights
       "WDTLights"); bindings-only, like every *Base.
       @see https://wowdev.wiki/WDT#lgt */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDTLights"),
     =welder::doc(R"(
         A _lgt.wdt lights satellite (WoD+), abstract over the client version:
@@ -118,7 +118,7 @@ namespace wowlib::formats::wdt::lights
         @see https://wowdev.wiki/WDT#lgt */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A _lgt.wdt lights satellite for one client version (WoD+): freely
           placed point lights (MPLT/MPL2/MPL3 by era), spot lights, their

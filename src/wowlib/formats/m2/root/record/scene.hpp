@@ -20,7 +20,7 @@ namespace detail
     // aliases below, never directly.
       template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("An attachment point (weapons, effects, name plates), relative to a "
                    "bone.")
     ]] M2Attachment
@@ -42,7 +42,7 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A timed event ($DTH death thud, footsteps, sounds); every "
                    "enabled-track key fires.")
     ]] M2Event
@@ -63,7 +63,7 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A model light: type 0 directional (login screens only), 1 point.")
     ]] M2Light
     {
@@ -97,7 +97,7 @@ namespace detail
     template <ClientVersion V>
       requires (V < m2_multitex_particles)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A camera, pre-Cata layout: a static diagonal FOV plus "
                    "position/target/roll spline tracks.")
     ]] M2Camera<V>
@@ -128,7 +128,7 @@ namespace detail
     template <ClientVersion V>
       requires (V >= m2_multitex_particles)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A camera (Cata+): the FOV becomes a spline track at the record tail.")
     ]] M2Camera<V>
     {

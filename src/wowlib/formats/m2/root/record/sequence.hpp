@@ -18,7 +18,7 @@
 namespace wowlib::formats::m2::root::record
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("M2Sequence flags — the 0x20/0x40/0x130 combination decides "
                  "where the sequence's track data lives (.m2 vs .anim file).")
   ]] SequenceFlags : std::uint32_t
@@ -57,7 +57,7 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V < m2_per_sequence_timelines)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("An animation sequence, pre-WotLK layout: global start/end timestamps, "
                    "one u32 blend time.")
     ]] M2Sequence<V>
@@ -110,7 +110,7 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V >= m2_per_sequence_timelines && V < m2_split_blend_times)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("An animation sequence, WotLK through MoP layout: an own duration, one "
                    "u32 blend time.")
     ]] M2Sequence<V>
@@ -161,7 +161,7 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V >= m2_split_blend_times)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("An animation sequence, WoD+ layout: an own duration, split "
                    "blend-in/out times.")
     ]] M2Sequence<V>
@@ -221,7 +221,7 @@ namespace wowlib::formats::m2::root::record
     detail::M2Sequence<canonical_version(V, m2_sequence_pivots, m2_versions)>;
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A pre-WotLK playable-animation fallback: the substitute "
                  "animation id plus how to play it (0 normal, 1 backwards, "
                  "2 frame-by-frame, 3 freeze).")

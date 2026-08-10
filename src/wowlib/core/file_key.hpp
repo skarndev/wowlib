@@ -18,7 +18,7 @@
 namespace wowlib
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A strongly-typed FileDataID — the numeric file identifier used by CASC-era
         clients (u32, matching the client's root manifest and DB2 references).)")
@@ -31,7 +31,7 @@ namespace wowlib
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A file request: by client-internal path, by FileDataID, or both. The
         generic file identity for version-independent tools — code that handles

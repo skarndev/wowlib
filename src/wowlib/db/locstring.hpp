@@ -53,7 +53,7 @@ namespace wowlib::db
       @tparam Langs the client era's language slot count (8 or 16). */
   template <std::size_t Langs>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A localized string column of a pre-Cataclysm client database: one string
         per language slot in the client's fixed column order, plus the locale

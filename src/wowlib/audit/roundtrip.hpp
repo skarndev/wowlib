@@ -19,7 +19,7 @@
 namespace wowlib::audit
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The outcome of one file's round-trip: whether the file survived, the
         stage that failed (or the reason it was skipped), the diagnostic, and
@@ -43,12 +43,15 @@ namespace wowlib::audit
     [[=welder::doc(R"(
         Every unmodeled chunk encountered while parsing, as fourcc spellings —
         one entry per occurrence (ready for counting), still round-tripped
-        verbatim by the chunk framework.)")]]
+        verbatim by the chunk framework.)"),
+      // A sequence of strings: welder's C# rod marshals scalar/enum sequences
+      // only (a string[] needs a pointer-array wire it does not emit yet).
+      =welder::mark::exclude(welder::lang::cs)]]
     std::vector<std::string> unknown_chunks;
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The exhaustive round-trip audit: feed it one client file at a time
         (enumerate them with FileSystem.enumerate_paths) and it round-trips

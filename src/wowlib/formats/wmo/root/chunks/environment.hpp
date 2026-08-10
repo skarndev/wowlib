@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MFOG / MFED ------------------------------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MFOG entry: a fog volume with regular and under-water "
                  "settings.")
   ]] SMOFog
@@ -57,7 +57,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(SMOFog) == 0x30);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MFED entry (9.0+): fog extra data; same count as MFOG.")
   ]] FogExtra
   {
@@ -72,7 +72,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MAVD / MAVG / MBVD -----------------------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One ambient volume (MAVD, 8.3+) - a spherical region overriding the
         root ambient color - or a global ambient entry (MAVG), which shares
@@ -109,7 +109,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(AmbientVolume) == 0x30);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MBVD entry (8.3+): a box-shaped ambient volume bounded by "
                  "six planes. Only read when MAVG or MAVD is present.")
   ]] AmbientBoxVolume

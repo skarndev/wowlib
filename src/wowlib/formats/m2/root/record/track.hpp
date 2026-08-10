@@ -27,7 +27,7 @@
 namespace wowlib::formats::m2::root::record
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An inclusive u32 range: pre-WotLK track interpolation "
                  "ranges, sequence replay bounds.")
   ]] M2Range
@@ -43,7 +43,7 @@ namespace wowlib::formats::m2::root::record
   static_assert(sizeof(M2Range) == 8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A bounding volume: axis-aligned extent plus sphere radius.")
   ]] M2Bounds
   {
@@ -58,7 +58,7 @@ namespace wowlib::formats::m2::root::record
   static_assert(sizeof(M2Bounds) == 28);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A global-loop entry: the timestamp a global sequence wraps at.")
   ]] M2Loop
   {
@@ -70,7 +70,7 @@ namespace wowlib::formats::m2::root::record
   static_assert(sizeof(M2Loop) == 4);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A quaternion compressed to i16 x, y, z, w (TBC+ bone "
                  "rotations); decompress as (v < 0 ? v + 32768 : v - 32767) / 32767.")
   ]] M2CompQuat
@@ -92,7 +92,7 @@ namespace wowlib::formats::m2::root::record
   static_assert(sizeof(M2CompQuat) == 8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A model-space box: minimum and maximum corner vectors.")
   ]] M2Box
   {
@@ -108,7 +108,7 @@ namespace wowlib::formats::m2::root::record
 
   template <typename T>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A spline keyframe: the value plus incoming/outgoing tangents "
                  "(bezier/hermite camera tracks).")
   ]] M2SplineKey
@@ -142,7 +142,7 @@ namespace wowlib::formats::m2::root::record
     template <typename T, ClientVersion V>
       requires (V < m2_per_sequence_timelines)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("An animation track, pre-WotLK layout: one global timeline with "
                    "per-sequence interpolation ranges.")
     ]] M2Track<T, V>
@@ -172,7 +172,7 @@ namespace wowlib::formats::m2::root::record
     template <typename T, ClientVersion V>
       requires (V >= m2_per_sequence_timelines)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("An animation track, WotLK+ layout: one timestamp/value array per "
                    "sequence; an external sequence keeps its arrays in the .anim file.")
     ]] M2Track<T, V>
@@ -187,13 +187,17 @@ namespace wowlib::formats::m2::root::record
       [[
         =formats::sequence_data,
         =welder::doc("Keyframe timestamps, one array per sequence (an external "
-                     "sequence keeps its arrays in the .anim file).")]]
+                     "sequence keeps its arrays in the .anim file)."),
+        // Nested container (a sequence of sequences): no C# wire form yet.
+        =welder::mark::exclude(welder::lang::cs)]]
       std::vector<std::vector<std::uint32_t>> timestamps;
 
       [[
         =formats::sequence_data,
         =formats::count_matches("timestamps"),
-        =welder::doc("Keyframe values, per sequence, parallel to timestamps.")]]
+        =welder::doc("Keyframe values, per sequence, parallel to timestamps."),
+        // Nested container (a sequence of sequences): no C# wire form yet.
+        =welder::mark::exclude(welder::lang::cs)]]
       std::vector<std::vector<T>> values;
 
       bool operator==(const M2Track&) const = default;
@@ -207,7 +211,7 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V < m2_per_sequence_timelines)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A timestamp-only event track, pre-WotLK layout (every key fires).")
     ]] M2TrackBase<V>
     {
@@ -231,7 +235,7 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V >= m2_per_sequence_timelines)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A timestamp-only event track, WotLK+ layout (every key fires).")
     ]] M2TrackBase<V>
     {
@@ -269,7 +273,7 @@ namespace wowlib::formats::m2::root::record
 
   template <typename T>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The header-less 'fake' animation block: sequence-independent u16 "
                  "timestamps plus keys (WotLK+ particle ramps).")
   ]] FBlock
@@ -287,7 +291,7 @@ namespace wowlib::formats::m2::root::record
 
   template <typename T>
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A partial track: normalized fixed16 times plus values (Legion+ EXP2 "
                  "alpha cutoffs).")
   ]] M2PartTrack

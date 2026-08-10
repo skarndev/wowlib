@@ -149,7 +149,7 @@ class EmitTest(unittest.TestCase):
         self.assertIn("static_assert(formats::ranges_valid(widget_ranges, "
                       "widget_pivots, widget_grid));", header)
         # Welded bases + wrapper for the Python/Lua binding surface.
-        self.assertIn("=welder::weld(welder::lang::py, welder::lang::lua),", header)
+        self.assertIn("=welder::weld,", header)
         self.assertIn("namespace wowlib::db::rowbase", header)
         self.assertIn("=welder::weld_as(\"Widget\"),", header)
         # The wrapper too carries its own weld besides inheriting the table supertype.

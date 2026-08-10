@@ -32,7 +32,7 @@ namespace wowlib::db
   /** How write() treats a table that still holds keyless (undecryptable)
       encrypted sections. */
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         How a client-database write handles keyless encrypted sections: Preserve
         re-emits the file's original bytes verbatim (encrypted content intact,
@@ -48,7 +48,7 @@ namespace wowlib::db
       encrypted under a TACT key wowlib does not hold. Record-independent, so it
       lives at namespace scope (welded once, shared by every Table). */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An encrypted WDC section: its records are behind a TACT key "
                  "wowlib does not hold, so they are absent from records.")
   ]] EncryptedSection

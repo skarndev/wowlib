@@ -13,7 +13,7 @@
 namespace wowlib::formats::wdl::chunks
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One tile's low-resolution heightmap (a MARE payload): a 17x17 grid of
         int16 heights with a 16x16 grid of midpoints, on the same scale as the
@@ -30,7 +30,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(TileHeights) == 1090);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One tile's hole mask (a MAHO payload, TBC+): 16 row bitmasks, one
         per chunk row (y), one bit per chunk column (x) — a set bit is a hole.
@@ -44,7 +44,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(TileHoles) == 32);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One tile's ocean mask (a MAOE payload, Legion+): a 32-byte mask
         selecting the ocean alpha texture — 0xFF bytes mean water everywhere,

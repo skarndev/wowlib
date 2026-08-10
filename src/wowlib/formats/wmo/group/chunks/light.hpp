@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::group::chunks
   // --- MOLP / MLSS / MLSP / MLSK / MOP2 ---------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOLP point light (Legion+).")
   ]] PointLight
   {
@@ -53,7 +53,7 @@ namespace wowlib::formats::wmo::group::chunks
   static_assert(sizeof(PointLight) == 0x2C);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One light-set range (8.1+): a (first, count) window into the group's
         spot lights (MLSS -> MOLS), point lights (MLSP -> MOLP) or point-light
@@ -69,7 +69,7 @@ namespace wowlib::formats::wmo::group::chunks
   static_assert(sizeof(LightSet) == 0x8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOP2 entry (8.1+): an animated point light with flicker "
                  "and light-cookie texture data.")
   ]] PointLightAnim

@@ -42,7 +42,7 @@ namespace wowlib::formats::adt
       non-empty) selects which of the width x height tiles render. All binary
       offsets are derived on write. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One liquid layer over a terrain cell (an MH2O instance), decoded. The
         heightmap/depthmap/uvmap arrays are present according to vertex_format and
@@ -109,7 +109,7 @@ namespace wowlib::formats::adt
 
   /** All liquid of one terrain cell: the attribute masks plus its layers. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The liquid of one terrain cell (an MH2O chunk entry): the 8x8 fishable and
         deep attribute bit masks and the stacked liquid layers (instances). A cell
@@ -143,7 +143,7 @@ namespace wowlib::formats::adt
   /** The whole-tile MH2O chunk: liquid for each of the 256 cells, decoded.
       SelfSerializing — it owns the offset-based MH2O payload layout. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The tile's liquid (MH2O, WotLK+): one MapChunkLiquid per terrain cell, in
         the 16x16 row-major cell order. Decoded from the chunk's offset structure
@@ -184,7 +184,7 @@ namespace wowlib::formats::adt
       grid, an 8x8 tile-flag grid and up to two flow vectors, decoded.
       SelfSerializing. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A terrain chunk's legacy liquid (MCLQ, up to WotLK, deprecated by MH2O): a
         9x9 grid of liquid vertices (SLVert; read as magma/slime via as_magma()),

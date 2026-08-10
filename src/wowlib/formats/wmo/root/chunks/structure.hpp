@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MOGI / MGI2 ------------------------------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOGI entry: per-group flags, bounds and name, mirrored from "
                  "the group file's own header.")
   ]] SMOGroupInfo
@@ -36,7 +36,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(SMOGroupInfo) == 0x20);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MGI2 entry (9.0+): group info v2. Same count as MOGI; when present
         it overrides the older LOD-selection logic.)")
@@ -53,7 +53,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MOPT / MOPR / MOPE / MOVB ----------------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOPT portal: a polygon plane separating two groups.")
   ]] SMOPortal
   {
@@ -69,7 +69,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(SMOPortal) == 0x14);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOPR entry: a group's reference to a portal and the group "
                  "on the other side.")
   ]] SMOPortalRef
@@ -89,7 +89,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(SMOPortalRef) == 0x8);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOPE entry (11.1+): portal extra data; largely undeciphered.")
   ]] PortalExtra
   {
@@ -108,7 +108,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(PortalExtra) == 0x10);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MOVB visible block: a vertex range in MOVV.")
   ]] SMOVisibleBlock
   {

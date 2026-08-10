@@ -21,7 +21,7 @@ namespace wowlib::formats::wdt::root::chunks
   // --- MPHD -------------------------------------------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Map header flag bits (SMMapHeader.flags).")
   ]] MapHeaderFlags : std::uint32_t
   {
@@ -65,7 +65,7 @@ namespace wowlib::formats::wdt::root::chunks
       you use the concrete SMMapHeader<V> directly. It is an empty (elided)
       base, so the binary specializations stay trivially copyable and 32 bytes. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDTHeader"),
     =welder::doc("An MPHD map header, abstract over the client version. "
                  "Construct a concrete version with "
@@ -87,7 +87,7 @@ namespace wowlib::formats::wdt::root::chunks
     template <ClientVersion V>
       requires(V < wdt_map_fdids)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("The MPHD map header: the map-wide flags; the rest of the "
                    "record is unused before 8.1.")
     ]] WOWLIB_EMPTY_BASES SMMapHeader<V> : WDTHeaderBase
@@ -106,7 +106,7 @@ namespace wowlib::formats::wdt::root::chunks
     template <ClientVersion V>
       requires(V >= wdt_map_fdids)
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("The MPHD map header: the map-wide flags and the satellite-file "
                    "FileDataIDs (8.1+).")
     ]] WOWLIB_EMPTY_BASES SMMapHeader<V> : WDTHeaderBase
@@ -150,7 +150,7 @@ namespace wowlib::formats::wdt::root::chunks
   // --- MAIN -------------------------------------------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Tile table flag bits (SMAreaInfo.flags).")
   ]] AreaInfoFlags : std::uint32_t
   {
@@ -161,7 +161,7 @@ namespace wowlib::formats::wdt::root::chunks
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MAIN tile table entry (SMAreaInfo). The table holds 64 x 64 of
         them in row-major order (y outer, x inner).)")
@@ -178,7 +178,7 @@ namespace wowlib::formats::wdt::root::chunks
   // --- MAID -------------------------------------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MAID per-tile FileDataID record (8.1.0.28294+): every file
         belonging to one map tile. The table holds 64 x 64 of them in

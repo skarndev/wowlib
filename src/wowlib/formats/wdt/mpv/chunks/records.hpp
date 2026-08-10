@@ -13,7 +13,7 @@
 namespace wowlib::formats::wdt::mpv::chunks
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One PVPD particulate-volume point.")
   ]] ParticulatePoint
   {
@@ -29,7 +29,7 @@ namespace wowlib::formats::wdt::mpv::chunks
   static_assert(sizeof(ParticulatePoint) == 16);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One PVBD particulate-volume bounds record.")
   ]] ParticulateBounds
   {

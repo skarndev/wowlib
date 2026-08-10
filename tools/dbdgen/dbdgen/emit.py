@@ -252,7 +252,7 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     out.append("namespace wowlib::db::rowbase")
     out.append("{")
     out.append("  struct [[")
-    out.append("    =welder::weld(welder::lang::py, welder::lang::lua),")
+    out.append("    =welder::weld,")
     out.append(f'    =welder::doc("One row of the {table} client-database table.")]]')
     out.append(f"  {table}")
     out.append("  {")
@@ -268,7 +268,7 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     # a namespace of only aliases does not, and the per-range concretes weld
     # through aliases here.
     out.append("  struct [[")
-    out.append("    =welder::weld(welder::lang::py, welder::lang::lua),")
+    out.append("    =welder::weld,")
     out.append(f'    =welder::weld_as("{table}"),')
     out.append(f'    =welder::doc("The {table} client-database table (DBFilesClient/'
                f'{var}.db2 or .dbc).")]]')
@@ -288,7 +288,7 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
         # in tables:: participates — welder welds a class-template instantiation
         # via an alias only when the target type is itself welded.
         out.append("    struct [[")
-        out.append("      =welder::weld(welder::lang::py, welder::lang::lua),")
+        out.append("      =welder::weld,")
         out.append(f'      =welder::doc("A {table} table row for {era}+ clients.")]]')
         out.append(f"    {table}Record<versions::{era}> : db::rowbase::{table}")
         out.append("    {")
@@ -338,7 +338,7 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     # class-template instantiation named by an alias only when the target type
     # is itself welded (welded_for checks the type's own annotations, not bases).
     out.append("    struct [[")
-    out.append("      =welder::weld(welder::lang::py, welder::lang::lua),")
+    out.append("      =welder::weld,")
     out.append(f'      =welder::doc("The {table} client-database table.")]]')
     out.append(f"    {table}Table : Table<{table}Record<V>>, {table}_")
     out.append("    {")

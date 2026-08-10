@@ -27,7 +27,7 @@
 namespace wowlib::formats::common
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 2D float vector: texture coordinates, UV animation speeds.")
   ]] C2Vector
   {
@@ -40,7 +40,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 2D integer vector.")
   ]] C2iVector
   {
@@ -53,7 +53,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 3D float vector — the workhorse: positions, normals, "
                  "rotations-as-Euler-degrees in placements.")
   ]] C3Vector
@@ -69,7 +69,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 3D integer vector.")
   ]] C3iVector
   {
@@ -84,7 +84,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 4D float vector.")
   ]] C4Vector
   {
@@ -101,7 +101,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A quaternion with the scalar part LAST on disk (x, y, z, w) — note the
         difference from math libraries that lead with w.)")
@@ -120,7 +120,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 3x3 matrix as three column C3Vectors.")
   ]] C33Matrix
   {
@@ -131,7 +131,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 3x4 matrix as four column C3Vectors.")
   ]] C34Matrix
   {
@@ -142,7 +142,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A 4x4 matrix as four column C4Vectors.")
   ]] C44Matrix
   {
@@ -153,7 +153,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A plane as a normal and its signed distance from the origin.")
   ]] C4Plane
   {
@@ -166,7 +166,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An axis-aligned bounding box: minimum and maximum corners.")
   ]] CAaBox
   {
@@ -179,7 +179,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An axis-aligned sphere: position and radius.")
   ]] CAaSphere
   {
@@ -192,7 +192,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A float range: minimum and maximum.")
   ]] CRange
   {
@@ -205,7 +205,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A color stored as r, g, b, a bytes.")
   ]] CArgb
   {
@@ -222,7 +222,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A color stored as b, g, r, a bytes — the client's immediate-mode "
                  "vertex color layout (WMO MOCV, doodad colors).")
   ]] CImVector
@@ -240,7 +240,7 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A signed 16-bit fixed-point value with an implicit 0x7FFF scale.")
   ]] fixed16
   {

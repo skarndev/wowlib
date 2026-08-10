@@ -18,7 +18,7 @@
 namespace wowlib::formats::m2::root::record
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An M2 vertex: position, 4-bone weights/indices, normal and "
                  "two texture coordinate sets.")
   ]] M2Vertex
@@ -39,7 +39,7 @@ namespace wowlib::formats::m2::root::record
   static_assert(sizeof(M2Vertex) == 48);
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("M2Material render flags.")
   ]] MaterialFlags : std::uint16_t
   {
@@ -53,7 +53,7 @@ namespace wowlib::formats::m2::root::record
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An M2 material: render flags (see MaterialFlags) and the "
                  "blending mode (see M2/Rendering M2BLEND).")
   ]] M2Material
@@ -68,7 +68,7 @@ namespace wowlib::formats::m2::root::record
   static_assert(sizeof(M2Material) == 4);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A texture definition: type 0 references the filename (TXID "
                  "FileDataIDs replace it in 8.0+); non-zero types are runtime component "
                  "slots (skin, hair, monster skins, ...).")
@@ -90,7 +90,7 @@ namespace detail
     // aliases below, never directly.
       template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A vertex color + alpha animation pair, referenced from skin batches "
                    "by color index.")
     ]] M2Color
@@ -105,7 +105,7 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A global texture weight (transparency) track.")
     ]] M2TextureWeight
     {
@@ -118,7 +118,7 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
     ]] M2TextureFlipbook
     {
@@ -130,7 +130,7 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc("A UV animation: translation/rotation/scaling keyframes for the "
                    "texture matrix (rotation pivots at texture center 0.5, 0.5).")
     ]] M2TextureTransform

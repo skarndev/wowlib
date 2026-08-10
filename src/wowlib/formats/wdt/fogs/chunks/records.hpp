@@ -13,7 +13,7 @@
 namespace wowlib::formats::wdt::fogs::chunks
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One volumetric fog (VFOG, 8.0+).")
   ]] VolumetricFog
   {
@@ -58,7 +58,7 @@ namespace wowlib::formats::wdt::fogs::chunks
   static_assert(sizeof(VolumetricFog) == 0x68);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One VFEX extension record (11.0+, format version 2): optional "
                  "extra data for a VFOG entry, matched by fog id.")
   ]] VolumetricFogExtra

@@ -17,7 +17,7 @@
 namespace wowlib::formats::wdl::chunks
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A low-resolution WMO placement (an MLMD record, Legion+): an
         SMMapObjDef without the extents — those live in the parallel MLMX
@@ -53,7 +53,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(LodMapObjDef) == 0x28);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         Visibility extents for one low-resolution placement (an MLDX/MLMX
         record, Legion+): the transformed model's bounding box and a radius,
@@ -70,7 +70,7 @@ namespace wowlib::formats::wdl::chunks
   static_assert(sizeof(LodExtent) == 28);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A fade-distance range for one low-resolution M2 placement (an MLDF
         record, BfA): undocumented on wowdev; layout established by surveying

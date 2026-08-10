@@ -54,7 +54,7 @@ namespace wowlib::formats::wdl
 
       @see https://wowdev.wiki/WDL */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDL"),
     =welder::doc(R"(
         A map's low-resolution heightmap file, abstract over the client
@@ -284,7 +284,7 @@ namespace wowlib::formats::wdl
         @see https://wowdev.wiki/WDL */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A map's low-resolution heightmap file for one client version: the
           64x64 tile offset table, one 17x17+16x16 int16 heightmap (and hole

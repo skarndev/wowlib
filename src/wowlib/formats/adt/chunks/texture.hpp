@@ -17,7 +17,7 @@
 namespace wowlib::formats::adt::chunks
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Per-cell texture-layer flag bits (SMLayer.flags). The low 6 bits "
                  "hold the animation rotation (0x7) and speed (0x38); see "
                  "SMLayer.animation_rotation()/animation_speed().")
@@ -40,7 +40,7 @@ namespace wowlib::formats::adt::chunks
   /** A per-cell texture layer (MCLY, 16 bytes). offsetInMCAL is derived on
       write from the layer's alpha map, so it is hidden. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("SMLayer"),
     =welder::doc(R"(
         A terrain texture layer (MCLY, 16 bytes): which tileset texture, the
@@ -80,7 +80,7 @@ namespace wowlib::formats::adt::chunks
       against 9.2.7 Draenor MTXP data; the applied UV scale is 1/(1 << n),
       i.e. the texture appears 2^n times larger). */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("SMTextureFlags"),
     =welder::doc(R"(
         Flags for a tileset texture (MTXF, WotLK+): one per MTEX entry. Bit 0
@@ -100,7 +100,7 @@ namespace wowlib::formats::adt::chunks
   /** One MTXP texture-parameter record (MoP+): the MTXF flags plus the _h
       height-texture scale/offset that drive height-based blending. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("SMTextureParams"),
     =welder::doc(R"(
         Height-blend parameters for a tileset texture (MTXP, MoP+): the same flags
@@ -127,7 +127,7 @@ namespace wowlib::formats::adt::chunks
 
   /** One MCMT terrain-material record (Cata+): a TerrainMaterial id per layer. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("SMTerrainMaterial"),
     =welder::doc("Per-layer terrain material ids (MCMT, Cata+): four TerrainMaterial "
                  "foreign keys, one per MCLY layer.")
@@ -143,7 +143,7 @@ namespace wowlib::formats::adt::chunks
   /** One MTCG color-grading record (Shadowlands+): the color-grading LUT
       FileDataIDs for the same-index diffuse texture. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("SMTextureColorGrading"),
     =welder::doc(R"(
         Color-grading info for a tileset texture (MTCG, Shadowlands+): a start
@@ -172,7 +172,7 @@ namespace wowlib::formats::adt::chunks
   /** One MCNR normal (3 signed bytes, X Z Y; 127 == 1.0). The 9x9+8x8 grid is
       stored as a vector of these. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A terrain vertex normal (MCNR entry, 3 signed bytes): the X, Z, Y
         components, 127 == 1.0. One per MCVT height vertex (9x9 + 8x8 = 145).)")

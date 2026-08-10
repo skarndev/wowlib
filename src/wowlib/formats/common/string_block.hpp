@@ -22,7 +22,7 @@
 namespace wowlib::formats
 {
   class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A chunk of zero-terminated strings (texture and model filenames, group
         names), decoded into (offset, value) entries. Other chunks reference

@@ -1,7 +1,10 @@
 # Language bindings: welder reflects the annotated wowlib headers and lays the
 # registrations down; the binding TUs here just add the hand-written glue on top.
-# Python is the only backend built for now — the Lua module is deferred (see the
-# note after the Python block), though its lang::lua welds stay in the sources.
+# Python and C# build here — the Lua module is deferred (see the note at the
+# bottom), though its lang::lua welds stay in the sources. The welds themselves
+# are language-agnostic (a bare `[[=welder::weld]]`), so a backend added later
+# needs no annotation churn; only the language-SPECIFIC marks (mark::only,
+# mark::exclude) name a language, and each says why.
 
 if(WOWLIB_BUILD_PYTHON)
   # find_package(Python) results are directory-scoped; welder found it in its own
@@ -244,6 +247,44 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
 
   # Python-side testing lives in the pytest suite (tests/python), run against the
   # installed editable extension — see pyproject [tool.pytest]. No ctest wrapper.
+endif()
+
+# --- C#/.NET ------------------------------------------------------------------
+# Unlike Python and Lua, .NET offers native code no in-process registration API,
+# so welder's C# rod is a BUILD-TIME rod: one reflection pass over namespace
+# wowlib emits an `extern "C"` shim (compiled here into the native library) plus
+# the matching [LibraryImport] wrapper (Bindings.cs). Nothing on this path needs
+# a dotnet SDK — that is only required to COMPILE the emitted wrapper, which is
+# the consumer's job (see WOWLIB_CSHARP_TFM below for the ctest that does it).
+if(WOWLIB_BUILD_CSHARP)
+  # welder ships the helper on its own module path (directory-scoped to its
+  # FetchContent subdir); re-add it here to see welder_csharp_generate_bindings.
+  list(APPEND CMAKE_MODULE_PATH ${welder_SOURCE_DIR}/cmake)
+  include(WelderCSharpModule)
+
+  # INCLUDE_DIRS carries `python/` because the per-range welded alias tables
+  # (instantiations/*_ranges.hpp) live there and are language-neutral — see the
+  # note in csharp/surface.hpp. The generator and the shim both compile against
+  # this same surface.
+  welder_csharp_generate_bindings(wowlib_cs
+    SOURCES csharp/gen.cpp
+    LIBRARY wowlib_native
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/csharp
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/csharp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/python
+    LINK wowlib
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/csharp/surface.hpp)
+
+  # Same memory story as wowlib_py: both TUs reflect the whole umbrella plus the
+  # full version matrix, so they belong in the reflection-heavy job pool rather
+  # than competing with Ninja's default parallelism for RAM.
+  if(TARGET wowlib_cs_gen AND DEFINED WOWLIB_PY_COMPILE_JOBS)
+    set_target_properties(wowlib_cs_gen wowlib_cs PROPERTIES
+      JOB_POOL_COMPILE wowlib_py_compile)
+  endif()
+
+  get_target_property(WOWLIB_CS_BINDINGS wowlib_cs WELDER_CSHARP_BINDINGS)
+  message(STATUS "wowlib C# wrapper will be generated at ${WOWLIB_CS_BINDINGS}")
 endif()
 
 # The Lua module (LuaBridge3 rod) is deferred until the library is

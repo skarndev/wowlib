@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MOMT / MOUV ------------------------------------------------------------
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Material flag bits (SMOMaterial.flags).")
   ]] MaterialFlags : std::uint32_t
   {
@@ -34,7 +34,7 @@ namespace wowlib::formats::wmo::root::chunks
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MOMT material, 64 bytes. The layout is stable across v17; what
         changed in 8.1 is the meaning of the texture fields - MOTX byte offsets
@@ -84,7 +84,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(SMOMaterial) == 0x40);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MOUV entry (7.3+): texture-coordinate translation speeds for two of
         the material's texture layers. Same count as the materials; all-zero

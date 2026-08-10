@@ -48,7 +48,7 @@ namespace wowlib::formats::wmo::root
 
       @see https://wowdev.wiki/WMO */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WMORoot"),
     =welder::doc(R"(
         A WMO root file, abstract over the client version. The root file lists the
@@ -290,7 +290,7 @@ namespace wowlib::formats::wmo::root
         @see https://wowdev.wiki/WMO */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A WMO root file for one client version. The root lists the object's shared
           data — materials and textures, doodad (M2) sets and placements, portals,

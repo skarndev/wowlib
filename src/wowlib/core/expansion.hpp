@@ -16,7 +16,7 @@
 namespace wowlib
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The expansion a client belongs to, in release order. The enumerable
         counterpart of a full ClientVersion: versioned format classes and
@@ -51,7 +51,7 @@ namespace wowlib
                   "expansion_versions must cover every Expansion enumerator");
   }
 
-  [[=welder::weld(welder::lang::py, welder::lang::lua),
+  [[=welder::weld,
     =welder::doc("The last-minor-of-major client version wowlib targets for this "
                  "expansion (the versions constant)."),
     =welder::returns("the matching versions constant")]]
@@ -61,7 +61,7 @@ namespace wowlib
     return detail::expansion_versions[static_cast<std::size_t>(expansion)];
   }
 
-  [[=welder::weld(welder::lang::py, welder::lang::lua),
+  [[=welder::weld,
     =welder::doc("The expansion whose targeted release is exactly this version."),
     =welder::returns("the expansion, or None if the version is not one of the "
                      "versions constants")]]
@@ -74,7 +74,7 @@ namespace wowlib
     return std::nullopt;
   }
 
-  [[=welder::weld(welder::lang::py, welder::lang::lua),
+  [[=welder::weld,
     =welder::doc("The expansion a client version belongs to, by major version — "
                  "works for any build, not just the targeted releases."),
     =welder::returns("the expansion, or None for unknown majors")]]

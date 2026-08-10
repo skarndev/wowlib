@@ -19,7 +19,7 @@ namespace wowlib::formats::wmo::root::chunks
   // --- MODS / MODD ------------------------------------------------------------
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MODS doodad set: a named range of doodad placements. Set 0
         ("Set_$DefaultGlobal") is additive and always shown; other sets are
@@ -50,7 +50,7 @@ namespace wowlib::formats::wmo::root::chunks
   static_assert(sizeof(SMODoodadSet) == 0x20);
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("Doodad placement flag bits, packed into the high byte of "
                  "SMODoodadDef.name_and_flags.")
   ]] DoodadFlags : std::uint32_t
@@ -61,7 +61,7 @@ namespace wowlib::formats::wmo::root::chunks
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One MODD doodad placement: an M2 instance inside the WMO, "
                  "quaternion-oriented in model space.")
   ]] SMODoodadDef

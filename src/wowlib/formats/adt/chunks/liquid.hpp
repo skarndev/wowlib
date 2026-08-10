@@ -18,7 +18,7 @@
 namespace wowlib::formats::adt::chunks
 {
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         The MH2O per-instance vertex layout (LiquidVertexFormat). Which arrays a
         liquid instance stores — heights, depths, texture coordinates — and thus
@@ -37,7 +37,7 @@ namespace wowlib::formats::adt::chunks
 
   /** One MH2O UV texture-coordinate entry (two u16, divided by 8 in shaders). */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("An MH2O liquid UV coordinate (case 1/3): x and y, each divided by 8 "
                  "for shaders.")
   ]] UVMapEntry
@@ -56,7 +56,7 @@ namespace wowlib::formats::adt::chunks
   /** The magma/slime reading of an MCLQ vertex (8 bytes): two u16 texcoords and
       the shared height. Obtain one with SLVert.as_magma(). */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The magma/slime reading of a legacy liquid vertex (MCLQ): u16 texture "
                  "coordinates s, t and the shared height. See SLVert.as_magma().")
   ]] SMVert
@@ -76,7 +76,7 @@ namespace wowlib::formats::adt::chunks
       (water/ocean flow bytes vs magma/slime u16 texcoords) is set by the cell's
       liquid-type flags, not stored per vertex. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A legacy liquid vertex (MCLQ, 8 bytes). The first four bytes are flow /
         depth data for water and ocean or two u16 texture coordinates for magma /
@@ -109,7 +109,7 @@ namespace wowlib::formats::adt::chunks
 
   /** One legacy liquid flow vector (MCLQ SWFlowv, 40 bytes). */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("A legacy liquid flow vector (MCLQ, 40 bytes): a sphere of influence, a "
                  "direction and velocity/amplitude/frequency.")
   ]] SWFlowv

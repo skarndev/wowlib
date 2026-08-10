@@ -16,7 +16,7 @@
 namespace wowlib::formats::wdt::lights::chunks
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One WoD point light (MPLT); Legion clients stop reading these in "
                  "favor of MPL2.")
   ]] MapPointLightLegacy
@@ -42,7 +42,7 @@ namespace wowlib::formats::wdt::lights::chunks
   static_assert(sizeof(MapPointLightLegacy) == 36);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One Legion point light (MPL2).")
   ]] MapPointLight
   {
@@ -82,7 +82,7 @@ namespace wowlib::formats::wdt::lights::chunks
   static_assert(sizeof(MapPointLight) == 0x34);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One Shadowlands point light (MPL3; replaces MPL2 in 9.0+ files).")
   ]] MapPointLight3
   {
@@ -129,7 +129,7 @@ namespace wowlib::formats::wdt::lights::chunks
   static_assert(sizeof(MapPointLight3) == 0x38);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One Legion spot light (MSLT).")
   ]] MapSpotLight
   {
@@ -178,7 +178,7 @@ namespace wowlib::formats::wdt::lights::chunks
   static_assert(sizeof(MapSpotLight) == 0x40);
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("One light texture animation (MLTA), referenced by mlta_index.")
   ]] LightAnimation
   {

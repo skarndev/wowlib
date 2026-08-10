@@ -53,7 +53,7 @@ namespace wowlib::formats::blp
   inline constexpr std::size_t blp_header_bytes = 0x494;
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("How a BLP's pixel payload is encoded (the header's "
                  "colorEncoding byte).")
   ]] ColorEncoding : std::uint8_t
@@ -75,7 +75,7 @@ namespace wowlib::formats::blp
   };
 
   enum class [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc("The client-side pixel format hint (the header's "
                  "preferredFormat byte). For DXT-encoded files it selects the "
                  "block format: Dxt1 -> BC1, Dxt3 -> BC2, Dxt5 -> BC3, "
@@ -154,7 +154,7 @@ namespace wowlib::formats::blp
   }
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A decoded texture surface: 8-bit RGBA pixels in row-major order, row 0
         at the top. pixels holds width * height * 4 bytes (r, g, b, a per
@@ -176,7 +176,7 @@ namespace wowlib::formats::blp
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         How encode() should build the file. The defaults produce what the
         client ships most: DXT compression with the block format chosen from
@@ -206,7 +206,7 @@ namespace wowlib::formats::blp
   };
 
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         A BLP2 texture file — every WoW client release reads the same layout,
         so the class carries no client-version axis. read()/write() move the

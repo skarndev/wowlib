@@ -25,7 +25,7 @@ namespace wowlib::formats::wdt::mpv
       "WDTParticulates"); bindings-only, like every *Base.
       @see https://wowdev.wiki/WDT#mpv */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("WDTParticulates"),
     =welder::doc(R"(
         A _mpv.wdt particulate-volume satellite (BfA 8.0.1+), abstract over
@@ -48,7 +48,7 @@ namespace wowlib::formats::wdt::mpv
         @see https://wowdev.wiki/WDT#mpv */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A _mpv.wdt particulate-volume satellite for one client version (BfA
           8.0.1+): weather particulate volumes as repeated PVMI/PVPD/PVBD

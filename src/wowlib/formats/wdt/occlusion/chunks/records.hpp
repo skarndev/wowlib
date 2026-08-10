@@ -10,7 +10,7 @@
 namespace wowlib::formats::wdt::occlusion::chunks
 {
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::doc(R"(
         One MAOI record: which tile the next occlusion heightmap belongs to
         and where its 545 int16 values sit inside the MAOH payload.)")

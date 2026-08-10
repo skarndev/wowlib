@@ -75,7 +75,7 @@ namespace wowlib::formats::adt
       bindings attach for_version/read/write/convert here. No role in the C++ API,
       where you use the concrete ADT<V> directly. */
   struct [[
-    =welder::weld(welder::lang::py, welder::lang::lua),
+    =welder::weld,
     =welder::weld_as("ADT"),
     =welder::doc(R"(
         A terrain map tile, abstract over the client version — the .adt file (and,
@@ -179,7 +179,7 @@ namespace wowlib::formats::adt
         canonicalizing adt::ADT alias, never directly. */
     template <ClientVersion V>
     struct [[
-      =welder::weld(welder::lang::py, welder::lang::lua),
+      =welder::weld,
       =welder::doc(R"(
           A terrain map tile for one client version: the 256 terrain chunks plus the
           tile-wide texture, model and placement tables, unified across the split ADT
