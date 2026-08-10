@@ -83,13 +83,15 @@ def test_roundtrip(client_id, candidates, version_name, fmt, audit_options,
             try:
                 report = wowlib.audit.Auditor.roundtrip(fs, path, version)
             except Exception as error:  # the C++ side guards; a raise is tool-layer data
-                rows.append((path, False, "exception", repr(error)))
+                rows.append((path, False, "exception", repr(error), ""))
             else:
-                rows.append((path, report.ok, report.stage, report.error))
+                seen = sorted(set(report.unknown_chunks))
+                rows.append((path, report.ok, report.stage, report.error,
+                             " ".join(seen)))
                 for fourcc in report.unknown_chunks:
                     unknown_chunks[fourcc] += 1
                     unknown_examples.setdefault(fourcc, path)
-            _, ok, stage, _ = rows[-1]
+            _, ok, stage, _, _ = rows[-1]
             if not ok:
                 failed_n += 1
             elif stage.startswith("skipped"):

@@ -56,17 +56,19 @@ class AuditCollector:
     def record(self, client, fmt, rows, unknown_chunks, unknown_examples=None):
         """Store one test's outcome rows and write its CSV.
 
-        rows: list of (path, ok, stage, error) tuples.
+        rows: list of (path, ok, stage, error, unknown) tuples, where
+        `unknown` is the space-separated fourccs that file carried which the
+        entity does not model.
         unknown_chunks: Counter of fourcc -> occurrences.
         unknown_examples: fourcc -> a specimen path carrying it, so findings
         are actionable straight from the report.
         """
-        stages = collections.Counter(stage for _, ok, stage, _ in rows if stage)
+        stages = collections.Counter(stage for _, ok, stage, _, _ in rows if stage)
         entry = {
             "total": len(rows),
-            "ok": sum(1 for _, ok, _, _ in rows if ok),
-            "failed": sum(1 for _, ok, _, _ in rows if not ok),
-            "skipped": sum(1 for _, ok, stage, _ in rows
+            "ok": sum(1 for _, ok, _, _, _ in rows if ok),
+            "failed": sum(1 for _, ok, _, _, _ in rows if not ok),
+            "skipped": sum(1 for _, ok, stage, _, _ in rows
                            if ok and stage.startswith("skipped:")),
             "stages": dict(stages),
             "unknown_chunks": {
@@ -81,9 +83,15 @@ class AuditCollector:
         csv_path = os.path.join(self.report_dir, f"{client}_{fmt}.csv")
         with open(csv_path, "w", newline="", encoding="utf-8") as out:
             writer = csv.writer(out)
-            writer.writerow(["path", "ok", "stage", "error"])
-            for path, ok, stage, error in rows:
-                writer.writerow([path, int(ok), stage, error])
+            # `unknown` is per FILE, not just the summary's one example per
+            # fourcc: when a sweep turns up a chunk wowlib does not model, the
+            # question is always "which files carry it?", and re-running a
+            # 4-hour audit to find out is the wrong answer. (It is also the only
+            # place that record survives — once the chunk IS modelled it stops
+            # being unknown and disappears from the tally.)
+            writer.writerow(["path", "ok", "stage", "error", "unknown"])
+            for path, ok, stage, error, unknown in rows:
+                writer.writerow([path, int(ok), stage, error, unknown])
         self._write_summary()
         return entry
 
