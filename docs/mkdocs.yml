@@ -22,6 +22,10 @@ hooks:
   # field pages (python/wmo/{root,group}.md, python/m2/{root,chunks}.md). Engine in
   # format_reference_impl.py; per-format config in {wmo,m2}_reference_config.py.
   - format_reference.py
+  # Generates the validation-contract table on guide/validation.md by scanning
+  # the entities' validation annotations out of the C++ sources, so the page
+  # cannot drift from what validate() actually enforces.
+  - validation_reference.py
 
 theme:
   name: material
@@ -136,6 +140,7 @@ nav:
       - Getting started: guide/getting-started.md
       - Reading a WMO: guide/wmo.md
       - Reading a map (WDT & WDL): guide/maps.md
+      - Validating before writing: guide/validation.md
   - Python API:
       - python/index.md
       - Core & versions: python/core.md

@@ -232,7 +232,8 @@ def run_mkdocs(action: str, api_dir: Path) -> None:
         # Watch the reloadable hook logic + its data so serve reflects edits live
         # (the format_reference.py shim reloads the engine + configs on each
         # rebuild).
-        for extra in ("format_reference_impl.py", "wmo_reference_config.py",
+        for extra in ("format_reference_impl.py", "validation_reference_impl.py",
+                      "wmo_reference_config.py",
                       "m2_reference_config.py", "wdt_reference_config.py",
                       "wdl_reference_config.py", "adt_reference_config.py",
                       "db_reference_config.py", "common_reference_config.py",
