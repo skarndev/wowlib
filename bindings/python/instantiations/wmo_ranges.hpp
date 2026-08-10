@@ -27,7 +27,8 @@
 
 #define WOWLIB_WMO_RANGES_GROUP(X)                                                                 \
   X(VanillaToWotlk, vanilla)                                                                       \
-  X(CataToMop, cata)                                                                               \
+  X(Cata, cata)                                                                                    \
+  X(Mop, mop)                                                                                      \
   X(Wod, wod)                                                                                      \
   X(Legion, legion)                                                                                \
   X(Bfa, bfa)                                                                                      \
@@ -44,7 +45,8 @@
 
 #define WOWLIB_WMO_RANGES_ASSEMBLY(X)                                                              \
   X(VanillaToWotlk, vanilla)                                                                       \
-  X(CataToMop, cata)                                                                               \
+  X(Cata, cata)                                                                                    \
+  X(Mop, mop)                                                                                      \
   X(Wod, wod)                                                                                      \
   X(Legion, legion)                                                                                \
   X(Bfa, bfa)                                                                                      \

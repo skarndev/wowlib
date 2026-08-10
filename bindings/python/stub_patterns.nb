@@ -16,16 +16,16 @@
 # the pytest facade suites guard both halves.
 
 wowlib.formats.wmo.AnyWMO$:
-    AnyWMO = WMOVanillaToWotlk | WMOCataToMop | WMOWod | WMOLegion | WMOBfa | WMOShadowlands | WMODragonflight | WMOTheWarWithin
+    AnyWMO = WMOVanillaToWotlk | WMOCata | WMOMop | WMOWod | WMOLegion | WMOBfa | WMOShadowlands | WMODragonflight | WMOTheWarWithin
 
 wowlib.formats.wmo.root.AnyWMORoot$:
     AnyWMORoot = WMORootVanillaToWod | WMORootLegion | WMORootBfa | WMORootShadowlandsToDragonflight | WMORootTheWarWithin
 
 wowlib.formats.wmo.group.AnyWMOGroup$:
-    AnyWMOGroup = WMOGroupVanillaToWotlk | WMOGroupCataToMop | WMOGroupWod | WMOGroupLegion | WMOGroupBfa | WMOGroupShadowlands | WMOGroupDragonflightPlus
+    AnyWMOGroup = WMOGroupVanillaToWotlk | WMOGroupCata | WMOGroupMop | WMOGroupWod | WMOGroupLegion | WMOGroupBfa | WMOGroupShadowlands | WMOGroupDragonflightPlus
 
 wowlib.formats.wmo.group.AnyWMOGroupBody$:
-    AnyWMOGroupBody = WMOGroupBodyVanillaToWotlk | WMOGroupBodyCataToMop | WMOGroupBodyWod | WMOGroupBodyLegion | WMOGroupBodyBfa | WMOGroupBodyShadowlands | WMOGroupBodyDragonflightPlus
+    AnyWMOGroupBody = WMOGroupBodyVanillaToWotlk | WMOGroupBodyCata | WMOGroupBodyMop | WMOGroupBodyWod | WMOGroupBodyLegion | WMOGroupBodyBfa | WMOGroupBodyShadowlands | WMOGroupBodyDragonflightPlus
 
 wowlib.formats.wmo.group.chunks.AnyWMOGroupHeader$:
     AnyWMOGroupHeader = WMOGroupHeaderVanillaToBfa | WMOGroupHeaderShadowlandsPlus

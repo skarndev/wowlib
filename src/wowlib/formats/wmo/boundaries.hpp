@@ -64,17 +64,26 @@ namespace wowlib::formats::wmo
     builds::TWW_Alpha, builds::TWW_Undermined};
 
   /** WMOGroupBody / WMOGroup: every trait-slot boundary and chunk build the
-      group files carry, plus the two binary-layout pivots above. */
+      group files carry, plus the two binary-layout pivots above.
+
+      MoP is a pivot because MDAL debuts there, NOT at WoD as wowdev has it
+      ("could have been added earlier", flagged unverified): a 5.4.8 corpus
+      sweep found 421 MDAL chunks, while 700 sampled Cata groups and 400
+      WotLK groups carry none. Without the pivot, WMOGroupBody<mop> would
+      canonicalize onto the Cata instantiation and the chunk would stay
+      unmodelled for the era that introduced it. */
   inline constexpr std::array wmo_group_pivots{
-    builds::Cata,      builds::WoD,
-    wmo_batch_large_material,       builds::BfA_TidesOfVengeance,
+    builds::Cata,      builds::MoP,
+    builds::WoD,       wmo_batch_large_material,
+    builds::BfA_TidesOfVengeance,
     builds::BfA_VisionsOfNzoth_33775,  builds::SL_Alpha_33978,
     wmo_split_groups,               builds::DF_Alpha};
 
   /** The WMO assembly: the union of the root and group pivots. */
   inline constexpr std::array wmo_assembly_pivots{
-    builds::Cata,      builds::WoD,
-    wmo_batch_large_material,       builds::Legion_ShadowsOfArgus_24473,
+    builds::Cata,      builds::MoP,
+    builds::WoD,       wmo_batch_large_material,
+    builds::Legion_ShadowsOfArgus_24473,
     builds::BfA_TidesOfVengeance,  builds::BfA_VisionsOfNzoth_32044,
     builds::BfA_VisionsOfNzoth_33775,  builds::SL_Alpha_33978,
     builds::SL_ChainsOfDomination,  wmo_split_groups,

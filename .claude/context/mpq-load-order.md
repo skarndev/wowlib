@@ -242,3 +242,29 @@ TBC). Only some later repacks (e.g. the local "WoW Classic 1.12.2" ruRU one)
 retrofit a locale dir. `MpqStorage::open` therefore requires `Data/{code}/`
 only for major >= 2; for 1.x the `LocaleFixed` entries and locale patches
 mount only when the directory exists. The CI box's `1.12.1` is the flat kind.
+
+## Enumeration misses base archives on wow-update chains (2026-08-10, OPEN BUG)
+
+`FileSystem::enumerate_paths()` returns almost nothing for the two clients whose
+data sits behind incremental `wow-update-*.MPQ` chains, while direct reads of the
+same archives work perfectly.
+
+REPRODUCED LOCALLY on a complete 4.3.4 install (8 base archives + 3 wow-update,
+~12.5 GB): **125 paths** — 28 blp, 22 dbc, 15 lst, 15 skin, 10 ogg, 8 lua, 7 m2,
+5 db2. The blp (28) and m2 (7) counts match the CI box's audit EXACTLY, so it is
+the same defect, not a broken install. Everything enumerated is late-patch
+content; nothing from base-Win/art/world/world2/expansion1-3 appears.
+
+Reads are unaffected: 700 Cata WMO groups were read by path from that same
+install during the MDAL investigation, and the 4.3.4 DBC corpus round-trips
+byte-perfectly in CI.
+
+Impact on the nightly audit: 4.3.4 contributes 35 files and 5.4.8 contributes
+18,362 (below vanilla-era 3.3.5a's 142,737, which cannot be right for MoP), so
+those two clients have effectively NO round-trip coverage while appearing green
+in the report. The 3.05M-file / 99.95% headline is measured over a corpus missing
+~300k files.
+
+Not yet diagnosed: whether the chain's base archives are skipped when building
+the path index, or their `(listfile)` is not read. Note enumerating that install
+takes ~50 min from a USB HDD, so iterate against a local-disk copy.

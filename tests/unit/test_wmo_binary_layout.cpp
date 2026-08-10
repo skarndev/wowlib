@@ -234,3 +234,42 @@ TEST_CASE("MLIQ liquid decodes its header-driven grid and round-trips",
   // Byte-perfect round-trip of the whole group, MLIQ included.
   CHECK(*assembled.groups[0].write() == group_data);
 }
+
+namespace
+{
+  /** Whether a group body models MDAL — a named concept so the checks stay
+      SFINAE-friendly inside Catch2's macros. */
+  template <typename Body>
+  concept models_mdal = requires(const Body& body) { body.ambient_color_override; };
+}
+
+TEST_CASE("MDAL is a MoP chunk, not a WoD one", "[formats][wmo]")
+{
+  // wowdev dates MDAL to WoD but flags it "could have been added earlier";
+  // a 5.4.8 corpus sweep found 421 of them, while 700 sampled Cata groups and
+  // 400 WotLK groups carry none. The version gate follows the corpus.
+  STATIC_REQUIRE(models_mdal<WMOGroupBody<versions::mop>>);
+  STATIC_REQUIRE(models_mdal<WMOGroupBody<versions::wod>>);
+  STATIC_REQUIRE_FALSE(models_mdal<WMOGroupBody<versions::cata>>);
+  STATIC_REQUIRE_FALSE(models_mdal<WMOGroupBody<versions::wotlk>>);
+
+  // MoP must also be its own instantiation: were it still folded onto the Cata
+  // one, the slot above would be evaluated at Cata and the chunk would vanish.
+  STATIC_REQUIRE_FALSE(std::is_same_v<WMOGroupBody<versions::mop>,
+                                      WMOGroupBody<versions::cata>>);
+
+  // and it parses into the member rather than landing in `unknown`
+  FileBuffer body;
+  SMOGroupHeader<versions::mop> group_header;
+  body.insert(body.end(), reinterpret_cast<const std::byte*>(&group_header),
+              reinterpret_cast<const std::byte*>(&group_header) + sizeof group_header);
+  const CArgb ambient{.r = 3, .g = 2, .b = 1, .a = 4};
+  put_chunk(body, "MDAL", &ambient, sizeof ambient);
+
+  WMOGroupBody<versions::mop> parsed;
+  REQUIRE(parsed.read(body).has_value());
+  CHECK(parsed.unknown.empty());
+  REQUIRE(parsed.ambient_color_override.size() == 1);
+  CHECK(parsed.ambient_color_override[0].r == 3);
+  CHECK(*parsed.write() == body);
+}

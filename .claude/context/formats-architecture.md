@@ -674,3 +674,27 @@ after stage 2: 609k+ assertions, zero findings across all four clients.
 - Corpus assertions now cover every format: the three `dbc_corpus.hpp` sweeps
   call `ensure_valid()` per table, and test_blp_roundtrip / test_wdt_wdl_roundtrip
   do the same per file.
+
+## MDAL is MoP+, not WoD+ (2026-08-10)
+
+Corrected from the nightly audit's `unknown_chunks` tally, which is exactly what
+that tally is for: 5.4.8 carried **421 MDAL chunks that wowlib was not modelling**
+(they round-tripped as unknown, so nothing was lost — but the data was
+unreachable). Sampling the local clients put the debut at MoP: 400 WotLK groups
+and 700 Cata groups carry none, and the audit's example asset
+(`goblin_kezan_mine_blocked.wmo`) does not exist in 4.3.4 at all. wowdev dates
+MDAL to WoD but flags it "could have been added earlier" — unverified, and wrong.
+
+The fix is NOT just the `since()`: `builds::MoP` had to become a
+`wmo_group_pivots` / `wmo_assembly_pivots` entry, because without it
+`WMOGroupBody<mop>` canonicalizes onto the Cata instantiation and the slot would
+be evaluated at Cata — the chunk would stay invisible for the very era that
+introduced it. That splits the `CataToMop` range into `Cata` + `Mop` for the
+group and assembly families (welded names, `wmo_ranges.hpp`, `stub_patterns.nb`,
+and the `convert(Cata)` reveal in tests/python/typing/test_facade.mypy-testing).
+MDAL moved from `GroupBodyWod` into a new `GroupBodyMop` trait.
+
+Guarded by "MDAL is a MoP chunk, not a WoD one" (test_wmo_binary_layout.cpp):
+the member exists on MoP/WoD and not on Cata/WotLK, MoP is provably a distinct
+instantiation, and a synthetic MDAL parses into `ambient_color_override` rather
+than `unknown` while still rewriting byte-for-byte.

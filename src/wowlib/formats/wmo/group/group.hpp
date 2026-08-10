@@ -112,18 +112,25 @@ namespace wowlib::formats::wmo::group
       std::vector<ShadowBatch> shadow_batches;
     };
 
-    /** WoD+ (6.0) group-body chunks. */
-    struct GroupBodyWod
+    /** MoP+ (5.0) group-body chunks. */
+    struct GroupBodyMop
     {
       [[
         =chunk("MDAL"),
-        =since(builds::WoD),
+        =since(builds::MoP),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Ambient color override (MDAL, WoD+); a single color in
-                        practice, replacing the header ambient.)")]]
+        =welder::doc(R"(Ambient color override (MDAL, MoP+); a single color in
+                        practice, replacing the header ambient. wowdev dates it
+                        to WoD but flags that unverified — a 5.4.8 corpus sweep
+                        found 421 of these, while sampled Cata and WotLK groups
+                        carry none.)")]]
       std::vector<CArgb> ambient_color_override;
+    };
 
+    /** WoD+ (6.0) group-body chunks. */
+    struct GroupBodyWod
+    {
       [[
         =chunk("MOPL"),
         =since(builds::WoD),
@@ -323,6 +330,7 @@ namespace wowlib::formats::wmo::group
     ]] WMOGroupBody
       : ChunkedFile<WMOGroupBody<V>>, WMOGroupBodyBase,
         slot<V, builds::Cata, GroupBodyCata>,
+        slot<V, builds::MoP, GroupBodyMop>,
         slot<V, builds::WoD, GroupBodyWod>,
         slot<V, builds::Legion_Alpha, GroupBodyLegion>,
         slot<V, builds::BfA_TidesOfVengeance, GroupBody81>,
