@@ -3,7 +3,20 @@ include(FetchContent)
 # Every pin below is an immutable tag/commit, so the per-reconfigure git update
 # step (a network fetch per dependency, minutes of idle wall-clock) is pure
 # waste — populate once, never re-check.
-set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+#
+# But "never re-check" is only safe while the populated tree still MATCHES the
+# pins. Bump a pin over an existing _deps (a stale CI cache, or your own build
+# dir from before the bump) and the disconnected update refuses to fetch the ref
+# the new pin names, failing configure with "Requested git ref ... is not present
+# locally, and not allowed to contact remote" — a dead end that no amount of
+# re-configuring clears. So this is a DEFAULT, not a mandate: pass
+# -DFETCHCONTENT_UPDATES_DISCONNECTED=OFF for the one configure that re-syncs a
+# stale tree (or delete <build>/_deps, or point at a local checkout with
+# -DFETCHCONTENT_SOURCE_DIR_<NAME>). CI keeps its own tree in step by keying the
+# deps cache on this file's hash with NO restore-keys fallback.
+if(NOT DEFINED FETCHCONTENT_UPDATES_DISCONNECTED)
+  set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+endif()
 
 # StormLib/CascLib declare cmake_minimum_required versions that CMake >= 4.x refuses
 # to configure without this override.

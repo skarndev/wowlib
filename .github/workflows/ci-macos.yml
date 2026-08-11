@@ -26,7 +26,15 @@ jobs:
 
       - name: Install gcc-16 toolchain (Homebrew)
         run: |
-          brew update
+          # `brew update` refreshes the taps and is the single flakiest step in
+          # every job — a tap fetch failure killed a macOS run in 19s, before a
+          # line of wowlib was compiled. It is also NOT fatal: the runner image
+          # ships recent taps, so a failed refresh only means slightly older
+          # formulae. Retry, then carry on regardless and let `brew install`
+          # (which IS fatal) be the real gate.
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          export HOMEBREW_NO_INSTALL_CLEANUP=1
+          for i in 1 2 3; do brew update && break || sleep 15; done || true
           brew install gcc ninja cmake
           gcc-16 --version
           cmake --version
@@ -63,7 +71,15 @@ jobs:
 
       - name: Install gcc-16 toolchain (Homebrew)
         run: |
-          brew update
+          # `brew update` refreshes the taps and is the single flakiest step in
+          # every job — a tap fetch failure killed a macOS run in 19s, before a
+          # line of wowlib was compiled. It is also NOT fatal: the runner image
+          # ships recent taps, so a failed refresh only means slightly older
+          # formulae. Retry, then carry on regardless and let `brew install`
+          # (which IS fatal) be the real gate.
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          export HOMEBREW_NO_INSTALL_CLEANUP=1
+          for i in 1 2 3; do brew update && break || sleep 15; done || true
           brew install gcc ninja cmake
           gcc-16 --version
 
