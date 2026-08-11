@@ -52,8 +52,11 @@ jobs:
         with:
           path: build/*/_deps
           key: deps-windows-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
-          restore-keys: |
-            deps-windows-${{ matrix.preset }}-
+          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
+          # fallback would restore a _deps tree built from different pins.
+          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
+          # the new pin names, so the configure dies instead of self-healing
+          # (exactly what a welder pin bump hit). Exact match or cold fetch.
 
       - name: Configure
         run: >-
@@ -109,8 +112,11 @@ jobs:
         with:
           path: build/*/_deps
           key: deps-windows-bindings-${{ hashFiles('cmake/Dependencies.cmake') }}
-          restore-keys: |
-            deps-windows-bindings-
+          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
+          # fallback would restore a _deps tree built from different pins.
+          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
+          # the new pin names, so the configure dies instead of self-healing
+          # (exactly what a welder pin bump hit). Exact match or cold fetch.
 
       - name: Configure
         run: |

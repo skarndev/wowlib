@@ -70,8 +70,11 @@ jobs:
         with:
           path: build/*/_deps
           key: deps-linux-docs-${{ hashFiles('cmake/Dependencies.cmake') }}
-          restore-keys: |
-            deps-linux-docs-
+          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
+          # fallback would restore a _deps tree built from different pins.
+          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
+          # the new pin names, so the configure dies instead of self-healing
+          # (exactly what a welder pin bump hit). Exact match or cold fetch.
 
       # The gcc16-bindings preset (build/bindings) is the tree docs/build.py
       # hard-codes for the stub tree and the welder Doxygen filter checkout.

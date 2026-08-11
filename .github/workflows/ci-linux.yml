@@ -39,8 +39,11 @@ jobs:
         with:
           path: build/*/_deps
           key: deps-linux-gcc16-debug-${{ hashFiles('cmake/Dependencies.cmake') }}
-          restore-keys: |
-            deps-linux-gcc16-debug-
+          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
+          # fallback would restore a _deps tree built from different pins.
+          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
+          # the new pin names, so the configure dies instead of self-healing
+          # (exactly what a welder pin bump hit). Exact match or cold fetch.
 
       - name: Configure
         run: cmake --preset gcc16-debug
@@ -77,8 +80,11 @@ jobs:
         with:
           path: build/*/_deps
           key: deps-linux-gcc16-release-${{ hashFiles('cmake/Dependencies.cmake') }}
-          restore-keys: |
-            deps-linux-gcc16-release-
+          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
+          # fallback would restore a _deps tree built from different pins.
+          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
+          # the new pin names, so the configure dies instead of self-healing
+          # (exactly what a welder pin bump hit). Exact match or cold fetch.
 
       # Static libstdc++/libgcc so the binary also runs on the integration box,
       # which has its own (apt) gcc-16 whose runtime need not match Homebrew's.
@@ -190,8 +196,11 @@ jobs:
         with:
           path: build/*/_deps
           key: deps-linux-bindings-${{ hashFiles('cmake/Dependencies.cmake') }}
-          restore-keys: |
-            deps-linux-bindings-
+          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
+          # fallback would restore a _deps tree built from different pins.
+          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
+          # the new pin names, so the configure dies instead of self-healing
+          # (exactly what a welder pin bump hit). Exact match or cold fetch.
 
       # Static libstdc++/libgcc + no RUNPATH: the module must import anywhere,
       # including the audit box (ci-audit downloads this artifact instead of
