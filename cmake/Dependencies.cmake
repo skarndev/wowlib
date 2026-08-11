@@ -72,9 +72,14 @@ if(WOWLIB_BUILD_PYTHON)
   endif()
 endif()
 
+# Pinned to welder's feature/csharp branch, NOT main: the bare `[[=welder::weld]]`
+# every wowlib annotation now uses, and the C# rod the bindings/csharp target
+# drives, exist only there. A commit pin is branch-agnostic, so this resolves
+# fine — but it does mean wowlib main tracks a welder feature branch. Re-pin to a
+# main commit once feature/csharp merges.
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG 83abe9dc35b2c81ab19572dc1cc6ba810bbd7fd2)
+  GIT_TAG bf52b1d89819302c83ae0e4d9d6c554caea781d0)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
