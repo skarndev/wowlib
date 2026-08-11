@@ -67,6 +67,32 @@ namespace wowlib
     std::uint32_t native_error = 0;
   };
 
+  /** The human-readable rendering of @a error: its code spelling, its message,
+      and the native error value when there is one.
+
+      Found by ADL, which is what makes it a *binding* contract and not just a
+      convenience. A rod that maps the error branch of a `Result<T>` onto its
+      target language's exception channel — welder's C#/.NET rod does exactly
+      that, since .NET has no result type — has to turn an arbitrary `E` into
+      message text, and looks for an ADL `to_string(e)` first. Without this the
+      C# bindings fail to build with a diagnostic naming the omission, rather
+      than silently throwing exceptions that carry nothing.
+      @param error the failure to render.
+      @return `"<Code>: <message>"`, plus `" (native <n>)"` when non-zero. */
+  inline std::string to_string(const Error& error)
+  {
+    std::string out{to_string(error.code)};
+    out += ": ";
+    out += error.message;
+    if (error.native_error != 0)
+    {
+      out += " (native ";
+      out += std::to_string(error.native_error);
+      out += ')';
+    }
+    return out;
+  }
+
   /** Every fallible wowlib operation returns `Result<T>`; bindings translate the
       error branch into a target-language exception.
       @tparam T the success payload (`void` for pure effects). */

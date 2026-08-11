@@ -86,8 +86,22 @@ jobs:
 
       # The gcc16-bindings preset (build/bindings) is the tree docs/build.py
       # hard-codes for the stub tree and the welder Doxygen filter checkout.
+      #
+      # …but that preset inherits gcc16-debug, and a DEBUG build of the
+      # reflection-heavy binding TUs does not fit this runner. The Ninja job pool
+      # sizes concurrency at RAM/3.5 GB, a figure calibrated on Release; Debug
+      # shards run well past it, so four at once exhaust a 16 GB hosted runner and
+      # the agent is killed mid-build (exit 143 at db_shard_17, reproducibly —
+      # twice at the same shard, ~21 min in). ci-linux's bindings job does the
+      # identical build and passes precisely because it is Release.
+      #
+      # Overriding the type rather than switching preset keeps binaryDir at
+      # build/bindings, which mkdocs.yml and docs/build.py hard-code —
+      # gcc16-bindings-release would move it to build/release. Docs only need an
+      # IMPORTABLE extension (stubgen + mkdocstrings); nothing here wants debug
+      # info, so Release is both the fix and the faster build.
       - name: Configure bindings tree
-        run: cmake --preset gcc16-bindings
+        run: cmake --preset gcc16-bindings -DCMAKE_BUILD_TYPE=Release
 
       - name: Build extension + stubs
         run: cmake --build --preset gcc16-bindings --target wowlib_py wowlib_pyi
