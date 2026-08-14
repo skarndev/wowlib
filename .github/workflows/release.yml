@@ -143,17 +143,28 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment }}
         run: |
           set -euo pipefail
-          python -m pip install --upgrade build
+          # On Windows this step runs in the MSYS2 shell, which has NO `python`
+          # on PATH: the interpreter we build against is deliberately the MSVC
+          # CPython from setup-python (so the .pyd links python3.dll and loads
+          # in a stock install), and MSYS2's own python is not installed. So
+          # resolve the interpreter FIRST and use it for everything — a bare
+          # `python` here is what failed the first release run.
           if [ "$RUNNER_OS" = "Windows" ]; then
-            # MSYS2 names the compiler plainly, and the interpreter to target is
-            # the MSVC one setup-python installed (not MSYS2's python).
-            PYEXE=$(cygpath -m "$pythonLocation/python.exe")
-            "$PYEXE" -m build --wheel \
+            PY=$(cygpath -m "$pythonLocation/python.exe")
+          else
+            PY=python
+          fi
+          "$PY" --version
+          "$PY" -m pip install --upgrade build
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            # MSYS2 names the compiler plainly (gcc/g++, not gcc-16), and the
+            # target interpreter must be spelled for CMake explicitly.
+            "$PY" -m build --wheel \
               -C cmake.define.CMAKE_C_COMPILER=gcc \
               -C cmake.define.CMAKE_CXX_COMPILER=g++ \
-              -C cmake.define.Python_EXECUTABLE="$PYEXE"
+              -C cmake.define.Python_EXECUTABLE="$PY"
           else
-            python -m build --wheel
+            "$PY" -m build --wheel
           fi
           ls -lh dist/
 
