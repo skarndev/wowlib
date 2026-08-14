@@ -94,14 +94,32 @@ first P/Invoke.
 
 ## One-time setup (outside the repo)
 
-1. **PyPI Trusted Publishing** (no secret to store): on PyPI → the `wowlib`
-   project → Publishing → add a GitHub publisher with owner `skarndev`, repo
-   `wowlib`, workflow `release.yml`, environment `release`. Must be added
-   before the first tag; the workflow's `id-token: write` is already set.
-2. **`NUGET_API_KEY`** repo secret, from a nuget.org API key scoped to push
-   `Wowlib`. The package ID is unclaimed until the first push.
-3. A `release` GitHub **environment** — referenced by both publish jobs, and
-   the place to add required reviewers if a release should need approval.
+**Neither registry stores a long-lived key** — both publish over OIDC, so the
+repo holds no push credential at all.
+
+1. **PyPI Trusted Publishing**: PyPI → Publishing → add a *pending* GitHub
+   publisher (pending, because the project does not exist there until the first
+   upload) with project `wowlib-py`, owner `skarndev`, repo `wowlib`, workflow
+   `release.yml`, environment `release`.
+2. **nuget.org Trusted Publishing**: nuget.org → your username → Trusted
+   Publishing → add a policy with Repository Owner `skarndev`, Repository
+   `wowlib`, Workflow File `release.yml` (**file name only**, no
+   `.github/workflows/` prefix), Environment `release`. The workflow exchanges
+   the OIDC token via `NuGet/login@v1` for a key valid **one hour**, single-use,
+   requested immediately before the push.
+   - A policy can start **temporarily active for 7 days** (this happens for
+     private repos — ours is public, so it should activate outright). If it does
+     land in that state, a successful publish within the window makes it
+     permanent; the window is restartable.
+   - The policy is owned by a user or an org, and goes inactive if that
+     ownership lapses (e.g. the creator leaves the org).
+3. **`NUGET_USER`** repo variable/secret: the nuget.org **profile name**, not an
+   email. Not a credential — it identifies which account's policy to match — but
+   kept out of the workflow text per NuGet's guidance.
+4. A `release` GitHub **environment** — referenced by both publish jobs, matched
+   by both policies, and the place to add required reviewers if a release should
+   need approval. If you drop it here, drop it from both policies too, or the
+   token claims stop matching.
 
 ## Not done
 
