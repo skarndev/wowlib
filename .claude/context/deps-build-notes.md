@@ -102,7 +102,7 @@ image. gcc already does this for FP constants (`lCN`) — strings are the gap.
 | StormLib | v9.40 | target `storm`; `STORM_SKIP_INSTALL`, `BUILD_SHARED_LIBS=OFF`; links SDK zlib/bzip2 |
 | CascLib | 3.0 | target `casc_static`; `CASC_BUILD_STATIC_LIB=ON`, `CASC_BUILD_SHARED_LIB=OFF`, unicode off |
 | welder | commit 0a422a4 (main; csharp-core merged, C# rod extracted out-of-tree) | header-only, target `welder::headers`; **must be a pushed commit** (see below) |
-| welder-csharp | commit 3e3e826 (SHARDS shim splitting) | the C#/.NET rod as an out-of-tree welder extension; MakeAvailable only under `WOWLIB_BUILD_CSHARP`; uses our already-populated `welder::headers` (declaration order makes our welder pin win) |
+| welder-csharp | commit 8d085db (SHARDS shim splitting; CS_FILES wrapper splitting + XML doc file) | the C#/.NET rod as an out-of-tree welder extension; MakeAvailable only under `WOWLIB_BUILD_CSHARP`; uses our already-populated `welder::headers` (declaration order makes our welder pin win) |
 | Catch2 | v3.9.1 | `Catch2::Catch2WithMain` + `catch_discover_tests` (extras in module path) |
 | stb_dxt | raw-file URL pin at 7023e27 + SHA256 (DOWNLOAD_NO_EXTRACT) | INTERFACE target `stb_dxt`, PRIVATE into wowlib; only formats/blp/blp.cpp includes it (compress-only: BC1-opaque/BC3/BC4/BC5; wowlib decodes itself) |
 

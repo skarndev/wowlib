@@ -81,6 +81,44 @@ error branch throws through the `welder_error` slot every thunk carries.
 welder renders the error text through ADL `to_string(e)` first — `wowlib::Error`
 has one.
 
+## How a consumer takes it: the NuGet package
+
+A .NET user never compiles `Bindings.cs`. `welder_csharp_nuget_project` writes
+a packable csproj (`build/csharp/bindings/Wowlib/Wowlib.csproj`); after the
+native build:
+
+```bash
+dotnet pack build/csharp/bindings/Wowlib/Wowlib.csproj -c Release -o out
+```
+
+produces (measured 2026-08-14): a **6.0 MB** package holding
+`lib/net8.0/Wowlib.dll` (7.9 MB — the compiled wrapper),
+`lib/net8.0/Wowlib.xml` (1.9 MB, 9807 `<summary>` entries) and
+`runtimes/osx-arm64/native/libwowlib_native.dylib` (16 MB). The consumer adds
+the package reference; the .NET host resolves the native library by RID. The
+RID is the packing platform's — a cross-platform package means packing on each
+platform and merging the `runtimes/` trees, or per-RID packages from CI.
+
+**IntelliSense needs no sources.** Signatures come from the assembly's own
+ECMA-335 metadata; the doc TEXT is stripped from IL into the `.xml` sidecar,
+which the IDE joins by key (`T:`/`M:`/`F:`). So the chain is
+`[[=welder::doc]]` → `/// <summary>` in the generated C# → `Wowlib.xml` → the
+tooltip. It only works while the `.xml` travels beside the `.dll` (inside a
+package it always does; a hand-copied bare DLL loses the descriptions).
+`GenerateDocumentationFile` in the csproj is what produces it — without it the
+package silently shipped none. The dylib contributes nothing here: it has no
+metadata, and is loaded only at the first P/Invoke.
+
+## Wrapper splitting (WOWLIB_CS_FILES)
+
+`CS_FILES 24` emits `Bindings.0.cs … Bindings.23.cs` (largest ~958 KB instead
+of one 11 MB file), so the generated surface can be opened, diffed and
+reviewed. It is **not** a build-speed measure — a C# assembly has no
+translation-unit boundary and Roslyn compiles one big file and many small ones
+in the same time (measured: 39s vs 40s). The rod cuts only at boundaries its
+emitters record, so a part never ends mid-declaration; `NativeMethods` is
+`partial` and each part reopens whatever scope it needs.
+
 ## Build shape
 
 ```bash
@@ -94,7 +132,7 @@ cmake --build build/csharp --target wowlib_cs
 - **No .NET SDK is needed to build.** The rod is pure reflection→text;
   `dotnet` is only needed to *consume* the emitted `Bindings.cs`.
 - Artifacts in `build/csharp/bindings/csharp/`: `shim.<i>.cpp` (compiled into
-  `libwowlib_native.dylib`) and `Bindings.cs`.
+  `libwowlib_native.dylib`) and `Bindings.<i>.cs`.
 - `bindings/csharp/surface.hpp` is the single header BOTH the generator and
   the generated shim reflect, so the TUs cannot see different declarations. It
   pulls the per-range welded alias tables from `bindings/instantiations/`
