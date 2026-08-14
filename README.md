@@ -86,8 +86,20 @@ deferred) · hotfix caches (`DBCache.bin`) · standalone formats not yet started
 
 ## Quick start
 
-wowlib requires **gcc ≥ 16** (currently the only toolchain implementing C++26
-reflection). All dependencies are fetched by CMake — no manual installs.
+Prebuilt packages need no toolchain — the compiler requirement below is only
+for building from source:
+
+```bash
+pip install wowlib-py            # then: import wowlib
+dotnet add package Wowlib        # C#/.NET
+```
+
+(The PyPI *distribution* is `wowlib-py` because `wowlib` there belongs to an
+unrelated, long-abandoned project; the module you import is `wowlib`.)
+
+Building from source requires **gcc ≥ 16** (currently the only toolchain
+implementing C++26 reflection). All dependencies are fetched by CMake — no
+manual installs.
 
 ```bash
 # C++ library + tests

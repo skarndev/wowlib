@@ -29,3 +29,12 @@ docstrings here match what you import.
 !!! tip "Types are shipped"
     `wowlib` installs a PEP 561 `wowlib-stubs` package, so `mypy` and IDEs pick
     up the full typed surface with no extra configuration.
+
+!!! note "Installing"
+    ```bash
+    pip install wowlib-py
+    ```
+    The distribution is **`wowlib-py`**; the module you import is **`wowlib`**.
+    They differ because the `wowlib` name on PyPI belongs to an unrelated
+    project abandoned in 2018. Wheels are stable-ABI (CPython ≥ 3.13) and carry
+    the compiled extension, so no C++ toolchain is needed to install.

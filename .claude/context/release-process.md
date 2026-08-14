@@ -20,6 +20,19 @@ the entire matrix and packs everything with `publish=false`, so the artifacts
 are downloadable from the run but nothing reaches a registry. The publish steps
 are the only irreversible part.
 
+## Package names
+
+| Registry | Name | Note |
+|---|---|---|
+| PyPI | **`wowlib-py`** | `wowlib` is taken by an unrelated Excel-conversion toolkit (another studio's internal tool, last release 2018-10-31) that also ships a top-level `wowlib` package, so the two cannot coexist in one environment. Ours is the only one anyone in this ecosystem wants, but the name is not available. |
+| import | **`wowlib`** | Unchanged, and independent of the distribution name (pillow → PIL). Nothing in the docs, stubs or examples had to change. |
+| NuGet | **`Wowlib`** | Free and claimed by our first push. |
+
+If the PyPI name is ever wanted, PEP 541 allows requesting an abandoned
+project's name — 8 years without a release is the strongest ground PyPI
+recognises — but it is slow and not guaranteed, so `wowlib-py` is the name to
+publish under meanwhile.
+
 ## Versioning: the tag is the only source
 
 - **Python**: `[project] dynamic = ["version"]` +

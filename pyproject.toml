@@ -3,7 +3,13 @@ requires = ["scikit-build-core>=0.10", "setuptools-scm>=8"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "wowlib"
+# The DISTRIBUTION name only — the import name stays `wowlib` (the extension
+# module CMake installs), exactly as pillow installs PIL. `wowlib` on PyPI is
+# taken by an unrelated, abandoned (last release 2018) Excel-conversion toolkit
+# from another studio that also ships a top-level `wowlib` package, so the two
+# cannot be installed side by side; nothing else about it overlaps with this
+# library.
+name = "wowlib-py"
 # Sourced from the git tag, never edited here: scikit-build-core's setuptools-scm
 # metadata plugin (the backend's equivalent of hatch-vcs) resolves it at build
 # time, so `v0.1.0` publishes 0.1.0 and there is no version to bump — or to get
