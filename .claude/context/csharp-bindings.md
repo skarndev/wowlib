@@ -1,67 +1,85 @@
-# C#/.NET bindings (welder C# rod)
+# C#/.NET bindings (welder-csharp rod)
 
-Read when: touching `bindings/csharp/`, the `weld` annotations, or the
-`mark::exclude(lang::cs)` sites.
+Read when: touching `bindings/csharp/`, the `weld` annotations, or any
+`wowlib::lang::cs` site.
+
+## The rod is an out-of-tree welder extension now (2026-08)
+
+The C# rod was extracted from welder's `feature/csharp` branch into its own
+repo, https://github.com/skarndev/welder-csharp; welder is pinned at **main**
+again. `cmake/Dependencies.cmake` declares both: `welder_csharp` is
+MakeAvailable'd only under `WOWLIB_BUILD_CSHARP`, and because our welder is
+populated first, its `if(NOT TARGET welder::headers)` guard uses our pin
+rather than fetching its own. The subproject defines
+`welder_csharp_generate_bindings()` globally — no `CMAKE_MODULE_PATH` dance.
+
+## Language identity: `wowlib::lang::cs`
+
+welder's core no longer names C# (`welder::lang` holds only `py`/`lua`; the
+old `welder::lang::cs` spelling does not compile). The rod mints its identity
+from welder's open user range (`user_lang<WELDER_CSHARP_LANG_SLOT>`, default
+slot 0) as `welder::rods::csharp::cs`. wowlib **respells the same identity**
+in `src/wowlib/core/lang.hpp` as `wowlib::lang::cs` (`user_lang<0>`), so core
+headers never include rod headers — they must parse in Python-only builds
+where welder-csharp is not even fetched. The two spellings must stay
+bit-for-bit equal: if the rod's slot is ever re-pointed, re-point ours.
 
 ## The language-agnostic weld convention
 
-Every welded entity carries a **bare** `[[=welder::weld]]` — never
-`weld(welder::lang::py, welder::lang::lua)`. welder reads an empty language mask
-as "all languages", so one annotation serves every rod the project builds and a
-new backend costs no annotation churn. (This is why the C# target could be added
-without touching 255 annotation sites; see the `bare-weld-convention` memory.)
+Every welded entity carries a **bare** `[[=welder::weld]]` — an empty language
+mask means "all languages", any rod included. Only **marks** may name a
+language, and only where the reason is genuinely language-specific. The `cs`
+sites in the tree today:
 
-Only **marks** may name a language, and only where the reason is genuinely
-language-specific. There are exactly two kinds in the tree:
-
-- `mark::only(welder::lang::lua, welder::lang::cs)` on the 12 per-version
+- `mark::only(welder::lang::lua, wowlib::lang::cs)` on the 12 per-version
   `read`/`write` fs-I/O methods (WMO, M2, Skeleton, ADT, WDT, WDL). Python
-  attaches an equivalent `read/write/convert/for_version` surface to the
-  version-agnostic base (`WMOBase`, …) from hand-written module glue, so its
-  per-version classes stay pure data; Lua and C# have no such glue and take the
-  direct methods. **These were `lua`-only before C# existed** — widening them is
-  what gives a C# caller any way to load a file at all; if a C# facade layer is
-  written later (the Python `formats/*.cpp` glue equivalent), revisit.
-- `mark::exclude(welder::lang::cs)` on the members whose type the C# rod cannot
-  marshal yet (below). Each site says why.
+  attaches an equivalent surface to the version-agnostic bases from
+  hand-written glue; Lua and C# take the direct methods.
+- `weld_as(wowlib::lang::cs, ...)` on two C#-only naming collisions the rod
+  diagnoses at generation: `SMTextureColorGrading::_04` → `Unknown04` (leading
+  underscore survives PascalCase and collides with the generated `_h_*`
+  scaffolding namespace), and `SMOFog::Fog` → `FogBand` (CS0102: a nested type
+  and the `fog` member both style to `Fog`).
 
-## What the C# rod cannot marshal yet
+There are **no `mark::exclude(cs)` sites left**: the previously-unmarshallable
+shapes (`vector<vector<T>>`, `vector<array<T,N>>`, `vector<string>`) and the
+flattened-base `read`/`write` overload collision were all fixed in the rod
+before the extraction, and the excludes were dropped. The whole C++ API binds.
 
-welder's C# rod covers scalars, strings, `std::filesystem::path`, `std::byte`,
-welded classes/enums, `optional`, `pair`/`tuple`, flat scalar/enum sequences,
-reference-semantic containers of welded classes, maps, smart pointers,
-`std::expected` (unwrapped — the error branch throws) and inbound `std::span`.
-It does **not** yet have a wire form for:
+## ClientDB tables are on the C# surface
 
-| Shape | wowlib members excluded for `cs` |
-|---|---|
-| `vector<vector<T>>` | `MapChunk::alpha_maps`; `M2Track::timestamps`/`values`; `M2TrackBase::timestamps`; `WDTParticulates::point_groups`/`bound_groups` |
-| `vector<array<T, N>>` | `M2ChunkedFile::texture_ac`, `M2SkinProfile::bones` |
-| `vector<string>` | `RoundtripReport::unknown_chunks`, `FileSystem::enumerate_paths()` |
+`bindings/csharp/surface.hpp` includes `<wowlib/db/tables/all.hpp>` — a
+dbdgen-emitted umbrella over every generated table header (language-neutral:
+nothing but includes; `emit_all_tables` in tools/dbdgen). The CMake block
+links `wowlib_db_tables` (include root) and adds explicit `add_dependencies`
+on `wowlib_dbdgen` for both the generator and shim targets, since an INTERFACE
+link alone does not order compilation after header generation.
 
-One further exclusion is a **welder bug workaround**, not a missing type family:
-`ChunkedFile::read(span)` and `ChunkedFile::write()`. They are flattened onto
-every versioned entity, which ALSO welds a per-version `read(fs, key)` /
-`write(fs, key)` for `cs` — so C# sees two `read` overloads whose declaring
-scopes are both class-template specializations. Those have no spellable name, so
-welder's C# rod anchors both on the bound type and mangles both to the same C
-symbol (`..._m_read_0`); its duplicate-symbol `#error` catches it. The fs-level
-pair is the one C# keeps — it is the only way to load the multi-file entities
-(WMO groups, M2 satellites, split ADTs). Drop the excludes once welder indexes
-overloads over the same flattened sequence its shim-side lookup searches.
+## Shim sharding (what unblocked the DB-bearing build)
 
-Drop the `mark::exclude(welder::lang::cs)` at those sites when welder grows the
-family. Everything else in the C++ API binds.
+One shim TU over formats + ~1200 tables x all eras does not compile in real
+time/memory. `welder_csharp_generate_bindings(... SHARDS N)` splits the shim
+into `shim.0.cpp … shim.N-1.cpp` that compile in parallel; each top-level
+class's thunks land whole in one shard, so the split is always link-correct.
+
+- `WOWLIB_CS_SHARDS` (cache var, default 32). Unlike the Python db shards,
+  every C# shard includes `surface.hpp` **whole**, so each shard pays the full
+  frontend parse — that redundancy is why the default sits well below
+  `WOWLIB_DB_SHARDS`' 96.
+- All shim TUs plus the generator TU run in the `wowlib_py_compile` job pool
+  (the RAM-bounded Ninja pool, computed at the top of bindings/CMakeLists.txt
+  outside both backend blocks).
+- SHARDS > 1 contract: the welded headers are included by several TUs, so
+  namespace-scope function definitions must be `inline` (ordinary header ODR
+  rule; wowlib headers already satisfy it — they compile into many Python TUs).
 
 ## Result<T> is the exception channel
 
-`Result<T>` (`std::expected<T, Error>`) does **not** surface as a result object.
-The C# rod peels the expected: the value branch crosses as plain `T`, the error
-branch throws through the `welder_error` slot every thunk carries, so C# sees
-`T Method()` and a `try/catch`. welder renders the error text through an ADL
-`to_string(e)` first — so `wowlib::Error` should keep/gain one if the message
-quality matters (without it welder falls back through `.what()`, string-ness,
-`std::formatter`, `operator<<`).
+`Result<T>` (`std::expected<T, Error>`) does **not** surface as a result
+object. The rod peels the expected: the value branch crosses as plain `T`, the
+error branch throws through the `welder_error` slot every thunk carries.
+welder renders the error text through ADL `to_string(e)` first — `wowlib::Error`
+has one.
 
 ## Build shape
 
@@ -71,24 +89,21 @@ cmake -S . -B build/csharp -G Ninja -DCMAKE_CXX_COMPILER=g++-16 \
 cmake --build build/csharp --target wowlib_cs
 ```
 
-- `WOWLIB_BUILD_CSHARP` (default OFF) gates `bindings/CMakeLists.txt`'s C# block.
-- **No .NET SDK is needed to build.** The rod is pure reflection→text; `dotnet`
-  is only needed to *consume* the emitted `Bindings.cs`.
-- Two artifacts land in `build/csharp/bindings/csharp/`: `shim.cpp` (compiled
-  into `libwowlib_native.dylib`) and `Bindings.cs`.
-- `bindings/csharp/surface.hpp` is the single header BOTH the generator and the
-  generated shim reflect, so the two TUs cannot see different declarations. It
-  pulls in the per-range welded alias tables from `bindings/instantiations/`.
-  That tree sits at the bindings **root**, not under a backend: nothing in it
-  names a target language (welded aliases + the explicit instantiations of the
-  version matrix), and both backends reflect the same headers. Every include of
-  it is spelled `"instantiations/<file>"`, resolved by putting the bindings root
-  on the include path — so a third backend needs only that one include dir.
-- Both TUs are as reflection-heavy as `wowlib_py`'s module TU (multi-GB, minutes
-  each), so they share the `wowlib_py_compile` Ninja job pool.
+- `WOWLIB_BUILD_CSHARP` (default OFF) gates both the welder-csharp fetch and
+  `bindings/CMakeLists.txt`'s C# block.
+- **No .NET SDK is needed to build.** The rod is pure reflection→text;
+  `dotnet` is only needed to *consume* the emitted `Bindings.cs`.
+- Artifacts in `build/csharp/bindings/csharp/`: `shim.<i>.cpp` (compiled into
+  `libwowlib_native.dylib`) and `Bindings.cs`.
+- `bindings/csharp/surface.hpp` is the single header BOTH the generator and
+  the generated shim reflect, so the TUs cannot see different declarations. It
+  pulls the per-range welded alias tables from `bindings/instantiations/`
+  (bindings root — language-neutral, shared by all backends) plus the db
+  umbrella.
 
 ## Local toolchain notes
 
-- macOS/arm64, gcc-16 + .NET 10 SDK. welder's cookbook/test csproj files default
-  to `net8.0`; with only the .NET 10 runtime installed a `net8.0` app fails to
-  launch — target `net10.0` (or install the 8.0 runtime).
+- macOS/arm64, gcc-16 + .NET 10 SDK. welder-csharp's cookbook/test csproj
+  files default to `net8.0`; with only the .NET 10 runtime installed a
+  `net8.0` app fails to launch — target `net10.0` (or install the 8.0
+  runtime).

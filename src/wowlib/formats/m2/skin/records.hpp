@@ -195,9 +195,7 @@ namespace detail
       std::vector<std::uint16_t> indices;
       [[
         =formats::count_matches("vertices"),
-        =welder::doc("Per-vertex 4-bone indices."),
-        // Nested container (a sequence of fixed arrays): no C# wire form yet.
-        =welder::mark::exclude(welder::lang::cs)]]
+        =welder::doc("Per-vertex 4-bone indices.")]]
       std::vector<std::array<std::uint8_t, 4>> bones;
       // through the skin:: alias, NOT the sibling detail raw — member types
     // must collapse to the same canonical the welded classes use

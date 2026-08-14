@@ -12,6 +12,7 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/types.hpp>
 
 namespace wowlib::formats::adt::chunks
@@ -154,7 +155,12 @@ namespace wowlib::formats::adt::chunks
     [[=welder::doc("Start distance (the record is used when this or _04 is non-zero).")]]
     std::uint32_t start_distance = 0;
 
-    [[=welder::doc("Unknown companion of start_distance.")]]
+    // C# ONLY: a leading underscore survives the PascalCase transform, and that
+    // namespace is reserved for welder's generated scaffolding (`_h_*`, `_owner`),
+    // so it is diagnosed at generation. The name is the client-struct offset, so
+    // spell it out rather than inventing meaning we do not have.
+    [[=welder::weld_as(wowlib::lang::cs, "Unknown04"),
+      =welder::doc("Unknown companion of start_distance.")]]
     std::uint32_t _04 = 0;
 
     [[=welder::doc("The color-grading LUT FileDataID.")]]

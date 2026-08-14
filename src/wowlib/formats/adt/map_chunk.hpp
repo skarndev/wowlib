@@ -496,11 +496,7 @@ namespace wowlib::formats::adt
         =formats::count_matches("layers"),
         =welder::doc("One decoded 64x64 (4096-byte) alpha map per layer, aligned with "
                      "layers (layer 0's is empty); 0 = base texture, 255 = this layer."),
-        =welder::mark::no_reassign,
-        // Nested container (a sequence of sequences): welder's C# rod has no wire
-        // form for one yet, so it is excluded there rather than blocking the whole
-        // module. Python and Lua bind it normally.
-        =welder::mark::exclude(welder::lang::cs)]]
+        =welder::mark::no_reassign]]
       std::vector<std::vector<std::uint8_t>> alpha_maps;
 
       [[=chunk("MCSH"),

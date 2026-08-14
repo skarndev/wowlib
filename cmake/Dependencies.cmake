@@ -85,14 +85,26 @@ if(WOWLIB_BUILD_PYTHON)
   endif()
 endif()
 
-# Pinned to welder's feature/csharp branch, NOT main: the bare `[[=welder::weld]]`
-# every wowlib annotation now uses, and the C# rod the bindings/csharp target
-# drives, exist only there. A commit pin is branch-agnostic, so this resolves
-# fine — but it does mean wowlib main tracks a welder feature branch. Re-pin to a
-# main commit once feature/csharp merges.
+# Back on main: the csharp-core work merged (2026-08) and the C#/.NET rod moved
+# out of tree to the welder-csharp extension below — welder itself ships only
+# the Python/Lua rods plus the language-neutral machinery again.
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG bf52b1d89819302c83ae0e4d9d6c554caea781d0)
+  GIT_TAG 0a422a430c86daf9a7915509ff49c774839f06e8)
+
+# --- welder-csharp (the C#/.NET rod, an out-of-tree welder extension) ---
+# Declared for every configure (declarations are free) but made available only
+# on WOWLIB_BUILD_CSHARP builds, after the main MakeAvailable below: its
+# CMakeLists uses our already-populated welder::headers target instead of
+# fetching its own, so the welder pin above stays the single source of truth.
+# It defines welder::csharp and welder_csharp_generate_bindings() (function
+# definitions are global, so bindings/CMakeLists.txt sees it without touching
+# CMAKE_MODULE_PATH). The rod mints its language from welder's user range
+# (slot 0) — wowlib respells the same identity as wowlib::lang::cs in
+# src/wowlib/core/lang.hpp, so core headers never include rod headers.
+FetchContent_Declare(welder_csharp
+  GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
+  GIT_TAG 3e3e826456538f1026a9b7602485be14d6b65a3f)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
@@ -121,6 +133,10 @@ if(WIN32)
 endif()
 
 FetchContent_MakeAvailable(StormLib CascLib welder stb_dxt)
+
+if(WOWLIB_BUILD_CSHARP)
+  FetchContent_MakeAvailable(welder_csharp)
+endif()
 
 add_library(stb_dxt INTERFACE)
 target_include_directories(stb_dxt INTERFACE ${stb_dxt_SOURCE_DIR})

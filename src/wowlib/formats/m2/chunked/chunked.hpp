@@ -122,9 +122,7 @@ namespace wowlib::formats::m2::chunked
       =formats::optional,
       =welder::mark::no_reassign,
       =welder::doc("Texture transform flags (TXAC), one 2-byte record per "
-                   "material then per particle emitter."),
-      // Nested container (a sequence of fixed arrays): no C# wire form yet.
-      =welder::mark::exclude(welder::lang::cs)]]
+                   "material then per particle emitter.")]]
     std::vector<std::array<std::uint8_t, 2>> texture_ac;
 
     [[

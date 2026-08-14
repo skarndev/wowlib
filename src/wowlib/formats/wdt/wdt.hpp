@@ -18,6 +18,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/wdt/boundaries.hpp>
 #include <wowlib/formats/wdt/fogs/fogs.hpp>
@@ -135,14 +136,14 @@ namespace wowlib::formats::wdt
       // version), so the per-version Python classes stay pure data. Lua and C#
       // have no such glue, so they take these methods directly.
 
-      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
         =welder::doc("Load the WDT and every satellite file present from a client "
                      "filesystem, replacing this entity's contents.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                         const FileKey& key
                         [[=welder::doc("the main file identity (path and/or FileDataID)")]]);
 
-      [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
         =welder::doc("Serialize and store the WDT (main file and every engaged "
                      "satellite) through the filesystem's project overlay; satellite "
                      "file names are derived from the main key, which must resolve "

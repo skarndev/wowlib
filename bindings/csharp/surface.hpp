@@ -27,3 +27,10 @@
 #include "instantiations/wdl_ranges.hpp"
 #include "instantiations/wdt_ranges.hpp"
 #include "instantiations/wmo_ranges.hpp"
+
+// The client-database tables. wowlib.hpp covers core/fs/formats/audit but NOT
+// these: they are generated (dbdgen, from WoWDBDefs) into the build tree, so the
+// umbrella below only exists after wowlib_dbdgen has run — hence the target's
+// add_dependencies. Without it the C# surface silently omits the whole ClientDB
+// subsystem, ~1200 tables across every era, which the Python module does bind.
+#include <wowlib/db/tables/all.hpp>

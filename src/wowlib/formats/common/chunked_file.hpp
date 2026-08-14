@@ -93,26 +93,14 @@ namespace wowlib::formats
   template <typename Derived>
   struct ChunkedFile : ChunkExtras
   {
-    // The byte-level read/write are NOT welded for C#. They collide with the
-    // per-version fs-level read(fs, key)/write(fs, key) that every entity also
-    // welds for cs: both are `read`/`write` overloads on the same C# class, and
-    // both DECLARING scopes are class-template specializations, which have no
-    // spellable name — so welder's C# rod anchors both on the bound type and
-    // mangles both to the same C symbol (its duplicate-symbol #error catches it).
-    // The fs-level pair is the one C# keeps: it is the only way to load the
-    // multi-file entities (WMO groups, M2 satellites, split ADTs) at all.
-    // Remove these two excludes once welder can distinguish overloads inherited
-    // from an unspellable base.
-    [[=welder::mark::exclude(welder::lang::cs),
-      =welder::doc("Deserialize file bytes into this entity, replacing its "
+    [[=welder::doc("Deserialize file bytes into this entity, replacing its "
                    "contents. Unmodeled chunks are preserved so an unmodified "
                    "entity rewrites byte-for-byte.")]]
     Result<void> read(std::span<const std::byte> data
                       [[=welder::doc("the file bytes")]]);
 
     [[nodiscard]]
-    [[=welder::mark::exclude(welder::lang::cs),
-      =welder::doc("Serialize this entity."),
+    [[=welder::doc("Serialize this entity."),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write() const;
 

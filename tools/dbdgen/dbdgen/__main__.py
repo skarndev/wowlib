@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 from dbdgen import dbd
-from dbdgen.emit import (Range, build_members, collapse, emit_manifest, emit_shard,
+from dbdgen.emit import (Range, build_members, collapse, emit_all_tables,
+                         emit_manifest, emit_shard,
                          emit_shard_registry, emit_stub_patterns, emit_table, snake,
                          write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
@@ -99,6 +100,10 @@ def main(argv: list[str] | None = None) -> int:
     for era in eras:
         write_if_changed(tables_dir / f"manifest_{era}.hpp",
                          emit_manifest(era, manifest[era]))
+
+    # The whole-surface umbrella (sorted, so the file is stable across runs).
+    write_if_changed(tables_dir / "all.hpp",
+                     emit_all_tables(sorted(t for t, _ in table_ranges)))
 
     if args.bindings_out is not None:
         num_shards = max(1, min(args.shards, len(table_ranges) or 1))

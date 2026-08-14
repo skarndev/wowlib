@@ -11,6 +11,7 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 
@@ -24,7 +25,13 @@ namespace wowlib::formats::wmo::root::chunks
                  "settings.")
   ]] SMOFog
   {
-    struct [[=welder::doc("One fog band: end distance, start scalar and color.")]] Fog
+    // C# ONLY: the nested type and the `fog` member below both style to `Fog`,
+    // and C# forbids a type and a member sharing a name (CS0102) — welder
+    // diagnoses it at generation. Renaming the TYPE keeps the natural property
+    // spelling (`smoFog.Fog` stays the fog band). Python and Lua are unaffected:
+    // there the nested type is `Fog` and the member `fog`, which do not collide.
+    struct [[=welder::weld_as(wowlib::lang::cs, "FogBand"),
+             =welder::doc("One fog band: end distance, start scalar and color.")]] Fog
     {
       [[=welder::doc("Distance at which visibility ceases.")]]
       float end = 0;

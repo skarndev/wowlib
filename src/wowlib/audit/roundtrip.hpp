@@ -43,10 +43,7 @@ namespace wowlib::audit
     [[=welder::doc(R"(
         Every unmodeled chunk encountered while parsing, as fourcc spellings —
         one entry per occurrence (ready for counting), still round-tripped
-        verbatim by the chunk framework.)"),
-      // A sequence of strings: welder's C# rod marshals scalar/enum sequences
-      // only (a string[] needs a pointer-array wire it does not emit yet).
-      =welder::mark::exclude(welder::lang::cs)]]
+        verbatim by the chunk framework.)")]]
     std::vector<std::string> unknown_chunks;
   };
 

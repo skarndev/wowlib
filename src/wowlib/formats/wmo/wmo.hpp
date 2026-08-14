@@ -17,6 +17,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/wmo/group/group.hpp>
 #include <wowlib/formats/wmo/root/root.hpp>
 #include <wowlib/fs/filesystem.hpp>
@@ -93,7 +94,7 @@ namespace wowlib::formats::wmo
     // no such glue, so they take these methods directly. The span-of-spans parse
     // below stays C++/glue-only.
 
-    [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
+    [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
       =welder::doc("Load the WMO and all its group files from a client "
                    "filesystem, replacing this entity's contents.")]]
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
@@ -111,7 +112,7 @@ namespace wowlib::formats::wmo
     Result<void> read(std::span<const std::byte> root_data,
                       std::span<const std::span<const std::byte>> group_datas);
 
-    [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
+    [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
       =welder::doc("Serialize and store the WMO (root and every group) through "
                    "the filesystem's project overlay; group file names are "
                    "derived from the root key, which must resolve to a path.")]]

@@ -32,6 +32,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
@@ -333,14 +334,14 @@ namespace wowlib::formats::m2
       return bone_fdids.empty() ? parent_bone_fdids : bone_fdids;
     }
 
-    [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
+    [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
       =welder::doc("Load the skeleton: chunks, the parent's shared AFID/BFID "
                    "and the .anim-resolved bone/attachment data.")]]
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                       const FileKey& key
                       [[=welder::doc("the .skel identity (path and/or FileDataID)")]]);
 
-    [[=welder::mark::only(welder::lang::lua, welder::lang::cs),
+    [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
       =welder::doc("Serialize the skeleton and its .anim files (AFSA/AFSB "
                    "sections) through the project overlay. A paired model's "
                    "AFM2 section is restored by the owning M2's write.")]]

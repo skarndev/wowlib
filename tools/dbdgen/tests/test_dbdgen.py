@@ -8,7 +8,8 @@ import unittest
 from pathlib import Path
 
 from dbdgen import dbd
-from dbdgen.emit import (Member, build_members, collapse, emit_manifest,
+from dbdgen.emit import (emit_all_tables,
+                         Member, build_members, collapse, emit_manifest,
                          emit_shard, emit_shard_registry, emit_stub_patterns,
                          emit_table, member_name, range_suffix, snake)
 from dbdgen.targets import TARGETS_BY_ERA, locstring_langs
@@ -238,6 +239,16 @@ $id$ID<32>
         self.assertIn("#include <wowlib/db/tables/area_table.hpp>", manifest)
         self.assertIn("#define WOWLIB_DB_TABLES_WOTLK(X) \\\n  X(AreaTable) \\\n  X(Map)",
                       manifest)
+
+    def test_emit_all_tables_shape(self):
+        umbrella = emit_all_tables(["AreaTable", "Map"])
+        self.assertIn("#pragma once", umbrella)
+        self.assertIn("#include <wowlib/db/tables/area_table.hpp>", umbrella)
+        self.assertIn("#include <wowlib/db/tables/map.hpp>", umbrella)
+        # language-neutral: nothing but includes, so any backend can use it
+        body = [l for l in umbrella.splitlines()
+                if l and not l.startswith(("//", "#pragma"))]
+        self.assertTrue(all(l.startswith("#include ") for l in body), body)
 
     def test_lang_collision_keeps_suffix(self):
         text = """\

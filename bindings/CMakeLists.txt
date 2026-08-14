@@ -6,6 +6,32 @@
 # needs no annotation churn; only the language-SPECIFIC marks (mark::only,
 # mark::exclude) name a language, and each says why.
 
+# MEMORY-BOUND BUILD: every binding TU here is reflection-heavy — the Python
+# module TU peaks at ~5.6 GB and a db shard at ~2.5-3.5 GB, and the C# generator
+# and shim reflect the same surface. Ninja's default (cores+2) parallelism
+# oversubscribes RAM (11 x ~3 GB >> 18 GB here) and the build thrashes into swap,
+# inflating each compile 5-8x (a 2-min shard becomes 15 min). A Ninja JOB POOL
+# caps the CONCURRENT heavy compiles to what physical RAM holds (~3.5 GB per
+# job), while links and lighter targets still run at full -j. Adaptive, so it
+# right-sizes on any machine; overridable via WOWLIB_PY_COMPILE_JOBS.
+#
+# Computed HERE, outside both backend blocks: the C# target needs it just as much
+# as the Python one and can be built with WOWLIB_BUILD_PYTHON off.
+if(NOT DEFINED WOWLIB_PY_COMPILE_JOBS)
+  cmake_host_system_information(RESULT _wowlib_ram QUERY TOTAL_PHYSICAL_MEMORY)   # MB
+  cmake_host_system_information(RESULT _wowlib_cores QUERY NUMBER_OF_LOGICAL_CORES)
+  math(EXPR WOWLIB_PY_COMPILE_JOBS "${_wowlib_ram} / 3500")
+  if(WOWLIB_PY_COMPILE_JOBS LESS 2)
+    set(WOWLIB_PY_COMPILE_JOBS 2)
+  endif()
+  if(WOWLIB_PY_COMPILE_JOBS GREATER _wowlib_cores)
+    set(WOWLIB_PY_COMPILE_JOBS ${_wowlib_cores})
+  endif()
+endif()
+message(STATUS "wowlib: reflection-heavy binding compiles capped to "
+               "${WOWLIB_PY_COMPILE_JOBS} concurrent (memory-bound; Ninja job pool)")
+set_property(GLOBAL APPEND PROPERTY JOB_POOLS wowlib_py_compile=${WOWLIB_PY_COMPILE_JOBS})
+
 if(WOWLIB_BUILD_PYTHON)
   # find_package(Python) results are directory-scoped; welder found it in its own
   # subdirectory, so resolve it here too for nanobind_add_module's runtime build.
@@ -74,27 +100,6 @@ if(WOWLIB_BUILD_PYTHON)
   # not look for them on disk (their producer is the wowlib_dbdgen command).
   set_source_files_properties(${WOWLIB_DB_SHARD_SOURCES} PROPERTIES GENERATED TRUE)
 
-  # MEMORY-BOUND BUILD: every wowlib_py TU is reflection-heavy — wowlib_module.cpp
-  # peaks at ~5.6 GB, a db shard ~2.5-3.5 GB. Ninja's default (cores+2) parallelism
-  # oversubscribes RAM (11 x ~3 GB >> 18 GB here) and the build thrashes into swap,
-  # inflating each compile 5-8x (a 2-min shard becomes 15 min). A Ninja JOB POOL
-  # caps the CONCURRENT wowlib_py compiles to what physical RAM holds (~3.5 GB per
-  # job), while links and lighter targets still run at full -j. Adaptive, so it
-  # right-sizes on any machine; overridable via WOWLIB_PY_COMPILE_JOBS.
-  if(NOT DEFINED WOWLIB_PY_COMPILE_JOBS)
-    cmake_host_system_information(RESULT _wowlib_ram QUERY TOTAL_PHYSICAL_MEMORY)   # MB
-    cmake_host_system_information(RESULT _wowlib_cores QUERY NUMBER_OF_LOGICAL_CORES)
-    math(EXPR WOWLIB_PY_COMPILE_JOBS "${_wowlib_ram} / 3500")
-    if(WOWLIB_PY_COMPILE_JOBS LESS 2)
-      set(WOWLIB_PY_COMPILE_JOBS 2)
-    endif()
-    if(WOWLIB_PY_COMPILE_JOBS GREATER _wowlib_cores)
-      set(WOWLIB_PY_COMPILE_JOBS ${_wowlib_cores})
-    endif()
-  endif()
-  message(STATUS "wowlib_py reflection-heavy compiles capped to "
-                 "${WOWLIB_PY_COMPILE_JOBS} concurrent (memory-bound; Ninja job pool)")
-  set_property(GLOBAL APPEND PROPERTY JOB_POOLS wowlib_py_compile=${WOWLIB_PY_COMPILE_JOBS})
   set_target_properties(wowlib_py PROPERTIES JOB_POOL_COMPILE wowlib_py_compile)
   # opaque_gen.cpp reflects the whole umbrella too (~5 GB); pool it with the rest.
   if(TARGET wowlib_opaque_gen)
@@ -259,33 +264,60 @@ endif()
 
 # --- C#/.NET ------------------------------------------------------------------
 # Unlike Python and Lua, .NET offers native code no in-process registration API,
-# so welder's C# rod is a BUILD-TIME rod: one reflection pass over namespace
+# so the C# rod (the out-of-tree welder-csharp extension, fetched in
+# Dependencies.cmake) is a BUILD-TIME rod: one reflection pass over namespace
 # wowlib emits an `extern "C"` shim (compiled here into the native library) plus
 # the matching [LibraryImport] wrapper (Bindings.cs). Nothing on this path needs
 # a dotnet SDK — that is only required to COMPILE the emitted wrapper, which is
-# the consumer's job (see WOWLIB_CSHARP_TFM below for the ctest that does it).
+# the consumer's job.
 if(WOWLIB_BUILD_CSHARP)
-  # welder ships the helper on its own module path (directory-scoped to its
-  # FetchContent subdir); re-add it here to see welder_csharp_generate_bindings.
-  list(APPEND CMAKE_MODULE_PATH ${welder_SOURCE_DIR}/cmake)
-  include(WelderCSharpModule)
+  # welder_csharp_generate_bindings() is defined by the welder_csharp subproject
+  # (CMake functions are global once a subdirectory defines them).
+
+  # The shim covers the whole welded surface — every format entity across the
+  # version matrix PLUS every generated ClientDB table across all eras — and a
+  # single shim TU at that size does not compile in real memory/time (that is
+  # what blocked the DB-bearing C# build). SHARDS splits it into TUs that
+  # compile in parallel; each top-level class lands whole in one shard, so the
+  # split is always link-correct. The count trades parallelism against the
+  # redundant full-surface parse each shard pays (unlike the Python db shards,
+  # every C# shard includes surface.hpp whole) — so it sits well below
+  # WOWLIB_DB_SHARDS' 96.
+  set(WOWLIB_CS_SHARDS "32" CACHE STRING
+      "Number of C# shim translation units (parallel compile)")
 
   # INCLUDE_DIRS: csharp/ for the surface header the generated shim #includes by
   # name, and the bindings root for the per-range welded alias tables
   # (instantiations/*_ranges.hpp) it pulls in. The generator and the shim compile
   # against that one surface, so the two TUs cannot reflect different declarations.
+  # LINK carries wowlib_db_tables when the ClientDB headers are generated: it is
+  # an INTERFACE target supplying both their include root and the dependency on
+  # wowlib_dbdgen, so surface.hpp's <wowlib/db/tables/all.hpp> resolves and cannot
+  # be compiled before it exists.
+  set(_wowlib_cs_link wowlib)
+  if(TARGET wowlib_db_tables)
+    list(APPEND _wowlib_cs_link wowlib_db_tables)
+  endif()
   welder_csharp_generate_bindings(wowlib_cs
     SOURCES csharp/gen.cpp
     LIBRARY wowlib_native
     OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/csharp
+    SHARDS ${WOWLIB_CS_SHARDS}
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/csharp
                  ${CMAKE_CURRENT_SOURCE_DIR}
-    LINK wowlib
+    LINK ${_wowlib_cs_link}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/csharp/surface.hpp)
+  # An INTERFACE link does not by itself order the two TUs after the generator
+  # command, so state it: both must wait for dbdgen to write the headers.
+  if(TARGET wowlib_dbdgen)
+    add_dependencies(wowlib_cs_gen wowlib_dbdgen)
+    add_dependencies(wowlib_cs wowlib_dbdgen)
+  endif()
 
-  # Same memory story as wowlib_py: both TUs reflect the whole umbrella plus the
-  # full version matrix, so they belong in the reflection-heavy job pool rather
-  # than competing with Ninja's default parallelism for RAM.
+  # Same memory story as wowlib_py: the generator TU and every shim shard
+  # reflect the whole umbrella plus the full version matrix AND every ClientDB
+  # table, so they belong in the reflection-heavy job pool rather than
+  # competing with Ninja's default parallelism for RAM.
   if(TARGET wowlib_cs_gen AND DEFINED WOWLIB_PY_COMPILE_JOBS)
     set_target_properties(wowlib_cs_gen wowlib_cs PROPERTIES
       JOB_POOL_COMPILE wowlib_py_compile)

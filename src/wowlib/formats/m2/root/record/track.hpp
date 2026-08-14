@@ -187,17 +187,13 @@ namespace wowlib::formats::m2::root::record
       [[
         =formats::sequence_data,
         =welder::doc("Keyframe timestamps, one array per sequence (an external "
-                     "sequence keeps its arrays in the .anim file)."),
-        // Nested container (a sequence of sequences): no C# wire form yet.
-        =welder::mark::exclude(welder::lang::cs)]]
+                     "sequence keeps its arrays in the .anim file).")]]
       std::vector<std::vector<std::uint32_t>> timestamps;
 
       [[
         =formats::sequence_data,
         =formats::count_matches("timestamps"),
-        =welder::doc("Keyframe values, per sequence, parallel to timestamps."),
-        // Nested container (a sequence of sequences): no C# wire form yet.
-        =welder::mark::exclude(welder::lang::cs)]]
+        =welder::doc("Keyframe values, per sequence, parallel to timestamps.")]]
       std::vector<std::vector<T>> values;
 
       bool operator==(const M2Track&) const = default;
@@ -249,9 +245,7 @@ namespace wowlib::formats::m2::root::record
       [[
         =formats::sequence_data,
         =welder::doc("Trigger timestamps, one array per sequence (an external "
-                     "sequence keeps its arrays in the .anim file)."),
-        // Nested container (a sequence of sequences): no C# wire form yet.
-        =welder::mark::exclude(welder::lang::cs)]]
+                     "sequence keeps its arrays in the .anim file).")]]
       std::vector<std::vector<std::uint32_t>> timestamps;
 
       bool operator==(const M2TrackBase&) const = default;
