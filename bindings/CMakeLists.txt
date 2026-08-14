@@ -286,6 +286,14 @@ if(WOWLIB_BUILD_CSHARP)
   set(WOWLIB_CS_SHARDS "32" CACHE STRING
       "Number of C# shim translation units (parallel compile)")
 
+  # The managed wrapper is ~11 MB as one file — past what several editors will
+  # open (CLion among them), and an unreviewable diff. Splitting costs nothing:
+  # a C# assembly has no translation-unit boundary, and Roslyn compiles one big
+  # file and many small ones in the same time (measured: 39s vs 40s). This is
+  # purely so the generated surface stays inspectable.
+  set(WOWLIB_CS_FILES "24" CACHE STRING
+      "Number of generated Bindings.<i>.cs files (tooling ergonomics only)")
+
   # INCLUDE_DIRS: csharp/ for the surface header the generated shim #includes by
   # name, and the bindings root for the per-range welded alias tables
   # (instantiations/*_ranges.hpp) it pulls in. The generator and the shim compile
@@ -303,6 +311,7 @@ if(WOWLIB_BUILD_CSHARP)
     LIBRARY wowlib_native
     OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/csharp
     SHARDS ${WOWLIB_CS_SHARDS}
+    CS_FILES ${WOWLIB_CS_FILES}
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/csharp
                  ${CMAKE_CURRENT_SOURCE_DIR}
     LINK ${_wowlib_cs_link}
@@ -324,7 +333,31 @@ if(WOWLIB_BUILD_CSHARP)
   endif()
 
   get_target_property(WOWLIB_CS_BINDINGS wowlib_cs WELDER_CSHARP_BINDINGS)
-  message(STATUS "wowlib C# wrapper will be generated at ${WOWLIB_CS_BINDINGS}")
+  list(LENGTH WOWLIB_CS_BINDINGS _wowlib_cs_nfiles)
+  message(STATUS "wowlib C# wrapper: ${_wowlib_cs_nfiles} file(s) in "
+                 "${CMAKE_CURRENT_BINARY_DIR}/csharp")
+
+  # --- NuGet packaging --------------------------------------------------------
+  # How a .NET consumer actually takes wowlib: NOT by compiling Bindings.cs into
+  # their project (11 MB of generated source no editor wants to open), but as a
+  # package carrying the COMPILED assembly plus the native shim under
+  # runtimes/<rid>/native/, which the .NET host probes automatically. After a
+  # build:
+  #
+  #   dotnet pack build/csharp/bindings/Wowlib/Wowlib.csproj -c Release
+  #
+  # The RID is this build's platform, so a cross-platform package means packing
+  # on each platform and merging the runtimes/ trees (or a CI matrix publishing
+  # per-RID packages).
+  set(WOWLIB_CSHARP_TFM "net8.0" CACHE STRING
+      "TargetFramework of the generated NuGet project ([LibraryImport] needs net7+)")
+  set(WOWLIB_CSHARP_PACKAGE_VERSION "0.0.1" CACHE STRING
+      "Version stamped into the wowlib NuGet package")
+  welder_csharp_nuget_project(wowlib_cs
+    PACKAGE_ID Wowlib
+    VERSION ${WOWLIB_CSHARP_PACKAGE_VERSION}
+    TFM ${WOWLIB_CSHARP_TFM}
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/Wowlib)
 endif()
 
 # The Lua module (LuaBridge3 rod) is deferred until the library is

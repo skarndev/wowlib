@@ -104,7 +104,7 @@ FetchContent_Declare(welder
 # src/wowlib/core/lang.hpp, so core headers never include rod headers.
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 3e3e826456538f1026a9b7602485be14d6b65a3f)
+  GIT_TAG 8d085db2eca5046886d2cd2a96aa3601f297cdb0)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
