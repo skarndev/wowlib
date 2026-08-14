@@ -136,6 +136,13 @@ repo holds no push credential at all.
   `python -m pip …` fails with `command not found` (exit 127). The smoke-test
   step is exempt: it sets `shell: bash` (Git Bash), where setup-python's
   interpreter is on PATH.
+- **A retired runner image does not fail — it QUEUES.** `macos-13` was removed,
+  and jobs targeting it sat `queued` indefinitely while every other leg ran;
+  they would have burned the 240-minute timeout before failing and blocking the
+  publish. If a leg is still `queued` while its siblings are `in_progress`,
+  suspect the image label, not capacity. The Intel label is now
+  `macos-26-intel` (standard runner, free for public repos); `macos-15-intel`
+  is the other current option.
 - **`msys2/setup-msys2` can fail with HTTP 429.** Both Windows jobs start
   together and race on the same download; the action retries twice and then
   fails the job. It is transient and not a workflow defect — re-run the failed
@@ -146,7 +153,8 @@ repo holds no push credential at all.
 
 - **No sdist is published.** It would not build for anyone without gcc-16, so
   it would be provenance only.
-- **No Linux arm64 / musl wheels**, and no `osx-x64` Python build older than
-  the macos-13 image.
+- **No Linux arm64 / musl wheels.** The Intel macOS leg runs on
+  `macos-26-intel`, with the deployment target pinned to 13.0 so the artifacts
+  still run back to macOS 13.
 - **Nothing verifies the published artifacts** after upload (no install-from-
   PyPI check).
