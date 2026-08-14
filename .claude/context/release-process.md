@@ -121,6 +121,27 @@ repo holds no push credential at all.
    need approval. If you drop it here, drop it from both policies too, or the
    token claims stop matching.
 
+## Gotchas the first run found (2026-08-14, v0.0.1)
+
+- **The workflow is read from the TAG, not from main.** A fix pushed to main
+  does nothing for a tag already pushed — the tag has to be moved (or a new one
+  cut). Moving it is only safe while nothing has published; once PyPI or NuGet
+  has accepted the version it can never be reused, even after deletion, and the
+  next attempt must bump the number.
+- **On Windows the job shell is MSYS2, which has no `python`.** The wheel is
+  built against the MSVC CPython from setup-python (so the `.pyd` links
+  `python3.dll` and loads in a stock install), and MSYS2's own python is
+  deliberately not installed in the wheels job. Resolve the interpreter with
+  `cygpath -m "$pythonLocation/python.exe"` BEFORE any use — a bare
+  `python -m pip …` fails with `command not found` (exit 127). The smoke-test
+  step is exempt: it sets `shell: bash` (Git Bash), where setup-python's
+  interpreter is on PATH.
+- **`msys2/setup-msys2` can fail with HTTP 429.** Both Windows jobs start
+  together and race on the same download; the action retries twice and then
+  fails the job. It is transient and not a workflow defect — re-run the failed
+  job (successful legs' artifacts are reused, so it does not cost another full
+  matrix).
+
 ## Not done
 
 - **No sdist is published.** It would not build for anyone without gcc-16, so
