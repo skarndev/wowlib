@@ -79,11 +79,15 @@ jobs:
         include:
           - { os: ubuntu-latest,  name: linux-x64 }
           - { os: macos-latest,   name: macos-arm64,  deployment: '14.0' }
-          # The Intel leg. `macos-13` is RETIRED — jobs targeting it sit queued
-          # forever rather than failing, which stalls the whole release. The
-          # deployment target is pinned below the image's own version so the
-          # wheel still tags (and runs) back to macOS 13.
-          - { os: macos-26-intel, name: macos-x64,    deployment: '13.0' }
+          # NO INTEL macOS LEG YET. cmake/DarwinAtomProbe.cmake — the configure
+          # gate for the gcc-16 Mach-O literal-atom miscompile (GCC PR 126723)
+          # — is written in aarch64 assembly (adrp/@PAGE/@PAGEOFF) and cannot
+          # assemble on x86_64, so the leg cannot configure. The bug affects
+          # x86_64 too, so the probe must be PORTED, never skipped: an
+          # unverified Intel wheel would corrupt string data silently. Restore
+          # `{ os: macos-26-intel, name: macos-x64, deployment: '13.0' }` here
+          # once the probe has an x86_64 variant. (`macos-13` is retired — an
+          # unschedulable label queues forever instead of failing.)
           - { os: windows-latest, name: windows-x64 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 240
@@ -232,7 +236,8 @@ jobs:
         include:
           - { os: ubuntu-latest,  rid: linux-x64,  lib: libwowlib_native.so }
           - { os: macos-latest,   rid: osx-arm64,  lib: libwowlib_native.dylib }
-          - { os: macos-26-intel, rid: osx-x64,    lib: libwowlib_native.dylib }
+          # osx-x64 is absent for the same reason as the wheels matrix above —
+          # the Darwin atom probe has no x86_64 variant yet.
           - { os: windows-latest, rid: win-x64,    lib: wowlib_native.dll }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 240
@@ -388,8 +393,6 @@ jobs:
                     Pack="true" PackagePath="runtimes/linux-x64/native/" />
               <None Include="../natives/native-osx-arm64/libwowlib_native.dylib"
                     Pack="true" PackagePath="runtimes/osx-arm64/native/" />
-              <None Include="../natives/native-osx-x64/libwowlib_native.dylib"
-                    Pack="true" PackagePath="runtimes/osx-x64/native/" />
               <None Include="../natives/native-win-x64/wowlib_native.dll"
                     Pack="true" PackagePath="runtimes/win-x64/native/" />
             </ItemGroup>
@@ -415,11 +418,10 @@ jobs:
             "lib/net8.0/Wowlib.xml" \
             "runtimes/linux-x64/native/libwowlib_native.so" \
             "runtimes/osx-arm64/native/libwowlib_native.dylib" \
-            "runtimes/osx-x64/native/libwowlib_native.dylib" \
             "runtimes/win-x64/native/wowlib_native.dll"; do
             unzip -l "$pkg" | grep -q "$want" || { echo "::error::package is missing $want"; exit 1; }
           done
-          echo "package carries the assembly, the XML docs and all four RIDs"
+          echo "package carries the assembly, the XML docs and every built RID"
 
       - uses: actions/upload-artifact@v4
         with:
