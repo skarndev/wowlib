@@ -1,10 +1,17 @@
 [build-system]
-requires = ["scikit-build-core>=0.10"]
+requires = ["scikit-build-core>=0.10", "setuptools-scm>=8"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "wowlib"
-version = "0.0.1"
+# Sourced from the git tag, never edited here: scikit-build-core's setuptools-scm
+# metadata plugin (the backend's equivalent of hatch-vcs) resolves it at build
+# time, so `v0.1.0` publishes 0.1.0 and there is no version to bump — or to get
+# out of step with what shipped. Needs the .git directory and full history
+# (`fetch-depth: 0` in CI); an untagged tree builds a dev version, which PyPI
+# would reject anyway. Building from an sdist works because the resolved version
+# is baked into its PKG-INFO.
+dynamic = ["version"]
 description = "Read and write World of Warcraft client files — a C++26 core with Python bindings."
 license = "MIT"
 license-files = ["LICENSE"]
@@ -24,6 +31,21 @@ docs = [
   "mkdocstrings[python]>=0.26",
   "lark>=1.2",
 ]
+
+# The standard top-level form (dynamic-metadata 0.3). The older
+# [tool.scikit-build.metadata.version] table still works but is deprecated in
+# scikit-build-core 1.x, and the two cannot be combined.
+[[tool.dynamic-metadata]]
+field = "version"
+provider = "scikit_build_core.metadata.setuptools_scm"
+
+[tool.setuptools_scm]
+# `v0.1.0` -> 0.1.0. No local version segment: setuptools-scm appends `+g<sha>`
+# to any non-tag build, and PyPI rejects local versions outright — dropping it
+# keeps an accidental non-tag build merely wrong-numbered rather than
+# unpublishable-at-the-last-step.
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
 
 [tool.scikit-build]
 # Reuse the same CMake tree CLion configures (build/bindings) so the C++ build and

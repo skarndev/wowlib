@@ -1,0 +1,446 @@
+name: release
+
+# Publishing runs off a TAG, never a branch push: `git tag v0.1.0 && git push
+# origin v0.1.0`. The version is not written anywhere in the tree — the Python
+# side resolves it from the tag through scikit-build-core's setuptools-scm
+# metadata plugin, and the C# side is handed the same string as a CMake cache
+# variable, so both artifacts of a release always carry one number.
+on:
+  push:
+    tags: ['v*']
+  # A full dress rehearsal: builds and packs everything, publishes nothing.
+  # Use this before the first real tag — the publish steps are the only part
+  # that cannot be undone.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag or SHA to build (defaults to the current branch)'
+        required: false
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # never kill a half-published release
+
+permissions:
+  contents: read
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Everything downstream keys off this: the version string, and whether this
+  # run is allowed to publish. Cheap, so a mistake costs seconds rather than
+  # the two hours the matrix takes.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # setuptools-scm needs the history AND tags
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Resolve version and publish gate
+        id: v
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            version="${tag#v}"
+            # A tag is not "on" a branch, so state the intent explicitly: the
+            # commit it names must be an ancestor of main. Catches a tag pushed
+            # from a feature branch or a stale local main.
+            git fetch --quiet origin main
+            if ! git merge-base --is-ancestor "$tag^{commit}" origin/main; then
+              echo "::error::tag $tag is not contained in origin/main — refusing to publish"
+              exit 1
+            fi
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            # Dry run: derive a version for the build, publish nothing.
+            version="$(git describe --tags --always --dirty || echo 0.0.0)"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release version: $version"
+
+  # --------------------------------------------------------------------------
+  # Python wheels. One abi3 wheel per platform (cp313+), each built with the
+  # gcc-16 toolchain the library requires — which is why this cannot use
+  # cibuildwheel: the manylinux images carry no compiler new enough for C++26
+  # reflection. The C++ runtime is linked STATICALLY into every wheel so the
+  # extension imports on machines without a matching libstdc++.
+  wheels:
+    needs: guard
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  name: linux-x64 }
+          - { os: macos-latest,   name: macos-arm64,  deployment: '14.0' }
+          - { os: macos-13,       name: macos-x64,    deployment: '13.0' }
+          - { os: windows-latest, name: windows-x64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: ${{ startsWith(matrix.os, 'windows') && 'msys2 {0}' || 'bash' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+
+      # The interpreter the wheel is BUILT AGAINST. abi3/stable-ABI means one
+      # wheel serves every later 3.x, and on Windows it must be the MSVC CPython
+      # (not MSYS2's) so the .pyd links python3.dll and loads in a stock install.
+      - name: Set up CPython 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+            echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          fi
+          export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
+          for i in 1 2 3; do brew update && break || sleep 15; done || true
+          brew install gcc ninja cmake
+          gcc-16 --version
+
+      - name: Install gcc-16 toolchain (MSYS2 UCRT64)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-${{ matrix.name }}-wheel-${{ hashFiles('cmake/Dependencies.cmake') }}
+          # NO restore-keys — see the note in ci-linux.yml: a prefix fallback can
+          # restore a _deps tree built from different pins, which
+          # FETCHCONTENT_UPDATES_DISCONNECTED then refuses to update.
+
+      - name: Build wheel
+        env:
+          # Static C++ runtime: a wheel is installed on machines that have no
+          # Homebrew/MSYS2 gcc, so nothing outside the system libs may be a
+          # runtime dependency of the extension.
+          SKBUILD_CMAKE_DEFINE: CMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -static-libgcc
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade build
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            # MSYS2 names the compiler plainly, and the interpreter to target is
+            # the MSVC one setup-python installed (not MSYS2's python).
+            PYEXE=$(cygpath -m "$pythonLocation/python.exe")
+            "$PYEXE" -m build --wheel \
+              -C cmake.define.CMAKE_C_COMPILER=gcc \
+              -C cmake.define.CMAKE_CXX_COMPILER=g++ \
+              -C cmake.define.Python_EXECUTABLE="$PYEXE"
+          else
+            python -m build --wheel
+          fi
+          ls -lh dist/
+
+      # A linux_x86_64 wheel is rejected by PyPI outright; auditwheel retags it
+      # to the manylinux level the build actually requires. With the C++ runtime
+      # static there is normally nothing left to bundle — this is a relabel plus
+      # an audit that no unexpected shared dependency crept in.
+      - name: Repair wheel (manylinux tag)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update && sudo apt-get install -y patchelf
+          python -m pip install auditwheel
+          python -m auditwheel show dist/*.whl || true
+          python -m auditwheel repair dist/*.whl -w wheelhouse/
+          rm -rf dist && mv wheelhouse dist
+          ls -lh dist/
+
+      # macOS: same idea, delocate rewrites/bundles any non-system dylib and
+      # normalises the platform tag to the deployment target.
+      - name: Repair wheel (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          python -m pip install delocate
+          delocate-listdeps --all dist/*.whl
+          delocate-wheel -w wheelhouse/ -v dist/*.whl
+          rm -rf dist && mv wheelhouse dist
+          ls -lh dist/
+
+      # Install the built wheel into a clean interpreter and import it. This is
+      # the step that catches a wheel that builds but cannot load — a missing
+      # runtime, a wrong ABI tag, a stripped-away dependency.
+      - name: Smoke-test the wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          VENV="${RUNNER_TEMP:-/tmp}/whltest"
+          python -m venv "$VENV"
+          if [ "$RUNNER_OS" = "Windows" ]; then PY="$VENV/Scripts/python.exe"; else PY="$VENV/bin/python"; fi
+          "$PY" -m pip install --upgrade pip
+          "$PY" -m pip install dist/*.whl
+          "$PY" -c "import wowlib; print('wowlib', wowlib.__version__ if hasattr(wowlib,'__version__') else '(no __version__)'); print(wowlib.__file__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.name }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # The C# side needs one native library per RID, and ONE managed wrapper — the
+  # generated C# is platform-independent (it is a reflection of the C++ surface),
+  # so it is taken from the Linux leg and the other legs contribute only their
+  # native library.
+  csharp-native:
+    needs: guard
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  rid: linux-x64,  lib: libwowlib_native.so }
+          - { os: macos-latest,   rid: osx-arm64,  lib: libwowlib_native.dylib }
+          - { os: macos-13,       rid: osx-x64,    lib: libwowlib_native.dylib }
+          - { os: windows-latest, rid: win-x64,    lib: wowlib_native.dll }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: ${{ startsWith(matrix.os, 'windows') && 'msys2 {0}' || 'bash' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+            echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          fi
+          export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
+          for i in 1 2 3; do brew update && break || sleep 15; done || true
+          brew install gcc ninja cmake
+
+      - name: Install gcc-16 toolchain (MSYS2 UCRT64)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Install Python (dbdgen runs the table generator)
+        if: runner.os != 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/csharp/_deps
+          key: deps-${{ matrix.rid }}-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      - name: Configure
+        run: |
+          set -euo pipefail
+          EXTRA=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            EXTRA="-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++"
+          else
+            EXTRA="-DCMAKE_C_COMPILER=gcc-16 -DCMAKE_CXX_COMPILER=g++-16"
+          fi
+          # The C++ runtime is linked statically for the same reason as the
+          # wheel: the dylib ships to machines with no gcc-16 runtime.
+          cmake -S . -B build/csharp -G Ninja $EXTRA \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWOWLIB_BUILD_TESTS=OFF \
+            -DWOWLIB_BUILD_CSHARP=ON \
+            -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+      - name: Build the native shim
+        run: cmake --build build/csharp --target wowlib_cs
+
+      - name: Stage the native library
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp "build/csharp/bindings/${{ matrix.lib }}" "out/${{ matrix.lib }}"
+          ls -lh out/
+
+      # One leg also carries the managed wrapper and the packable csproj.
+      - name: Stage the managed wrapper (Linux only)
+        if: matrix.rid == 'linux-x64'
+        run: |
+          set -euo pipefail
+          mkdir -p managed
+          cp build/csharp/bindings/csharp/Bindings.*.cs managed/
+          ls managed/ | head -3
+          echo "... $(ls managed | wc -l) generated files"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: out/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.rid == 'linux-x64'
+        with:
+          name: managed-wrapper
+          path: managed/*.cs
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # One package carrying every RID's native library, which is what makes it
+  # usable cross-platform: NuGet's runtime probing picks the right one at load
+  # time. Built here rather than by the CMake helper, whose csproj can only ever
+  # know the platform it ran on.
+  nuget:
+    needs: [guard, csharp-native]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ inputs.ref || github.ref }}' }
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/download-artifact@v4
+        with: { pattern: 'native-*', path: natives }
+
+      - uses: actions/download-artifact@v4
+        with: { name: managed-wrapper, path: managed }
+
+      - name: Write the multi-RID package project
+        run: |
+          set -euo pipefail
+          mkdir -p pack
+          cat > pack/Wowlib.csproj <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net8.0</TargetFramework>
+              <PackageId>Wowlib</PackageId>
+              <Version>__VERSION__</Version>
+              <Authors>skarndev</Authors>
+              <Description>Read and write World of Warcraft client files — a C++26 core with C#/.NET bindings.</Description>
+              <PackageLicenseExpression>MIT</PackageLicenseExpression>
+              <PackageProjectUrl>https://github.com/skarndev/wowlib</PackageProjectUrl>
+              <RepositoryUrl>https://github.com/skarndev/wowlib</RepositoryUrl>
+              <Nullable>enable</Nullable>
+              <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+              <ImplicitUsings>disable</ImplicitUsings>
+              <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+              <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+              <!-- Ships the XML sidecar IntelliSense reads for descriptions. -->
+              <GenerateDocumentationFile>true</GenerateDocumentationFile>
+              <NoWarn>$(NoWarn);CS1591;CS0649;CS1573;CS1572</NoWarn>
+            </PropertyGroup>
+            <ItemGroup>
+              <Compile Include="../managed/Bindings.*.cs" />
+            </ItemGroup>
+            <ItemGroup>
+              <None Include="../natives/native-linux-x64/libwowlib_native.so"
+                    Pack="true" PackagePath="runtimes/linux-x64/native/" />
+              <None Include="../natives/native-osx-arm64/libwowlib_native.dylib"
+                    Pack="true" PackagePath="runtimes/osx-arm64/native/" />
+              <None Include="../natives/native-osx-x64/libwowlib_native.dylib"
+                    Pack="true" PackagePath="runtimes/osx-x64/native/" />
+              <None Include="../natives/native-win-x64/wowlib_native.dll"
+                    Pack="true" PackagePath="runtimes/win-x64/native/" />
+            </ItemGroup>
+          </Project>
+          EOF
+          sed -i "s/__VERSION__/${{ needs.guard.outputs.version }}/" pack/Wowlib.csproj
+          find natives -type f | sort
+
+      - name: Pack
+        run: dotnet pack pack/Wowlib.csproj -c Release -o nupkg
+
+      # Assert the package actually contains what makes it usable: the assembly,
+      # the doc sidecar, and all four native libraries. A silently RID-less
+      # package would install fine and then fail at the first P/Invoke.
+      - name: Verify package contents
+        run: |
+          set -euo pipefail
+          pkg=$(ls nupkg/*.nupkg)
+          echo "== $pkg"
+          unzip -l "$pkg"
+          for want in \
+            "lib/net8.0/Wowlib.dll" \
+            "lib/net8.0/Wowlib.xml" \
+            "runtimes/linux-x64/native/libwowlib_native.so" \
+            "runtimes/osx-arm64/native/libwowlib_native.dylib" \
+            "runtimes/osx-x64/native/libwowlib_native.dylib" \
+            "runtimes/win-x64/native/wowlib_native.dll"; do
+            unzip -l "$pkg" | grep -q "$want" || { echo "::error::package is missing $want"; exit 1; }
+          done
+          echo "package carries the assembly, the XML docs and all four RIDs"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # Publication. Separate jobs so one registry failing does not strand the
+  # other, and both gated on the tag build so a dry run can never publish.
+  publish-pypi:
+    needs: [guard, wheels]
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment: release          # a spot for required reviewers, if wanted
+    permissions:
+      id-token: write             # Trusted Publishing: OIDC, no stored secret
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: 'wheel-*', path: dist, merge-multiple: true }
+      - run: ls -lh dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-nuget:
+    needs: [guard, nuget]
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - uses: actions/download-artifact@v4
+        with: { name: nupkg, path: nupkg }
+      - name: Push to nuget.org
+        run: |
+          dotnet nuget push nupkg/*.nupkg \
+            --api-key "${{ secrets.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
