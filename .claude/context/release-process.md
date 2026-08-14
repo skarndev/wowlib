@@ -143,6 +143,15 @@ repo holds no push credential at all.
   suspect the image label, not capacity. The Intel label is now
   `macos-26-intel` (standard runner, free for public repos); `macos-15-intel`
   is the other current option.
+- **`SKBUILD_CMAKE_DEFINE` did not reach CMake.** The static-C++-runtime flag
+  set that way was silently ignored, and the Linux wheel came out dynamically
+  linked against `libstdc++.so.6` — which is ALSO what made `auditwheel repair`
+  fail ("too-recent versioned symbols": the bundled libstdc++ carried
+  `GLIBCXX_3.4.35`). Pass build-affecting defines as
+  `-C cmake.define.<NAME>=<value>` on the `python -m build` command line, the
+  same shape `ci-linux.yml` uses as a plain `-D`. A dedicated step now asserts
+  (ldd/otool/objdump) that no dynamic C++ runtime dependency survives, so the
+  failure surfaces where the cause is legible.
 - **`msys2/setup-msys2` can fail with HTTP 429.** Both Windows jobs start
   together and race on the same download; the action retries twice and then
   fails the job. It is transient and not a workflow defect — re-run the failed

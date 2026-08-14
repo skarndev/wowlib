@@ -144,11 +144,15 @@ jobs:
 
       - name: Build wheel
         env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment }}
           # Static C++ runtime: a wheel is installed on machines that have no
           # Homebrew/MSYS2 gcc, so nothing outside the system libs may be a
-          # runtime dependency of the extension.
-          SKBUILD_CMAKE_DEFINE: CMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -static-libgcc
-          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment }}
+          # runtime dependency of the extension. Passed as a `-C cmake.define`
+          # below, NOT via SKBUILD_CMAKE_DEFINE — the env form silently failed
+          # to reach CMake (the 0.0.1 Linux wheel came out dynamically linked
+          # against libstdc++.so.6, which is also what made auditwheel reject
+          # it for carrying too-recent GLIBCXX symbols).
+          WOWLIB_STATIC_CXX: -static-libstdc++ -static-libgcc
         run: |
           set -euo pipefail
           # On Windows this step runs in the MSYS2 shell, which has NO `python`
@@ -168,13 +172,39 @@ jobs:
             # MSYS2 names the compiler plainly (gcc/g++, not gcc-16), and the
             # target interpreter must be spelled for CMake explicitly.
             "$PY" -m build --wheel \
+              -C cmake.define.CMAKE_SHARED_LINKER_FLAGS="$WOWLIB_STATIC_CXX" \
               -C cmake.define.CMAKE_C_COMPILER=gcc \
               -C cmake.define.CMAKE_CXX_COMPILER=g++ \
               -C cmake.define.Python_EXECUTABLE="$PY"
           else
-            "$PY" -m build --wheel
+            "$PY" -m build --wheel \
+              -C cmake.define.CMAKE_SHARED_LINKER_FLAGS="$WOWLIB_STATIC_CXX"
           fi
           ls -lh dist/
+
+      # Prove the intent actually took: if the extension still needs a C++
+      # runtime from the build machine, the wheel is not portable — and on
+      # Linux that is exactly what makes auditwheel refuse to repair it. Fail
+      # here, where the cause is obvious, rather than at the repair step.
+      - name: Assert the C++ runtime is static
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Linux)
+              mod=$(find build -name 'wowlib*.so' | head -1)
+              ldd "$mod" || true
+              ! ldd "$mod" | grep -qE 'libstdc\+\+|libgcc_s' ;;
+            macOS)
+              mod=$(find build -name 'wowlib*.so' | head -1)
+              otool -L "$mod" || true
+              ! otool -L "$mod" | grep -qE 'libstdc\+\+|libgcc_s' ;;
+            Windows)
+              mod=$(find build -name 'wowlib*.pyd' | head -1)
+              objdump -p "$mod" | grep "DLL Name" || true
+              ! objdump -p "$mod" | grep -qiE 'libstdc\+\+|libgcc_s' ;;
+          esac
+          echo "no dynamic C++ runtime dependency"
 
       # A linux_x86_64 wheel is rejected by PyPI outright; auditwheel retags it
       # to the manylinux level the build actually requires. With the C++ runtime
