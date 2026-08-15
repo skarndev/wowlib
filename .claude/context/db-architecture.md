@@ -178,10 +178,12 @@ The casc test's WDC3||WDC4 check is just defensive.
   - Gate learnings: a public method returning a non-welded type (TableBase::
     core()) trips the bindability gate — `mark::exclude` is the escape;
     `nb::type<T>()` returns handle, not object (borrow it).
-  - **Pre-existing, NOT a regression**: welder never binds C++ default
-    arguments (`_def_function` passes nb::arg(name) without `= value`), so
-    `t.write()` bare has always required an explicit EncryptedPolicy from
-    Python. Worth a welder feature some day.
+  - ~~Pre-existing: welder never bound C++ default arguments~~ **FIXED in
+    welder dda6d03 (same day)**: both Python rods synthesize one truncated
+    overload per omissible arity (the language applies the real default —
+    P2996 cannot splice the defaulting expression). `t.write()` now works
+    bare from Python, applying EncryptedPolicy::Preserve. kwargs work on
+    every arity; keep_alive rides the full arity only.
   - Verified: dbdgen unit 17, C++ db+corpus 73/73 (byte-perfect + WDC
     semantic), pytest 153/153, mypy typing cases green, plus direct probes of
     in-place mutation, iteration, del, rebind, for_version, the isinstance

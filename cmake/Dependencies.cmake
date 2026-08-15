@@ -91,9 +91,11 @@ endif()
 # 19d2387: class-erased field properties in the nanobind rod (one func_create
 # instantiation per field TYPE, not per class x type — the largest code bucket
 # in the db binding shards).
+# dda6d03: C++ default arguments bind (truncated overloads; the language
+# applies the real default) — `t.write()` works from Python at last.
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG 19d2387de1e212625894785e2c6be17f9ba088de)
+  GIT_TAG dda6d038e5f435735a8aa46a4119ad1edd3e8327)
 
 # --- welder-csharp (the C#/.NET rod, an out-of-tree welder extension) ---
 # Declared for every configure (declarations are free) but made available only
