@@ -138,6 +138,18 @@ The casc test's WDC3||WDC4 check is just defensive.
   the per-(family,expansion) closure became one type, factory passed as a
   function pointer). Corpus green: 53/53 including 1.12.2/3.3.5a byte-perfect
   and 9.2.7 WDC3 semantic round-trips.
+- **Round 3 (welder 19d2387, same day): class-erased FIELD properties in the
+  nanobind rod** — a directly-declared public arithmetic/enum/std::string
+  member binds via offset-capturing `nb::handle` closures through nanobind's
+  type-erased `property_install`, so `func_create` instantiates per field TYPE,
+  not per (class x type). All three stacked, shard 56 at -O2: text
+  1692392 → 1447168 (−14.5%), compile 78.5s → 64.4s (−18%). Full gate:
+  welder 64/64 (incl. its nanobind stubcheck), wowlib pytest 153/153 with the
+  refreshed venv module (stale-.so trap!), stubs + mypy typing cases green.
+  NOTE: .so-level before/after (135 → 130 MB) understates the win — the July
+  baseline was built against the July welder pin, and welder main had grown
+  shards ~8% since (measured: the same shard TU was 1559088 under the July pin,
+  1692392 under current main pre-erasure).
 - `db/wdbc.{hpp,cpp}` — WdbcHeader (20B) + `wdbc_magic` (four_cc FORWARD — DB
   magics are plain byte sequences, unlike reversed chunk ids) + the non-templated
   `read_wdbc`/`write_wdbc(TableInfo, ..., RecordSink&/Source, TableState&)`.
