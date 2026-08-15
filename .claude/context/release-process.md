@@ -121,6 +121,27 @@ repo holds no push credential at all.
    need approval. If you drop it here, drop it from both policies too, or the
    token claims stop matching.
 
+## A burned version cannot be reused — plan around it
+
+**PyPI reserves filenames permanently, even after you delete the release.** A
+re-upload gets *"This filename has already been used, use a different
+version"*; the guarantee is that a given file always resolves to the same
+bytes. Deleting a botched release therefore frees NOTHING — the next attempt
+must bump the version. `skip-existing` does not help here either: it covers
+files present in the index, not reserved-but-deleted names. NuGet is the same
+in spirit (unlist, never overwrite).
+
+Practical consequence: **0.0.1 is spent on PyPI** (published 2026-08-15 with
+Linux + macOS wheels, then deleted), so the first complete release is 0.0.2.
+
+## `publish-pypi` fires without the C# side
+
+Its `needs:` is `[guard, wheels]` — deliberately, since the Python release does
+not depend on the NuGet one, but the consequence is that **PyPI can publish
+while the run is otherwise failing**. That is exactly what happened on 0.0.1:
+all three wheels passed, PyPI went out, and the run then failed on the C#
+matrix. If a release should be all-or-nothing, add `nuget` to that `needs:`.
+
 ## Gotchas the first run found (2026-08-14, v0.0.1)
 
 - **The workflow is read from the TAG, not from main.** A fix pushed to main
@@ -136,6 +157,15 @@ repo holds no push credential at all.
   `python -m pip …` fails with `command not found` (exit 127). The smoke-test
   step is exempt: it sets `shell: bash` (Git Bash), where setup-python's
   interpreter is on PATH.
+- **The version must be PINNED for the build, not re-derived per runner.**
+  setuptools-scm reads the WORKTREE, and on Windows the checkout is made by
+  Windows Git while the build runs under MSYS2's git; their CRLF handling
+  differs, tracked files look modified, and a dirty tree yields
+  `<tag>.post1.dev0`. 0.0.1's Windows wheel was published to PyPI under that
+  version, as a separate release, while Linux and macOS published 0.0.1.
+  `SETUPTOOLS_SCM_PRETEND_VERSION` (fed from `guard`, which derives it from the
+  tag) removes the whole class of problem — shallow clones and missing tags
+  included.
 - **A retired runner image does not fail — it QUEUES.** `macos-13` was removed,
   and jobs targeting it sat `queued` indefinitely while every other leg ran;
   they would have burned the 240-minute timeout before failing and blocking the

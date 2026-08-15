@@ -145,6 +145,14 @@ jobs:
       - name: Build wheel
         env:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment }}
+          # Pin the version instead of letting setuptools-scm re-derive it per
+          # runner. It reads the WORKTREE, and on Windows the checkout is made
+          # by Windows Git while the build runs under MSYS2's git — the CRLF
+          # handling differs, tracked files look modified, and a "dirty" tree
+          # becomes <tag>.post1.dev0. That is how 0.0.1's Windows wheel was
+          # published to PyPI as 0.0.1.post1.dev0, a separate release. The tag
+          # is still the single source of truth: `guard` derives this from it.
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ needs.guard.outputs.version }}
           # Static C++ runtime: a wheel is installed on machines that have no
           # Homebrew/MSYS2 gcc, so nothing outside the system libs may be a
           # runtime dependency of the extension. It is applied to
@@ -500,6 +508,14 @@ jobs:
         with: { pattern: 'wheel-*', path: dist, merge-multiple: true }
       - run: ls -lh dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # A re-tag after a partly-published release must be able to complete
+          # it: PyPI rejects re-uploading a file it already has, which would
+          # otherwise fail the job and strand the wheels that ARE missing.
+          # (0.0.1 published its Linux and macOS wheels while the Windows one
+          # went astray under a different version.) Adding files to an existing
+          # release is allowed; replacing one is not, and this does not try to.
+          skip-existing: true
 
   publish-nuget:
     needs: [guard, nuget]
