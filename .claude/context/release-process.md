@@ -207,6 +207,14 @@ gating exists to prevent.
   `WOWLIB_PY_COMPILE_JOBS` (RAM / 3.5 GB → 4 on a 16 GB runner) is too generous
   for shim shards that reflect the whole surface AND every ClientDB table. The
   release pins it to 2.
+- **The C# native build is SLOW on the macOS runner** — it hit the 240-minute
+  job timeout and was cancelled mid-build (0.0.1). That runner is 3 cores /
+  7 GB and compiles 32 shim shards which each re-parse the whole welded
+  surface; Windows, at twice the cores, took 155 minutes. The job budget is now
+  350 minutes (GitHub's ceiling is 360). If it ever times out again, lowering
+  `WOWLIB_CS_SHARDS` for CI is the lever with real headroom: fewer shards means
+  less redundant parsing overall, at the cost of more memory per TU — which
+  that 7 GB runner can least afford, so measure rather than guess.
 - **`msys2/setup-msys2` can fail with HTTP 429.** Both Windows jobs start
   together and race on the same download; the action retries twice and then
   fails the job. It is transient and not a workflow defect — re-run the failed

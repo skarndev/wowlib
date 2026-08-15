@@ -286,7 +286,13 @@ jobs:
           # the Darwin atom probe has no x86_64 variant yet.
           - { os: windows-latest, rid: win-x64,    lib: wowlib_native.dll }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 240
+    # 350, not the default 240: the macOS leg hit exactly 240 and was cancelled
+    # mid-build on 0.0.1. That runner is 3 cores / 7 GB and compiles 32 shim
+    # shards that each re-parse the whole welded surface — Windows, with twice
+    # the cores, needed 155 minutes. 350 leaves headroom under GitHub's 360
+    # ceiling. With both publishes now gated on every artifact, a leg that
+    # times out blocks the entire release, so the budget has to be generous.
+    timeout-minutes: 350
     defaults:
       run:
         shell: ${{ startsWith(matrix.os, 'windows') && 'msys2 {0}' || 'bash' }}
