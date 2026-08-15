@@ -306,12 +306,28 @@ if(WOWLIB_BUILD_CSHARP)
   if(TARGET wowlib_db_tables)
     list(APPEND _wowlib_cs_link wowlib_db_tables)
   endif()
+
+  # WOWLIB_CS_PREGENERATED_DIR: compile shim sources produced by ANOTHER build
+  # instead of running the generator here. gen.cpp is one serial
+  # reflection-heavy TU — 40 minutes locally, and the dominant cost of the whole
+  # C# build — while its output is platform-independent text. A cross-platform
+  # release therefore generates once and compiles that everywhere, which is what
+  # release.yml does (the Linux leg generates; macOS and Windows consume). Unset
+  # for a normal build, which generates as before.
+  set(WOWLIB_CS_PREGENERATED_DIR "" CACHE PATH
+      "Directory of already-generated shim.<i>.cpp / Bindings.<i>.cs to compile \
+instead of building and running the generator")
+  set(_wowlib_cs_pregen "")
+  if(WOWLIB_CS_PREGENERATED_DIR)
+    set(_wowlib_cs_pregen PREGENERATED_DIR ${WOWLIB_CS_PREGENERATED_DIR})
+  endif()
   welder_csharp_generate_bindings(wowlib_cs
     SOURCES csharp/gen.cpp
     LIBRARY wowlib_native
     OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/csharp
     SHARDS ${WOWLIB_CS_SHARDS}
     CS_FILES ${WOWLIB_CS_FILES}
+    ${_wowlib_cs_pregen}
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/csharp
                  ${CMAKE_CURRENT_SOURCE_DIR}
     LINK ${_wowlib_cs_link}
@@ -319,7 +335,9 @@ if(WOWLIB_BUILD_CSHARP)
   # An INTERFACE link does not by itself order the two TUs after the generator
   # command, so state it: both must wait for dbdgen to write the headers.
   if(TARGET wowlib_dbdgen)
-    add_dependencies(wowlib_cs_gen wowlib_dbdgen)
+    if(TARGET wowlib_cs_gen)      # absent when compiling pre-generated sources
+      add_dependencies(wowlib_cs_gen wowlib_dbdgen)
+    endif()
     add_dependencies(wowlib_cs wowlib_dbdgen)
   endif()
 

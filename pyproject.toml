@@ -77,10 +77,15 @@ build-type = "Release"
 WOWLIB_BUILD_PYTHON = "ON"
 CMAKE_C_COMPILER = "gcc-16"
 CMAKE_CXX_COMPILER = "g++-16"
-# The client-database tables the wheel binds: one welded instantiation per era of
-# each of the ~900 tables, so pin the four eras with a local test client to keep
-# the wheel's compile bounded (this is also the WOWLIB_BUILD_PYTHON default).
-WOWLIB_DB_ERAS = "vanilla,tbc,wotlk,shadowlands"
+# NO era override here. This file builds the WHEEL, so anything set here is what
+# ships: a four-era list (once present for a faster local compile) silently cut
+# the published surface to a quarter of the client databases, against the
+# project's decision to expose every era (cmake/DbTables.cmake). The default —
+# all eleven last-minor expansions — now applies to the wheel as it does to the
+# C++ and C# builds. Cost, measured: the extension grows ~75 MB -> 135 MB
+# installed but only ~23.5 MB -> ~26 MB compressed (native code packs ~5:1), and
+# the build roughly doubles. Trim it on the COMMAND LINE for a fast local build
+# (`-C cmake.define.WOWLIB_DB_ERAS=...`), never here.
 
 [tool.mypy]
 # The installed wowlib-stubs package (PEP 561) is what mypy resolves once the

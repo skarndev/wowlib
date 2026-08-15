@@ -274,13 +274,155 @@ jobs:
   # generated C# is platform-independent (it is a reflection of the C++ surface),
   # so it is taken from the Linux leg and the other legs contribute only their
   # native library.
-  csharp-native:
+  csharp-generate:
     needs: guard
+    runs-on: ubuntu-latest
+    # 350, not the default 240: the macOS leg hit exactly 240 and was cancelled
+    # mid-build on 0.0.1. That runner is 3 cores / 7 GB and compiles 32 shim
+    # shards that each re-parse the whole welded surface — Windows, with twice
+    # the cores, needed 155 minutes. 350 leaves headroom under GitHub's 360
+    # ceiling. With both publishes now gated on every artifact, a leg that
+    # times out blocks the entire release, so the budget has to be generous.
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+            echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          fi
+          export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
+          for i in 1 2 3; do brew update && break || sleep 15; done || true
+          brew install gcc ninja cmake
+
+      - name: Install gcc-16 toolchain (MSYS2 UCRT64)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Install Python (dbdgen runs the table generator)
+        if: runner.os != 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/csharp/_deps
+          key: deps-linux-x64-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      # WOWLIB_PY_COMPILE_JOBS caps the RAM-bounded Ninja pool. Its adaptive
+      # default (physical RAM / 3.5 GB) reads a hosted runner's 16 GB as 4
+      # concurrent reflection-heavy TUs, and the 0.0.1 Linux run died with
+      # exit 143 / "the runner has received a shutdown signal" — the shim
+      # shards each reflect the whole surface AND every ClientDB table, so
+      # they are heavier than the formula assumes. Two is the safe number
+      # here; the shards still parallelise, just less.
+      - name: Configure
+        run: |
+          set -euo pipefail
+          EXTRA=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            EXTRA="-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++"
+          else
+            EXTRA="-DCMAKE_C_COMPILER=gcc-16 -DCMAKE_CXX_COMPILER=g++-16"
+          fi
+          # The C++ runtime is linked statically for the same reason as the
+          # wheel: the dylib ships to machines with no gcc-16 runtime.
+          cmake -S . -B build/csharp -G Ninja $EXTRA \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWOWLIB_BUILD_TESTS=OFF \
+            -DWOWLIB_BUILD_CSHARP=ON \
+            -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
+            -DWOWLIB_PY_COMPILE_JOBS=2 \
+            -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+      # CMAKE_BUILD_PARALLEL_LEVEL caps Ninja for the WHOLE build, which
+      # WOWLIB_PY_COMPILE_JOBS does not: that pool governs only the C# gen and
+      # shim targets, leaving the ordinary wowlib library TUs to compile at
+      # Ninja's default (cores + 2). Those include the reflection-heavy
+      # audit/roundtrip_*.cpp, and six of them at once exhausted a 16 GB
+      # runner — the 0.0.1 Linux job died at step 290/327, right after linking
+      # libwowlib.a and long before the C# TUs the pool protects (exit 143,
+      # "the runner has received a shutdown signal").
+      - name: Build the native shim
+        run: |
+          set -euo pipefail
+          # Linux only: that runner (4 cores / 16 GB) is the one that died, and
+          # the macOS and Windows legs complete at the default width — capping
+          # them too would only push them toward the job timeout.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            export CMAKE_BUILD_PARALLEL_LEVEL=2
+          fi
+          cmake --build build/csharp --target wowlib_cs
+
+      - name: Stage the native library
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp "build/csharp/bindings/libwowlib_native.so" "out/libwowlib_native.so"
+          ls -lh out/
+
+      # One leg also carries the managed wrapper and the packable csproj.
+      # The Linux leg is the ONLY one that runs the generator, so it also
+      # publishes what the generator produced: the managed wrapper for the
+      # NuGet job, and the shim sources the other platforms compile instead of
+      # regenerating (see the `generated-sources` artifact consumed above).
+      - name: Stage the generated sources
+        run: |
+          set -euo pipefail
+          mkdir -p managed generated
+          cp build/csharp/bindings/csharp/Bindings.*.cs managed/
+          cp build/csharp/bindings/csharp/Bindings.*.cs generated/
+          cp build/csharp/bindings/csharp/shim.*.cpp generated/
+          echo "$(ls managed | wc -l) managed file(s), $(ls generated/shim.*.cpp | wc -l) shim TU(s)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-linux-x64
+          path: out/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: managed-wrapper
+          path: managed/*.cs
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-sources
+          path: generated/*
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # One package carrying every RID's native library, which is what makes it
+  # usable cross-platform: NuGet's runtime probing picks the right one at load
+  # time. Built here rather than by the CMake helper, whose csproj can only ever
+  # know the platform it ran on.
+
+  csharp-native:
+    needs: [guard, csharp-generate]
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest,  rid: linux-x64,  lib: libwowlib_native.so }
           - { os: macos-latest,   rid: osx-arm64,  lib: libwowlib_native.dylib }
           # osx-x64 is absent for the same reason as the wheels matrix above —
           # the Darwin atom probe has no x86_64 variant yet.
@@ -346,6 +488,12 @@ jobs:
       # shards each reflect the whole surface AND every ClientDB table, so
       # they are heavier than the formula assumes. Two is the safe number
       # here; the shards still parallelise, just less.
+      - name: Fetch the generated shim sources
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-sources
+          path: generated
+
       - name: Configure
         run: |
           set -euo pipefail
@@ -362,6 +510,7 @@ jobs:
             -DWOWLIB_BUILD_TESTS=OFF \
             -DWOWLIB_BUILD_CSHARP=ON \
             -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
+            -DWOWLIB_CS_PREGENERATED_DIR="$PWD/generated" \
             -DWOWLIB_PY_COMPILE_JOBS=2 \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
@@ -392,26 +541,10 @@ jobs:
           ls -lh out/
 
       # One leg also carries the managed wrapper and the packable csproj.
-      - name: Stage the managed wrapper (Linux only)
-        if: matrix.rid == 'linux-x64'
-        run: |
-          set -euo pipefail
-          mkdir -p managed
-          cp build/csharp/bindings/csharp/Bindings.*.cs managed/
-          ls managed/ | head -3
-          echo "... $(ls managed | wc -l) generated files"
-
       - uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.rid }}
           path: out/*
-          if-no-files-found: error
-
-      - uses: actions/upload-artifact@v4
-        if: matrix.rid == 'linux-x64'
-        with:
-          name: managed-wrapper
-          path: managed/*.cs
           if-no-files-found: error
 
   # --------------------------------------------------------------------------
@@ -420,7 +553,9 @@ jobs:
   # time. Built here rather than by the CMake helper, whose csproj can only ever
   # know the platform it ran on.
   nuget:
-    needs: [guard, csharp-native]
+    # csharp-generate too: it supplies the linux-x64 native library AND the
+    # managed wrapper, neither of which csharp-native produces.
+    needs: [guard, csharp-generate, csharp-native]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

@@ -79,6 +79,28 @@ directly. Consequences:
   (`WOWLIB_DB_ERAS`), not all eleven — the same bound as the local bindings
   build.
 
+## Build time: generate once, compile everywhere
+
+The C# generator (`gen.cpp`) is ONE reflection-heavy translation unit that
+reflects the whole surface — every format across the version matrix plus 1221
+DB tables across 11 eras. Measured locally: **2388 s (40 min), serial**, versus
+~460 s for the worst shim shard and **5 s** for the shared prologue every shard
+re-parses. So the shard split and PCH are not where the time is; the generator
+is.
+
+Its output is platform-independent text, so `release.yml` runs it exactly once:
+
+- **`csharp-generate`** (Linux) builds and runs the generator, then uploads
+  `generated-sources` (`shim.*.cpp` + `Bindings.*.cs`), `managed-wrapper` and
+  its own `native-linux-x64`.
+- **`csharp-native`** (macOS, Windows) downloads that artifact and configures
+  with `WOWLIB_CS_PREGENERATED_DIR`, which routes to welder-csharp's
+  `PREGENERATED_DIR` — no generator target is even added to the build graph
+  (verified: 0 generator targets, 32 shim objects).
+
+The `SHARDS`/`CS_FILES` counts must match the generating run, or the consuming
+configure fails with a named missing file rather than something cryptic.
+
 ## The NuGet package is assembled in CI, not by CMake
 
 `welder_csharp_nuget_project` can only ever know the platform it ran on, so its
