@@ -351,7 +351,17 @@ jobs:
             -DWOWLIB_PY_COMPILE_JOBS=2 \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
+      # CMAKE_BUILD_PARALLEL_LEVEL caps Ninja for the WHOLE build, which
+      # WOWLIB_PY_COMPILE_JOBS does not: that pool governs only the C# gen and
+      # shim targets, leaving the ordinary wowlib library TUs to compile at
+      # Ninja's default (cores + 2). Those include the reflection-heavy
+      # audit/roundtrip_*.cpp, and six of them at once exhausted a 16 GB
+      # runner — the 0.0.1 Linux job died at step 290/327, right after linking
+      # libwowlib.a and long before the C# TUs the pool protects (exit 143,
+      # "the runner has received a shutdown signal").
       - name: Build the native shim
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: 2
         run: cmake --build build/csharp --target wowlib_cs
 
       - name: Stage the native library
