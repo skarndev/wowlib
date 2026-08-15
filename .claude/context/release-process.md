@@ -224,10 +224,12 @@ gating exists to prevent.
   empty `$mod` makes it pass vacuously too. Write assertions as
   `if <bad>; then echo "::error::…"; exit 1; fi` and check the input is
   non-empty first.
-- **Linux runners have NO swap; Windows/macOS page.** The C# generator TU
+- **Linux runners have only a SMALL /swapfile (active — creating it again
+  fails `Text file busy`); Windows/macOS page properly.** The C# generator TU
   approaches 16 GB by itself, so on Linux the OOM killer terminates the runner
   (exit 143) where Windows quietly pages through the same build. The
-  csharp-generate job now creates a 16 GB swapfile first — the same escape the
+  csharp-generate job now adds a 16 GB swapfile at /mnt/swapfile (the Azure
+  temp disk; /swapfile is taken) first — the same escape the
   project's own CI VPS uses for gcc-16. If it ever OOMs again, drop
   CMAKE_BUILD_PARALLEL_LEVEL to 1 for the generate phase before reaching for
   anything bigger.

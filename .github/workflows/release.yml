@@ -327,18 +327,20 @@ jobs:
           path: build/csharp/_deps
           key: deps-linux-x64-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
 
-      # The generator TU alone approaches the runner's 16 GB, and LINUX runners
-      # have no swap — the OOM killer shot this job twice (exit 143, "runner
-      # received a shutdown signal"), the second time right at gen.cpp even
-      # with the build width capped. Windows survives the same work because
-      # its runners page. Give Linux the same escape hatch the project's own
-      # CI box uses for gcc-16: a swapfile. Thrash beats death.
+      # The generator TU alone approaches the runner's 16 GB and the stock
+      # image's small /swapfile cannot absorb it — the OOM killer shot this
+      # job twice (exit 143), the second time right at gen.cpp with the build
+      # width already capped. (First fix attempt learned the hard way that
+      # /swapfile EXISTS and is active: `fallocate: Text file busy`.) So ADD
+      # 16 GB more on the Azure temp disk at /mnt — same escape hatch the
+      # project's CI VPS uses for gcc-16. Thrash beats death.
       - name: Add swap (the generator TU outgrows physical RAM)
         run: |
-          sudo fallocate -l 16G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          free -h
+          sudo fallocate -l 16G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
           free -h
 
       # WOWLIB_PY_COMPILE_JOBS caps the RAM-bounded Ninja pool. Its adaptive
