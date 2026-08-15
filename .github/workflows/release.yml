@@ -147,11 +147,13 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment }}
           # Static C++ runtime: a wheel is installed on machines that have no
           # Homebrew/MSYS2 gcc, so nothing outside the system libs may be a
-          # runtime dependency of the extension. Passed as a `-C cmake.define`
-          # below, NOT via SKBUILD_CMAKE_DEFINE — the env form silently failed
-          # to reach CMake (the 0.0.1 Linux wheel came out dynamically linked
-          # against libstdc++.so.6, which is also what made auditwheel reject
-          # it for carrying too-recent GLIBCXX symbols).
+          # runtime dependency of the extension. It is applied to
+          # CMAKE_MODULE_LINKER_FLAGS: a Python extension is a MODULE library,
+          # NOT a shared one, so CMAKE_SHARED_LINKER_FLAGS never reaches its
+          # link line (which is why the wheel kept coming out linked against
+          # libstdc++.so.6 — and why auditwheel then rejected it for
+          # too-recent GLIBCXX symbols, a confusing second-order symptom).
+          # SHARED is set too, for anything else the build links.
           WOWLIB_STATIC_CXX: -static-libstdc++ -static-libgcc
         run: |
           set -euo pipefail
@@ -172,12 +174,14 @@ jobs:
             # MSYS2 names the compiler plainly (gcc/g++, not gcc-16), and the
             # target interpreter must be spelled for CMake explicitly.
             "$PY" -m build --wheel \
+              -C cmake.define.CMAKE_MODULE_LINKER_FLAGS="$WOWLIB_STATIC_CXX" \
               -C cmake.define.CMAKE_SHARED_LINKER_FLAGS="$WOWLIB_STATIC_CXX" \
               -C cmake.define.CMAKE_C_COMPILER=gcc \
               -C cmake.define.CMAKE_CXX_COMPILER=g++ \
               -C cmake.define.Python_EXECUTABLE="$PY"
           else
             "$PY" -m build --wheel \
+              -C cmake.define.CMAKE_MODULE_LINKER_FLAGS="$WOWLIB_STATIC_CXX" \
               -C cmake.define.CMAKE_SHARED_LINKER_FLAGS="$WOWLIB_STATIC_CXX"
           fi
           ls -lh dist/
@@ -191,19 +195,23 @@ jobs:
         run: |
           set -euo pipefail
           case "$RUNNER_OS" in
-            Linux)
-              mod=$(find build -name 'wowlib*.so' | head -1)
-              ldd "$mod" || true
-              ! ldd "$mod" | grep -qE 'libstdc\+\+|libgcc_s' ;;
-            macOS)
-              mod=$(find build -name 'wowlib*.so' | head -1)
-              otool -L "$mod" || true
-              ! otool -L "$mod" | grep -qE 'libstdc\+\+|libgcc_s' ;;
-            Windows)
-              mod=$(find build -name 'wowlib*.pyd' | head -1)
-              objdump -p "$mod" | grep "DLL Name" || true
-              ! objdump -p "$mod" | grep -qiE 'libstdc\+\+|libgcc_s' ;;
+            Windows) pat='wowlib*.pyd'; dump='objdump -p' ;;
+            macOS)   pat='wowlib*.so';  dump='otool -L' ;;
+            *)       pat='wowlib*.so';  dump='ldd' ;;
           esac
+          mod=$(find build -name "$pat" | head -1)
+          # An empty `mod` must not pass vacuously — that is how the previous
+          # version of this check reported success on a wheel that was in fact
+          # dynamically linked.
+          [ -n "$mod" ] || { echo "::error::no built extension found to check"; exit 1; }
+          echo "checking $mod"
+          $dump "$mod" || true
+          # NOT `! cmd`: bash exempts a negated command from `set -e`, so a
+          # failed assertion would be ignored and the step would pass.
+          if $dump "$mod" | grep -qiE 'libstdc\+\+|libgcc_s'; then
+            echo "::error::$mod still links a dynamic C++ runtime — the wheel is not portable"
+            exit 1
+          fi
           echo "no dynamic C++ runtime dependency"
 
       # A linux_x86_64 wheel is rejected by PyPI outright; auditwheel retags it
@@ -317,6 +325,13 @@ jobs:
           path: build/csharp/_deps
           key: deps-${{ matrix.rid }}-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
 
+      # WOWLIB_PY_COMPILE_JOBS caps the RAM-bounded Ninja pool. Its adaptive
+      # default (physical RAM / 3.5 GB) reads a hosted runner's 16 GB as 4
+      # concurrent reflection-heavy TUs, and the 0.0.1 Linux run died with
+      # exit 143 / "the runner has received a shutdown signal" — the shim
+      # shards each reflect the whole surface AND every ClientDB table, so
+      # they are heavier than the formula assumes. Two is the safe number
+      # here; the shards still parallelise, just less.
       - name: Configure
         run: |
           set -euo pipefail
@@ -333,6 +348,7 @@ jobs:
             -DWOWLIB_BUILD_TESTS=OFF \
             -DWOWLIB_BUILD_CSHARP=ON \
             -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
+            -DWOWLIB_PY_COMPILE_JOBS=2 \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
       - name: Build the native shim

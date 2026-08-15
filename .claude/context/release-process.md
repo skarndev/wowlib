@@ -152,6 +152,26 @@ repo holds no push credential at all.
   same shape `ci-linux.yml` uses as a plain `-D`. A dedicated step now asserts
   (ldd/otool/objdump) that no dynamic C++ runtime dependency survives, so the
   failure surfaces where the cause is legible.
+- **A Python extension is a `MODULE` library, not `SHARED`.** So
+  `CMAKE_SHARED_LINKER_FLAGS` never reaches its link line — the static-runtime
+  flag must go to `CMAKE_MODULE_LINKER_FLAGS`. This is why the wheel kept
+  linking `libstdc++.so.6` and why auditwheel then refused it: the manylinux
+  policy caps `GLIBCXX` at 3.4.9 and `GCC` at 7.0.0 (verified against
+  auditwheel 6.8's manylinux_2_39 policy), while a gcc-16 build needs
+  GLIBCXX_3.4.35 / GCC_13.0.0. glibc was never the problem. **`ci-linux.yml`
+  passes the same flag as `CMAKE_SHARED_LINKER_FLAGS` for the bindings job, so
+  its "static libstdc++" claim is probably also untrue — worth re-checking with
+  `ldd`.**
+- **`! cmd` is exempt from `set -e`.** An assertion written as
+  `! ldd "$mod" | grep -q libstdc++` PASSES even when the grep matches, and an
+  empty `$mod` makes it pass vacuously too. Write assertions as
+  `if <bad>; then echo "::error::…"; exit 1; fi` and check the input is
+  non-empty first.
+- **The C# native job OOMs the runner at the default pool size.** Exit 143 /
+  "the runner has received a shutdown signal" on ubuntu-latest: the adaptive
+  `WOWLIB_PY_COMPILE_JOBS` (RAM / 3.5 GB → 4 on a 16 GB runner) is too generous
+  for shim shards that reflect the whole surface AND every ClientDB table. The
+  release pins it to 2.
 - **`msys2/setup-msys2` can fail with HTTP 429.** Both Windows jobs start
   together and race on the same download; the action retries twice and then
   fails the job. It is transient and not a workflow defect — re-run the failed
