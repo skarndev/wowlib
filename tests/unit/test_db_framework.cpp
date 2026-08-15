@@ -12,6 +12,8 @@
 #include <wowlib/db/locstring.hpp>
 #include <wowlib/db/schema.hpp>
 #include <wowlib/db/table.hpp>
+#include <wowlib/db/wdb2.hpp>
+#include <wowlib/db/wdbc.hpp>
 #include <wowlib/db/wdc/wdc.hpp>
 
 using namespace wowlib;
