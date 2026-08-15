@@ -368,9 +368,15 @@ jobs:
       # libwowlib.a and long before the C# TUs the pool protects (exit 143,
       # "the runner has received a shutdown signal").
       - name: Build the native shim
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: 2
-        run: cmake --build build/csharp --target wowlib_cs
+        run: |
+          set -euo pipefail
+          # Linux only: that runner (4 cores / 16 GB) is the one that died, and
+          # the macOS and Windows legs complete at the default width — capping
+          # them too would only push them toward the job timeout.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            export CMAKE_BUILD_PARALLEL_LEVEL=2
+          fi
+          cmake --build build/csharp --target wowlib_cs
 
       - name: Stage the native library
         run: |
@@ -494,10 +500,19 @@ jobs:
           if-no-files-found: error
 
   # --------------------------------------------------------------------------
-  # Publication. Separate jobs so one registry failing does not strand the
-  # other, and both gated on the tag build so a dry run can never publish.
+  # Publication. Both jobs wait for EVERY artifact — wheels and the packed
+  # NuGet package alike — so a release is all-or-nothing across the two
+  # registries: no half-release where PyPI has a version NuGet never got. (That
+  # is what 0.0.1 did, publishing to PyPI off a run whose C# matrix had already
+  # failed, because this job needed only `wheels`.)
+  #
+  # Two registries cannot be committed atomically, so a push that fails AFTER
+  # the other succeeded still splits them. The recovery is to re-run that one
+  # job — the artifacts persist on the run and carry the same version, so it
+  # republishes identically. Do NOT bump and re-tag for this: the versions
+  # would then disagree, which is the thing being avoided.
   publish-pypi:
-    needs: [guard, wheels]
+    needs: [guard, wheels, nuget]
     if: needs.guard.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment: release          # a spot for required reviewers, if wanted
@@ -518,7 +533,7 @@ jobs:
           skip-existing: true
 
   publish-nuget:
-    needs: [guard, nuget]
+    needs: [guard, wheels, nuget]
     if: needs.guard.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment: release

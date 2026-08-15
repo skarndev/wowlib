@@ -134,13 +134,18 @@ in spirit (unlist, never overwrite).
 Practical consequence: **0.0.1 is spent on PyPI** (published 2026-08-15 with
 Linux + macOS wheels, then deleted), so the first complete release is 0.0.2.
 
-## `publish-pypi` fires without the C# side
+## The two registries release together
 
-Its `needs:` is `[guard, wheels]` — deliberately, since the Python release does
-not depend on the NuGet one, but the consequence is that **PyPI can publish
-while the run is otherwise failing**. That is exactly what happened on 0.0.1:
-all three wheels passed, PyPI went out, and the run then failed on the C#
-matrix. If a release should be all-or-nothing, add `nuget` to that `needs:`.
+Both publish jobs need `[guard, wheels, nuget]`, so neither registry gets a
+version the other did not. This was NOT the original shape: `publish-pypi`
+needed only `wheels`, which is how 0.0.1 went out to PyPI off a run whose C#
+matrix had already failed.
+
+Two registries still cannot be committed atomically. If one push fails after
+the other succeeded, **re-run that single job** — the artifacts persist on the
+run and carry the same version, so it republishes identically. Do not bump and
+re-tag for that case: the versions would then disagree, which is the thing this
+gating exists to prevent.
 
 ## Gotchas the first run found (2026-08-14, v0.0.1)
 
