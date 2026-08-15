@@ -121,11 +121,23 @@ The casc test's WDC3||WDC4 check is just defensive.
   `EncryptedPolicy`/`EncryptedSection` (welded, moved here from table.hpp), and
   the schema-derived helpers (record_stride, field_slot_count, id_is_noninline …
   all computed at runtime from the schema span).
-- `db/record_bridge.hpp` — the ONLY per-record template: `TypedRecordSink<Record>`
-  / `TypedRecordSource<Record>` implement the bridge over a `std::vector<Record>`,
-  reflection dispatching a runtime column to the column-th member (schema columns
-  are 1:1 with members) and moving one field value across. Small member-loop
-  code per type — the residual per-table cost.
+- `db/record_bridge.hpp` + `.cpp` — **ERASED (2026-08-15, round 2 of the
+  type-erasure)**: `ErasedRecordSink`/`ErasedRecordSource` are NON-templated;
+  a consteval `ColumnAccess` table per record ({offset, kind, elem_stride,
+  flags_offset}, from the same reflection schema_of() uses) drives a
+  kind-switching core compiled once in record_bridge.cpp. The per-record
+  residue is `detail::record_ops<Record>`: that descriptor + 7 vector thunks
+  (clear/reserve/add/size/at/cat/clone_push — only they know sizeof(Record);
+  add/clone instantiate vector growth + Record copy, ~520 B/record, the
+  irreducible floor). Templated CONSTRUCTORS on the erased classes keep the
+  call sites unchanged. Field access went O(columns) linear `template for`
+  scan → O(1) indexed, so wide-table decode (ItemSparse-class) does
+  columns× less dispatch work. Measured on db binding shard 56 (-O2):
+  −3.8% text / −4% compile alone; −5.8% / −11.4% stacked with the facade
+  era-erasure (bindings/python/facade.hpp `def_for_version_overload_erased` —
+  the per-(family,expansion) closure became one type, factory passed as a
+  function pointer). Corpus green: 53/53 including 1.12.2/3.3.5a byte-perfect
+  and 9.2.7 WDC3 semantic round-trips.
 - `db/wdbc.{hpp,cpp}` — WdbcHeader (20B) + `wdbc_magic` (four_cc FORWARD — DB
   magics are plain byte sequences, unlike reversed chunk ids) + the non-templated
   `read_wdbc`/`write_wdbc(TableInfo, ..., RecordSink&/Source, TableState&)`.

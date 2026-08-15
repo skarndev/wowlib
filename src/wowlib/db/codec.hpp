@@ -122,7 +122,7 @@ namespace wowlib::db
       `set_*` scatter a decoded value into (record, column, element) — element
       indexes an array member, a LocString language slot (its flags being the
       element at index locale_count), or 0 for a scalar. record_bridge.hpp's
-      TypedRecordSink<Record> implements it over a std::vector<Record>&. */
+      ErasedRecordSink implements it over a std::vector<Record>& (record_bridge.hpp). */
   class RecordSink
   {
   public:
@@ -150,7 +150,7 @@ namespace wowlib::db
       returns a signed-widened integer (range scan, bit packing); `get_slot`
       returns the 32-bit pallet/common/None slot (an integer truncated to 32
       bits, or a float's bit pattern); `get_string` the string value. The element
-      index follows the RecordSink convention. TypedRecordSource<Record>
+      index follows the RecordSink convention. ErasedRecordSource
       implements it over a const std::vector<Record>&. */
   class RecordSource
   {

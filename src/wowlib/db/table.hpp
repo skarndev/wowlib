@@ -87,7 +87,7 @@ namespace wowlib::db
                                       table_name, data.size()));
       std::uint32_t magic = 0;
       std::memcpy(&magic, data.data(), sizeof magic);
-      TypedRecordSink<Record> sink{records};
+      ErasedRecordSink sink{records};
       if (magic == wdbc_magic)
         return read_wdbc(info(), data, sink, state_);
       if (magic == wdb2_magic)
@@ -207,7 +207,7 @@ namespace wowlib::db
     {
       formats::ValidationReport report;
       static constexpr auto schema = schema_of<Record>();
-      const TypedRecordSource<Record> source{records};
+      const ErasedRecordSource source{records};
 
       // Plenty of client tables are KEYLESS — pure lookup rows with no $id$
       // column (CharBaseInfo, CharacterFacialHairStyles, ItemSubClass, ...).
@@ -233,7 +233,7 @@ namespace wowlib::db
 
         if constexpr (has_id)
         {
-          const std::uint32_t id = detail::record_id(records[r]);
+          const std::uint32_t id = source.id_of(r);
           if (const auto [at, fresh] = first_seen.try_emplace(id, r); !fresh)
             report.add_error(std::format("records[{}]", r),
                              std::format("duplicate id {} (already used by records[{}]); the "
@@ -299,7 +299,7 @@ namespace wowlib::db
     /** Encode as @a magic (a loaded table always passes its source magic). */
     Result<FileBuffer> write_as(std::uint32_t magic, EncryptedPolicy policy) const
     {
-      TypedRecordSource<Record> source{records};
+      ErasedRecordSource source{records};
       if (magic == wdbc_magic)
         return write_wdbc(info(), source, state_);
       if (magic == wdb2_magic)

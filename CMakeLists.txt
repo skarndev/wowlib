@@ -35,6 +35,7 @@ add_library(wowlib STATIC
   src/wowlib/audit/roundtrip_wdt_wdl.cpp
   src/wowlib/audit/roundtrip_blp.cpp
   src/wowlib/db/codec_common.cpp
+  src/wowlib/db/record_bridge.cpp
   src/wowlib/db/wdbc.cpp
   src/wowlib/db/wdb2.cpp
   src/wowlib/db/wdc/image.cpp

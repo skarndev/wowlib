@@ -119,6 +119,31 @@ namespace wowlib_py
     return result;
   }
 
+  /** @brief The type-erased body of @ref def_for_version_overload.
+
+      The overload's only genuinely type-specific part is the factory;
+      everything else — the expansion it matches, the signature text — is
+      already runtime data. Taking the factory as a plain function pointer
+      makes this lambda's closure ONE type for the whole module instead of one
+      per (family, expansion), so nanobind instantiates its `func_create`
+      machinery once rather than per table per era (~40 KB per db binding
+      shard, measured). */
+  inline void def_for_version_overload_erased(nb::handle base,
+                                              wowlib::Expansion x,
+                                              nb::object (*make)(),
+                                              const char* signature)
+  {
+    nb::cpp_function(
+      [x, make](wowlib::Expansion expansion) -> nb::object
+      {
+        if (expansion != x)
+          throw nb::next_overload();
+        return make();
+      },
+      nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
+      nb::sig(signature));
+  }
+
   /** @brief Attach one @c for_version Literal overload (@p X → its range's
       concrete class; several Literals may share one class). */
   template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
@@ -126,17 +151,11 @@ namespace wowlib_py
                                 std::span<const wowlib::ClientVersion> pivots,
                                 std::span<const wowlib::ClientVersion> grid)
   {
-    nb::cpp_function(
-      [](wowlib::Expansion expansion) -> nb::object
-      {
-        if (expansion != X)
-          throw nb::next_overload();
-        return make_one<F, X>();
-      },
-      nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
-      nb::sig(persist("def for_version(expansion: typing.Literal[wowlib.Expansion."
-                      + std::string{wowlib::enum_name(X)} + "]) -> "
-                      + concrete_name(base_name, X, pivots, grid))));
+    def_for_version_overload_erased(
+      base, X, &make_one<F, X>,
+      persist("def for_version(expansion: typing.Literal[wowlib.Expansion."
+              + std::string{wowlib::enum_name(X)} + "]) -> "
+              + concrete_name(base_name, X, pivots, grid)));
   }
 
   /** @brief Attach @c for_version to a family @p base.
