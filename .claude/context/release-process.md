@@ -224,6 +224,17 @@ gating exists to prevent.
   empty `$mod` makes it pass vacuously too. Write assertions as
   `if <bad>; then echo "::error::…"; exit 1; fi` and check the input is
   non-empty first.
+- **Linux runners have NO swap; Windows/macOS page.** The C# generator TU
+  approaches 16 GB by itself, so on Linux the OOM killer terminates the runner
+  (exit 143) where Windows quietly pages through the same build. The
+  csharp-generate job now creates a 16 GB swapfile first — the same escape the
+  project's own CI VPS uses for gcc-16. If it ever OOMs again, drop
+  CMAKE_BUILD_PARALLEL_LEVEL to 1 for the generate phase before reaching for
+  anything bigger.
+- **The macOS wheel is ~2x slower than Linux by RUNNER SHAPE**: macos-latest is
+  3 vCPU / 7 GB vs ubuntu's 4 / 16 GB — the adaptive job pool drops to 2-wide
+  and the ~5 GB module TU swaps. Nothing to fix in the build; it just needs the
+  timeout headroom it has.
 - **The C# native job OOMs the runner at the default pool size.** Exit 143 /
   "the runner has received a shutdown signal" on ubuntu-latest: the adaptive
   `WOWLIB_PY_COMPILE_JOBS` (RAM / 3.5 GB → 4 on a 16 GB runner) is too generous
