@@ -38,3 +38,4 @@
 
 // for_version / AnyX facade attached per table after its types are welded.
 #include "db_facade.hpp"
+#include "record_vector.hpp"

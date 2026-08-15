@@ -235,13 +235,16 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     out.append("#include <cstdint>")
     out.append("#include <string>")
     out.append("#include <string_view>")
+    out.append("#include <vector>")
     out.append("")
     out.append("#include <welder/vocabulary.hpp>")
     out.append("")
     out.append("#include <wowlib/core/client_version.hpp>")
     out.append("#include <wowlib/db/annotations.hpp>")
     out.append("#include <wowlib/db/locstring.hpp>")
-    out.append("#include <wowlib/db/table.hpp>")
+    out.append("#include <wowlib/db/record_bridge.hpp>")
+    out.append("#include <wowlib/db/schema.hpp>")
+    out.append("#include <wowlib/db/table_core.hpp>")
     out.append("#include <wowlib/formats/common/version_range.hpp>")
     out.append("")
     # Welded empty supertypes for the Python/Lua binding surface. A class-template
@@ -272,7 +275,10 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     out.append(f'    =welder::weld_as("{table}"),')
     out.append(f'    =welder::doc("The {table} client-database table (DBFilesClient/'
                f'{var}.db2 or .dbc).")]]')
-    out.append(f"  {table}_")
+    # Deriving TableBase is what makes the whole method surface INHERITED: the
+    # ten table verbs bind once on TableBase instead of once per (table x era)
+    # class — the largest cost of the binding shards before this shape.
+    out.append(f"  {table}_ : TableBase")
     out.append("  {")
     out.append("  };")
     out.append("")
@@ -337,11 +343,55 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     # in tables:: participates in the module walk — welder binds a
     # class-template instantiation named by an alias only when the target type
     # is itself welded (welded_for checks the type's own annotations, not bases).
+    # The class contributes ONLY the typed records vector and its identity: the
+    # method surface is inherited from TableBase (via the family supertype), and
+    # the special members re-wire the shared TableCore at this instance's
+    # vector — the one obligation a core owner carries.
     out.append("    struct [[")
     out.append("      =welder::weld,")
     out.append(f'      =welder::doc("The {table} client-database table.")]]')
-    out.append(f"    {table}Table : Table<{table}Record<V>>, {table}_")
+    out.append(f"    {table}Table : {table}_")
     out.append("    {")
+    out.append("      static constexpr ClientVersion version = V;")
+    out.append(f'      static constexpr std::string_view table_name = "{dbd_name}";')
+    out.append("")
+    out.append("      [[=welder::mark::exclude(welder::lang::py),")
+    out.append("        =welder::mark::no_reassign,")
+    out.append('        =welder::doc("The decoded records, file order. Mutate in '
+               'place; write() serializes exactly this list.")]]')
+    out.append(f"      std::vector<{table}Record<V>> records;")
+    out.append("")
+    out.append(f"      {table}Table() {{ wire_(); }}")
+    out.append(f"      {table}Table(const {table}Table& o)")
+    out.append(f"        : {table}_(o), records(o.records) {{ wire_(); }}")
+    out.append(f"      {table}Table({table}Table&& o) noexcept")
+    out.append(f"        : {table}_(std::move(o)), records(std::move(o.records)) "
+               "{ wire_(); }")
+    out.append(f"      {table}Table& operator=(const {table}Table& o)")
+    out.append("      {")
+    out.append(f"        {table}_::operator=(o);")
+    out.append("        records = o.records;")
+    out.append("        wire_();")
+    out.append("        return *this;")
+    out.append("      }")
+    out.append(f"      {table}Table& operator=({table}Table&& o) noexcept")
+    out.append("      {")
+    out.append(f"        {table}_::operator=(std::move(o));")
+    out.append("        records = std::move(o.records);")
+    out.append("        wire_();")
+    out.append("        return *this;")
+    out.append("      }")
+    out.append("")
+    out.append("    private:")
+    out.append("      void wire_()")
+    out.append("      {")
+    out.append("        static constexpr auto schema = "
+               f"db::schema_of<{table}Record<V>>();")
+    out.append("        this->core_.wire(&records, "
+               f"&db::detail::record_ops<{table}Record<V>>,")
+    out.append("                         db::TableInfo{version, table_name, "
+               "schema});")
+    out.append("      }")
     out.append("    };")
     out.append("  }")
     out.append("")
@@ -472,12 +522,28 @@ def emit_shard(index: int, tables: list[tuple[str, list["Range"]]]) -> str:
                        f'"{table}Record{suffix}");')
             out.append(f'    W::weld_type<t::{table}{suffix}>(tables, '
                        f'"{table}{suffix}");')
+    # Live records views: everything type-specific crosses as runtime data —
+    # a two-instruction member thunk, the record's RecordOps, and the two
+    # registered class objects. One closure family serves every class.
+    out.append("")
+    for table, ranges in tables:
+        grid = [t for r in ranges for t in r.targets]
+        for rng in ranges:
+            suffix = range_suffix(rng, grid)
+            out.append(f"    def_records_view(")
+            out.append(f"      ::nanobind::type<t::{table}{suffix}>(),")
+            out.append(f"      [](void* s) -> void* "
+                       f"{{ return &static_cast<t::{table}{suffix}*>(s)->records; }},")
+            out.append(f"      &::wowlib::db::detail::record_ops<"
+                       f"t::{table}Record{suffix}>,")
+            out.append(f"      ::nanobind::type<t::{table}Record{suffix}>(),")
+            out.append(f'      "{table}Record{suffix}");')
     # Facades run only after every type in this shard is registered (for_version
     # needs the base class; the AnyX union looks the concretes up by name).
     out.append("")
     for table, _ in tables:
         var = snake(table)
-        out.append(f'    def_table_facade<t::{table}>(tables, "{table}", '
+        out.append(f'    def_table_facade(tables, "{table}", '
                    f"t::detail::{var}_pivots, t::detail::{var}_grid);")
     out.append("  }")
     out.append("}")
@@ -495,6 +561,8 @@ def emit_shard_registry(num_shards: int) -> str:
     out.append("// Generated by dbdgen — db binding-shard registry. Do not edit.")
     out.append("")
     out.append("#include <nanobind/nanobind.h>")
+    out.append("")
+    out.append('#include "record_vector.hpp"')
     out.append("")
     out.append("namespace wowlib_py::db")
     out.append("{")
@@ -514,6 +582,7 @@ def emit_shard_registry(num_shards: int) -> str:
     out.append("        \"rowbase\", \"Row supertypes, one per table.\");")
     out.append("    nb::module_ tables = db.def_submodule(")
     out.append("        \"tables\", \"The generated client-database table classes.\");")
+    out.append("    bind_record_vector(db);  // before any records property is used")
     for i in range(num_shards):
         out.append(f"    register_shard_{i}(tables, rowbase);")
     out.append("  }")

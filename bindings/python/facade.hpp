@@ -16,9 +16,12 @@
     new format (ADT, M2, ...) reuses them verbatim; only the per-format assembly
     verbs (read/write/convert) live in a format-specific translation unit. */
 
+#include <array>
 #include <deque>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <meta>
 
@@ -41,6 +44,16 @@ namespace wowlib_py
   /** Every @c Expansion enumerator, materialized once for the template-for walks. */
   constexpr auto expansion_enumerators =
     std::define_static_array(std::meta::enumerators_of(^^wowlib::Expansion));
+
+  /** The same enumerators as runtime VALUES — the erased facade helpers walk
+      this instead of instantiating a template-for per family. */
+  inline constexpr auto expansion_values = [] {
+    std::array<wowlib::Expansion, expansion_enumerators.size()> out{};
+    std::size_t i = 0;
+    template for (constexpr auto e : expansion_enumerators)
+      out[i++] = [:e:];
+    return out;
+  }();
 
   /** @brief Intern a signature string so its address stays valid for the module.
 
@@ -98,50 +111,65 @@ namespace wowlib_py
     return nb::cast(F<wowlib::to_client_version(X)>{});
   }
 
-  /** @brief The @c for_version fallback: runtime-dispatch @p expansion to @c make_one. */
-  template <template <wowlib::ClientVersion> class F>
-  nb::object make_for_version(wowlib::Expansion expansion)
+  /** @brief One family's (expansion → registered class) rows — the runtime
+      shape every erased facade helper dispatches through. */
+  struct FamilyEra
   {
-    nb::object result;
-    bool found = false;
-    template for (constexpr auto e : expansion_enumerators)
-    {
-      constexpr wowlib::Expansion X = [:e:];
-      if constexpr (family_has<F, X>)
-        if (!found && expansion == X)
-        {
-          result = make_one<F, ([:e:])>();
-          found = true;
-        }
-    }
-    if (!found)
-      throw nb::value_error("no wowlib instantiation for that expansion");
-    return result;
+    wowlib::Expansion expansion;
+    nb::object type;
+  };
+
+  /** @brief Attach the erased @c for_version fallback: dispatch @p expansion
+      through @p eras (shared, heap-kept) to its class object. */
+  inline void def_for_version_fallback_erased(
+    nb::handle base, std::string_view base_name,
+    std::shared_ptr<std::vector<FamilyEra>> eras)
+  {
+    nb::cpp_function(
+      [eras = std::move(eras)](wowlib::Expansion expansion) -> nb::object
+      {
+        for (const FamilyEra& fe : *eras)
+          if (fe.expansion == expansion)
+            return fe.type();
+        throw nb::value_error("no wowlib instantiation for that expansion");
+      },
+      nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
+      nb::sig(persist("def for_version(expansion: wowlib.Expansion) -> Any"
+                      + std::string{base_name})));
   }
 
   /** @brief The type-erased body of @ref def_for_version_overload.
 
-      The overload's only genuinely type-specific part is the factory;
-      everything else — the expansion it matches, the signature text — is
-      already runtime data. Taking the factory as a plain function pointer
-      makes this lambda's closure ONE type for the whole module instead of one
-      per (family, expansion), so nanobind instantiates its `func_create`
-      machinery once rather than per table per era (~40 KB per db binding
-      shard, measured). */
+      Nothing here is type-specific at all: constructing the concrete class is
+      CALLING its registered type object, the expansion it matches and the
+      signature text are runtime data. One closure type serves every
+      (family, expansion) overload in the module — nanobind's `func_create`
+      instantiates once, and no per-era factory (`nb::cast` of a fresh value,
+      with its caster machinery) is ever emitted. */
   inline void def_for_version_overload_erased(nb::handle base,
                                               wowlib::Expansion x,
-                                              nb::object (*make)(),
+                                              nb::handle type,
                                               const char* signature)
   {
     nb::cpp_function(
-      [x, make](wowlib::Expansion expansion) -> nb::object
+      [x, t = nb::borrow(type)](wowlib::Expansion expansion) -> nb::object
       {
         if (expansion != x)
           throw nb::next_overload();
-        return make();
+        return t();
       },
       nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
       nb::sig(signature));
+  }
+
+  /** @brief The Literal-overload signature text of expansion @p x. */
+  inline const char* for_version_sig(std::string_view base_name, wowlib::Expansion x,
+                                     std::span<const wowlib::ClientVersion> pivots,
+                                     std::span<const wowlib::ClientVersion> grid)
+  {
+    return persist("def for_version(expansion: typing.Literal[wowlib.Expansion."
+                   + std::string{wowlib::enum_name(x)} + "]) -> "
+                   + concrete_name(base_name, x, pivots, grid));
   }
 
   /** @brief Attach one @c for_version Literal overload (@p X → its range's
@@ -152,10 +180,8 @@ namespace wowlib_py
                                 std::span<const wowlib::ClientVersion> grid)
   {
     def_for_version_overload_erased(
-      base, X, &make_one<F, X>,
-      persist("def for_version(expansion: typing.Literal[wowlib.Expansion."
-              + std::string{wowlib::enum_name(X)} + "]) -> "
-              + concrete_name(base_name, X, pivots, grid)));
+      base, X, nb::type<typename concrete_of<F, X>::type>(),
+      for_version_sig(base_name, X, pivots, grid));
   }
 
   /** @brief Attach @c for_version to a family @p base.
@@ -174,14 +200,17 @@ namespace wowlib_py
                        std::span<const wowlib::ClientVersion> pivots,
                        std::span<const wowlib::ClientVersion> grid)
   {
+    auto eras = std::make_shared<std::vector<FamilyEra>>();
     template for (constexpr auto e : expansion_enumerators)
       if constexpr (family_has<F, ([:e:])>)
-        def_for_version_overload<F, ([:e:])>(base, base_name, pivots, grid);
-    nb::cpp_function(
-      [](wowlib::Expansion expansion) { return make_for_version<F>(expansion); },
-      nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
-      nb::sig(persist("def for_version(expansion: wowlib.Expansion) -> Any"
-                      + std::string{base_name})));
+      {
+        constexpr wowlib::Expansion X = [:e:];
+        nb::object type = nb::borrow(nb::type<typename concrete_of<F, X>::type>());
+        def_for_version_overload_erased(base, X, type,
+                                        for_version_sig(base_name, X, pivots, grid));
+        eras->push_back(FamilyEra{X, std::move(type)});
+      }
+    def_for_version_fallback_erased(base, base_name, std::move(eras));
   }
 
   /** @brief Run @p fn against @p self cast to concrete @c F<X>, if it is one.

@@ -150,6 +150,11 @@ namespace wowlib::db
       std::byte* (*at)(void*, std::size_t) = nullptr;  /**< &vec[i], as bytes. */
       const std::byte* (*cat)(const void*, std::size_t) = nullptr;
       void (*clone_push)(void*, std::size_t) = nullptr; /**< push_back(vec[src]). */
+      // The three below serve the binding-side live record views (a mutable
+      // sequence over the typed vector, erased the same way the sink is).
+      void (*push_copy)(void*, const void*) = nullptr;   /**< push_back(*src). */
+      void (*assign_at)(void*, std::size_t, const void*) = nullptr; /**< vec[i] = *src. */
+      void (*erase_at)(void*, std::size_t) = nullptr;    /**< vec.erase(begin+i). */
     };
 
     /** The $id$ column index of @a Record (consteval), or SIZE_MAX. */
@@ -190,6 +195,18 @@ namespace wowlib::db
       [](void* v, std::size_t src) {
         auto& vec = *static_cast<std::vector<Record>*>(v);
         vec.push_back(vec[src]);
+      },
+      [](void* v, const void* src) {
+        static_cast<std::vector<Record>*>(v)->push_back(
+          *static_cast<const Record*>(src));
+      },
+      [](void* v, std::size_t i, const void* src) {
+        (*static_cast<std::vector<Record>*>(v))[i] =
+          *static_cast<const Record*>(src);
+      },
+      [](void* v, std::size_t i) {
+        auto& vec = *static_cast<std::vector<Record>*>(v);
+        vec.erase(vec.begin() + static_cast<std::ptrdiff_t>(i));
       }};
   }
 
@@ -203,6 +220,12 @@ namespace wowlib::db
     template <typename Record>
     explicit ErasedRecordSink(std::vector<Record>& records)
       : vec_{&records}, ops_{&detail::record_ops<Record>}
+    {
+    }
+
+    /** From pre-erased parts (TableCore's path — it holds exactly these). */
+    ErasedRecordSink(void* records_vec, const detail::RecordOps* ops)
+      : vec_{records_vec}, ops_{ops}
     {
     }
 
@@ -235,6 +258,12 @@ namespace wowlib::db
     template <typename Record>
     explicit ErasedRecordSource(const std::vector<Record>& records)
       : vec_{&records}, ops_{&detail::record_ops<Record>}
+    {
+    }
+
+    /** From pre-erased parts (TableCore's path). */
+    ErasedRecordSource(const void* records_vec, const detail::RecordOps* ops)
+      : vec_{records_vec}, ops_{ops}
     {
     }
 

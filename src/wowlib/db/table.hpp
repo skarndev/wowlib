@@ -1,45 +1,40 @@
 #pragma once
 
 /** @file
-    Table<Record> — the client-database entity: a typed record vector decoded
-    from / encoded to the on-disk table formats. It is a THIN facade: it owns the
-    records and the preserved decode state (TableState) and sniffs the format,
-    but the byte-level work lives in the non-templated per-format codecs
-    (wdbc.{hpp,cpp}, wdb2.{hpp,cpp}, wdc/), which drive the records through the
-    record bridge (record_bridge.hpp) so they compile once rather than once per
-    generated table. Speaks WDBC (every pre-Cataclysm .dbc), WDB2 (the
-    Cata..WoD .db2), and the whole WDC family — WDC1 (Legion), WDC3 (BfA ..
-    early DF), WDC4 and WDC5 (DF/TWW) — reading and writing canonically.
+    Table<Record> — the typed client-database facade over the non-templated
+    TableCore engine (table_core.hpp). The record type pins the client version
+    and the table identity, so `Table<MapRecord<V>>` IS the Map table of client
+    V; everything the table DOES lives in the core, compiled once — this
+    template contributes only the typed records vector, the consteval identity,
+    and one-line delegations.
+
+    The dbdgen-generated table classes do NOT use this template: they derive
+    the welded TableBase chain (so the method surface binds once for all ~4200
+    of them) and wire the same core themselves. This facade is the hand-written
+    C++ path — a record struct you write yourself gets the full engine by
+    naming this one type.
 
     Round-trip policy (plan of record, 2026-07-29): WDBC and WDB2 are
     byte-perfect (the string block preserves decoded offsets); WDC writes are
-    canonical re-encodes with the semantic guarantee (write -> re-read decodes to
-    identical values). Encrypted sections always pass through verbatim. */
+    canonical re-encodes with the semantic guarantee (write -> re-read decodes
+    to identical values). Encrypted sections always pass through verbatim. */
 
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
-#include <format>
-#include <optional>
 #include <span>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/buffer.hpp>
-#include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/db/codec.hpp>
 #include <wowlib/db/record_bridge.hpp>
 #include <wowlib/db/schema.hpp>
-#include <wowlib/db/wdb2.hpp>
-#include <wowlib/db/wdbc.hpp>
-#include <wowlib/db/wdc/wdc.hpp>
-#include <wowlib/formats/common/fourcc.hpp>
+#include <wowlib/db/table_core.hpp>
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/validation.hpp>
 #include <wowlib/fs/filesystem.hpp>
@@ -48,16 +43,11 @@ namespace wowlib::db
 {
   /** A client database table: the typed records of one DBFilesClient file.
 
-      The record type is generated from WoWDBDefs by dbdgen (a flat struct whose
-      member types carry the column shapes — schema.hpp) and pins both the client
-      version and the table identity, so `Table<MapRecord<V>>` IS the Map table of
-      client V.
-
-      NOT welded: it is a non-welded MIXIN whose public members flatten onto a
-      per-table welded wrapper the bindings generate (like ChunkedFile under
-      WMORoot). The member annotations here (getters, no_reassign, docs) are read
-      off this declaring class during that flatten.
-      @tparam Record the generated record type. */
+      A thin typed shell: the records vector and the identity are here, the
+      engine is the shared TableCore. Copy/move re-wire the core at the fresh
+      records vector — the one obligation a core owner carries.
+      @tparam Record the record type (generated, or hand-written per
+              schema.hpp's TableRecord contract). */
   template <TableRecord Record>
   class Table
   {
@@ -73,6 +63,27 @@ namespace wowlib::db
                    "serializes exactly this list.")]]
     std::vector<Record> records;
 
+    Table() { wire(); }
+    Table(const Table& o) : records{o.records}, core_{o.core_} { wire(); }
+    Table(Table&& o) noexcept : records{std::move(o.records)}, core_{std::move(o.core_)}
+    {
+      wire();
+    }
+    Table& operator=(const Table& o)
+    {
+      records = o.records;
+      core_ = o.core_;
+      wire();
+      return *this;
+    }
+    Table& operator=(Table&& o) noexcept
+    {
+      records = std::move(o.records);
+      core_ = std::move(o.core_);
+      wire();
+      return *this;
+    }
+
     /** Decode a table image.
         @param data the whole file content.
         @return nothing, or why the image does not decode. */
@@ -81,26 +92,7 @@ namespace wowlib::db
     Result<void> read(std::span<const std::byte> data
                       [[=welder::doc("the whole file content")]])
     {
-      if (data.size() < sizeof(std::uint32_t))
-        return make_error(ErrorCode::TableTruncated,
-                          std::format("{}: {} bytes is too small for a client database",
-                                      table_name, data.size()));
-      std::uint32_t magic = 0;
-      std::memcpy(&magic, data.data(), sizeof magic);
-      ErasedRecordSink sink{records};
-      if (magic == wdbc_magic)
-        return read_wdbc(info(), data, sink, state_);
-      if (magic == wdb2_magic)
-        return read_wdb2(info(), data, sink, state_);
-      if (wdc::is_wdc_magic(magic))
-        return wdc::read_wdc(info(), data, sink, state_);
-      return make_error(
-        ErrorCode::TableMagicUnknown,
-        std::format("{}: magic '{}' is not a client-database format wowlib supports for "
-                    "client {}.{}.{}.{}",
-                    table_name,
-                    formats::fourcc_to_string(magic, formats::FourCCEndian::forward),
-                    version.major, version.minor, version.patch, version.build));
+      return core_.read(data);
     }
 
     /** Load the table from a client filesystem.
@@ -110,10 +102,7 @@ namespace wowlib::db
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                       const FileKey& key [[=welder::doc("the file to read")]])
     {
-      const auto data = fs.read_file(key);
-      if (!data)
-        return std::unexpected{data.error()};
-      return read(*data);
+      return core_.read(fs, key);
     }
 
     /** Serialize the table. A loaded table re-emits the magic it was read from; a
@@ -129,12 +118,7 @@ namespace wowlib::db
                              [[=welder::doc("keyless-section handling (WDC only)")]]
                              = EncryptedPolicy::Preserve) const
     {
-      if (state_.source_magic != 0)
-        return write_as(state_.source_magic, policy);
-      const auto magic = fresh_magic(std::nullopt);
-      if (!magic)
-        return std::unexpected{magic.error()};
-      return write_as(*magic, policy);
+      return core_.write(policy);
     }
 
     /** Serialize the table into a client filesystem (project overlay).
@@ -148,24 +132,7 @@ namespace wowlib::db
                        [[=welder::doc("keyless-section handling (WDC only)")]]
                        = EncryptedPolicy::Preserve) const
     {
-      const FileKey resolved = fs.resolve(key);
-      if (!resolved.path)
-        return make_error(ErrorCode::PathNotResolvable,
-                          std::format("saving table {} needs a path for the file key",
-                                      table_name));
-      auto data = [&]() -> Result<FileBuffer> {
-        if (state_.source_magic != 0)
-          return write_as(state_.source_magic, policy);
-        const auto magic = fresh_magic(*resolved.path);
-        if (!magic)
-          return std::unexpected{magic.error()};
-        return write_as(*magic, policy);
-      }();
-      if (!data)
-        return std::unexpected{data.error()};
-      if (auto r = fs.add_file(*resolved.path, *data); !r)
-        return std::unexpected{r.error()};
-      return {};
+      return core_.write(fs, key, policy);
     }
 
     /** The preserved string block the record string fields were decoded from.
@@ -174,7 +141,7 @@ namespace wowlib::db
       =welder::doc("The preserved string block the record string fields were decoded "
                    "from; offsets never move, write() appends new strings past its "
                    "end.")]]
-    const formats::StringBlock& strings() const { return state_.strings; }
+    const formats::StringBlock& strings() const { return core_.strings(); }
 
     /** The encrypted sections skipped on the last read (empty when the file was
         fully decodable or is not a WDC format).
@@ -182,14 +149,17 @@ namespace wowlib::db
     [[=welder::getter,
       =welder::doc("The encrypted sections skipped on read: their records are not "
                    "in records, but the file re-writes them verbatim.")]]
-    const std::vector<EncryptedSection>& encrypted_sections() const { return state_.encrypted; }
+    const std::vector<EncryptedSection>& encrypted_sections() const
+    {
+      return core_.encrypted_sections();
+    }
 
     /** Whether every record of the file was decoded (no encrypted sections).
         @return true when records holds the whole table. */
     [[=welder::getter,
       =welder::doc("Whether the whole table decoded — false when encrypted sections "
                    "were skipped.")]]
-    bool fully_decoded() const { return state_.encrypted.empty(); }
+    bool fully_decoded() const { return core_.fully_decoded(); }
 
     // There is deliberately NO "value fits its column" check: a column's width
     // IS its member's width (schema.hpp derives one from the other) and the WDC
@@ -203,46 +173,7 @@ namespace wowlib::db
         and no string holds an embedded NUL the string block would truncate.
         write() never runs this.)"),
       =welder::returns("every violated contract, in record order")]]
-    formats::ValidationReport validate() const
-    {
-      formats::ValidationReport report;
-      static constexpr auto schema = schema_of<Record>();
-      const ErasedRecordSource source{records};
-
-      // Plenty of client tables are KEYLESS — pure lookup rows with no $id$
-      // column (CharBaseInfo, CharacterFacialHairStyles, ItemSubClass, ...).
-      // There is no primary key to keep unique there, and record_id() reports
-      // 0 for every row.
-      static constexpr bool has_id =
-        std::ranges::any_of(schema, [](const Column& c) { return c.is_id; });
-      std::unordered_map<std::uint32_t, std::size_t> first_seen;
-      for (std::size_t r = 0; r < records.size() && !report.full(); ++r)
-      {
-        for (std::size_t c = 0; c < schema.size(); ++c)
-        {
-          const Column& column = schema[c];
-          const std::size_t slots = column.string_slots();
-          for (std::size_t e = 0; e < slots; ++e)
-            if (source.get_string(r, c, e).find('\0') != std::string_view::npos)
-              report.add_error(slots > 1 ? std::format("records[{}].{}[{}]", r,
-                                                       column.name_view(), e)
-                                         : std::format("records[{}].{}", r, column.name_view()),
-                               "the string holds an embedded NUL; the string block "
-                               "terminates entries with it, so it would read back truncated");
-        }
-
-        if constexpr (has_id)
-        {
-          const std::uint32_t id = source.id_of(r);
-          if (const auto [at, fresh] = first_seen.try_emplace(id, r); !fresh)
-            report.add_error(std::format("records[{}]", r),
-                             std::format("duplicate id {} (already used by records[{}]); the "
-                                         "client indexes records by id",
-                                         id, at->second));
-        }
-      }
-      return report;
-    }
+    formats::ValidationReport validate() const { return core_.validate(); }
 
     [[nodiscard]]
     [[=welder::doc("Validate and raise on the first error instead of returning "
@@ -250,68 +181,18 @@ namespace wowlib::db
       =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const { return validate().to_result(); }
 
+    /** The erased engine (bindings and tests reach the shared machinery here). */
+    const TableCore& core() const { return core_; }
+
   private:
-    /** The table identity + schema the codecs work from. */
-    static TableInfo info()
+    /** (Re-)point the core at this instance's vector and identity. */
+    void wire()
     {
       static constexpr auto schema = schema_of<Record>();
-      return TableInfo{version, table_name, schema};
+      core_.wire(&records, &detail::record_ops<Record>,
+                 TableInfo{version, table_name, schema});
     }
 
-    /** The canonical .db2 flavor of this client version (the format a fresh
-        Cataclysm-or-later table is written in).
-        @return the magic to encode. */
-    static constexpr std::uint32_t db2_magic_for_version()
-    {
-      if (version < builds::Legion)
-        return wdb2_magic;
-      if (version < builds::BfA)
-        return wdc::wdc1_magic;
-      if (version < ClientVersion{10, 1, 0, 48480})
-        return wdc::wdc3_magic;
-      if (version < ClientVersion{10, 2, 5, 52432})
-        return wdc::wdc4_magic;
-      return wdc::wdc5_magic;
-    }
-
-    /** The canonical on-disk format for a FRESH table of this client version; the
-        target path's extension decides in the mixed .dbc/.db2 eras.
-        @param path the destination path, when saving through a filesystem.
-        @return the magic to encode, or why no format is available. */
-    Result<std::uint32_t> fresh_magic(std::optional<std::string_view> path) const
-    {
-      if (path)
-      {
-        if (path->ends_with(".dbc"))
-          return wdbc_magic;
-        if (path->ends_with(".db2"))
-          return version < builds::Cata
-                   ? make_error(ErrorCode::NotSupported,
-                                std::format("{}: .db2 does not exist before Cataclysm",
-                                            table_name))
-                   : Result<std::uint32_t>{db2_magic_for_version()};
-      }
-      if (version < builds::Cata)
-        return wdbc_magic;
-      return db2_magic_for_version();
-    }
-
-    /** Encode as @a magic (a loaded table always passes its source magic). */
-    Result<FileBuffer> write_as(std::uint32_t magic, EncryptedPolicy policy) const
-    {
-      ErasedRecordSource source{records};
-      if (magic == wdbc_magic)
-        return write_wdbc(info(), source, state_);
-      if (magic == wdb2_magic)
-        return write_wdb2(info(), source, state_);
-      if (wdc::is_wdc_magic(magic))
-        return wdc::write_wdc(magic, info(), source, state_, policy);
-      return make_error(
-        ErrorCode::NotImplemented,
-        std::format("{}: writing '{}' tables is not implemented yet", table_name,
-                    formats::fourcc_to_string(magic, formats::FourCCEndian::forward)));
-    }
-
-    TableState state_;
+    TableCore core_;
   };
 }

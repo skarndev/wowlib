@@ -154,7 +154,12 @@ class EmitTest(unittest.TestCase):
         self.assertIn("namespace wowlib::db::rowbase", header)
         self.assertIn("=welder::weld_as(\"Widget\"),", header)
         # The wrapper too carries its own weld besides inheriting the table supertype.
-        self.assertIn("WidgetTable : Table<WidgetRecord<V>>, Widget_", header)
+        self.assertIn("Widget_ : TableBase", header)
+        self.assertIn("WidgetTable : Widget_", header)
+        # the method surface is INHERITED — the class contributes records + wiring
+        self.assertIn("std::vector<WidgetRecord<V>> records;", header)
+        self.assertIn("mark::exclude(welder::lang::py)", header)
+        self.assertIn("core_.wire(&records", header)
         self.assertIn("using Widget = detail::WidgetTable<formats::canonical_version("
                       "V, detail::widget_pivots, detail::widget_grid)>;", header)
 
@@ -211,8 +216,11 @@ $id$ID<32>
                       '"WidgetRecordWotlk");', shard)
         self.assertNotIn("weld_namespace", shard)
         # for_version / AnyX facade, after the types are welded.
-        self.assertIn('def_table_facade<t::Widget>(tables, "Widget", '
+        self.assertIn('def_table_facade(tables, "Widget", '
                       "t::detail::widget_pivots, t::detail::widget_grid);", shard)
+        self.assertIn("def_records_view(", shard)
+        self.assertIn("&::wowlib::db::detail::record_ops<t::WidgetRecordVanilla>",
+                      shard)
 
     def test_emit_shard_registry_shape(self):
         registry = emit_shard_registry(2)

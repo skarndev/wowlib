@@ -150,6 +150,42 @@ The casc test's WDC3||WDC4 check is just defensive.
   baseline was built against the July welder pin, and welder main had grown
   shards ~8% since (measured: the same shard TU was 1559088 under the July pin,
   1692392 under current main pre-erasure).
+- **Round 4 (2026-08-15, same day): TableBase + TableCore + RecordVector —
+  the .so HALVED, 130 → 60 MB (text 100.2 → 44.8 MB); shard 56
+  1447168 → 661544 (−61% vs the day's baseline), compile 78.5 → 52 s.**
+  - `db/table_core.{hpp,cpp}`: TableCore (non-templated engine — every method
+    body compiled once, driven by TableInfo + RecordOps; unwired core errors
+    with InvalidEntityState) + the ONE welded `TableBase` carrying the whole
+    method surface. `Table<Record>` (hand-written-record path) is a thin typed
+    shell over the same core; its copy/move REWIRE the core (the one owner
+    obligation).
+  - dbdgen: family supertype `X_ : TableBase`; per-era `XTable<V> : X_` holds
+    only records + identity + wiring special members. Methods are INHERITED in
+    every language — `read`/`write` no longer appear in tables.pyi at all.
+    welder handled the 2-level welded base chain unchanged.
+  - `records` is a **live RecordVector view** (bindings/python/record_vector.hpp):
+    erased over {vector*, RecordOps*, element type object}; `__getitem__` wraps
+    elements IN PLACE via nb::inst_reference (keep-alive parent = the table),
+    append/extend/setitem/delitem via new RecordOps thunks (push_copy/
+    assign_at/erase_at). FIXES the old semantics where the stl caster returned
+    a list of COPIES and `t.records[0].id = 5` silently mutated a detached
+    copy. Rebind (`t.records = [...]`) = clear + copy-in. Caveat: growth may
+    reallocate — re-index rather than holding element refs across appends.
+  - Facade fully erased (facade.hpp FamilyEra + db_facade.hpp): for_version
+    overloads and fallback dispatch via registered TYPE OBJECTS (calling the
+    class object constructs), AnyX folded from the same handles; formats
+    families share the erased helpers. No template instantiates per family.
+  - Gate learnings: a public method returning a non-welded type (TableBase::
+    core()) trips the bindability gate — `mark::exclude` is the escape;
+    `nb::type<T>()` returns handle, not object (borrow it).
+  - **Pre-existing, NOT a regression**: welder never binds C++ default
+    arguments (`_def_function` passes nb::arg(name) without `= value`), so
+    `t.write()` bare has always required an explicit EncryptedPolicy from
+    Python. Worth a welder feature some day.
+  - Verified: dbdgen unit 17, C++ db+corpus 73/73 (byte-perfect + WDC
+    semantic), pytest 153/153, mypy typing cases green, plus direct probes of
+    in-place mutation, iteration, del, rebind, for_version, the isinstance
+    chain (concrete → family → TableBase) and clean unwired-base errors.
 - `db/wdbc.{hpp,cpp}` — WdbcHeader (20B) + `wdbc_magic` (four_cc FORWARD — DB
   magics are plain byte sequences, unlike reversed chunk ids) + the non-templated
   `read_wdbc`/`write_wdbc(TableInfo, ..., RecordSink&/Source, TableState&)`.
