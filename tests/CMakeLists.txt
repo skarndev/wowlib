@@ -71,6 +71,9 @@ if(WOWLIB_DB_TABLES)
     target_compile_definitions(wowlib_tests_db_corpus PRIVATE WOWLIB_DB_FULL_CORPUS)
   endif()
   target_sources(wowlib_tests PRIVATE $<TARGET_OBJECTS:wowlib_tests_db_corpus>)
+  # The catalog parity test cross-checks the embedded WDBS blob against the
+  # generated headers' schema_of — it needs both, so it lives in this block.
+  target_sources(wowlib_tests PRIVATE unit/test_schema_catalog.cpp)
   target_link_libraries(wowlib_tests PRIVATE wowlib_db_tables)
   add_test(NAME dbdgen_unit
     COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${CMAKE_SOURCE_DIR}/tools/dbdgen"

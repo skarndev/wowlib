@@ -22,7 +22,7 @@ namespace wowlib::db
 {
   Result<void> TableCore::require_wired() const
   {
-    if (vec_ && ops_)
+    if ((vec_ && ops_) || (ext_sink_ && ext_source_))
       return {};
     return make_error(ErrorCode::InvalidEntityState,
                       "this table base carries no records: construct a concrete "
@@ -39,7 +39,9 @@ namespace wowlib::db
                                     info_.name, data.size()));
     std::uint32_t magic = 0;
     std::memcpy(&magic, data.data(), sizeof magic);
-    ErasedRecordSink sink{vec_, ops_};
+    // Either wiring: the codecs only ever see the RecordSink interface.
+    ErasedRecordSink erased{vec_, ops_};
+    RecordSink& sink = ext_sink_ ? *ext_sink_ : static_cast<RecordSink&>(erased);
     if (magic == wdbc_magic)
       return read_wdbc(info_, data, sink, state_);
     if (magic == wdb2_magic)
@@ -106,10 +108,12 @@ namespace wowlib::db
   formats::ValidationReport TableCore::validate() const
   {
     formats::ValidationReport report;
-    if (!vec_ || !ops_)
+    if (!require_wired())
       return report;  // an unwired base holds nothing to violate
     const std::span<const Column> schema = info_.schema;
-    const ErasedRecordSource source{vec_, ops_};
+    const ErasedRecordSource erased{vec_, ops_};
+    const RecordSource& source =
+      ext_source_ ? *ext_source_ : static_cast<const RecordSource&>(erased);
 
     // Plenty of client tables are KEYLESS — pure lookup rows with no $id$
     // column. No primary key to keep unique there.
@@ -182,7 +186,9 @@ namespace wowlib::db
   Result<FileBuffer> TableCore::write_as(std::uint32_t magic,
                                          EncryptedPolicy policy) const
   {
-    ErasedRecordSource source{vec_, ops_};
+    ErasedRecordSource erased{vec_, ops_};
+    const RecordSource& source =
+      ext_source_ ? *ext_source_ : static_cast<const RecordSource&>(erased);
     if (magic == wdbc_magic)
       return write_wdbc(info_, source, state_);
     if (magic == wdb2_magic)

@@ -58,6 +58,13 @@ if(WOWLIB_DB_TABLES)
       --eras "${WOWLIB_DB_ERAS}")
   set(_wowlib_dbdgen_outputs "${_wowlib_dbdgen_stamp}")
 
+  # The WDBS schema blob — the generic engine's runtime schema source and the
+  # consteval typed-record validation's #embed input (schema_catalog.cpp's
+  # --embed-dir points here; see the WOWLIB_DB_SCHEMA option).
+  set(WOWLIB_DB_SCHEMA_BLOB "${WOWLIB_DB_GENERATED_DIR}/wowlib_schema.wdbs")
+  list(APPEND _wowlib_dbdgen_args --schema-blob-out "${WOWLIB_DB_SCHEMA_BLOB}")
+  list(APPEND _wowlib_dbdgen_outputs "${WOWLIB_DB_SCHEMA_BLOB}")
+
   # For the Python build, the same dbdgen run also emits the binding shards
   # (db_shard_N.cpp + db_shards.hpp). WOWLIB_DB_SHARD_SOURCES / the shard include
   # dir are exposed to the bindings/ subdir (this file is include()d at top-level

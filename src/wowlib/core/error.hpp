@@ -45,7 +45,10 @@ namespace wowlib
 
     TableTruncated,      /**< A client-database header, record block or satellite block overruns the file. */
     TableMagicUnknown,   /**< A client-database magic wowlib does not support for the requested version. */
-    SchemaMismatch       /**< A client-database record layout disagrees with the generated WoWDBDefs schema. */
+    SchemaMismatch,      /**< A client-database record layout disagrees with the generated WoWDBDefs schema. */
+
+    SchemaBlobInvalid,   /**< A WDBS schema blob (or WoWDBDefs source) is malformed or truncated. */
+    TableUnknown         /**< The schema catalog knows no table of the requested name. */
   };
 
   /** The enumerator spelling of @a code, obtained via reflection.

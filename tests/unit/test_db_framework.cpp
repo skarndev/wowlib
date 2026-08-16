@@ -15,6 +15,7 @@
 #include <wowlib/db/wdb2.hpp>
 #include <wowlib/db/wdbc.hpp>
 #include <wowlib/db/wdc/wdc.hpp>
+#include <wowlib/db/dyn_table.hpp>
 
 using namespace wowlib;
 
@@ -920,4 +921,88 @@ TEST_CASE("db: validate() guards the contracts the record types cannot",
     REQUIRE_FALSE(result.has_value());
     CHECK(result.error().code == ErrorCode::InvalidEntityState);
   }
+}
+
+TEST_CASE("dyn: the column store round-trips the typed image byte-identically",
+          "[db][dyn]")
+{
+  // The SAME synthetic WDBC image the typed tests decode, through the generic
+  // column-store table instead: cell values must match the typed reads, and
+  // the write-back must be byte-perfect — the parity that lets DynTable
+  // replace the generated types in front of the unchanged codecs.
+  const auto image = make_image();
+  const db::TableSchema schema{"UnitTest", "UnitTest", test_schema};
+  db::DynTable table = db::DynTable::from_schema(schema, versions::wotlk);
+  REQUIRE(table.read(image).has_value());
+
+  REQUIRE(table.row_count() == 2);
+  CHECK(table.get_int(0, 0).value() == 1);
+  CHECK(table.get_string(0, 1).value() == "Azeroth");
+  CHECK(table.get_string(0, 2, 0).value() == "Kalimdor");
+  CHECK(table.get_string(1, 2, 0).value() == "eroth");
+  CHECK(table.locstring_flags(0, 2).value() == 0xFF01);
+  CHECK(table.get_float(0, 3).value() == 1.5f);
+  CHECK(table.get_int(0, 4, 0).value() == 3);
+  CHECK(table.get_int(0, 4, 1).value() == 4);
+  CHECK(table.get_int(0, 5).value() == 7);
+  CHECK(table.get_int(0, 6).value() == -5);
+  CHECK(table.get_int(1, 6).value() == 600);
+  CHECK(table.find_by_id(2).value() == 1);
+
+  const auto written = table.write();
+  REQUIRE(written.has_value());
+  REQUIRE(written->size() == image.size());
+  CHECK(std::memcmp(written->data(), image.data(), image.size()) == 0);
+
+  SECTION("strict accessors reject kind and range misuse")
+  {
+    CHECK(table.get_int(0, 1).error().code == ErrorCode::SchemaMismatch);
+    CHECK(table.get_float(0, 0).error().code == ErrorCode::SchemaMismatch);
+    CHECK(table.get_int(2, 0).error().code == ErrorCode::OffsetOutOfBounds);
+    CHECK(table.get_int(0, 4, 2).error().code == ErrorCode::OffsetOutOfBounds);
+  }
+
+  SECTION("zero-copy pod views type the raw column buffers")
+  {
+    const auto ids = table.pod_column(0);
+    REQUIRE(ids.has_value());
+    CHECK(ids->elem_bytes == 4);
+    CHECK(ids->elems_per_row == 1);
+    CHECK_FALSE(ids->is_signed);
+    CHECK(ids->bytes.size() == 2 * 4);
+    const auto arr = table.pod_column(4);
+    REQUIRE(arr.has_value());
+    CHECK(arr->elems_per_row == 2);
+    CHECK(table.pod_column(1).error().code == ErrorCode::SchemaMismatch);
+  }
+
+  SECTION("mutating a cell survives a write/read cycle")
+  {
+    REQUIRE(table.set_int(1, 6, -321).has_value());
+    REQUIRE(table.set_string(0, 1, "Northrend").has_value());
+    const auto rewritten = table.write();
+    REQUIRE(rewritten.has_value());
+    db::DynTable back = db::DynTable::from_schema(schema, versions::wotlk);
+    REQUIRE(back.read(*rewritten).has_value());
+    CHECK(back.get_int(1, 6).value() == -321);
+    CHECK(back.get_string(0, 1).value() == "Northrend");
+  }
+}
+
+TEST_CASE("dyn: copies re-wire the core at their own storage", "[db][dyn]")
+{
+  const auto image = make_image();
+  const db::TableSchema schema{"UnitTest", "UnitTest", test_schema};
+  db::DynTable original = db::DynTable::from_schema(schema, versions::wotlk);
+  REQUIRE(original.read(image).has_value());
+
+  db::DynTable copy{original};
+  REQUIRE(copy.set_int(0, 0, 77).has_value());
+  CHECK(copy.get_int(0, 0).value() == 77);
+  CHECK(original.get_int(0, 0).value() == 1); // untouched — deep copy
+  const auto written = copy.write();          // writes COPY's rows, not original's
+  REQUIRE(written.has_value());
+  db::DynTable back = db::DynTable::from_schema(schema, versions::wotlk);
+  REQUIRE(back.read(*written).has_value());
+  CHECK(back.get_int(0, 0).value() == 77);
 }

@@ -733,6 +733,100 @@ def emit_stub_patterns(tables: list[tuple[str, list["Range"]]]) -> str:
     return "\n".join(out)
 
 
+def emit_schema_blob(tables: list[tuple[str, list["Range"]]],
+                     disk_names: dict[str, str]) -> bytes:
+    """The compact binary schema blob: every table's per-range column lists,
+    self-describing against its own era table — the RUNTIME twin of the
+    generated headers, and the input to both the C++ ``SchemaCatalog`` and the
+    consteval typed-record validation (``#embed``).
+
+    Format WDBS v1, all little-endian, laid out section after section so a
+    sequential parser needs no offsets table:
+
+    | section | entry | layout |
+    |---|---|---|
+    | header  | 1 | ``u32 magic 'WDBS', u32 version=1, u32 table_count, u32 range_count, u32 column_count, u32 strpool_size, u8 era_count, u8[3] pad`` |
+    | eras    | era_count | ``u16 major, u16 minor, u16 patch, u16 pad, u32 build`` |
+    | tables  | table_count, sorted by identifier | ``u32 name_off, u32 disk_name_off, u32 first_range, u32 range_count`` |
+    | ranges  | range_count | ``u32 first_column, u16 column_count, u16 era_mask`` |
+    | columns | column_count | ``u32 name_off, u8 type, u8 bits, u8 flags, u8 locale_count, u16 array_len, u16 pad`` |
+    | strpool | strpool_size bytes | NUL-terminated, offset 0 = "" |
+
+    ``era_mask`` is a BITMASK over the blob's own era table (bit i = era i),
+    not a lo..hi span: a table absent in a middle era yields a range whose
+    target list has a hole, and a span would over-claim it. ``type`` mirrors
+    ``wowlib::db::ColumnType`` (0 Int, 1 Float, 2 String, 3 LocString);
+    ``flags`` is 1 signed | 2 id | 4 relation | 8 noninline. ``disk_name`` is
+    the on-disk table truth (``Item-sparse``) where the identifier was renamed.
+    """
+    import struct
+
+    from dbdgen.targets import TARGETS
+
+    era_index = {t.era: i for i, t in enumerate(TARGETS)}
+    if len(TARGETS) > 16:
+        raise DbdError("era_mask is u16; widen it before adding a 17th target")
+
+    pool = bytearray(b"\x00")
+    interned: dict[str, int] = {"": 0}
+
+    def intern(text: str) -> int:
+        if text not in interned:
+            interned[text] = len(pool)
+            pool.extend(text.encode("utf-8"))
+            pool.append(0)
+        return interned[text]
+
+    def column_entry(member: Member) -> bytes:
+        cpp = member.cpp_type
+        bits, signed, locale = 32, False, 0
+        if cpp == "float":
+            ctype = 1
+        elif cpp == "std::string":
+            ctype = 2
+        elif cpp.startswith("LocString"):
+            ctype = 3
+            locale = int(cpp.removeprefix("LocString"))
+        else:  # std::intN_t / std::uintN_t
+            ctype = 0
+            signed = not cpp.startswith("std::uint")
+            bits = int(re.search(r"(\d+)_t$", cpp).group(1))
+        flags = ((1 if signed else 0) | (2 if member.is_id else 0) |
+                 (4 if member.is_relation else 0) |
+                 (8 if member.noninline else 0))
+        return struct.pack("<IBBBBHH", intern(member.name), ctype, bits, flags,
+                           locale, member.array_len or 1, 0)
+
+    tables_bin = bytearray()
+    ranges_bin = bytearray()
+    columns_bin = bytearray()
+    n_ranges = 0
+    n_columns = 0
+    for table, ranges in sorted(tables, key=lambda e: e[0]):
+        tables_bin += struct.pack("<IIII", intern(table),
+                                  intern(disk_names.get(table, table)),
+                                  n_ranges, len(ranges))
+        for rng in ranges:
+            mask = 0
+            for target in rng.targets:
+                mask |= 1 << era_index[target.era]
+            ranges_bin += struct.pack("<IHH", n_columns, len(rng.members), mask)
+            n_ranges += 1
+            for member in rng.members:
+                columns_bin += column_entry(member)
+                n_columns += 1
+
+    eras_bin = bytearray()
+    for target in TARGETS:
+        major, minor, patch, build = target.version
+        eras_bin += struct.pack("<HHHHI", major, minor, patch, 0, build)
+
+    header = struct.pack("<IIIIIIB3x", 0x53424457, 1, len(tables), n_ranges,
+                         n_columns, len(pool), len(TARGETS))
+    return bytes(header + eras_bin + tables_bin + ranges_bin + columns_bin +
+                 pool)
+
+
 def write_if_changed(path: Path, content: str) -> bool:
     """Write ``content`` to ``path`` unless it already matches (keeps ninja
     from rebuilding unchanged tables)."""
@@ -740,4 +834,13 @@ def write_if_changed(path: Path, content: str) -> bool:
         return False
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+    return True
+
+
+def write_bytes_if_changed(path: Path, content: bytes) -> bool:
+    """The binary twin of :func:`write_if_changed` (the schema blob)."""
+    if path.exists() and path.read_bytes() == content:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
     return True

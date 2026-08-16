@@ -64,9 +64,32 @@ namespace wowlib::db
       info_ = info;
     }
 
+    /** Point the core at an EXTERNAL sink/source pair instead of a typed
+        records vector — the generic column-store table's wiring (dyn_table).
+        One object usually implements both interfaces; the codecs and every
+        method body here are indifferent to which wiring is live.
+        @param sink   the decode target (kept alive by the owner).
+        @param source the encode source (kept alive by the owner).
+        @param info   the runtime identity + schema. */
+    void wire(RecordSink* sink, const RecordSource* source, TableInfo info)
+    {
+      ext_sink_ = sink;
+      ext_source_ = source;
+      info_ = info;
+    }
+
     /** Re-point at the owner's vector after the owner was copied/moved (state
         and identity travel with the core; only the pointer goes stale). */
     void rewire(void* records_vec) { vec_ = records_vec; }
+
+    /** The external-wiring twin of @ref rewire.
+        @param sink   the copied owner's sink.
+        @param source the copied owner's source. */
+    void rewire(RecordSink* sink, const RecordSource* source)
+    {
+      ext_sink_ = sink;
+      ext_source_ = source;
+    }
 
     Result<void> read(std::span<const std::byte> data);
     Result<void> read(fs::FileSystem& fs, const FileKey& key);
@@ -99,6 +122,8 @@ namespace wowlib::db
 
     void* vec_ = nullptr;
     const detail::RecordOps* ops_ = nullptr;
+    RecordSink* ext_sink_ = nullptr;        /**< External wiring (dyn_table). */
+    const RecordSource* ext_source_ = nullptr; /**< External wiring (dyn_table). */
     TableInfo info_{};
     TableState state_;
   };

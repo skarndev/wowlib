@@ -15,9 +15,9 @@ from pathlib import Path
 from dbdgen import dbd
 from dbdgen.emit import (Range, build_members, collapse, emit_all_tables,
                          emit_cs_aliases, emit_cs_gen_registry, emit_cs_gen_shard,
-                         emit_manifest, emit_shard,
+                         emit_manifest, emit_schema_blob, emit_shard,
                          emit_shard_registry, emit_stub_patterns, emit_table, snake,
-                         write_if_changed)
+                         write_bytes_if_changed, write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
 
 # Generated C++/Python identifiers come straight from the table name.
@@ -46,6 +46,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--cs-gen-out", type=Path, default=None,
         help="emit the sharded C# GENERATOR translation units into this directory")
+    parser.add_argument(
+        "--schema-blob-out", type=Path, default=None,
+        help="emit the compact binary schema blob (WDBS) to this file — the "
+             "runtime/consteval schema source for the generic DB engine")
     parser.add_argument("--shards", type=int, default=16,
                         help="number of binding-shard translation units (parallel "
                              "compile); only used with --bindings-out")
@@ -68,6 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     tables_dir = args.out / "wowlib" / "db" / "tables"
     manifest: dict[str, list[str]] = {era: [] for era in eras}
     table_ranges: list[tuple[str, list[Range]]] = []
+    disk_names: dict[str, str] = {}
     emitted = 0
     skipped_no_block = 0
     warnings: list[str] = []
@@ -105,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
                          emit_table(table, ranges, dbd_name=dbd_name))
         emitted += 1
         table_ranges.append((table, ranges))
+        disk_names[table] = dbd_name
         for target, _ in per_target:
             manifest[target.era].append(table)
 
@@ -150,6 +156,12 @@ def main(argv: list[str] | None = None) -> int:
         write_if_changed(args.cs_gen_out / "cs_gen_shards.hpp",
                          emit_cs_gen_registry(num_shards))
         print(f"dbdgen: {num_shards} C# generator shards emitted to {args.cs_gen_out}")
+
+    if args.schema_blob_out is not None:
+        blob = emit_schema_blob(table_ranges, disk_names)
+        write_bytes_if_changed(args.schema_blob_out, blob)
+        print(f"dbdgen: schema blob ({len(blob)} bytes, "
+              f"{len(table_ranges)} tables) emitted to {args.schema_blob_out}")
 
     print(f"dbdgen: {emitted} tables emitted "
           f"({', '.join(f'{era}: {len(manifest[era])}' for era in eras)}); "

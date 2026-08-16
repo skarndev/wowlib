@@ -35,7 +35,9 @@ add_library(wowlib STATIC
   src/wowlib/audit/roundtrip_wdt_wdl.cpp
   src/wowlib/audit/roundtrip_blp.cpp
   src/wowlib/db/codec_common.cpp
+  src/wowlib/db/dyn_table.cpp
   src/wowlib/db/record_bridge.cpp
+  src/wowlib/db/schema_catalog.cpp
   src/wowlib/db/table_core.cpp
   src/wowlib/db/wdbc.cpp
   src/wowlib/db/wdb2.cpp
@@ -50,6 +52,38 @@ add_library(wowlib STATIC
 target_include_directories(wowlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_options(wowlib PRIVATE ${WOWLIB_CXX_FLAGS} PUBLIC ${WOWLIB_REFLECTION_FLAGS})
 target_link_libraries(wowlib PUBLIC welder::headers PRIVATE storm casc_static stb_dxt)
+
+# Where the generic DB engine's schema comes from (the WDBS blob dbdgen
+# emits). "embedded" bakes it into the library via #embed — the right shape
+# for anything that ships (nothing to locate at runtime); "runtime" compiles
+# the baked copy OUT, leaving only SchemaCatalog::from_blob_file — for
+# tools that track WoWDBDefs faster than they rebuild wowlib; "both" (the
+# default) bakes AND keeps the loaders.
+set(WOWLIB_DB_SCHEMA "both" CACHE STRING
+    "DB schema source: embedded | runtime | both")
+set_property(CACHE WOWLIB_DB_SCHEMA PROPERTY STRINGS embedded runtime both)
+if(NOT WOWLIB_DB_SCHEMA MATCHES "^(embedded|runtime|both)$")
+  message(FATAL_ERROR "WOWLIB_DB_SCHEMA must be embedded, runtime or both, "
+                      "not '${WOWLIB_DB_SCHEMA}'")
+endif()
+if(NOT WOWLIB_DB_TABLES AND NOT WOWLIB_DB_SCHEMA STREQUAL "runtime")
+  message(STATUS "wowlib: WOWLIB_DB_TABLES=OFF leaves no blob to embed — "
+                 "WOWLIB_DB_SCHEMA falls back to 'runtime'")
+  set(WOWLIB_DB_SCHEMA "runtime")
+endif()
+# PUBLIC: schema_catalog.hpp gates the embedded() DECLARATION on it, so
+# consumers must see the same value the library was compiled with.
+if(WOWLIB_DB_SCHEMA STREQUAL "runtime")
+  target_compile_definitions(wowlib PUBLIC WOWLIB_DB_SCHEMA_EMBEDDED=0)
+else()
+  target_compile_definitions(wowlib PUBLIC WOWLIB_DB_SCHEMA_EMBEDDED=1)
+  # Only this TU embeds; the blob is a generation output, so the object must
+  # re-compile when dbdgen rewrites it.
+  set_source_files_properties(src/wowlib/db/schema_catalog.cpp PROPERTIES
+    COMPILE_OPTIONS "--embed-dir=${WOWLIB_DB_GENERATED_DIR}"
+    OBJECT_DEPENDS "${WOWLIB_DB_SCHEMA_BLOB}")
+  add_dependencies(wowlib wowlib_dbdgen)
+endif()
 
 if(WOWLIB_BUILD_TESTS)
   enable_testing()
