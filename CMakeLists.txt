@@ -77,10 +77,14 @@ if(WOWLIB_DB_SCHEMA STREQUAL "runtime")
   target_compile_definitions(wowlib PUBLIC WOWLIB_DB_SCHEMA_EMBEDDED=0)
 else()
   target_compile_definitions(wowlib PUBLIC WOWLIB_DB_SCHEMA_EMBEDDED=1)
-  # Only this TU embeds; the blob is a generation output, so the object must
-  # re-compile when dbdgen rewrites it.
+  # PUBLIC: not just schema_catalog.cpp — db/typed.hpp #embeds the same blob
+  # in CONSUMER TUs (the consteval typed-record validation reads the exact
+  # bytes the runtime engine uses), so every TU that includes it needs the
+  # embed search path.
+  target_compile_options(wowlib PUBLIC "--embed-dir=${WOWLIB_DB_GENERATED_DIR}")
+  # The blob is a generation output; the embedding TU must re-compile when
+  # dbdgen rewrites it.
   set_source_files_properties(src/wowlib/db/schema_catalog.cpp PROPERTIES
-    COMPILE_OPTIONS "--embed-dir=${WOWLIB_DB_GENERATED_DIR}"
     OBJECT_DEPENDS "${WOWLIB_DB_SCHEMA_BLOB}")
   add_dependencies(wowlib wowlib_dbdgen)
 endif()
