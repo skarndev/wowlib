@@ -348,11 +348,14 @@ instead of building and running the generator")
       "TargetFramework of the generated NuGet project ([LibraryImport] needs net7+)")
   set(WOWLIB_CSHARP_PACKAGE_VERSION "0.0.1" CACHE STRING
       "Version stamped into the wowlib NuGet package")
+  # The dbdgen-emitted typed facades ride the package as plain C# sources
+  # (EXTRA_COMPILE globs; welder-csharp 297fb03).
   welder_csharp_nuget_project(wowlib_cs
     PACKAGE_ID Wowlib
     VERSION ${WOWLIB_CSHARP_PACKAGE_VERSION}
     TFM ${WOWLIB_CSHARP_TFM}
-    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/Wowlib)
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/Wowlib
+    EXTRA_COMPILE "${WOWLIB_CS_FACADES_DIR}/*.cs")
 endif()
 
 # The Lua module (LuaBridge3 rod) is deferred until the library is

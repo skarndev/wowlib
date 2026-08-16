@@ -14,8 +14,9 @@ from pathlib import Path
 
 from dbdgen import dbd
 from dbdgen.emit import (Range, build_members, collapse, emit_all_tables,
-                         emit_manifest, emit_schema_blob, emit_table, snake,
-                         write_bytes_if_changed, write_if_changed)
+                         emit_cs_facades, emit_manifest, emit_schema_blob,
+                         emit_table, snake, write_bytes_if_changed,
+                         write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
 
 # Generated C++/Python identifiers come straight from the table name.
@@ -38,6 +39,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="comma-separated wowlib era names (vanilla,tbc,wotlk,...)")
     parser.add_argument("--tables", default=None,
                         help="comma-separated table subset (default: all)")
+    parser.add_argument(
+        "--cs-facades-out", type=Path, default=None,
+        help="emit the typed pure-C# facade classes (Facades.<i>.cs) into "
+             "this directory — plain C# over the generic Table, packed into "
+             "the NuGet beside the generated wrapper")
     parser.add_argument(
         "--schema-blob-out", type=Path, default=None,
         help="emit the compact binary schema blob (WDBS) to this file — the "
@@ -103,6 +109,14 @@ def main(argv: list[str] | None = None) -> int:
     # The whole-surface umbrella (sorted, so the file is stable across runs).
     write_if_changed(tables_dir / "all.hpp",
                      emit_all_tables(sorted(t for t, _ in table_ranges)))
+
+    if args.cs_facades_out is not None:
+        parts = emit_cs_facades(table_ranges, disk_names)
+        args.cs_facades_out.mkdir(parents=True, exist_ok=True)
+        for i, part in enumerate(parts):
+            write_if_changed(args.cs_facades_out / f"Facades.{i}.cs", part)
+        print(f"dbdgen: {len(parts)} C# facade files emitted to "
+              f"{args.cs_facades_out}")
 
     if args.schema_blob_out is not None:
         blob = emit_schema_blob(table_ranges, disk_names)

@@ -56,6 +56,20 @@ if(WOWLIB_DB_TABLES)
   list(APPEND _wowlib_dbdgen_args --schema-blob-out "${WOWLIB_DB_SCHEMA_BLOB}")
   list(APPEND _wowlib_dbdgen_outputs "${WOWLIB_DB_SCHEMA_BLOB}")
 
+  # For the C# build: the typed PURE-C# facade classes over the generic
+  # Table (plain C#, packed into the NuGet beside the generated wrapper —
+  # no interop of their own, so no build-time cost beyond Roslyn).
+  if(WOWLIB_BUILD_CSHARP)
+    set(WOWLIB_CS_FACADES_DIR "${CMAKE_BINARY_DIR}/generated/cs_facades")
+    list(APPEND _wowlib_dbdgen_args --cs-facades-out "${WOWLIB_CS_FACADES_DIR}")
+    set(WOWLIB_CS_FACADE_SOURCES "")
+    foreach(_i RANGE 15)
+      list(APPEND WOWLIB_CS_FACADE_SOURCES
+           "${WOWLIB_CS_FACADES_DIR}/Facades.${_i}.cs")
+    endforeach()
+    list(APPEND _wowlib_dbdgen_outputs ${WOWLIB_CS_FACADE_SOURCES})
+  endif()
+
   add_custom_command(
     OUTPUT ${_wowlib_dbdgen_outputs}
     COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${PROJECT_SOURCE_DIR}/tools/dbdgen"

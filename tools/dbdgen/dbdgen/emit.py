@@ -465,6 +465,128 @@ def range_suffix(rng: Range, grid: list[Target]) -> str:
     return canonical.suffix + "To" + rng.targets[-1].suffix
 
 
+def _pascal(name: str) -> str:
+    """snake_case -> PascalCase (the C# facade property spelling)."""
+    return "".join(part[:1].upper() + part[1:] for part in name.split("_") if part)
+
+
+# C# member names a facade row property must never shadow (inherited object
+# methods plus the row view's own scaffolding).
+_CS_ROW_RESERVED = {"Equals", "GetHashCode", "GetType", "ToString", "RowIndex"}
+
+
+def _xml(text: str) -> str:
+    """Escape doc text for a C# XML comment (CS1570 otherwise: WoWDBDefs
+    comments carry <, & and quotes freely)."""
+    return (text.replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def emit_cs_facades(tables: list[tuple[str, list["Range"]]],
+                    disk_names: dict[str, str],
+                    shards: int = 16) -> list[str]:
+    """The typed PURE-C# facade classes over the generic ``wowlib.Db.Table``:
+    per (table x range), a ``<Table><Suffix>Row`` struct with typed accessors
+    calling the generic cell API at FIXED column indexes (the schema order is
+    the blob's order is this order), and a ``<Table><Suffix>`` static opener.
+
+    Plain C# — no per-class interop, no build-time cost beyond Roslyn on
+    ordinary code (measured: the whole surface compiles in seconds). Sharded
+    into ``shards`` files for tooling ergonomics, exactly like Bindings.cs."""
+    per_table: list[str] = []
+    for table, ranges in sorted(tables, key=lambda e: e[0]):
+        grid = [t for r in ranges for t in r.targets]
+        disk = disk_names.get(table, table)
+        out: list[str] = []
+        for rng in ranges:
+            suffix = range_suffix(rng, grid)
+            eras = ", ".join(t.era for t in rng.targets)
+            canonical = rng.canonical.version
+            row = f"{table}{suffix}Row"
+            opener = f"{table}{suffix}"
+
+            # Property names, deduplicated against reserved + one another.
+            names: list[str] = []
+            for member in rng.members:
+                name = _pascal(member.name)
+                if name in _CS_ROW_RESERVED or name in names or name == opener:
+                    name += "Column"
+                names.append(name)
+
+            out.append(f"    /// <summary>Typed row view of {disk} "
+                       f"({eras}). Wraps the generic table with accessors at "
+                       f"this range's fixed column indexes.</summary>")
+            out.append(f"    public struct {row}")
+            out.append("    {")
+            out.append("        private readonly Db.Table _table;")
+            out.append("        private readonly ulong _row;")
+            out.append(f"        public {row}(Db.Table table, ulong row)")
+            out.append("        { _table = table; _row = row; }")
+            out.append("        /// <summary>The row index this view "
+                       "addresses.</summary>")
+            out.append("        public ulong RowIndex => _row;")
+            for col, (member, name) in enumerate(zip(rng.members, names)):
+                if member.doc:
+                    out.append(
+                        f"        /// <summary>{_xml(member.doc)}</summary>")
+                cpp = member.cpp_type
+                if cpp.startswith("LocString"):
+                    out.append(f"        public string {name}(ulong locale = 0)"
+                               f" => _table.GetString(_row, {col}, locale);")
+                    out.append(f"        public void Set{name}(string value, "
+                               f"ulong locale = 0) => _table.SetString(_row, "
+                               f"{col}, value, locale);")
+                    out.append(f"        public uint {name}Flags")
+                    out.append(f"        {{ get => _table.LocstringFlags(_row,"
+                               f" {col}); set => _table.SetLocstringFlags("
+                               f"_row, {col}, value); }}")
+                    continue
+                kind = ("string" if cpp == "std::string"
+                        else "float" if cpp == "float" else "long")
+                get = {"string": "GetString", "float": "GetFloat",
+                       "long": "GetInt"}[kind]
+                set_ = {"string": "SetString", "float": "SetFloat",
+                        "long": "SetInt"}[kind]
+                if member.array_len is not None:
+                    out.append(f"        public {kind} {name}(ulong element)"
+                               f" => _table.{get}(_row, {col}, element);")
+                    out.append(f"        public void Set{name}(ulong element, "
+                               f"{kind} value) => _table.{set_}(_row, {col}, "
+                               f"value, element);")
+                else:
+                    out.append(f"        public {kind} {name}")
+                    out.append(f"        {{ get => _table.{get}(_row, {col}, "
+                               f"0); set => _table.{set_}(_row, {col}, value, "
+                               f"0); }}")
+            out.append("    }")
+            out.append("")
+            out.append(f"    /// <summary>The {disk} table for {eras} clients:"
+                       " open it era-resolved and view rows typed.</summary>")
+            out.append(f"    public static class {opener}")
+            out.append("    {")
+            out.append(f"        public const string TableName = \"{table}\";")
+            out.append(f"        public static readonly ClientVersion Version"
+                       f" = new ClientVersion({canonical[0]}, {canonical[1]}, "
+                       f"{canonical[2]}, {canonical[3]});")
+            out.append(f"        public static Db.Table Open() => "
+                       f"Db.Table.Open(TableName, Version);")
+            out.append(f"        public static {row} Row(Db.Table table, "
+                       f"ulong row) => new {row}(table, row);")
+            out.append("    }")
+            out.append("")
+        per_table.append("\n".join(out))
+
+    shards = max(1, min(shards, len(per_table) or 1))
+    bins: list[list[str]] = [[] for _ in range(shards)]
+    for i, text in enumerate(per_table):
+        bins[i % shards].append(text)
+    header = ("// <auto-generated> dbdgen typed facades over the generic "
+              "wowlib.Db.Table.\n// Plain C# at fixed column indexes - no "
+              "interop of its own. Do not edit.\n#nullable enable\n\n"
+              "namespace wowlib.Db.Tables\n{\n")
+    return [header + "\n".join(b) + "}\n" for b in bins]
+
+
 def emit_schema_blob(tables: list[tuple[str, list["Range"]]],
                      disk_names: dict[str, str]) -> bytes:
     """The compact binary schema blob: every table's per-range column lists,
