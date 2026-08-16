@@ -560,18 +560,55 @@ def emit_cs_facades(tables: list[tuple[str, list["Range"]]],
                                f"0); }}")
             out.append("    }")
             out.append("")
-            out.append(f"    /// <summary>The {disk} table for {eras} clients:"
-                       " open it era-resolved and view rows typed.</summary>")
-            out.append(f"    public static class {opener}")
+            out.append(f"    /// <summary>The {disk} table for {eras} clients: the"
+                       " generic table wrapped with typed row access - an"
+                       " indexer, foreach, and delegating Read/Write. The"
+                       " full generic API stays reachable via .Table.</summary>")
+            out.append(f"    public sealed class {opener}")
             out.append("    {")
             out.append(f"        public const string TableName = \"{table}\";")
             out.append(f"        public static readonly ClientVersion Version"
                        f" = new ClientVersion({canonical[0]}, {canonical[1]}, "
                        f"{canonical[2]}, {canonical[3]});")
-            out.append(f"        public static Db.Table Open() => "
-                       f"Db.Table.Open(TableName, Version);")
-            out.append(f"        public static {row} Row(Db.Table table, "
-                       f"ulong row) => new {row}(table, row);")
+            out.append("        /// <summary>The generic table underneath "
+                       "(columns, cells, validation, encryption).</summary>")
+            out.append("        public Db.Table Table { get; }")
+            out.append(f"        /// <summary>Wrap an already-opened generic"
+                       f" table of this range's schema.</summary>")
+            out.append(f"        public {opener}(Db.Table table)"
+                       " { Table = table; }")
+            out.append(f"        /// <summary>Open an empty era-resolved"
+                       f" table.</summary>")
+            out.append(f"        public static {opener} Open() => "
+                       f"new {opener}(Db.Table.Open(TableName, Version));")
+            out.append("        public ulong RowCount => Table.RowCount;")
+            out.append(f"        /// <summary>The typed view of one row."
+                       f"</summary>")
+            out.append(f"        public {row} this[ulong row] => "
+                       f"new {row}(Table, row);")
+            out.append("        public void Read(byte[] data) => "
+                       "Table.Read(data);")
+            out.append("        public void Read(Fs.FileSystem fs, "
+                       "FileKey key) => Table.Read(fs, key);")
+            out.append("        public byte[] Write(Db.EncryptedPolicy "
+                       "policy = Db.EncryptedPolicy.Preserve) => "
+                       "Table.Write(policy);")
+            out.append("        public Enumerator GetEnumerator() => "
+                       "new Enumerator(Table);")
+            out.append("        /// <summary>Duck-typed foreach support "
+                       "(no allocation).</summary>")
+            out.append("        public struct Enumerator")
+            out.append("        {")
+            out.append("            private readonly Db.Table _table;")
+            out.append("            private ulong _index;")
+            out.append("            internal Enumerator(Db.Table table)")
+            out.append("            { _table = table; _index = ulong.MaxValue; }")
+            out.append("            public bool MoveNext()")
+            out.append("            { _index = unchecked(_index + 1); "
+                       "return _index < _table.RowCount; }")
+            out.append(f"            public {row} Current => "
+                       f"new {row}(_table, _index);")
+            out.append("        }")
             out.append("    }")
             out.append("")
         per_table.append("\n".join(out))
