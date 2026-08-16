@@ -624,6 +624,73 @@ def emit_cs_facades(tables: list[tuple[str, list["Range"]]],
     return [header + "\n".join(b) + "}\n" for b in bins]
 
 
+_PY_TYPES = {"float": "float", "std::string": "str"}
+
+
+def _py_member_type(member: Member) -> str:
+    cpp = member.cpp_type
+    if cpp.startswith("LocString"):
+        return "list[str]"
+    elem = _PY_TYPES.get(cpp, "int")
+    return f"list[{elem}]" if member.array_len is not None else elem
+
+
+def emit_py_typed_stub(tables: list[tuple[str, list["Range"]]]) -> str:
+    """The TYPED-completion fragment merged into the generated ``db.pyi``:
+    per table, a ``<X>Record(Record)`` with one annotated attribute per
+    column (merged across the table's era ranges — a per-VERSION return type
+    is not expressible in an overload, so the union of columns serves every
+    era) and a ``<X>Table(Table)`` whose ``__getitem__`` narrows to it, plus
+    a ``Literal`` overload of ``Table.open`` per table. Stub-only names —
+    the runtime objects stay the generic ``Table``/``Record``; structural
+    truth is untouched, the checker just sees more.
+
+    Two marker-split sections (tools/merge_db_stub.py consumes them):
+    the ``open`` overload lines, then the class declarations."""
+    body_names = {name for name, _ in tables}
+    overloads: list[str] = []
+    classes: list[str] = []
+    for table, ranges in sorted(tables, key=lambda e: e[0]):
+        record_cls = f"{table}Record"
+        table_cls = f"{table}Table"
+        while record_cls in body_names:
+            record_cls += "_"
+        while table_cls in body_names:
+            table_cls += "_"
+        # Merge columns across ranges by member name, in first-seen order.
+        merged: dict[str, set[str]] = {}
+        order: list[str] = []
+        for rng in ranges:
+            for member in rng.members:
+                if member.name not in merged:
+                    merged[member.name] = set()
+                    order.append(member.name)
+                merged[member.name].add(_py_member_type(member))
+        overloads.append("    @overload")
+        overloads.append("    @staticmethod")
+        overloads.append(f'    def open(table: Literal["{table}"], '
+                         f"version: wowlib.ClientVersion) -> {table_cls}: ...")
+        classes.append(f"class {record_cls}(Record):")
+        classes.append(f'    """A {table} row (typed view; columns merged '
+                       'across the table\'s era ranges)."""')
+        for name in order:
+            classes.append(f"    {name}: {' | '.join(sorted(merged[name]))}")
+        classes.append("")
+        classes.append(f"class {table_cls}(Table):")
+        classes.append(f'    """The {table} table (typed rows)."""')
+        classes.append(f"    def __getitem__(self, index: int) -> "
+                       f"{record_cls}: ...")
+        classes.append(f"    def __iter__(self) -> Iterator[{record_cls}]: ...")
+        classes.append("")
+    out = ["# dbdgen typed-completion fragment for wowlib/db.pyi. Do not edit.",
+           "# --- overloads ---"]
+    out.extend(overloads)
+    out.append("# --- classes ---")
+    out.extend(classes)
+    out.append("")
+    return "\n".join(out)
+
+
 def emit_schema_blob(tables: list[tuple[str, list["Range"]]],
                      disk_names: dict[str, str]) -> bytes:
     """The compact binary schema blob: every table's per-range column lists,

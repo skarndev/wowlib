@@ -56,6 +56,14 @@ if(WOWLIB_DB_TABLES)
   list(APPEND _wowlib_dbdgen_args --schema-blob-out "${WOWLIB_DB_SCHEMA_BLOB}")
   list(APPEND _wowlib_dbdgen_outputs "${WOWLIB_DB_SCHEMA_BLOB}")
 
+  # For the Python build: the typed-completion stub fragment (merged into
+  # the stubgen-generated wowlib/db.pyi by tools/merge_db_stub.py).
+  if(WOWLIB_BUILD_PYTHON)
+    set(WOWLIB_DB_PY_STUB "${CMAKE_BINARY_DIR}/generated/db_py_stub.pyi")
+    list(APPEND _wowlib_dbdgen_args --py-stub-out "${WOWLIB_DB_PY_STUB}")
+    list(APPEND _wowlib_dbdgen_outputs "${WOWLIB_DB_PY_STUB}")
+  endif()
+
   # For the C# build: the typed PURE-C# facade classes over the generic
   # Table (plain C#, packed into the NuGet beside the generated wrapper —
   # no interop of their own, so no build-time cost beyond Roslyn).

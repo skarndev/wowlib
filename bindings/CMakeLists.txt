@@ -183,7 +183,7 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
   # Python build is off.
   set(_wowlib_patterns ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb)
 
-  nanobind_add_stub(wowlib_pyi
+  nanobind_add_stub(wowlib_pyi_raw
     MODULE wowlib
     RECURSIVE
     OUTPUT_PATH ${_wowlib_stubs}
@@ -191,9 +191,7 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
            ${_wowlib_stubs}/wowlib/audit.pyi
            ${_wowlib_stubs}/wowlib/fs.pyi
            ${_wowlib_stubs}/wowlib/versions.pyi
-           ${_wowlib_stubs}/wowlib/db/__init__.pyi
-           ${_wowlib_stubs}/wowlib/db/rowbase.pyi
-           ${_wowlib_stubs}/wowlib/db/tables.pyi
+           ${_wowlib_stubs}/wowlib/db.pyi
            ${_wowlib_stubs}/wowlib/formats/__init__.pyi
            ${_wowlib_stubs}/wowlib/formats/common.pyi
            ${_wowlib_stubs}/wowlib/formats/wmo/__init__.pyi
@@ -231,6 +229,29 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
   if(NOT WIN32)
     set(Python_EXECUTABLE "${_wowlib_saved_python}")  # restore the real interpreter
   endif()
+
+  # Merge dbdgen's typed-completion fragment into the generated db.pyi
+  # (per-table Literal overloads of Table.open + typed Record/Table
+  # subclasses — stub-only names over the generic runtime objects). The
+  # merge mutates db.pyi in place, so it is idempotent (marker-guarded) and
+  # tracked by a stamp; `wowlib_pyi` keeps its name for the wheel build and
+  # every existing consumer, now meaning "stubs, typed".
+  set(_wowlib_stub_merge_stamp ${CMAKE_CURRENT_BINARY_DIR}/db_stub_merge.stamp)
+  add_custom_command(
+    OUTPUT ${_wowlib_stub_merge_stamp}
+    # A stub tree from before the generic-DB rework carries a wowlib/db/
+    # PACKAGE (rowbase/tables) that shadows the flat db.pyi MODULE for every
+    # type checker; stubgen never deletes what it no longer emits.
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${_wowlib_stubs}/wowlib/db
+    COMMAND ${CMAKE_COMMAND} -E env "${Python3_EXECUTABLE}"
+            ${PROJECT_SOURCE_DIR}/tools/merge_db_stub.py
+            ${_wowlib_stubs}/wowlib/db.pyi "${WOWLIB_DB_PY_STUB}"
+    COMMAND ${CMAKE_COMMAND} -E touch ${_wowlib_stub_merge_stamp}
+    DEPENDS ${_wowlib_stubs}/wowlib/db.pyi "${WOWLIB_DB_PY_STUB}"
+            ${PROJECT_SOURCE_DIR}/tools/merge_db_stub.py
+    COMMENT "Merging typed db completion into wowlib/db.pyi"
+    VERBATIM)
+  add_custom_target(wowlib_pyi DEPENDS ${_wowlib_stub_merge_stamp})
 
   # --- Install rules (Python packaging) --------------------------------------
   # Consumed by scikit-build-core to assemble the wheel; a plain `cmake --install`

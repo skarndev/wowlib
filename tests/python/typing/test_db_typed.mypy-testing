@@ -1,0 +1,35 @@
+"""Type-resolution cases for the typed DB stubs (the dbdgen fragment merged
+into wowlib/db.pyi): Literal overloads of Table.open narrow to per-table
+classes, rows and iteration narrow to the typed records, and a non-literal
+table name stays generic."""
+
+import pytest
+
+import wowlib
+from wowlib.db import Table
+
+
+@pytest.mark.mypy_testing
+def mypy_open_narrows_on_the_table_literal() -> None:
+    reveal_type(Table.open("Map", wowlib.versions.wotlk))  # R: wowlib.db.MapTable
+    reveal_type(Table.open("Spell", wowlib.versions.wotlk))  # R: wowlib.db.SpellTable
+
+
+@pytest.mark.mypy_testing
+def mypy_rows_and_iteration_narrow_to_the_typed_record() -> None:
+    table = Table.open("Map", wowlib.versions.wotlk)
+    reveal_type(table[0])  # R: wowlib.db.MapRecord
+    reveal_type(table[0].directory)  # R: str
+    reveal_type(table[0].id)  # R: int
+    # map_name is genuinely era-dependent: LocString slots pre-Cata, a plain
+    # string Cataclysm onwards — the merged attribute carries the union.
+    reveal_type(table[0].map_name)  # R: list[str] | str
+    for row in table:
+        reveal_type(row.directory)  # R: str
+
+
+@pytest.mark.mypy_testing
+def mypy_non_literal_names_stay_generic() -> None:
+    name = "Map".strip()
+    reveal_type(Table.open(name, wowlib.versions.wotlk))  # R: wowlib.db.Table
+    reveal_type(Table.open(name, wowlib.versions.wotlk)[0])  # R: wowlib.db.Record

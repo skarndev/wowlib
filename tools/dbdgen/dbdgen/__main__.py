@@ -14,9 +14,9 @@ from pathlib import Path
 
 from dbdgen import dbd
 from dbdgen.emit import (Range, build_members, collapse, emit_all_tables,
-                         emit_cs_facades, emit_manifest, emit_schema_blob,
-                         emit_table, snake, write_bytes_if_changed,
-                         write_if_changed)
+                         emit_cs_facades, emit_manifest, emit_py_typed_stub,
+                         emit_schema_blob, emit_table, snake,
+                         write_bytes_if_changed, write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
 
 # Generated C++/Python identifiers come straight from the table name.
@@ -44,6 +44,10 @@ def main(argv: list[str] | None = None) -> int:
         help="emit the typed pure-C# facade classes (Facades.<i>.cs) into "
              "this directory — plain C# over the generic Table, packed into "
              "the NuGet beside the generated wrapper")
+    parser.add_argument(
+        "--py-stub-out", type=Path, default=None,
+        help="emit the typed-completion stub fragment (merged into the "
+             "generated wowlib/db.pyi by tools/merge_db_stub.py)")
     parser.add_argument(
         "--schema-blob-out", type=Path, default=None,
         help="emit the compact binary schema blob (WDBS) to this file — the "
@@ -117,6 +121,10 @@ def main(argv: list[str] | None = None) -> int:
             write_if_changed(args.cs_facades_out / f"Facades.{i}.cs", part)
         print(f"dbdgen: {len(parts)} C# facade files emitted to "
               f"{args.cs_facades_out}")
+
+    if args.py_stub_out is not None:
+        write_if_changed(args.py_stub_out, emit_py_typed_stub(table_ranges))
+        print(f"dbdgen: typed stub fragment emitted to {args.py_stub_out}")
 
     if args.schema_blob_out is not None:
         blob = emit_schema_blob(table_ranges, disk_names)
