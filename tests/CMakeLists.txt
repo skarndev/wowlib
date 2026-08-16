@@ -54,6 +54,7 @@ if(WOWLIB_DB_TABLES)
   # for the Legion+ eras; needs ~6 GB per TU, so it is off by default.
   option(WOWLIB_DB_FULL_CORPUS "Compile the exhaustive per-era typed DB2 sweeps" OFF)
   add_library(wowlib_tests_db_corpus OBJECT
+    integration/test_dyn_corpus.cpp
     integration/test_dbc_corpus_112.cpp
     integration/test_dbc_corpus_243.cpp
     integration/test_dbc_corpus_335.cpp
