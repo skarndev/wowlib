@@ -22,11 +22,10 @@
     typed @c \@overload blocks. The one thing stubgen cannot synthesize — the
     @c AnyX union aliases — comes from the declarative stub PATTERN_FILE, not code. */
 
-#include "instantiations/adt.hpp"
-#include "instantiations/m2.hpp"
-#include "instantiations/wdl.hpp"
-#include "instantiations/wdt.hpp"
-#include "instantiations/wmo.hpp"
+// NO instantiations/*.hpp here: this TU's welder walk deliberately never
+// sees the per-range format aliases — the version matrices weld in the
+// parallel welds_<fmt>.cpp TUs (formats/welds.hpp), which was the
+// difference between a ~6-minute serial module TU and a ~2-minute one.
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/filesystem.h>
@@ -52,6 +51,7 @@
 #include "formats/wdl.hpp"
 #include "formats/wdt.hpp"
 #include "formats/wmo.hpp"
+#include "formats/welds.hpp"
 #include "fs.hpp"
 #include "naming.hpp"
 
@@ -71,6 +71,11 @@ WELDER_MODULE(wowlib, nanobind,
               welder::welder<welder::rods::nanobind::rod<>, wowlib_py::wowlib_python_naming>)
 {
   wowlib_py::register_errors(module);
+  wowlib_py::formats::register_wmo_welds(module);
+  wowlib_py::formats::register_m2_welds(module);
+  wowlib_py::formats::register_adt_welds(module);
+  wowlib_py::formats::register_wdt_welds(module);
+  wowlib_py::formats::register_wdl_welds(module);
   wowlib_py::db::register_dyn(module);
   wowlib_py::formats::wmo::register_facade(module);
   wowlib_py::formats::m2::register_facade(module);

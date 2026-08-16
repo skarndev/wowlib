@@ -88,6 +88,11 @@ if(WOWLIB_BUILD_PYTHON)
     python/buffers.cpp
     python/db_dyn.cpp
     python/fs.cpp
+    python/formats/welds_wmo.cpp
+    python/formats/welds_m2.cpp
+    python/formats/welds_adt.cpp
+    python/formats/welds_wdt.cpp
+    python/formats/welds_wdl.cpp
     python/formats/wmo.cpp
     python/formats/m2.cpp
     python/formats/wdt.cpp
