@@ -71,8 +71,16 @@ if(NOT WOWLIB_DB_TABLES AND NOT WOWLIB_DB_SCHEMA STREQUAL "runtime")
                  "WOWLIB_DB_SCHEMA falls back to 'runtime'")
   set(WOWLIB_DB_SCHEMA "runtime")
 endif()
-# PUBLIC: schema_catalog.hpp gates the embedded() DECLARATION on it, so
-# consumers must see the same value the library was compiled with.
+# PUBLIC: schema_catalog.hpp gates DECLARATIONS on these, so consumers must
+# see the same values the library was compiled with. EMBEDDED gates the baked
+# blob + embedded(); RUNTIME gates the loaders (from_blob/from_blob_file/
+# from_dbd_dir) — a client-grade 'embedded' build ships no schema-loading
+# code at all.
+if(WOWLIB_DB_SCHEMA STREQUAL "embedded")
+  target_compile_definitions(wowlib PUBLIC WOWLIB_DB_SCHEMA_RUNTIME=0)
+else()
+  target_compile_definitions(wowlib PUBLIC WOWLIB_DB_SCHEMA_RUNTIME=1)
+endif()
 if(WOWLIB_DB_SCHEMA STREQUAL "runtime")
   target_compile_definitions(wowlib PUBLIC WOWLIB_DB_SCHEMA_EMBEDDED=0)
 else()
@@ -87,6 +95,9 @@ else()
   set_source_files_properties(src/wowlib/db/schema_catalog.cpp PROPERTIES
     OBJECT_DEPENDS "${WOWLIB_DB_SCHEMA_BLOB}")
   add_dependencies(wowlib wowlib_dbdgen)
+endif()
+if(NOT WOWLIB_DB_SCHEMA STREQUAL "embedded")
+  target_sources(wowlib PRIVATE src/wowlib/db/dbd_loader.cpp)
 endif()
 
 if(WOWLIB_BUILD_TESTS)

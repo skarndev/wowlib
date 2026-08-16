@@ -54,6 +54,7 @@ namespace wowlib::db
     return out;
   }
 
+#if WOWLIB_DB_SCHEMA_RUNTIME
   Result<SchemaCatalog> SchemaCatalog::from_blob(std::vector<unsigned char> bytes)
   {
     const blob::View view{bytes};
@@ -81,6 +82,7 @@ namespace wowlib::db
                         "cannot read schema blob: " + path.string());
     return from_blob(std::move(bytes));
   }
+#endif
 
   Result<std::size_t> SchemaCatalog::era_index_of(ClientVersion version) const
   {

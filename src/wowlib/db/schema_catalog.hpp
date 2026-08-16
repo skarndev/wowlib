@@ -32,6 +32,9 @@
 #ifndef WOWLIB_DB_SCHEMA_EMBEDDED
   #define WOWLIB_DB_SCHEMA_EMBEDDED 1
 #endif
+#ifndef WOWLIB_DB_SCHEMA_RUNTIME
+  #define WOWLIB_DB_SCHEMA_RUNTIME 1
+#endif
 
 namespace wowlib::db
 {
@@ -55,6 +58,7 @@ namespace wowlib::db
     static const SchemaCatalog& embedded();
 #endif
 
+#if WOWLIB_DB_SCHEMA_RUNTIME
     /** Build a catalog from blob bytes (takes ownership).
         @param bytes a complete WDBS blob.
         @return the catalog, or SchemaBlobInvalid. */
@@ -64,6 +68,20 @@ namespace wowlib::db
         @param path the .wdbs file.
         @return the catalog, or SchemaBlobInvalid / IoError. */
     static Result<SchemaCatalog> from_blob_file(const std::filesystem::path& path);
+
+    /** Build a catalog straight from a WoWDBDefs checkout's `definitions/`
+        directory — for tools that track new client builds faster than they
+        rebuild wowlib. Parses every `.dbd`, resolves the era member lists
+        with EXACTLY dbdgen's rules (same snake_case column names, same
+        LocString locale counts, same range collapsing), assembles a WDBS
+        blob in memory and loads it — so a catalog from here and the
+        embedded one agree schema for schema when built from the same
+        definitions.
+        @param definitions the WoWDBDefs `definitions/` directory.
+        @return the catalog; IoError when the directory cannot be read,
+                SchemaBlobInvalid when no definition parses. */
+    static Result<SchemaCatalog> from_dbd_dir(const std::filesystem::path& definitions);
+#endif
 
     SchemaCatalog(SchemaCatalog&&) noexcept = default;
     SchemaCatalog& operator=(SchemaCatalog&&) noexcept = default;
