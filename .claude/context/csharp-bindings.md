@@ -46,71 +46,58 @@ shapes (`vector<vector<T>>`, `vector<array<T,N>>`, `vector<string>`) and the
 flattened-base `read`/`write` overload collision were all fixed in the rod
 before the extraction, and the excludes were dropped. The whole C++ API binds.
 
-## ClientDB tables are on the C# surface
+## ClientDB is ONE welded class now (2026-08-16 rework)
 
-`bindings/csharp/surface.hpp` includes `<wowlib/db/tables/all.hpp>` — a
-dbdgen-emitted umbrella over every generated table header (language-neutral:
-nothing but includes; `emit_all_tables` in tools/dbdgen). The CMake block
-links `wowlib_db_tables` (include root) and adds explicit `add_dependencies`
-on `wowlib_dbdgen` for both the generator and shim targets, since an INTERFACE
-link alone does not order compilation after header generation.
+The generic runtime-schema `db::DynTable` (welded as **`Table`**) + `Column`/
+`ColumnType` replace the ~8.5k generated per-era table classes entirely
+(plan: fluffy-twirling-hickey; .claude/context/db-architecture.md has the
+engine story). `surface.hpp` includes `<wowlib/db/dyn_table.hpp>` + the
+shared value types; there is no table umbrella, no cs_aliases, no dbdgen
+C++ involvement in the C# surface at all. 61,384 → **4,005 P/Invokes**;
+dylib 99 → **11 MB**; the managed wrapper compiles in ~13 s.
 
-## Shim sharding (what unblocked the DB-bearing build)
+Typed access ships as dbdgen-emitted PURE C# facades (`--cs-facades-out`,
+16 `Facades.<i>.cs`, ~6.6 MB): per (table x range) a `<Table><Suffix>Row`
+struct with accessors at the range's FIXED column indexes + a static
+opener with the era-canonical ClientVersion. No interop of their own;
+packed into the NuGet via welder-csharp's nuget `EXTRA_COMPILE` globs
+(297fb03). Doc text XML-escapes (CS1570 otherwise).
 
-One shim TU over formats + ~1200 tables x all eras does not compile in real
-time/memory. `welder_csharp_generate_bindings(... SHARDS N)` splits the shim
-into `shim.0.cpp … shim.N-1.cpp` that compile in parallel; each top-level
-class's thunks land whole in one shard, so the split is always link-correct.
+## Shim sharding
 
-- `WOWLIB_CS_SHARDS` (cache var, default 32). Unlike the Python db shards,
-  every C# shard includes `surface.hpp` **whole**, so each shard pays the full
-  frontend parse — that redundancy is why the default sits well below
-  `WOWLIB_DB_SHARDS`' 96.
-- All shim TUs plus the generator TU run in the `wowlib_py_compile` job pool
-  (the RAM-bounded Ninja pool, computed at the top of bindings/CMakeLists.txt
-  outside both backend blocks).
-- SHARDS > 1 contract: the welded headers are included by several TUs, so
-  namespace-scope function definitions must be `inline` (ordinary header ODR
-  rule; wowlib headers already satisfy it — they compile into many Python TUs).
+`welder_csharp_generate_bindings(... SHARDS N)` (default 16 now) splits the
+shim into parallel TUs; each shard includes `surface.hpp` whole (~20 s per
+TU post-rework). SHARDS > 1 contract: namespace-scope function definitions
+in welded headers must be `inline` (ordinary ODR).
 
-## Generator sharding (the RAM fix, 2026-08-16)
+## Generator sharding BY FORMAT (the 11-minute serial TU fix)
 
-Shim sharding split the *output*; the generator itself was still ONE TU
-welding the whole surface — 2388 s / ~16 GB peak, which is what forced the
-swap hack on GH runners. It is now multi-TU via welder-csharp's
-`begin_document / at(doc, "Ns.Path") / contribute_namespace / render_files`
-(the document is runtime state — symbol registry and type-name placeholders
-are global across contributors, so cross-TU references resolve at render
-time). Measured peak cc1plus: **2.07 GB** (was ~16), shards compile in
-parallel.
+The single-TU generator spent ~11 serial minutes reflecting the formats
+version matrices. It is multi-TU by FORMAT now (welder-csharp
+`begin_document / at / contribute / render_files`):
 
-- `bindings/csharp/gen.cpp` is a manual `main()`: `begin_document`,
-  `contribute_namespace<^^wowlib>` over `surface_gen.hpp`, then
-  `wowlib_cs::db::contribute_all_tables(doc)` (the shard registry), then
-  `render_files`.
-- dbdgen (`--cs-gen-out`, `--cs-gen-shards` = `WOWLIB_CS_GEN_SHARDS`,
-  default 32) emits `cs_gen_shard_<i>.cpp` TUs + the registry header into
-  `build/.../generated/db_cs_gen/`. NOT the Python shard count (96): every
-  gen shard parses the full alias umbrella, so shard count multiplies parse
-  waste; RAM per TU shrinks with more shards (2.07 GB peak measured at 96). Each shard welds its tables
-  explicitly through the per-range aliases in
-  `<wowlib/db/tables/cs_aliases.hpp>` using welder's `weld_type<^^Alias>`
-  overload (alias reflection as the Decl anchor — REQUIRED: passing the
-  dealiased type spawned identical `detail_` C symbols in every shard TU and
-  the shim failed to link on duplicates).
-- `surface_gen.hpp` (generator main TU) vs `surface.hpp` (shim TUs): the
-  generator's namespace walk must NOT see the table headers or every table
-  would weld twice (walk + shard). But it MUST weld the db SHARED types the
-  tables reference — TableBase, LocString8/16, the codec types. Those came
-  transitively through `all.hpp` in the single-TU world; `surface_gen.hpp`
-  includes `<wowlib/db/locstring.hpp>` + `<wowlib/db/table_core.hpp>`
-  explicitly. Symptom when missing: the wrapper compiles the raw C++
-  spelling into C# (`: ::wowlib::db::TableBase`, `LocString<8>Handle`) →
-  CS7000 "unexpected use of an aliased name".
-- The shim (32 TUs) still includes `surface.hpp` whole — unchanged.
-- CMake: `WelderCSharpModule.cmake`'s `EXTRA_GEN_SOURCES` links the shard
-  TUs into the generator executable; wired in `cmake/DbTables.cmake`
-  (`WOWLIB_CS_GEN_SHARD_SOURCES`) + `bindings/CMakeLists.txt`.
+- `gen.cpp` (main): walks `^^wowlib` over `surface_core.hpp` — everything
+  EXCEPT the per-range alias tables (per-TU visibility is the partition:
+  the walk only welds what the TU declares). ~3 min.
+- `gen_{wmo,m2,adt,wdt,wdl}.cpp`: each includes ONLY its format's
+  `instantiations/<fmt>_ranges.hpp` and welds the version-matrix aliases
+  EXPLICITLY (`weld_type<^^Alias>` into `wcs::rod::at(doc, "Formats.X...")`
+  — no namespace walk, so the chunk classes the main TU welds never
+  double). The X-macro tables in the ranges headers are the single source
+  of truth; the family→namespace map matters (wdt families live in
+  root/occlusion/lights/fogs/mpv sub-namespaces). The version-INDEPENDENT
+  payload aliases (M2SplineKey*/FBlock*/M2PartTrackFixed16) are standalone
+  `using`s outside the X-tables and ride gen_m2 explicitly — missing them
+  leaks raw C++ spellings into the wrapper (CS7000).
+- Wall = max(contributor): m2 ~291 s is the long pole; wmo 113 s, rest <45 s.
+
+Gotchas that cost a debugging cycle each:
+- A welded class's public NESTED types are bound with it — a nested struct
+  with a `std::span` member (PodColumnView) fails the gate; move it to
+  namespace scope, unannotated.
+- An AGGREGATE welded class gets a synthesized field-wise ctor; a
+  `const char*` member would store a pointer into the marshalling temp.
+  `Column` declares a defaulted ctor precisely to not be an aggregate.
 
 ## Erased fields (welder-csharp b97a9d7, 2026-08-16)
 

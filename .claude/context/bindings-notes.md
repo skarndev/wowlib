@@ -469,3 +469,21 @@ StringBlock precedent (doxygen folded into `welder::doc`; enumerators carry
   `VectorSMOMaterial` and friends. Compare `StringBlock::entries()`, which is
   NOT `welder::getter` and whose element is a NESTED struct — it converts to a
   plain Python `list` instead of getting an opaque wrapper at all.
+
+
+## 2026-08-16: the generic DB rebind (python side)
+
+`wowlib.db` binds ONE welded `Table` (DynTable) + `Column`/`ColumnType`; the
+96 dbdgen shard TUs, family facades and RecordVector are gone (see
+db-architecture.md). Hand-written ergonomics in `bindings/python/db_dyn.cpp`:
+`Record` row views (`__getattr__` by column name; misses raise
+AttributeError so hasattr works), sequence protocol on the table,
+`table.column(name)` → zero-copy numpy for numeric columns / lists for
+strings, `db.table_names(version=None)`. Module 60 → 12 MB; bindings
+rebuild ~8.7 min (serial module TU dominates — task: shard the walk per
+format namespace like the C# generator).
+
+Binding lessons: a `keep_alive` NURSE must be weakref-able (a plain list
+return cannot carry one — the numpy views pin their owner through the
+ndarray owner arg instead); `std::vector<std::string_view>` returns need
+`<nanobind/stl/vector.h>`.

@@ -90,7 +90,7 @@ jobs:
           # unschedulable label queues forever instead of failing.)
           - { os: windows-latest, name: windows-x64 }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 240
+    timeout-minutes: 150
     defaults:
       run:
         shell: ${{ startsWith(matrix.os, 'windows') && 'msys2 {0}' || 'bash' }}
@@ -277,13 +277,12 @@ jobs:
   csharp-generate:
     needs: guard
     runs-on: ubuntu-latest
-    # 350, not the default 240: the macOS leg hit exactly 240 and was cancelled
-    # mid-build on 0.0.1. That runner is 3 cores / 7 GB and compiles 32 shim
-    # shards that each re-parse the whole welded surface — Windows, with twice
-    # the cores, needed 155 minutes. 350 leaves headroom under GitHub's 360
-    # ceiling. With both publishes now gated on every artifact, a leg that
-    # times out blocks the entire release, so the budget has to be generous.
-    timeout-minutes: 350
+    # Post-generic-DB-rework budget: the surface lost the ~8.5k per-era table
+    # classes, the generator is sharded per format (~5 min wall), and the
+    # shim TUs average ~20 s. Measured locally: the whole leg fits in well
+    # under an hour even on a 4-core runner; 150 is generous headroom, and a
+    # regression should FAIL, not absorb six hours of runner time.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
@@ -335,13 +334,8 @@ jobs:
       # and the peak TU is ~2 GB. No swap needed; the pool cap below is
       # what keeps concurrent reflection TUs inside physical RAM.
 
-      # WOWLIB_PY_COMPILE_JOBS caps the RAM-bounded Ninja pool. Its adaptive
-      # default (physical RAM / 3.5 GB) reads a hosted runner's 16 GB as 4
-      # concurrent reflection-heavy TUs, and the 0.0.1 Linux run died with
-      # exit 143 / "the runner has received a shutdown signal" — the shim
-      # shards each reflect the whole surface AND every ClientDB table, so
-      # they are heavier than the formula assumes. Two is the safe number
-      # here; the shards still parallelise, just less.
+      # The adaptive pool (RAM / 2 GB, sized to the post-rework TUs) fits the
+      # hosted runners now that no binding TU drags the table headers along.
       - name: Configure
         run: |
           set -euo pipefail
@@ -358,26 +352,11 @@ jobs:
             -DWOWLIB_BUILD_TESTS=OFF \
             -DWOWLIB_BUILD_CSHARP=ON \
             -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
-            -DWOWLIB_PY_COMPILE_JOBS=2 \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
-      # CMAKE_BUILD_PARALLEL_LEVEL caps Ninja for the WHOLE build, which
-      # WOWLIB_PY_COMPILE_JOBS does not: that pool governs only the C# gen and
-      # shim targets, leaving the ordinary wowlib library TUs to compile at
-      # Ninja's default (cores + 2). Those include the reflection-heavy
-      # audit/roundtrip_*.cpp, and six of them at once exhausted a 16 GB
-      # runner — the 0.0.1 Linux job died at step 290/327, right after linking
-      # libwowlib.a and long before the C# TUs the pool protects (exit 143,
-      # "the runner has received a shutdown signal").
       - name: Build the native shim
         run: |
           set -euo pipefail
-          # Linux only: that runner (4 cores / 16 GB) is the one that died, and
-          # the macOS and Windows legs complete at the default width — capping
-          # them too would only push them toward the job timeout.
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            export CMAKE_BUILD_PARALLEL_LEVEL=2
-          fi
           cmake --build build/csharp --target wowlib_cs
 
       - name: Stage the native library
@@ -442,7 +421,7 @@ jobs:
     # the cores, needed 155 minutes. 350 leaves headroom under GitHub's 360
     # ceiling. With both publishes now gated on every artifact, a leg that
     # times out blocks the entire release, so the budget has to be generous.
-    timeout-minutes: 350
+    timeout-minutes: 90
     defaults:
       run:
         shell: ${{ startsWith(matrix.os, 'windows') && 'msys2 {0}' || 'bash' }}
@@ -489,13 +468,6 @@ jobs:
           path: build/csharp/_deps
           key: deps-${{ matrix.rid }}-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
 
-      # WOWLIB_PY_COMPILE_JOBS caps the RAM-bounded Ninja pool. Its adaptive
-      # default (physical RAM / 3.5 GB) reads a hosted runner's 16 GB as 4
-      # concurrent reflection-heavy TUs, and the 0.0.1 Linux run died with
-      # exit 143 / "the runner has received a shutdown signal" — the shim
-      # shards each reflect the whole surface AND every ClientDB table, so
-      # they are heavier than the formula assumes. Two is the safe number
-      # here; the shards still parallelise, just less.
       - name: Fetch the generated shim sources
         uses: actions/download-artifact@v4
         with:
@@ -519,7 +491,6 @@ jobs:
             -DWOWLIB_BUILD_CSHARP=ON \
             -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
             -DWOWLIB_CS_PREGENERATED_DIR="$PWD/generated" \
-            -DWOWLIB_PY_COMPILE_JOBS=2 \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
       # The whole premise of this job is that it compiles PRE-GENERATED
@@ -539,23 +510,9 @@ jobs:
           fi
           echo "OK: generator absent; this leg only compiles pregenerated sources"
 
-      # CMAKE_BUILD_PARALLEL_LEVEL caps Ninja for the WHOLE build, which
-      # WOWLIB_PY_COMPILE_JOBS does not: that pool governs only the C# gen and
-      # shim targets, leaving the ordinary wowlib library TUs to compile at
-      # Ninja's default (cores + 2). Those include the reflection-heavy
-      # audit/roundtrip_*.cpp, and six of them at once exhausted a 16 GB
-      # runner — the 0.0.1 Linux job died at step 290/327, right after linking
-      # libwowlib.a and long before the C# TUs the pool protects (exit 143,
-      # "the runner has received a shutdown signal").
       - name: Build the native shim
         run: |
           set -euo pipefail
-          # Linux only: that runner (4 cores / 16 GB) is the one that died, and
-          # the macOS and Windows legs complete at the default width — capping
-          # them too would only push them toward the job timeout.
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            export CMAKE_BUILD_PARALLEL_LEVEL=2
-          fi
           cmake --build build/csharp --target wowlib_cs
 
       - name: Stage the native library

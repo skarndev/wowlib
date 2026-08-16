@@ -273,3 +273,18 @@ gating exists to prevent.
 - **No Linux arm64 / musl wheels.**
 - **Nothing verifies the published artifacts** after upload (no install-from-
   PyPI check).
+
+
+## 2026-08-16: post-generic-DB budgets
+
+The per-era table classes left every artifact (plan fluffy-twirling-hickey):
+wheels carry no db shards, the C# legs carry no table welds, the generator
+is sharded per format and PREGENERATED_DIR is asserted (wowlib_cs_gen must
+be absent from consumer legs' build graphs). Timeouts cut accordingly:
+wheels 240→150, csharp-generate 350→150, csharp-native 350→90; the
+WOWLIB_PY_COMPILE_JOBS=2 overrides and the Linux CMAKE_BUILD_PARALLEL_LEVEL
+cap are gone (the adaptive pool is RAM/2GB now). The Linux swap hack is
+retired. v0.0.2 postmortem: 306 of the macOS leg's 325 min were the
+generator TU building where PREGENERATED_DIR should have skipped it — the
+pin predated the option and cmake_parse_arguments swallowed it silently
+(welder-csharp FATALs on unknown args since 5bcb550).
