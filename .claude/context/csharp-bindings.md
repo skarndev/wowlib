@@ -73,6 +73,72 @@ class's thunks land whole in one shard, so the split is always link-correct.
   namespace-scope function definitions must be `inline` (ordinary header ODR
   rule; wowlib headers already satisfy it — they compile into many Python TUs).
 
+## Generator sharding (the RAM fix, 2026-08-16)
+
+Shim sharding split the *output*; the generator itself was still ONE TU
+welding the whole surface — 2388 s / ~16 GB peak, which is what forced the
+swap hack on GH runners. It is now multi-TU via welder-csharp's
+`begin_document / at(doc, "Ns.Path") / contribute_namespace / render_files`
+(the document is runtime state — symbol registry and type-name placeholders
+are global across contributors, so cross-TU references resolve at render
+time). Measured peak cc1plus: **2.07 GB** (was ~16), shards compile in
+parallel.
+
+- `bindings/csharp/gen.cpp` is a manual `main()`: `begin_document`,
+  `contribute_namespace<^^wowlib>` over `surface_gen.hpp`, then
+  `wowlib_cs::db::contribute_all_tables(doc)` (the shard registry), then
+  `render_files`.
+- dbdgen (`--cs-gen-out`, `--cs-gen-shards` = `WOWLIB_CS_GEN_SHARDS`,
+  default 32) emits `cs_gen_shard_<i>.cpp` TUs + the registry header into
+  `build/.../generated/db_cs_gen/`. NOT the Python shard count (96): every
+  gen shard parses the full alias umbrella, so shard count multiplies parse
+  waste; RAM per TU shrinks with more shards (2.07 GB peak measured at 96). Each shard welds its tables
+  explicitly through the per-range aliases in
+  `<wowlib/db/tables/cs_aliases.hpp>` using welder's `weld_type<^^Alias>`
+  overload (alias reflection as the Decl anchor — REQUIRED: passing the
+  dealiased type spawned identical `detail_` C symbols in every shard TU and
+  the shim failed to link on duplicates).
+- `surface_gen.hpp` (generator main TU) vs `surface.hpp` (shim TUs): the
+  generator's namespace walk must NOT see the table headers or every table
+  would weld twice (walk + shard). But it MUST weld the db SHARED types the
+  tables reference — TableBase, LocString8/16, the codec types. Those came
+  transitively through `all.hpp` in the single-TU world; `surface_gen.hpp`
+  includes `<wowlib/db/locstring.hpp>` + `<wowlib/db/table_core.hpp>`
+  explicitly. Symptom when missing: the wrapper compiles the raw C++
+  spelling into C# (`: ::wowlib::db::TableBase`, `LocString<8>Handle`) →
+  CS7000 "unexpected use of an aliased name".
+- The shim (32 TUs) still includes `surface.hpp` whole — unchanged.
+- CMake: `WelderCSharpModule.cmake`'s `EXTRA_GEN_SOURCES` links the shard
+  TUs into the generator executable; wired in `cmake/DbTables.cmake`
+  (`WOWLIB_CS_GEN_SHARD_SOURCES`) + `bindings/CMakeLists.txt`.
+
+## Erased fields (welder-csharp b97a9d7, 2026-08-16)
+
+The C# twin of the Python db erasure rounds. Eligible data members bind
+through ~25 FIXED entry points (`welder__field_get_int(handle, off)`, one
+typed load/store per scalar width + bool + `std::string` pair + the
+live-view `welder__field_addr`) instead of one extern-C thunk + one
+`[LibraryImport]` per accessor per member. The managed property carries the
+generator-computed byte offset; the shim carries one
+`static_assert(wcs::shim::nsdm_offset<T>(idx) == off)` per erased member,
+so a platform whose ABI lays the class out differently (e.g. a `long`
+member crossing LP64/LLP64) fails the shim build instead of misreading.
+
+- Eligible: scalars, bool, enums (underlying-width stub + managed cast),
+  exactly-`std::string`, and the GETTER of non-const handle-like members
+  (class/seq_ref/map_ref — `self + off` live view) + the scalar-seq live
+  wrapper's getter. Setters of handle-like/container members stay bespoke
+  (`field_set`/`field_assign` need the member's own type). Flattened base
+  members, bitfields, reference members, `string_view`/`path`, const class
+  members: bespoke.
+- `SafeHandle` (the abstract base) is a legal `[LibraryImport]` param —
+  verified — so the shared stubs take any per-class handle with full
+  premature-collection safety.
+- `options.erased_fields` (default ON) restores the old artifact when off.
+- Why it matters here: the full DB surface was 111,742 P/Invokes bespoke
+  (72 MB wrapper; csc + interop source generator ran >80 min locally and
+  never finished before we killed it). Erasure collapses it to ~20k.
+
 ## Result<T> is the exception channel
 
 `Result<T>` (`std::expected<T, Error>`) does **not** surface as a result

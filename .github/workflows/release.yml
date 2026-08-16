@@ -327,21 +327,13 @@ jobs:
           path: build/csharp/_deps
           key: deps-linux-x64-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
 
-      # The generator TU alone approaches the runner's 16 GB and the stock
-      # image's small /swapfile cannot absorb it — the OOM killer shot this
-      # job twice (exit 143), the second time right at gen.cpp with the build
-      # width already capped. (First fix attempt learned the hard way that
-      # /swapfile EXISTS and is active: `fallocate: Text file busy`.) So ADD
-      # 16 GB more on the Azure temp disk at /mnt — same escape hatch the
-      # project's CI VPS uses for gcc-16. Thrash beats death.
-      - name: Add swap (the generator TU outgrows physical RAM)
-        run: |
-          free -h
-          sudo fallocate -l 16G /mnt/swapfile
-          sudo chmod 600 /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
-          free -h
+      # Historical note: the single-TU generator peaked near the runner's
+      # 16 GB and needed 16 GB of extra swap on /mnt to survive (the stock
+      # image's small /swapfile is active — `fallocate: Text file busy`).
+      # The generator is now sharded (dbdgen --cs-gen-out): the ClientDB
+      # welds compile as 16 side TUs contributing into gen.cpp's document,
+      # and the peak TU is ~2 GB. No swap needed; the pool cap below is
+      # what keeps concurrent reflection TUs inside physical RAM.
 
       # WOWLIB_PY_COMPILE_JOBS caps the RAM-bounded Ninja pool. Its adaptive
       # default (physical RAM / 3.5 GB) reads a hosted runner's 16 GB as 4
@@ -529,6 +521,23 @@ jobs:
             -DWOWLIB_CS_PREGENERATED_DIR="$PWD/generated" \
             -DWOWLIB_PY_COMPILE_JOBS=2 \
             -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+      # The whole premise of this job is that it compiles PRE-GENERATED
+      # sources. On v0.0.2 the welder-csharp pin predated PREGENERATED_DIR,
+      # cmake_parse_arguments silently dropped the flag, and this leg rebuilt
+      # and ran the full generator — 306 of the macOS job's 325 minutes went
+      # to that one TU swapping on a 7 GB runner. welder-csharp now FATALs on
+      # unknown keywords, and this asserts the other direction: if the
+      # generator target exists in the graph at all, the pregenerated path was
+      # not taken — fail in seconds, not hours.
+      - name: Assert the generator is not in this build
+        run: |
+          set -euo pipefail
+          if ninja -C build/csharp -t targets all | grep -q "wowlib_cs_gen"; then
+            echo "::error::wowlib_cs_gen is in the build graph — PREGENERATED_DIR was not honoured"
+            exit 1
+          fi
+          echo "OK: generator absent; this leg only compiles pregenerated sources"
 
       # CMAKE_BUILD_PARALLEL_LEVEL caps Ninja for the WHOLE build, which
       # WOWLIB_PY_COMPILE_JOBS does not: that pool governs only the C# gen and

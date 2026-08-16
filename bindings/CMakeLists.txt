@@ -321,8 +321,21 @@ instead of building and running the generator")
   if(WOWLIB_CS_PREGENERATED_DIR)
     set(_wowlib_cs_pregen PREGENERATED_DIR ${WOWLIB_CS_PREGENERATED_DIR})
   endif()
+  # The generator is MULTI-TU: gen.cpp walks everything but the tables, and
+  # the dbdgen-emitted cs_gen_shard_N.cpp TUs (WOWLIB_CS_GEN_SHARD_SOURCES,
+  # cmake/DbTables.cmake) weld the tables into the shared document — peak
+  # compile memory is max(shard), not the whole surface, and the TUs compile in
+  # parallel. This is also what finally puts the per-era table CONCRETES on the
+  # C# surface: a namespace walk never descends the generated detail::
+  # namespaces, so before the shards the C# ClientDB surface was only the
+  # empty family/rowbase supertypes.
+  if(DEFINED WOWLIB_CS_GEN_SHARD_SOURCES)
+    set_source_files_properties(${WOWLIB_CS_GEN_SHARD_SOURCES}
+                                PROPERTIES GENERATED TRUE)
+  endif()
   welder_csharp_generate_bindings(wowlib_cs
     SOURCES csharp/gen.cpp
+    EXTRA_GEN_SOURCES ${WOWLIB_CS_GEN_SHARD_SOURCES}
     LIBRARY wowlib_native
     OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/csharp
     SHARDS ${WOWLIB_CS_SHARDS}
@@ -330,6 +343,7 @@ instead of building and running the generator")
     ${_wowlib_cs_pregen}
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/csharp
                  ${CMAKE_CURRENT_SOURCE_DIR}
+                 ${WOWLIB_CS_GEN_DIR}
     LINK ${_wowlib_cs_link}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/csharp/surface.hpp)
   # An INTERFACE link does not by itself order the two TUs after the generator

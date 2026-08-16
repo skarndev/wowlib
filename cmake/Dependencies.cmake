@@ -91,11 +91,13 @@ endif()
 # 19d2387: class-erased field properties in the nanobind rod (one func_create
 # instantiation per field TYPE, not per class x type — the largest code bucket
 # in the db binding shards).
-# dda6d03: C++ default arguments bind (truncated overloads; the language
-# applies the real default) — `t.write()` works from Python at last.
+# 589dfb3: weld_type<Alias> — manual welds of class-template specializations
+# anchor on the namespace-scope alias, which the C# generator shards need
+# for distinct per-alias C symbols (dda6d03 before it: C++ default
+# arguments bind as truncated overloads).
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG dda6d038e5f435735a8aa46a4119ad1edd3e8327)
+  GIT_TAG 542176e744633869b7a897452ba394e91a63271b)
 
 # --- welder-csharp (the C#/.NET rod, an out-of-tree welder extension) ---
 # Declared for every configure (declarations are free) but made available only
@@ -107,9 +109,19 @@ FetchContent_Declare(welder
 # CMAKE_MODULE_PATH). The rod mints its language from welder's user range
 # (slot 0) — wowlib respells the same identity as wowlib::lang::cs in
 # src/wowlib/core/lang.hpp, so core headers never include rod headers.
+# 5bcb550: multi-TU generation (begin_document/at/contribute/render_files),
+# EXTRA_GEN_SOURCES, PREGENERATED_DIR, and FATAL on unknown keywords. That
+# last one is the v0.0.2 lesson: the previous pin (8d085db) predated
+# PREGENERATED_DIR, cmake_parse_arguments silently dropped the flag, and
+# every release leg rebuilt the 16 GB generator TU — 306 min of swap on the
+# 7 GB macOS runner. A pin/call-site mismatch now fails at configure.
+# b97a9d7 on top: erased data-member access — eligible fields bind through
+# ~25 shared entry points instead of per-field thunks, collapsing the DB
+# concretes' ~110k P/Invokes to ~20k (shim compile, dylib size, and the
+# wrapper's Roslyn interop-generator time all scale with that count).
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 8d085db2eca5046886d2cd2a96aa3601f297cdb0)
+  GIT_TAG b97a9d7b87852a1872f7c65706a6f5babbcd487b)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH

@@ -34,3 +34,6 @@
 // add_dependencies. Without it the C# surface silently omits the whole ClientDB
 // subsystem, ~1200 tables across every era, which the Python module does bind.
 #include <wowlib/db/tables/all.hpp>
+// The per-range aliases the generated shim's ^^ spellings reference (the
+// generator shards weld through these same aliases — one source of truth).
+#include <wowlib/db/tables/cs_aliases.hpp>

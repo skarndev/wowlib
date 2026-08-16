@@ -77,6 +77,34 @@ if(WOWLIB_DB_TABLES)
          "${WOWLIB_DB_BINDINGS_DIR}/db_shards.hpp" "${WOWLIB_DB_STUB_PATTERNS}")
   endif()
 
+  # For the C# build, the same run emits the sharded GENERATOR translation
+  # units (cs_gen_shard_N.cpp + cs_gen_shards.hpp): the single generate TU
+  # approached 16 GB and was OOM-killed on CI runners, so the reflection is
+  # split across TUs that link into one generator executable (welder-csharp
+  # multi-TU generation). NOT the Python shard count: a Python shard compiles
+  # thunk code (many small TUs win), while a generator shard's cost is
+  # dominated by the fixed frontend parse of the table headers it includes —
+  # at 96 shards the build paid ~96 parses for the same emission work. Fewer
+  # shards trade that parse waste for per-TU emission RAM (the 2.07 GB peak
+  # was measured at 96); 32 cuts the parsing 3x while keeping the peak TU
+  # comfortably inside a 16 GB CI runner at pool width 2.
+  if(WOWLIB_BUILD_CSHARP)
+    set(WOWLIB_CS_GEN_SHARDS "32" CACHE STRING
+        "Shard count for the C# generator TUs (RAM/parse trade-off)")
+    set(WOWLIB_CS_GEN_DIR "${CMAKE_BINARY_DIR}/generated/db_cs_gen")
+    list(APPEND _wowlib_dbdgen_args
+         --cs-gen-out "${WOWLIB_CS_GEN_DIR}"
+         --cs-gen-shards "${WOWLIB_CS_GEN_SHARDS}")
+    set(WOWLIB_CS_GEN_SHARD_SOURCES "")
+    math(EXPR _wowlib_last_cs_shard "${WOWLIB_CS_GEN_SHARDS} - 1")
+    foreach(_i RANGE ${_wowlib_last_cs_shard})
+      list(APPEND WOWLIB_CS_GEN_SHARD_SOURCES
+           "${WOWLIB_CS_GEN_DIR}/cs_gen_shard_${_i}.cpp")
+    endforeach()
+    list(APPEND _wowlib_dbdgen_outputs ${WOWLIB_CS_GEN_SHARD_SOURCES}
+         "${WOWLIB_CS_GEN_DIR}/cs_gen_shards.hpp")
+  endif()
+
   add_custom_command(
     OUTPUT ${_wowlib_dbdgen_outputs}
     COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=${PROJECT_SOURCE_DIR}/tools/dbdgen"
