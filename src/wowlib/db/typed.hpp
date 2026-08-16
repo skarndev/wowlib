@@ -177,7 +177,7 @@ namespace wowlib::db
       itself stays fully generic (every column decodes, byte-perfect
       round-trip holds); this projects rows into @a Record values, copies
       edits back, and hands out zero-copy typed column spans.
-      @tparam Record a @ref TableRecord-shaped struct whose members name a
+      @tparam Record a @ref TableRecord -shaped struct whose members name a
                      subset of the table's era columns. */
   template <TableRecord Record>
   class TypedTable

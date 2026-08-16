@@ -2,10 +2,11 @@
 
 The client-side databases — every file under `DBFilesClient/`: maps, spells,
 items, creature display info, taxi nodes… `wowlib.db` reads and writes all of
-them as **typed tables**: each table is a generated class whose rows carry one
-typed property per column, generated from the community
-[WoWDBDefs](https://github.com/wowdev/WoWDBDefs) definitions for every
-supported client era.
+them through **one runtime-schema table**: the schema for any table of any
+supported client era comes from the community
+[WoWDBDefs](https://github.com/wowdev/WoWDBDefs) definitions baked into the
+library as data, so nothing per-table is generated or compiled — and every
+era of every table is available from the same class.
 
 wowlib speaks every on-disk database format a last-minor client ships:
 
@@ -24,38 +25,42 @@ one.
 
 ## The table surface
 
-Every table follows one shape, documented on
-**[Tables & records](tables.md)** with `Map` as the representative:
+Everything lives on **[the generic table](tables.md)**:
 
-- **`wowlib.db.tables.X`** — the version-agnostic base:
-  `X.for_version(expansion)` builds the concrete per-era class; every era class
-  is a subclass, so `isinstance(t, X)` and a `t: X` annotation work.
-- **`wowlib.db.tables.XRecord⟨era⟩`** — one typed row; `table.records` is a
-  plain mutable list of them, and `write()` serializes exactly that list.
-- **`wowlib.db.rowbase.X`** — an era-agnostic row supertype every
-  `XRecord⟨era⟩` inherits, for annotating code that handles any era's rows.
+- **[`Table.open(name, version)`][wowlib.db.Table.open]** resolves the
+  era's schema by name (`wowlib.db.table_names()` lists what exists) and
+  returns an empty table ready to `read` any file of that table.
+- **`table[i]`** is a live [`Record`][wowlib.db.Record] view — columns read
+  and write as attributes (`row.map_name`), shaped by the column.
+- **`table.column(name)`** hands out a whole column: a zero-copy numpy view
+  for numeric columns, lists for strings.
+- Cell-level access (`get_int`/`set_string`/…) addresses
+  `(row, column, element)` directly — the shape renderers and bulk editors
+  want.
 
 Columns keep their WoWDBDefs names, converted to `snake_case`. Pre-Cataclysm
-localized-string columns decode to [`LocString8`][wowlib.db.LocString8] /
-[`LocString16`][wowlib.db.LocString16] (one slot per client language);
+localized-string columns expose one slot per client language (the `Record`
+attribute is the `list[str]` of slots; `locstring_flags` rides alongside);
 Cataclysm onwards they are plain strings.
 
 ```python
-from wowlib import Expansion, FileKey, Locale, versions
+from wowlib import FileKey, versions
 from wowlib.fs import FileSystem, FileSystemSettings
-from wowlib.db import EncryptedPolicy
-from wowlib.db.tables import Map
+from wowlib.db import EncryptedPolicy, Table
 
 settings = FileSystemSettings("/Games/WoW 3.3.5a", versions.wotlk)
 with FileSystem.open(settings) as fs:
-    table = Map.for_version(Expansion.Wotlk)
+    table = Table.open("Map", versions.wotlk)
     table.read(fs, FileKey("DBFilesClient/Map.dbc"))
 
-    for row in table.records:
-        print(row.id, row.directory, row.map_name.at(Locale.enUS))
+    for row in table:
+        print(row.id, row.directory, row.map_name[0])   # slot 0 = enUS
 
-    table.records[0].map_name.set(Locale.enUS, "Azeroth Reforged")
-    data = table.write(EncryptedPolicy.Preserve)      # bytes, or write(fs, key, …)
+    names = table[0].map_name
+    names[0] = "Azeroth Reforged"
+    table[0].map_name = names
+    ids = table.column("id")                            # zero-copy numpy
+    data = table.write(EncryptedPolicy.Preserve)        # bytes, or write(fs, key, …)
 ```
 
 ## Round-trip guarantees
@@ -80,7 +85,16 @@ just the decoded rows (`Drop`).
 
 ## Shared value types
 
+The table classes themselves live on **[the generic table](tables.md)**;
+this renders only what they share.
+
 ::: wowlib.db
     options:
       show_root_heading: false
       show_root_toc_entry: false
+      members:
+        - TableBase
+        - LocString8
+        - LocString16
+        - EncryptedPolicy
+        - EncryptedSection

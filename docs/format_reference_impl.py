@@ -63,7 +63,7 @@ STUBS = REPO_ROOT / "build/bindings/bindings/python/stubs"
 # "common" module carries width-only pages (the shared primitive/core types).
 FORMAT_MODULES = ("wmo_reference_config", "m2_reference_config",
                   "wdt_reference_config", "wdl_reference_config",
-                  "adt_reference_config", "db_reference_config",
+                  "adt_reference_config",
                   "common_reference_config")
 
 # Version-RANGE suffixes (welded class names): the library instantiates one

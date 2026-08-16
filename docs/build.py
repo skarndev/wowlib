@@ -236,7 +236,7 @@ def run_mkdocs(action: str, api_dir: Path) -> None:
                       "wmo_reference_config.py",
                       "m2_reference_config.py", "wdt_reference_config.py",
                       "wdl_reference_config.py", "adt_reference_config.py",
-                      "db_reference_config.py", "common_reference_config.py",
+                      "common_reference_config.py",
                       "griffe_overloads.py",
                       "wmo_wowdev_anchors.json", "m2_wowdev_anchors.json",
                       "wdt_wowdev_anchors.json", "wdl_wowdev_anchors.json",

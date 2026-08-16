@@ -1,43 +1,49 @@
-# Tables & records
+# The generic table
 
-`wowlib.db.tables` holds **every** client-database table — around 1200
-families, each generated per era from WoWDBDefs. Documenting them all would
-bury the reference, and they all share one shape, so this page documents the
-representative **`Map`** family in full; substitute any table name
-(`Spell`, `ItemSparse`, `TaxiNodes`, …) and the same structure applies.
-The per-table column documentation lives in your editor: the shipped stubs
-carry every table, every era, every column docstring.
+One class serves **every** client-database table of **every** era:
+[`wowlib.db.Table`][wowlib.db.Table]. Its schema is resolved at runtime from
+the WoWDBDefs data baked into the library — open any table by name for any
+supported client version, read its rows, edit cells, and write it back in the
+era's own on-disk format. There are no generated per-table classes; the
+schema is data, not code.
 
-## The table family
-
-`Map` is the version-agnostic base: construct the concrete era class with
-`for_version(expansion)`. The concrete classes cover *ranges* of eras — one
-class per distinct layout, exactly as the layouts evolved.
-
-::: wowlib.db.tables.Map
+::: wowlib.db.Table
     options:
       heading_level: 3
       show_root_toc_entry: true
 
-## The table API
+## Row views
 
-Every concrete table class has the same members — a `records` list, the
-filesystem-aware `read`/`write` pair, the preserved string block and the
-encryption report. Rendered from the newest `Map` era class; only the record
-type in `records` differs per era.
+Indexing a table (`table[i]`) yields a live [`Record`][wowlib.db.Record]
+view: columns read and write as **attributes** named after the WoWDBDefs
+schema, shaped by the column — a scalar for scalar columns, a list for
+arrays, a `list[str]` of locale slots for pre-Cataclysm localized strings.
 
-::: wowlib.db.tables.MapTheWarWithin
+::: wowlib.db.Record
     options:
       heading_level: 3
       show_root_toc_entry: true
 
-## Records
+## Column metadata
 
-One typed row class per layout range, all inheriting the era-agnostic
-`wowlib.db.rowbase.Map` supertype. The family documents **once** below, the
-way wowdev.wiki lists a versioned struct: one merged member walk, each member
-badged with the era range that declares it — a badge-less member exists in
-every era the table covers. A member whose type changed across eras appears
-once per layout, each entry badged.
+`table.column_info(i)` / `table.column_index(name)` describe the resolved
+schema; `table.column(name)` hands the whole column out at once — a
+**zero-copy numpy view** for numeric columns (exact dtype, element writes are
+live), plain lists for string columns.
 
-<!-- db-map-records -->
+::: wowlib.db.Column
+    options:
+      heading_level: 3
+      show_root_toc_entry: true
+
+::: wowlib.db.ColumnType
+    options:
+      heading_level: 3
+      show_root_toc_entry: true
+
+## Listing the catalog
+
+::: wowlib.db.table_names
+    options:
+      heading_level: 3
+      show_root_toc_entry: true
