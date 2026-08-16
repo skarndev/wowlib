@@ -20,7 +20,11 @@
 if(NOT DEFINED WOWLIB_PY_COMPILE_JOBS)
   cmake_host_system_information(RESULT _wowlib_ram QUERY TOTAL_PHYSICAL_MEMORY)   # MB
   cmake_host_system_information(RESULT _wowlib_cores QUERY NUMBER_OF_LOGICAL_CORES)
-  math(EXPR WOWLIB_PY_COMPILE_JOBS "${_wowlib_ram} / 3500")
+  # 2 GB per slot: the generic-DB rework took the ~1200 table headers out of
+  # every binding TU — the heaviest survivor (the C# generator over the
+  # formats + generic-Table surface) peaks ~1.5 GB, ordinary shim/facade TUs
+  # under 1 GB. (The old divisor was 3500, sized for table-bearing TUs.)
+  math(EXPR WOWLIB_PY_COMPILE_JOBS "${_wowlib_ram} / 2000")
   if(WOWLIB_PY_COMPILE_JOBS LESS 2)
     set(WOWLIB_PY_COMPILE_JOBS 2)
   endif()
@@ -82,6 +86,7 @@ if(WOWLIB_BUILD_PYTHON)
     python/wowlib_module.cpp
     python/errors.cpp
     python/buffers.cpp
+    python/db_dyn.cpp
     python/fs.cpp
     python/formats/wmo.cpp
     python/formats/m2.cpp
@@ -92,13 +97,7 @@ if(WOWLIB_BUILD_PYTHON)
     instantiations/m2.cpp
     instantiations/wdt.cpp
     instantiations/wdl.cpp
-    instantiations/adt.cpp
-    # Generated client-database binding shards (dbdgen; one TU per shard so the
-    # ~1200 tables compile in parallel). Each welds its slice into db.tables.
-    ${WOWLIB_DB_SHARD_SOURCES})
-  # The shards do not exist at configure time; mark them GENERATED so CMake does
-  # not look for them on disk (their producer is the wowlib_dbdgen command).
-  set_source_files_properties(${WOWLIB_DB_SHARD_SOURCES} PROPERTIES GENERATED TRUE)
+    instantiations/adt.cpp)
 
   set_target_properties(wowlib_py PROPERTIES JOB_POOL_COMPILE wowlib_py_compile)
   # opaque_gen.cpp reflects the whole umbrella too (~5 GB); pool it with the rest.
@@ -106,13 +105,11 @@ if(WOWLIB_BUILD_PYTHON)
     set_target_properties(wowlib_opaque_gen PROPERTIES JOB_POOL_COMPILE wowlib_py_compile)
   endif()
   # python/ for the quoted glue includes ("formats/wmo.hpp", "result_casters.hpp");
-  # the bindings root for the language-neutral "instantiations/…" includes; the
-  # binary dir for the generated wowlib.opaque.hpp; the db_bindings dir for the
-  # generated db_shards.hpp; and a dependency so all of it is emitted before the
-  # module compiles.
+  # the bindings root for the language-neutral "instantiations/…" includes; and
+  # the binary dir for the generated wowlib.opaque.hpp.
   target_include_directories(wowlib_py PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/python ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR} ${WOWLIB_DB_BINDINGS_DIR})
+    ${CMAKE_CURRENT_BINARY_DIR})
   add_dependencies(wowlib_py wowlib_opaque wowlib_dbdgen)
   target_link_libraries(wowlib_py PRIVATE wowlib welder::headers welder::nanobind)
   if(TARGET wowlib_db_tables)
@@ -180,19 +177,6 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
   # single file). Falls back to just the hand-written file when the db tables /
   # Python build is off.
   set(_wowlib_patterns ${CMAKE_CURRENT_SOURCE_DIR}/python/stub_patterns.nb)
-  if(DEFINED WOWLIB_DB_STUB_PATTERNS)
-    set(_wowlib_combined_patterns ${CMAKE_CURRENT_BINARY_DIR}/combined_stub_patterns.nb)
-    add_custom_command(
-      OUTPUT ${_wowlib_combined_patterns}
-      COMMAND ${CMAKE_COMMAND} -DOUT=${_wowlib_combined_patterns}
-              "-DINPUTS=${_wowlib_patterns};${WOWLIB_DB_STUB_PATTERNS}"
-              -P ${CMAKE_SOURCE_DIR}/cmake/ConcatFiles.cmake
-      DEPENDS ${_wowlib_patterns} ${WOWLIB_DB_STUB_PATTERNS} wowlib_dbdgen
-      COMMENT "Merging stub PATTERN_FILEs (format + generated db)"
-      VERBATIM)
-    add_custom_target(wowlib_stub_patterns DEPENDS ${_wowlib_combined_patterns})
-    set(_wowlib_patterns ${_wowlib_combined_patterns})
-  endif()
 
   nanobind_add_stub(wowlib_pyi
     MODULE wowlib
@@ -275,15 +259,11 @@ if(WOWLIB_BUILD_CSHARP)
   # (CMake functions are global once a subdirectory defines them).
 
   # The shim covers the whole welded surface — every format entity across the
-  # version matrix PLUS every generated ClientDB table across all eras — and a
-  # single shim TU at that size does not compile in real memory/time (that is
-  # what blocked the DB-bearing C# build). SHARDS splits it into TUs that
-  # compile in parallel; each top-level class lands whole in one shard, so the
-  # split is always link-correct. The count trades parallelism against the
-  # redundant full-surface parse each shard pays (unlike the Python db shards,
-  # every C# shard includes surface.hpp whole) — so it sits well below
-  # WOWLIB_DB_SHARDS' 96.
-  set(WOWLIB_CS_SHARDS "32" CACHE STRING
+  # version matrix plus the generic ClientDB Table. SHARDS splits it into TUs
+  # that compile in parallel; each top-level class lands whole in one shard,
+  # so the split is always link-correct. The count trades parallelism against
+  # the redundant full-surface parse each shard pays.
+  set(WOWLIB_CS_SHARDS "16" CACHE STRING
       "Number of C# shim translation units (parallel compile)")
 
   # The managed wrapper is ~11 MB as one file — past what several editors will
@@ -298,14 +278,7 @@ if(WOWLIB_BUILD_CSHARP)
   # name, and the bindings root for the per-range welded alias tables
   # (instantiations/*_ranges.hpp) it pulls in. The generator and the shim compile
   # against that one surface, so the two TUs cannot reflect different declarations.
-  # LINK carries wowlib_db_tables when the ClientDB headers are generated: it is
-  # an INTERFACE target supplying both their include root and the dependency on
-  # wowlib_dbdgen, so surface.hpp's <wowlib/db/tables/all.hpp> resolves and cannot
-  # be compiled before it exists.
   set(_wowlib_cs_link wowlib)
-  if(TARGET wowlib_db_tables)
-    list(APPEND _wowlib_cs_link wowlib_db_tables)
-  endif()
 
   # WOWLIB_CS_PREGENERATED_DIR: compile shim sources produced by ANOTHER build
   # instead of running the generator here. gen.cpp is one serial
@@ -321,21 +294,12 @@ instead of building and running the generator")
   if(WOWLIB_CS_PREGENERATED_DIR)
     set(_wowlib_cs_pregen PREGENERATED_DIR ${WOWLIB_CS_PREGENERATED_DIR})
   endif()
-  # The generator is MULTI-TU: gen.cpp walks everything but the tables, and
-  # the dbdgen-emitted cs_gen_shard_N.cpp TUs (WOWLIB_CS_GEN_SHARD_SOURCES,
-  # cmake/DbTables.cmake) weld the tables into the shared document — peak
-  # compile memory is max(shard), not the whole surface, and the TUs compile in
-  # parallel. This is also what finally puts the per-era table CONCRETES on the
-  # C# surface: a namespace walk never descends the generated detail::
-  # namespaces, so before the shards the C# ClientDB surface was only the
-  # empty family/rowbase supertypes.
-  if(DEFINED WOWLIB_CS_GEN_SHARD_SOURCES)
-    set_source_files_properties(${WOWLIB_CS_GEN_SHARD_SOURCES}
-                                PROPERTIES GENERATED TRUE)
-  endif()
   welder_csharp_generate_bindings(wowlib_cs
     SOURCES csharp/gen.cpp
-    EXTRA_GEN_SOURCES ${WOWLIB_CS_GEN_SHARD_SOURCES}
+    # The version matrices weld in parallel contributor TUs — the single-TU
+    # generator was ~11 serial minutes, nearly all of it matrix reflection.
+    EXTRA_GEN_SOURCES csharp/gen_wmo.cpp csharp/gen_m2.cpp csharp/gen_adt.cpp
+                      csharp/gen_wdt.cpp csharp/gen_wdl.cpp
     LIBRARY wowlib_native
     OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/csharp
     SHARDS ${WOWLIB_CS_SHARDS}
@@ -343,11 +307,10 @@ instead of building and running the generator")
     ${_wowlib_cs_pregen}
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/csharp
                  ${CMAKE_CURRENT_SOURCE_DIR}
-                 ${WOWLIB_CS_GEN_DIR}
     LINK ${_wowlib_cs_link}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/csharp/surface.hpp)
-  # An INTERFACE link does not by itself order the two TUs after the generator
-  # command, so state it: both must wait for dbdgen to write the headers.
+  # The embedded schema blob is a dbdgen output; the surface (dyn_table) needs
+  # only wowlib itself, but the LIBRARY link must wait for the blob TU.
   if(TARGET wowlib_dbdgen)
     if(TARGET wowlib_cs_gen)      # absent when compiling pre-generated sources
       add_dependencies(wowlib_cs_gen wowlib_dbdgen)

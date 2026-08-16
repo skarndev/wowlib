@@ -46,9 +46,7 @@
 
 #include "errors.hpp"
 #include "db.hpp"
-// dbdgen output (generated bindings dir): forward-decls of the per-shard
-// register_shard_N + register_all, which creates db.rowbase/db.tables.
-#include "db_shards.hpp"
+#include "db_dyn.hpp"
 #include "formats/adt.hpp"
 #include "formats/m2.hpp"
 #include "formats/wdl.hpp"
@@ -73,7 +71,7 @@ WELDER_MODULE(wowlib, nanobind,
               welder::welder<welder::rods::nanobind::rod<>, wowlib_py::wowlib_python_naming>)
 {
   wowlib_py::register_errors(module);
-  wowlib_py::db::register_all(module);
+  wowlib_py::db::register_dyn(module);
   wowlib_py::formats::wmo::register_facade(module);
   wowlib_py::formats::m2::register_facade(module);
   wowlib_py::formats::wdt::register_facade(module);

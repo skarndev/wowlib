@@ -1,26 +1,26 @@
 /** @file
-    @brief The C#/.NET bindings generator — MULTI-TU: this TU walks everything
-    but the client-database tables; the dbdgen-emitted cs_gen_shard_<N>.cpp
-    TUs (linked into this same executable) weld the tables; render happens
-    once, here.
+    @brief The C#/.NET bindings generator — MULTI-TU over the formats matrix.
 
-    Why not one TU: reflecting the whole surface at once approached 16 GB and
-    was OOM-killed on CI. The welder-csharp document is runtime state, so the
-    reflection splits across TUs — peak memory max(TU), parallel compiles —
-    with byte-compatible output (the symbol registry and type-rename
-    placeholders are document-global and resolve at render).
+    This TU walks everything except the per-range format aliases
+    (surface_core.hpp); the five gen_<format>.cpp contributors weld their
+    version matrices in parallel TUs (the single-TU generator spent ~11
+    serial minutes, almost all of it reflecting the matrices). Render
+    happens once, here — the welder-csharp document is runtime state, so
+    symbol registry and type-name placeholders are global across TUs and
+    cross-TU references resolve at render.
 
-    argv contract (unchanged, driven by welder_csharp_generate_bindings):
-    argv[1] shim path stem, argv[2] Bindings.cs path, argv[3] SHARDS,
-    argv[4] CS_FILES. */
+    argv contract (driven by welder_csharp_generate_bindings): argv[1] shim
+    path stem, argv[2] Bindings.cs path, argv[3] SHARDS, argv[4] CS_FILES.
+    No .NET is needed to BUILD any of this; a dotnet SDK is needed only to
+    consume the emitted wrapper. */
 
-#include "surface_gen.hpp"
+#include "surface_core.hpp"
 
 #include <cstdlib>
 
 #include <welder/rods/csharp/rod.hpp>
 
-#include "cs_gen_shards.hpp"  // dbdgen-generated registry (build tree)
+#include "gen_contributors.hpp"
 
 int main(int argc, char** argv)
 {
@@ -36,7 +36,11 @@ int main(int argc, char** argv)
 
   wcs::document doc = wcs::rod::begin_document(std::move(opts));
   wcs::rod::contribute_namespace<^^wowlib>(doc);
-  wowlib_cs::db::contribute_all_tables(doc);
+  wowlib_cs::contribute_wmo(doc);
+  wowlib_cs::contribute_m2(doc);
+  wowlib_cs::contribute_adt(doc);
+  wowlib_cs::contribute_wdt(doc);
+  wowlib_cs::contribute_wdl(doc);
   wcs::rod::render_files(doc, argc > 1 ? argv[1] : "shim.cpp",
                          argc > 2 ? argv[2] : "Bindings.cs");
   return 0;

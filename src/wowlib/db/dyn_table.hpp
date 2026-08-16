@@ -137,6 +137,21 @@ namespace wowlib::db
     };
   }
 
+  /** A scalar column's whole storage, for zero-copy array views: the raw
+      exact-width buffer plus the facts to type it (rows x elements_per_row
+      matrix, row-major). NOT welded, and deliberately not nested in DynTable
+      — a welded class's public nested types are bound with it, and a span
+      member cannot cross a binding boundary; the bindings build their
+      array views (numpy etc.) from this by hand. */
+  struct PodColumnView
+  {
+    std::span<const std::byte> bytes; /**< The buffer, row-major. */
+    std::uint8_t elem_bytes = 0;      /**< Element width in bytes. */
+    std::uint16_t elems_per_row = 1;  /**< Array length (1 = scalar). */
+    bool is_signed = false;           /**< Integer signedness. */
+    bool is_float = false;            /**< float32 elements. */
+  };
+
   /** The generic client-database table: schema resolved at runtime from the
       schema catalog, rows in a column store, format engine and preserved
       decode state inherited from @ref TableBase (read/write/validate/strings/
@@ -144,7 +159,17 @@ namespace wowlib::db
 
       Copy/move re-wire the inherited core at the new storage — the same
       contract every generated table honored. */
-  class DynTable : public TableBase
+  class [[
+    =welder::weld,
+    =welder::weld_as("Table"),
+    =welder::doc(R"(
+        A client-database table with its schema resolved at RUNTIME from
+        WoWDBDefs data: open any table of any targeted client era, read its
+        rows, edit cells by (row, column, element), and write it back in the
+        era's own format. Cells are addressed by column index (see
+        column_index/column_info); scalar columns also expose zero-copy
+        array views.)")
+  ]] DynTable : public TableBase
   {
   public:
     /** An unwired table: every inherited operation reports
@@ -158,7 +183,14 @@ namespace wowlib::db
         @param version the client the schema resolves for.
         @return the empty, schema-bound table; TableUnknown /
                 UnsupportedClientVersion when the catalog cannot resolve. */
-    static Result<DynTable> open(std::string_view table, ClientVersion version);
+    [[=welder::doc("Open an empty table by name, with its schema resolved "
+                   "for the given client version from the built-in WoWDBDefs "
+                   "data."),
+      =welder::returns("the empty, schema-bound table; raises for an unknown "
+                       "table or an uncovered client era")]]
+    static Result<DynTable> open(
+        std::string_view table [[=welder::doc("the table name, e.g. \"Map\"")]],
+        ClientVersion version [[=welder::doc("the client to resolve for")]]);
 #endif
 
     /** Open a table over an explicitly resolved schema — the caller
@@ -168,6 +200,7 @@ namespace wowlib::db
         @param schema  the resolved schema views.
         @param version the client version the table serializes for.
         @return the empty, schema-bound table. */
+    [[=welder::mark::exclude]]
     static DynTable from_schema(const TableSchema& schema, ClientVersion version);
 
     DynTable(const DynTable& other);
@@ -177,38 +210,64 @@ namespace wowlib::db
     ~DynTable() = default;
 
     /** @return the number of rows. */
+    [[=welder::getter, =welder::doc("The number of rows.")]]
     std::size_t row_count() const { return rows_.size(); }
     /** @return the number of schema columns. */
+    [[=welder::getter, =welder::doc("The number of schema columns.")]]
     std::size_t column_count() const { return rows_.schema().size(); }
     /** @return the resolved schema (owner-guaranteed lifetime). */
+    [[=welder::mark::exclude]]
     std::span<const Column> schema() const { return rows_.schema(); }
     /** @return the client version the table serializes for. */
+    [[=welder::getter, =welder::doc("The client version the table serializes for.")]]
     ClientVersion version() const { return version_; }
     /** @return the identifier name the table was opened as. */
+    [[=welder::getter, =welder::doc("The table name (WoWDBDefs identifier).")]]
     std::string_view name() const { return name_; }
+
+    /** Column @a column's schema entry, by value (the welded metadata face
+        of @ref schema).
+        @param column the column index.
+        @return the Column, or OffsetOutOfBounds. */
+    [[=welder::doc("The schema entry of one column: name, value class, "
+                   "shape and key roles."),
+      =welder::returns("the column description; raises when out of range")]]
+    Result<Column> column_info(
+        std::size_t column [[=welder::doc("the column index")]]) const;
 
     /** The index of column @a name.
         @param name the column name (case-sensitive, WoWDBDefs spelling).
         @return the index, or TableUnknown when the schema has no such column. */
-    Result<std::size_t> column_index(std::string_view name) const;
+    [[=welder::doc("The index of the column with the given WoWDBDefs name."),
+      =welder::returns("the column index; raises when no column matches")]]
+    Result<std::size_t> column_index(
+        std::string_view name [[=welder::doc("the column name, case-sensitive")]]) const;
 
     /** Append a fresh zero/empty row.
         @return the new row's index. */
+    [[=welder::doc("Append a fresh zero/empty row."),
+      =welder::returns("the new row's index")]]
     std::size_t append_row() { return rows_.add(); }
 
     /** Remove row @a row.
         @param row the row index.
         @return nothing; OffsetOutOfBounds when @a row is out of range. */
-    Result<void> erase_row(std::size_t row);
+    [[=welder::doc("Remove one row."),
+      =welder::returns("nothing; raises when the row is out of range")]]
+    Result<void> erase_row(std::size_t row [[=welder::doc("the row index")]]);
 
     /** Drop every row (schema and preserved decode state stay). */
+    [[=welder::doc("Drop every row (the schema and preserved decode state stay).")]]
     void clear_rows() { rows_.clear(); }
 
     /** The first row whose $id$ equals @a id.
         @param id the primary key value.
         @return the row index; TableUnknown when no row matches or the schema
                 has no $id$ column. */
-    Result<std::size_t> find_by_id(std::uint32_t id) const;
+    [[=welder::doc("The first row whose $id$ column equals the given key."),
+      =welder::returns("the row index; raises when no row matches")]]
+    Result<std::size_t> find_by_id(
+        std::uint32_t id [[=welder::doc("the primary key value")]]) const;
 
     /** Read an integer element. LocString columns answer their FLAGS word
         through @ref locstring_flags, not here.
@@ -216,55 +275,90 @@ namespace wowlib::db
         @param column  an Int column's index.
         @param element the array element (0 for scalars).
         @return the value, sign-extended from the column's exact width. */
-    Result<std::int64_t> get_int(std::size_t row, std::size_t column,
-                                 std::size_t element = 0) const;
+    [[=welder::doc("Read an integer cell, sign-extended from the column's "
+                   "exact width. LocString flags read via locstring_flags."),
+      =welder::returns("the value; raises on a non-Int column or an "
+                       "out-of-range index")]]
+    Result<std::int64_t> get_int(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("an Int column's index")]],
+        std::size_t element [[=welder::doc("the array element")]] = 0) const;
 
     /** Write an integer element (truncates to the column's exact width, as
         the typed member assignment did).
         @copydetails get_int */
-    Result<void> set_int(std::size_t row, std::size_t column, std::int64_t value,
-                         std::size_t element = 0);
+    [[=welder::doc("Write an integer cell (truncates to the column's exact "
+                   "width, exactly as the typed member assignment did)."),
+      =welder::returns("nothing; raises on a non-Int column or an "
+                       "out-of-range index")]]
+    Result<void> set_int(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("an Int column's index")]],
+        std::int64_t value [[=welder::doc("the value to store")]],
+        std::size_t element [[=welder::doc("the array element")]] = 0);
 
     /** Read a float element. */
-    Result<float> get_float(std::size_t row, std::size_t column,
-                            std::size_t element = 0) const;
+    [[=welder::doc("Read a float cell."),
+      =welder::returns("the value; raises on a non-Float column or an "
+                       "out-of-range index")]]
+    Result<float> get_float(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("a Float column's index")]],
+        std::size_t element [[=welder::doc("the array element")]] = 0) const;
     /** Write a float element. */
-    Result<void> set_float(std::size_t row, std::size_t column, float value,
-                           std::size_t element = 0);
+    [[=welder::doc("Write a float cell."),
+      =welder::returns("nothing; raises on a non-Float column or an "
+                       "out-of-range index")]]
+    Result<void> set_float(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("a Float column's index")]],
+        float value [[=welder::doc("the value to store")]],
+        std::size_t element [[=welder::doc("the array element")]] = 0);
 
     /** Read a string element (String columns: the array element; LocString
         columns: the locale slot). The view is valid until the cell mutates.
         @param row     the row index.
         @param column  a String/LocString column's index.
         @param element the array element / locale slot. */
-    Result<std::string_view> get_string(std::size_t row, std::size_t column,
-                                        std::size_t element = 0) const;
+    [[=welder::doc("Read a string cell (String columns: the array element; "
+                   "LocString columns: the locale slot)."),
+      =welder::returns("the text; raises on a non-string column or an "
+                       "out-of-range index")]]
+    Result<std::string_view> get_string(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("a String/LocString column's index")]],
+        std::size_t element [[=welder::doc("the array element / locale slot")]] = 0) const;
     /** Write a string element. */
-    Result<void> set_string(std::size_t row, std::size_t column,
-                            std::string_view value, std::size_t element = 0);
+    [[=welder::doc("Write a string cell (String columns: the array element; "
+                   "LocString columns: the locale slot)."),
+      =welder::returns("nothing; raises on a non-string column or an "
+                       "out-of-range index")]]
+    Result<void> set_string(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("a String/LocString column's index")]],
+        std::string_view value [[=welder::doc("the text to store")]],
+        std::size_t element [[=welder::doc("the array element / locale slot")]] = 0);
 
     /** Read a LocString column's flags word. */
-    Result<std::uint32_t> locstring_flags(std::size_t row, std::size_t column) const;
+    [[=welder::doc("Read a LocString column's flags word."),
+      =welder::returns("the flags; raises on a non-LocString column")]]
+    Result<std::uint32_t> locstring_flags(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("a LocString column's index")]]) const;
     /** Write a LocString column's flags word. */
-    Result<void> set_locstring_flags(std::size_t row, std::size_t column,
-                                     std::uint32_t flags);
-
-    /** A scalar column's whole storage, for zero-copy array views: the raw
-        exact-width buffer plus the facts to type it (rows x elements_per_row
-        matrix, row-major). */
-    struct PodColumnView
-    {
-      std::span<const std::byte> bytes; /**< The buffer, row-major. */
-      std::uint8_t elem_bytes = 0;      /**< Element width in bytes. */
-      std::uint16_t elems_per_row = 1;  /**< Array length (1 = scalar). */
-      bool is_signed = false;           /**< Integer signedness. */
-      bool is_float = false;            /**< float32 elements. */
-    };
+    [[=welder::doc("Write a LocString column's flags word."),
+      =welder::returns("nothing; raises on a non-LocString column")]]
+    Result<void> set_locstring_flags(
+        std::size_t row [[=welder::doc("the row index")]],
+        std::size_t column [[=welder::doc("a LocString column's index")]],
+        std::uint32_t flags [[=welder::doc("the flags word")]]);
 
     /** The zero-copy view of numeric/float column @a column.
         @param column the column index.
         @return the view; SchemaMismatch for string-bearing columns. */
+    [[=welder::mark::exclude]]  // bound by hand: numpy over the raw buffer
     Result<PodColumnView> pod_column(std::size_t column) const;
+
 
   private:
     /** Wire the inherited core at this instance's storage. */

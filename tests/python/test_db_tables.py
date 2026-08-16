@@ -1,9 +1,11 @@
-"""The generated client-database tables (wowlib.db.tables) and their facade.
+"""The generic client-database surface (wowlib.db.Table).
 
-The table classes/records/fields come from dbdgen + welder, sharded across TUs;
-these tests cover the binding contracts that generation must preserve — the
-version-keyed for_version facade (grid-gated), the AnyX union, the shared
-supertypes, and a real byte-perfect round-trip through the fs gateway.
+One runtime-schema table class serves every table of every era — the schema
+comes from the WoWDBDefs data baked into the library, not from generated
+classes. These tests cover the binding contracts: catalog listing, schema
+resolution per era, cell access in every column shape, the Record attribute
+views, zero-copy numpy columns, and a real byte-perfect round-trip through
+the fs gateway.
 """
 
 import pytest
@@ -11,69 +13,117 @@ import pytest
 import wowlib
 
 
-def test_tables_submodule_populated():
-    tables = wowlib.db.tables
-    # A spread of tables surface with their shared base + per-era concretes.
-    assert issubclass(tables.MapWotlk, tables.Map)
-    assert issubclass(tables.MapVanilla, tables.Map)
-    # The record supertype is shared across a table's per-era record classes.
-    assert issubclass(tables.MapRecordWotlk, wowlib.db.rowbase.Map)
+def test_table_names_lists_the_catalog():
+    names = wowlib.db.table_names()
+    assert "Map" in names
+    assert "Spell" in names
+    assert names == sorted(names)
+    # Era filtering: ItemSparse debuts in Cataclysm.
+    vanilla = wowlib.db.table_names(wowlib.versions.vanilla)
+    assert "Map" in vanilla
+    assert "ItemSparse" not in vanilla
+    assert len(vanilla) < len(names)
 
 
-def test_for_version_narrows_to_the_concrete_class():
-    tables = wowlib.db.tables
-    m = tables.Map.for_version(wowlib.Expansion.Wotlk)
-    assert type(m) is tables.MapWotlk
-    assert isinstance(m, tables.Map)  # native inheritance / isinstance
-    # WMOAreaTable collapses tbc+wotlk into one range (shadowlands differs), so
-    # both eras resolve to the same concrete class, distinct from shadowlands'.
-    tbc = type(tables.WMOAreaTable.for_version(wowlib.Expansion.Tbc))
-    wotlk = type(tables.WMOAreaTable.for_version(wowlib.Expansion.Wotlk))
-    shadowlands = type(tables.WMOAreaTable.for_version(wowlib.Expansion.Shadowlands))
-    assert tbc is wotlk
-    assert shadowlands is not tbc
-    assert issubclass(tbc, tables.WMOAreaTable)
+def test_open_resolves_the_era_schema():
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
+    assert table.row_count == 0
+    assert table.name == "Map"
+    assert table.version == wowlib.versions.wotlk
+    # wotlk-era Map: known columns resolve, with era-true shapes.
+    directory = table.column_index("directory")
+    info = table.column_info(directory)
+    assert info.type == wowlib.db.ColumnType.String
+    map_name = table.column_info(table.column_index("map_name"))
+    assert map_name.type == wowlib.db.ColumnType.LocString
+    assert map_name.locale_count == 16  # post-TBC-2.1, pre-Cata
+    # The same table at vanilla narrows the locale count.
+    vanilla = wowlib.db.Table.open("Map", wowlib.versions.vanilla)
+    v_name = vanilla.column_info(vanilla.column_index("map_name"))
+    assert v_name.locale_count == 8
 
 
-def test_for_version_covers_every_era():
-    # All eleven eras are bound (2026-07-30); each resolves to a concrete class.
-    for era in (wowlib.Expansion.Cata, wowlib.Expansion.Legion,
-                wowlib.Expansion.Dragonflight, wowlib.Expansion.TheWarWithin):
-        m = wowlib.db.tables.Map.for_version(era)
-        assert isinstance(m, wowlib.db.tables.Map)
-
-
-def test_for_version_rejects_an_uncovered_table_era():
-    # A table absent from an era's DBD (ItemSparse debuts in Cata) raises rather
-    # than silently collapsing onto an adjacent range.
-    with pytest.raises(ValueError):
-        wowlib.db.tables.ItemSparse.for_version(wowlib.Expansion.Vanilla)
-
-
-def test_any_union_folds_the_concrete_classes():
-    tables = wowlib.db.tables
-    members = set(wowlib.db.tables.AnyMap.__args__)
-    # Map now spans every era; ranges may collapse adjacent eras into one
-    # concrete class, so assert the known-distinct members are present rather
-    # than pinning the full set.
-    assert {tables.MapVanilla, tables.MapTbc, tables.MapWotlk,
-            tables.MapShadowlands} <= members
+def test_open_rejects_unknown_tables_and_uncovered_eras():
+    with pytest.raises(wowlib.TableUnknown):
+        wowlib.db.Table.open("NoSuchTable", wowlib.versions.wotlk)
+    # ItemSparse debuts in Cata: vanilla raises rather than silently
+    # collapsing onto an adjacent range.
+    with pytest.raises(wowlib.UnsupportedClientVersion):
+        wowlib.db.Table.open("ItemSparse", wowlib.versions.vanilla)
 
 
 def test_map_round_trips_byte_perfect(wotlk_fs):
     raw = wotlk_fs.read_file("DBFilesClient\\Map.dbc")
-    table = wowlib.db.tables.Map.for_version(wowlib.Expansion.Wotlk)
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
     table.read(raw)
-    assert len(table.records) > 0
-    directories = {r.directory for r in table.records}
+    assert table.row_count > 0
+    directories = {row.directory for row in table}
     assert {"Azeroth", "Kalimdor", "Northrend"} <= directories
     assert table.write(wowlib.db.EncryptedPolicy.Preserve) == raw
 
 
-def test_record_edit_survives_round_trip(wotlk_fs):
-    table = wowlib.db.tables.MapWotlk()
+def test_record_views_read_and_write(wotlk_fs):
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
     table.read(wotlk_fs.read_file("DBFilesClient\\Map.dbc"))
-    table.records[0].directory = "EditedZone"
-    reread = wowlib.db.tables.MapWotlk()
+
+    first = table[0]
+    assert first.row_index == 0
+    assert isinstance(first.directory, str)
+    assert isinstance(first.id, int)
+    # LocStrings surface as the full locale list; enUS is slot 0.
+    names = first.map_name
+    assert isinstance(names, list) and len(names) == 16
+    # Attribute misses follow Python protocol (hasattr works).
+    assert not hasattr(first, "no_such_column")
+    assert "directory" in dir(first)
+
+    first.directory = "EditedZone"
+    reread = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
     reread.read(table.write(wowlib.db.EncryptedPolicy.Preserve))
-    assert reread.records[0].directory == "EditedZone"
+    assert reread[0].directory == "EditedZone"
+    # Negative indexing follows sequence protocol.
+    assert reread[-1].row_index == reread.row_count - 1
+
+
+def test_cell_accessors_are_strict(wotlk_fs):
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
+    table.read(wotlk_fs.read_file("DBFilesClient\\Map.dbc"))
+    directory = table.column_index("directory")
+    with pytest.raises(wowlib.SchemaMismatch):
+        table.get_int(0, directory)
+    with pytest.raises(wowlib.OffsetOutOfBounds):
+        table.get_string(table.row_count, directory)
+    with pytest.raises(wowlib.TableUnknown):
+        table.column_index("no_such_column")
+
+
+def test_numpy_columns_are_zero_copy(wotlk_fs):
+    numpy = pytest.importorskip("numpy")
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
+    table.read(wotlk_fs.read_file("DBFilesClient\\Map.dbc"))
+
+    ids = table.column("id")
+    assert ids.dtype == numpy.int32
+    assert ids.shape == (table.row_count,)
+    assert int(ids[0]) == table.get_int(0, table.column_index("id"))
+    # The view aliases the store: an element write is live.
+    row = table.row_count - 1
+    ids[row] = 424242
+    assert table.get_int(row, table.column_index("id")) == 424242
+
+    # String columns come back as plain lists.
+    directories = table.column("directory")
+    assert isinstance(directories, list)
+    assert "Azeroth" in directories
+
+
+def test_rows_can_be_appended_and_erased():
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
+    index = table.append_row()
+    assert table.row_count == 1
+    table.set_int(index, table.column_index("id"), 9000)
+    assert table.find_by_id(9000) == index
+    table.erase_row(index)
+    assert table.row_count == 0
+    with pytest.raises(wowlib.TableUnknown):
+        table.find_by_id(9000)

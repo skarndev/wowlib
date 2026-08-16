@@ -446,6 +446,16 @@ namespace wowlib::db
     return *this;
   }
 
+  Result<Column> DynTable::column_info(std::size_t column) const
+  {
+    const std::span<const Column> schema = rows_.schema();
+    if (column >= schema.size())
+      return make_error(ErrorCode::OffsetOutOfBounds,
+                        std::format("{}: column {} out of range ({} columns)",
+                                    name_, column, schema.size()));
+    return schema[column];
+  }
+
   Result<std::size_t> DynTable::column_index(std::string_view name) const
   {
     const std::span<const Column> schema = rows_.schema();
@@ -575,7 +585,7 @@ namespace wowlib::db
         .transform([&](auto) { rows_.flags_slot(row, column) = flags; });
   }
 
-  Result<DynTable::PodColumnView> DynTable::pod_column(std::size_t column) const
+  Result<PodColumnView> DynTable::pod_column(std::size_t column) const
   {
     const std::span<const Column> schema = rows_.schema();
     if (column >= schema.size())

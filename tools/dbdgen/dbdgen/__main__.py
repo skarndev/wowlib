@@ -14,9 +14,7 @@ from pathlib import Path
 
 from dbdgen import dbd
 from dbdgen.emit import (Range, build_members, collapse, emit_all_tables,
-                         emit_cs_aliases, emit_cs_gen_registry, emit_cs_gen_shard,
-                         emit_manifest, emit_schema_blob, emit_shard,
-                         emit_shard_registry, emit_stub_patterns, emit_table, snake,
+                         emit_manifest, emit_schema_blob, emit_table, snake,
                          write_bytes_if_changed, write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
 
@@ -40,26 +38,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="comma-separated wowlib era names (vanilla,tbc,wotlk,...)")
     parser.add_argument("--tables", default=None,
                         help="comma-separated table subset (default: all)")
-    parser.add_argument("--bindings-out", type=Path, default=None,
-                        help="also emit the Python binding shards + registry here "
-                             "(under <dir>/db_shard_N.cpp and db_shards.hpp)")
-    parser.add_argument(
-        "--cs-gen-out", type=Path, default=None,
-        help="emit the sharded C# GENERATOR translation units into this directory")
     parser.add_argument(
         "--schema-blob-out", type=Path, default=None,
         help="emit the compact binary schema blob (WDBS) to this file — the "
              "runtime/consteval schema source for the generic DB engine")
-    parser.add_argument("--shards", type=int, default=16,
-                        help="number of binding-shard translation units (parallel "
-                             "compile); only used with --bindings-out")
-    parser.add_argument(
-        "--cs-gen-shards", type=int, default=None,
-        help="shard count for the C# GENERATOR translation units (defaults to "
-             "--shards). The two counts have different optima: a Python shard "
-             "compiles thunk code so many small TUs win, while a generator "
-             "shard is mostly the fixed frontend parse — fewer, larger TUs "
-             "waste less repeated parsing at the same peak RAM")
     args = parser.parse_args(argv)
 
     eras = [era.strip() for era in args.eras.split(",") if era.strip()]
@@ -121,41 +103,6 @@ def main(argv: list[str] | None = None) -> int:
     # The whole-surface umbrella (sorted, so the file is stable across runs).
     write_if_changed(tables_dir / "all.hpp",
                      emit_all_tables(sorted(t for t, _ in table_ranges)))
-
-    # The C# per-range aliases (both the generator shards and every shim TU
-    # include this one header — see emit_cs_aliases).
-    write_if_changed(tables_dir / "cs_aliases.hpp", emit_cs_aliases(table_ranges))
-
-    if args.bindings_out is not None:
-        num_shards = max(1, min(args.shards, len(table_ranges) or 1))
-        shards: list[list[tuple[str, list[Range]]]] = [[] for _ in range(num_shards)]
-        # Round-robin by table (sorted) keeps shard sizes even regardless of how
-        # many ranges each table collapses to.
-        for i, entry in enumerate(sorted(table_ranges, key=lambda e: e[0])):
-            shards[i % num_shards].append(entry)
-        args.bindings_out.mkdir(parents=True, exist_ok=True)
-        for index, shard in enumerate(shards):
-            write_if_changed(args.bindings_out / f"db_shard_{index}.cpp",
-                             emit_shard(index, shard))
-        write_if_changed(args.bindings_out / "db_shards.hpp",
-                         emit_shard_registry(num_shards))
-        write_if_changed(args.bindings_out / "db_stub_patterns.nb",
-                         emit_stub_patterns(table_ranges))
-        print(f"dbdgen: {num_shards} binding shards emitted to {args.bindings_out}")
-
-    if args.cs_gen_out is not None:
-        cs_shards = args.cs_gen_shards if args.cs_gen_shards else args.shards
-        num_shards = max(1, min(cs_shards, len(table_ranges) or 1))
-        shards: list[list[tuple[str, list[Range]]]] = [[] for _ in range(num_shards)]
-        for i, entry in enumerate(sorted(table_ranges, key=lambda e: e[0])):
-            shards[i % num_shards].append(entry)
-        args.cs_gen_out.mkdir(parents=True, exist_ok=True)
-        for index, shard in enumerate(shards):
-            write_if_changed(args.cs_gen_out / f"cs_gen_shard_{index}.cpp",
-                             emit_cs_gen_shard(index, shard))
-        write_if_changed(args.cs_gen_out / "cs_gen_shards.hpp",
-                         emit_cs_gen_registry(num_shards))
-        print(f"dbdgen: {num_shards} C# generator shards emitted to {args.cs_gen_out}")
 
     if args.schema_blob_out is not None:
         blob = emit_schema_blob(table_ranges, disk_names)

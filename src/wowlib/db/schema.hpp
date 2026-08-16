@@ -31,7 +31,10 @@
 namespace wowlib::db
 {
   /** The logical value class of a column. */
-  enum class ColumnType : std::uint8_t
+  enum class [[
+    =welder::weld,
+    =welder::doc("The logical value class of a table column.")
+  ]] ColumnType : std::uint8_t
   {
     Int,       /**< An integer column; Column::bits / Column::is_signed give the shape. */
     Float,     /**< A 32-bit IEEE float column. */
@@ -40,19 +43,42 @@ namespace wowlib::db
   };
 
   /** One column of a record schema, derived from a record member by
-      reflection. Array columns are ONE Column with array_len > 1 — the WoWDBDefs
+      reflection (typed records) or from the schema catalog (the generic
+      table). Array columns are ONE Column with array_len > 1 — the WoWDBDefs
       view of the world, not the expanded on-disk field list. */
-  struct Column
+  struct [[
+    =welder::weld,
+    =welder::doc("One column of a table schema: its name, value class, "
+                 "integer shape, array length and key roles.")
+  ]] Column
   {
+    [[=welder::mark::no_reassign,
+      =welder::doc("The column name (WoWDBDefs spelling).")]]
     const char* name = nullptr;     /**< The member spelling (interned, never dangling). */
-    ColumnType type = ColumnType::Int; /**< The logical value class. */
-    std::uint8_t bits = 0;          /**< Integer element width in bits; 32 for float/string refs. */
-    bool is_signed = false;         /**< Integer signedness; false for non-Int columns. */
-    std::uint16_t array_len = 1;    /**< Element count; 1 for scalar columns. */
-    std::uint8_t locale_count = 0;  /**< LocString language slots (8/16); 0 otherwise. */
-    bool is_id = false;             /**< The table's primary key ($id$). */
-    bool is_relation = false;       /**< A relationship key ($relation$). */
-    bool noninline = false;         /**< Holds no bytes inside the record image ($noninline$). */
+    [[=welder::doc("The logical value class.")]]
+    ColumnType type = ColumnType::Int;
+    [[=welder::doc("Integer element width in bits; 32 for float/string refs.")]]
+    std::uint8_t bits = 0;
+    [[=welder::doc("Integer signedness; false for non-Int columns.")]]
+    bool is_signed = false;
+    [[=welder::doc("Element count; 1 for scalar columns.")]]
+    std::uint16_t array_len = 1;
+    [[=welder::doc("LocString language slots (8 or 16); 0 otherwise.")]]
+    std::uint8_t locale_count = 0;
+    [[=welder::doc("Whether this is the table's primary key ($id$).")]]
+    bool is_id = false;
+    [[=welder::doc("Whether this is a relationship key ($relation$).")]]
+    bool is_relation = false;
+    [[=welder::doc("Whether the column holds no bytes inside the record "
+                   "image ($noninline$).")]]
+    bool noninline = false;
+
+    /** User-declared (defaulted) so Column is NOT an aggregate: bindings
+        would otherwise synthesize a field-wise constructor, and its
+        `const char* name` parameter would store a pointer into the
+        marshalling temporary — Column is read-only schema metadata, never
+        constructed from a bound language. */
+    Column() = default;
 
     /** The member spelling as a view.
         @return the interned column name. */

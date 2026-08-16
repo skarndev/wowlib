@@ -4,6 +4,45 @@ Client-side database files (`DBFilesClient/*.dbc`, `*.db2`), `src/wowlib/db/`,
 namespace `wowlib::db`. Plan of record: `~/.claude/plans/rosy-dreaming-beaver.md`.
 Stage 1 (WDBC end-to-end) shipped 2026-07-29.
 
+## 2026-08-16: THE GENERIC ENGINE (plan: fluffy-twirling-hickey)
+
+Build times forced a redesign: the generated per-era classes were 60–90% of
+every build (96 Python shard TUs, 96 C# gen shards, 61k P/Invokes even after
+erasure). The schema is DATA now and ONE welded class serves every table:
+
+- **WDBS schema blob** (`dbdgen --schema-blob-out`, format doc in
+  `src/wowlib/db/schema_blob.hpp`): 416 KB, all 1221 tables × 11 eras,
+  per-range column lists + ERA BITMASKS (never lo..hi — tables skip middle
+  eras), disk names preserved. Same bytes serve runtime (`SchemaCatalog`)
+  and the future consteval typed validation (`#embed`, gcc `--embed-dir`).
+- **SchemaCatalog** (`schema_catalog.{hpp,cpp}`): (table, ClientVersion) →
+  `span<const Column>`, era-snapped BY MAJOR. Embedded copy gated by
+  `WOWLIB_DB_SCHEMA=embedded|runtime|both` (embedded-only for client-grade
+  builds; `from_blob_file` for tools; `.dbd`-dir loader still TODO).
+- **DynTable : TableBase** (`dyn_table.{hpp,cpp}`, welded as **`Table`**):
+  column-store rows (`detail::ColumnRows` implements RecordSink+Source over
+  exact-width per-column buffers; record_bridge.cpp is the parity
+  reference — LocString flags via set_int/get_int, get_slot bit-casts
+  floats). TableCore gained an EXTERNAL sink/source wiring; codecs
+  unchanged, byte-perfect round-trip inherited. Strict public cell
+  accessors; `pod_column` zero-copy views; copy/move re-wire.
+- **Corpus parity** (`tests/integration/test_dyn_corpus.cpp`): 3.3.5a full
+  DBC sweep BYTE-identical; 9.2.7 full DB2 sweep SEMANTIC (write→re-read→
+  cell-compare, id-keyed unless ids unpopulated — all-zero id columns occur;
+  WDC re-derives copy tables/pallets so byte identity is out of scope BY
+  DESIGN, same bar as typed). Catalog-vs-schema_of column parity in
+  `tests/unit/test_schema_catalog.cpp`.
+- **Python** (`bindings/python/db_dyn.{hpp,cpp}` + welds): `wowlib.db.Table`
+  (open/read/write/cells), `Record` row views (`__getattr__` by column
+  name; the nurse of a keep_alive must be weakref-able — plain list returns
+  cannot carry one), `table.column(name)` zero-copy numpy, `db.table_names()`.
+  The 96 shards, facades, RecordVector: DELETED. Module 60 MB → **12 MB**;
+  bindings rebuild **8.7 min** (was hours). 154/154 pytest.
+- Generated table headers still emitted (C++ typed use; stage-5 consteval
+  validation will make them optional convenience). The C# side welds the
+  same generic Table; per-range typed FACADES are plain generated C#
+  (no interop) packed via welder-csharp's nuget `EXTRA_COMPILE`.
+
 ## 2026-07-30 (late): FULL FORMAT COVERAGE + wdc/ restructure
 
 Every era now has a working codec: WDBC (pre-Cata), WDB2 (Cata..WoD,

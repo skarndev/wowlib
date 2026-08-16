@@ -28,12 +28,12 @@
 #include "instantiations/wdt_ranges.hpp"
 #include "instantiations/wmo_ranges.hpp"
 
-// The client-database tables. wowlib.hpp covers core/fs/formats/audit but NOT
-// these: they are generated (dbdgen, from WoWDBDefs) into the build tree, so the
-// umbrella below only exists after wowlib_dbdgen has run — hence the target's
-// add_dependencies. Without it the C# surface silently omits the whole ClientDB
-// subsystem, ~1200 tables across every era, which the Python module does bind.
-#include <wowlib/db/tables/all.hpp>
-// The per-range aliases the generated shim's ^^ spellings reference (the
-// generator shards weld through these same aliases — one source of truth).
-#include <wowlib/db/tables/cs_aliases.hpp>
+// The client-database surface is GENERIC now: one runtime-schema Table
+// (DynTable, welded as "Table") + its Column metadata serve every table of
+// every era — the schema is data (the WDBS blob), not generated classes.
+// wowlib.hpp covers core/fs/formats/audit but not db; these pull the shared
+// value types (LocString, the codec/encryption types via table_core) and the
+// generic table itself.
+#include <wowlib/db/dyn_table.hpp>
+#include <wowlib/db/locstring.hpp>
+#include <wowlib/db/table_core.hpp>
