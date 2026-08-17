@@ -77,7 +77,15 @@ Every hosted configure passes -DWOWLIB_WERROR=ON (CompilerSettings option
 appending -Werror to WOWLIB_CXX_FLAGS — wowlib, wowlib_tests, the db-corpus
 object lib and wowlib_py; deps and welder-generated shim targets are not
 covered). Local builds stay non-Werror so a new gcc patchlevel's novel
-warning never blocks development.
+warning never blocks development. Since 2026-08-17 WOWLIB_CXX_FLAGS is
+welder's FULL strict set (-Wconversion/-Wsign-conversion/-Wshadow/
+-Wold-style-cast/...) so nothing surfaces only through welder's generator
+TUs; the one carve-out is wowlib_py compiling -Wno-shadow — gcc-16 reports
+a template-for loop variable as shadowing itself, once per expansion
+(215 bogus hits across the binding TUs' 16 enumerator loops). Dep noise is
+silenced at the source: storm/casc compile -w, their headers and stb_dxt
+are SYSTEM includes, and Dependencies.cmake scopes CMAKE_WARN_DEPRECATED
+off (CACHE form) + CMP0077 NEW for the dep configures.
 ci-linux also has a `csharp` job: gcc16-csharp preset build (native shim +
 generated wrapper + facades), then `dotnet test tests/csharp` — the C#
 equivalent of the bindings job's pytest gate (~17 min total). Two travelling
