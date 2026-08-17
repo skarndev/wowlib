@@ -56,12 +56,22 @@ if(WOWLIB_DB_TABLES)
   list(APPEND _wowlib_dbdgen_args --schema-blob-out "${WOWLIB_DB_SCHEMA_BLOB}")
   list(APPEND _wowlib_dbdgen_outputs "${WOWLIB_DB_SCHEMA_BLOB}")
 
-  # For the Python build: the typed-completion stub fragment (merged into
-  # the stubgen-generated wowlib/db.pyi by tools/merge_db_stub.py).
+  # For the Python build: the typed-completion stub fragments — one typed
+  # module per era (era-exact columns) + the tables package init + the
+  # Table.open overload block — assembled into the stubgen tree by
+  # tools/merge_db_stub.py.
   if(WOWLIB_BUILD_PYTHON)
-    set(WOWLIB_DB_PY_STUB "${CMAKE_BINARY_DIR}/generated/db_py_stub.pyi")
-    list(APPEND _wowlib_dbdgen_args --py-stub-out "${WOWLIB_DB_PY_STUB}")
-    list(APPEND _wowlib_dbdgen_outputs "${WOWLIB_DB_PY_STUB}")
+    set(WOWLIB_DB_PY_STUBS_DIR "${CMAKE_BINARY_DIR}/generated/db_py_stubs")
+    list(APPEND _wowlib_dbdgen_args --py-stubs-dir "${WOWLIB_DB_PY_STUBS_DIR}")
+    string(REPLACE "," ";" WOWLIB_DB_ERAS_LIST "${WOWLIB_DB_ERAS}")
+    set(WOWLIB_DB_PY_STUB_FILES
+        "${WOWLIB_DB_PY_STUBS_DIR}/overloads.pyi"
+        "${WOWLIB_DB_PY_STUBS_DIR}/tables_init.pyi")
+    foreach(_wowlib_era IN LISTS WOWLIB_DB_ERAS_LIST)
+      list(APPEND WOWLIB_DB_PY_STUB_FILES
+           "${WOWLIB_DB_PY_STUBS_DIR}/era_${_wowlib_era}.pyi")
+    endforeach()
+    list(APPEND _wowlib_dbdgen_outputs ${WOWLIB_DB_PY_STUB_FILES})
   endif()
 
   # For the C# build: the typed PURE-C# facade classes over the generic

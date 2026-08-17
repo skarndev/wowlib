@@ -117,6 +117,45 @@ def test_numpy_columns_are_zero_copy(wotlk_fs):
     assert "Azeroth" in directories
 
 
+def test_era_modules_expose_typed_table_classes():
+    from wowlib.db.tables import wotlk
+
+    table = wotlk.Map()
+    # A real subclass of the ONE generic engine — created lazily, no
+    # compiled per-table code anywhere.
+    assert isinstance(table, wowlib.db.Table)
+    assert isinstance(table, wotlk.Map)
+    assert type(table).__name__ == "Map"
+    assert table.name == "Map"
+    assert table.version == wowlib.versions.wotlk
+    # First access caches the class in the module dict.
+    assert wotlk.Map is wotlk.Map
+    # Attribute misses follow Python protocol (hasattr works).
+    assert not hasattr(wotlk, "NoSuchTable")
+    with pytest.raises(AttributeError):
+        wotlk.NoSuchTable  # noqa: B018
+    # Era coverage matches the catalog: ItemSparse has no vanilla block (the
+    # modern table's schema starts at the Legion era snap).
+    assert not hasattr(wowlib.db.tables.vanilla, "ItemSparse")
+    assert wowlib.db.tables.shadowlands.ItemSparse().name == "ItemSparse"
+    # Discoverability: the era's tables list in dir().
+    listing = dir(wotlk)
+    assert "Map" in listing and "Spell" in listing
+    assert "ItemSparse" not in dir(wowlib.db.tables.vanilla)
+
+
+def test_era_modules_are_importable_by_dotted_path():
+    import wowlib.db.tables.shadowlands as sl
+
+    assert sl.Map().version == wowlib.versions.shadowlands
+
+
+def test_era_table_reads_like_the_generic_one(wotlk_fs):
+    table = wowlib.db.tables.wotlk.Map()
+    table.read(wotlk_fs.read_file("DBFilesClient\\Map.dbc"))
+    assert {"Azeroth", "Kalimdor"} <= {row.directory for row in table}
+
+
 def test_rows_can_be_appended_and_erased():
     table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
     index = table.append_row()

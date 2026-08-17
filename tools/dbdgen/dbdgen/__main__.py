@@ -14,7 +14,8 @@ from pathlib import Path
 
 from dbdgen import dbd
 from dbdgen.emit import (Range, build_members, collapse, emit_all_tables,
-                         emit_cs_facades, emit_manifest, emit_py_typed_stub,
+                         emit_cs_facades, emit_manifest, emit_py_era_stub,
+                         emit_py_open_overloads, emit_py_tables_init,
                          emit_schema_blob, emit_table, snake,
                          write_bytes_if_changed, write_if_changed)
 from dbdgen.targets import TARGETS_BY_ERA
@@ -45,9 +46,10 @@ def main(argv: list[str] | None = None) -> int:
              "this directory — plain C# over the generic Table, packed into "
              "the NuGet beside the generated wrapper")
     parser.add_argument(
-        "--py-stub-out", type=Path, default=None,
-        help="emit the typed-completion stub fragment (merged into the "
-             "generated wowlib/db.pyi by tools/merge_db_stub.py)")
+        "--py-stubs-dir", type=Path, default=None,
+        help="emit the typed-completion stub fragments (per-era table "
+             "modules + Table.open overloads) into this directory — "
+             "assembled into the stubgen tree by tools/merge_db_stub.py")
     parser.add_argument(
         "--schema-blob-out", type=Path, default=None,
         help="emit the compact binary schema blob (WDBS) to this file — the "
@@ -122,9 +124,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"dbdgen: {len(parts)} C# facade files emitted to "
               f"{args.cs_facades_out}")
 
-    if args.py_stub_out is not None:
-        write_if_changed(args.py_stub_out, emit_py_typed_stub(table_ranges))
-        print(f"dbdgen: typed stub fragment emitted to {args.py_stub_out}")
+    if args.py_stubs_dir is not None:
+        args.py_stubs_dir.mkdir(parents=True, exist_ok=True)
+        write_if_changed(args.py_stubs_dir / "overloads.pyi",
+                         emit_py_open_overloads(table_ranges, targets))
+        write_if_changed(args.py_stubs_dir / "tables_init.pyi",
+                         emit_py_tables_init(targets))
+        for target in targets:
+            write_if_changed(args.py_stubs_dir / f"era_{target.era}.pyi",
+                             emit_py_era_stub(target, table_ranges))
+        print(f"dbdgen: typed stub fragments ({len(targets)} era modules) "
+              f"emitted to {args.py_stubs_dir}")
 
     if args.schema_blob_out is not None:
         blob = emit_schema_blob(table_ranges, disk_names)

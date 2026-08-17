@@ -471,6 +471,13 @@ StringBlock precedent (doxygen folded into `welder::doc`; enumerators carry
   plain Python `list` instead of getting an opaque wrapper at all.
 
 
+## 2026-08-17: typed per-era db modules — see db-architecture.md
+
+`wowlib.db.tables.<era>.<Table>()` (lazy runtime subclasses of the generic
+Table via PEP 562 + hidden `Table._open_into`; dbdgen per-era typed stubs;
+db/__init__.pyi 4.3k lines). Full design + gotchas in db-architecture.md
+§2026-08-17. Wheel install now excludes `*.pyi.orig` (merge machinery).
+
 ## 2026-08-16: the generic DB rebind (python side)
 
 `wowlib.db` binds ONE welded `Table` (DynTable) + `Column`/`ColumnType`; the

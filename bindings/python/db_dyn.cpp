@@ -10,6 +10,7 @@
 
 #include "db_dyn.hpp"
 
+#include <nanobind/eval.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
@@ -20,8 +21,10 @@
 #include <format>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
+#include <wowlib/core/client_version.hpp>
 #include <wowlib/db/dyn_table.hpp>
 #include <wowlib/db/schema_catalog.hpp>
 
@@ -321,5 +324,122 @@ namespace wowlib_py::db
       nb::arg("version") = nb::none(),
       "Every table the built-in WoWDBDefs data knows, name-sorted; pass a\n"
       "ClientVersion to keep only the tables that era defines.");
+
+    // --- typed per-era table modules ----------------------------------------
+    // wowlib.db.tables.<era>.<Table> — one submodule per targeted expansion,
+    // exposing one real Table SUBCLASS per table that era defines. Classes are
+    // created lazily through PEP 562 module __getattr__ (13k eager classes
+    // would tax import time for nothing) and cached in the module dict; the
+    // per-era .pyi stubs (dbdgen) type their rows era-accurately.
+
+    // The era modules' constructor hook: a fresh (default-constructed)
+    // instance re-opens itself in place via move assignment, which keeps the
+    // subclass identity of `self` — a bound alternate constructor would
+    // return a plain Table instead.
+    nb::cpp_function(
+      [](DynTable& self, std::string_view table, wowlib::ClientVersion version)
+      { self = ok(DynTable::open(table, version)); },
+      nb::name("_open_into"), nb::scope(table_cls), nb::is_method(),
+      nb::arg("table"), nb::arg("version"),
+      "Re-open this table in place with a schema resolved by name and client\n"
+      "version (the `wowlib.db.tables.<era>` constructor hook).");
+
+    nb::module_ tables = db.def_submodule(
+      "tables",
+      "Typed per-era table access: `wowlib.db.tables.<era>.<Table>()` opens "
+      "an empty table with its schema resolved for that era's client — one "
+      "submodule per targeted expansion, one class per table it defines.");
+
+    // The class factory lives in Python: `type()` with a closure __init__ is
+    // clearer there than through the C API, and it runs once per (era, table).
+    nb::dict helper_globals;
+    nb::exec(R"(
+def _make_table_class(Table, name, version, module_name):
+    era = module_name.rsplit(".", 1)[-1]
+    def __init__(self):
+        Table.__init__(self)
+        self._open_into(name, version)
+    __init__.__qualname__ = name + ".__init__"
+    __init__.__doc__ = ("Open the empty " + name + " table, schema-resolved "
+                        "for " + era + " clients.")
+    return type(name, (Table,), {
+        "__init__": __init__,
+        "__module__": module_name,
+        "__doc__": ("The " + name + " client-database table, schema-bound to "
+                    + era + " clients."),
+    })
+)",
+             helper_globals);
+    const nb::object make_class = helper_globals["_make_table_class"];
+
+    // `import wowlib.db.tables.<era>` resolves through sys.modules — an
+    // extension module has no __path__ for the import machinery to search.
+    nb::object sys_modules = nb::module_::import_("sys").attr("modules");
+    sys_modules[nb::str("wowlib.db")] = db;
+    sys_modules[nb::str("wowlib.db.tables")] = tables;
+
+    static constexpr std::pair<const char*, wowlib::ClientVersion> kEras[] = {
+      {"vanilla", wowlib::versions::vanilla},
+      {"tbc", wowlib::versions::tbc},
+      {"wotlk", wowlib::versions::wotlk},
+      {"cata", wowlib::versions::cata},
+      {"mop", wowlib::versions::mop},
+      {"wod", wowlib::versions::wod},
+      {"legion", wowlib::versions::legion},
+      {"bfa", wowlib::versions::bfa},
+      {"shadowlands", wowlib::versions::shadowlands},
+      {"dragonflight", wowlib::versions::dragonflight},
+      {"tww", wowlib::versions::tww},
+    };
+    for (const auto& [era_name, era_version] : kEras)
+    {
+      const std::string module_name =
+        std::string("wowlib.db.tables.") + era_name;
+      nb::module_ era_module = tables.def_submodule(
+        era_name,
+        std::format("Tables of the {} client ({}.{}.{} build {}): one Table "
+                    "subclass per table this era defines, created on first "
+                    "access.",
+                    era_name, era_version.major, era_version.minor,
+                    era_version.patch, era_version.build)
+          .c_str());
+      sys_modules[nb::str(module_name.c_str())] = era_module;
+
+      era_module.attr("__getattr__") = nb::cpp_function(
+        [era_module, era_version, make_class,
+         module_name](std::string_view name) -> nb::object
+        {
+          const auto& catalog = wowlib::db::SchemaCatalog::embedded();
+          if (!catalog.lookup(name, era_version))
+            throw nb::attribute_error(
+              std::format("module '{}' has no table '{}'", module_name, name)
+                .c_str());
+          const std::string table{name};
+          nb::object cls = make_class(nb::type<DynTable>(), table, era_version,
+                                      module_name);
+          era_module.attr(table.c_str()) = cls;  // cache: next access is direct
+          return cls;
+        },
+        nb::arg("name"));
+
+      era_module.attr("__dir__") = nb::cpp_function(
+        [era_module, era_version]() -> std::vector<std::string>
+        {
+          const auto module_dict =
+            nb::cast<nb::dict>(era_module.attr("__dict__"));
+          std::vector<std::string> out;
+          for (auto [key, value] : module_dict)
+            out.emplace_back(nb::cast<std::string>(nb::str(key)));
+          const auto& catalog = wowlib::db::SchemaCatalog::embedded();
+          for (std::size_t i = 0; i < catalog.table_count(); ++i)
+          {
+            const std::string_view name = catalog.table_name(i);
+            if (!module_dict.contains(nb::str(name.data(), name.size())) &&
+                catalog.lookup(name, era_version))
+              out.emplace_back(name);
+          }
+          return out;
+        });
+    }
   }
 }

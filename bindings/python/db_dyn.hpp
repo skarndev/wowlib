@@ -14,7 +14,12 @@
     - sequence protocol on the table (`len(table)`, `table[i]`, iteration);
     - @c Table.column(name_or_index) — a ZERO-COPY numpy view of a numeric
       column (rows x elements, exact dtype), or list[str] for string columns;
-    - @c wowlib.db.table_names(version=None) — the catalog listing. */
+    - @c wowlib.db.table_names(version=None) — the catalog listing;
+    - @c wowlib.db.tables.<era> — one submodule per targeted expansion whose
+      attributes are real Table SUBCLASSES created lazily (PEP 562
+      __getattr__) from the embedded schema catalog: `tables.wotlk.Map()`
+      opens the empty wotlk-era Map. Nothing is compiled per table; the
+      dbdgen-generated per-era stubs type the rows era-exactly. */
 
 #include <nanobind/nanobind.h>
 

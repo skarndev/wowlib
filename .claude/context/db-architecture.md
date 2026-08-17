@@ -1,5 +1,36 @@
 # ClientDB (DBC/DB2) subsystem
 
+## 2026-08-17: typed per-era Python modules (`wowlib.db.tables.<era>`)
+
+Pre-0.0.3 stub-size fix (db.pyi was 22.9k LOC and choked tooling). NOTHING
+is compiled per table — the generic engine is untouched:
+
+- **Runtime** (db_dyn.cpp): `db.tables` + 11 era submodules (versions::
+  constants), each with PEP 562 `__getattr__`/`__dir__` off SchemaCatalog;
+  first access `type()`s a plain Python subclass of the welded generic
+  `Table` whose `__init__` calls base init + the hidden `_open_into(name,
+  version)` (move-assigns `DynTable::open`'s result in place — keeps
+  subclass identity, isinstance works). Classes cache in the module dict;
+  sys.modules gets wowlib.db / .tables / .tables.<era> so dotted imports
+  work. `hasattr(era_mod, "X")` mirrors the catalog (ItemSparse: absent
+  before the LEGION era snap — cata..wod is ItemSparseLegacy).
+- **Stubs**: dbdgen `--py-stubs-dir` emits per-era typed modules
+  (`<X>Record(Record)` era-EXACT columns + `<X>(Table[<X>Record])`),
+  tables_init, and Table.open Literal overloads returning the PER-TABLE
+  UNION of era classes (kept per user choice; the merged-columns classes
+  are gone). tools/merge_db_stub.py patches db/__init__.pyi (Generic[R]
+  Table via classic TypeVar with PEP 696 `default="Record"`, `__iter__`,
+  overload splice; stubgen's own `from . import tables` + `overload`
+  imports must not be duplicated) and overwrites db/tables/*.pyi (stubgen
+  sees the lazy era modules as EMPTY — it walks module __dict__, not dir()).
+  Sizes: db/__init__.pyi 4.3k lines (was 22.9k); eras 1.5k (wod) → 11.9k
+  (tww); checkers only load the era you import.
+- CMake: DbTables.cmake WOWLIB_DB_PY_STUB_FILES (per-era fragment list);
+  bindings stub OUTPUT now db/__init__.pyi + db/tables/__init__.pyi.
+- Gate: 160/160 pytest incl. real-client + 3 mypy typing cases (mypy 2.3
+  reveals bare `str`/`int`, not `builtins.str`). Docs: guide/db.md +
+  python/db/tables.md document the era modules.
+
 Client-side database files (`DBFilesClient/*.dbc`, `*.db2`), `src/wowlib/db/`,
 namespace `wowlib::db`. Plan of record: `~/.claude/plans/rosy-dreaming-beaver.md`.
 Stage 1 (WDBC end-to-end) shipped 2026-07-29.
