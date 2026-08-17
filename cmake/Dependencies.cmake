@@ -163,6 +163,18 @@ target_include_directories(stb_dxt INTERFACE ${stb_dxt_SOURCE_DIR})
 target_compile_options(storm PRIVATE -O2)
 target_compile_options(casc_static PRIVATE -O2)
 
+# Their headers are third-party code compiled into OUR warning-clean TUs
+# (fs/mpq, fs/casc): mark the interface includes SYSTEM so a dep header's
+# warning (CascPort.h's `#pragma intrinsic` on MinGW, say) never feeds the
+# wowlib -Werror lock.
+foreach(_wowlib_dep storm casc_static)
+  get_target_property(_wowlib_dep_incs ${_wowlib_dep} INTERFACE_INCLUDE_DIRECTORIES)
+  if(_wowlib_dep_incs)
+    set_target_properties(${_wowlib_dep} PROPERTIES
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_wowlib_dep_incs}")
+  endif()
+endforeach()
+
 if(WIN32)
   # CascLib's online-CDN sockets need Winsock, but its CMake only links
   # wininet; MSVC auto-links ws2_32 via pragma, MinGW does not. Plain
