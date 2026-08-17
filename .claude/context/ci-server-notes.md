@@ -80,4 +80,11 @@ covered). Local builds stay non-Werror so a new gcc patchlevel's novel
 warning never blocks development.
 ci-linux also has a `csharp` job: gcc16-csharp preset build (native shim +
 generated wrapper + facades), then `dotnet test tests/csharp` — the C#
-equivalent of the bindings job's pytest gate.
+equivalent of the bindings job's pytest gate (~17 min total). Two travelling
+gotchas, both fixed 2026-08-17: the test csproj copies the native shim
+EXPLICITLY (the Wowlib project's copy-to-output item flowed transitively on
+macOS but not Linux), and the job exports the Homebrew-gcc LD_LIBRARY_PATH
+before dotnet test (GLIBCXX_3.4.35, same story as the bindings job's pytest
+step). Relatedly, test_dbd_loader self-skips when its baked build-tree
+WoWDBDefs path is absent (env WOWLIB_TEST_DBDEFS_DIR overrides) — the
+travelling binary hits this on the box; hosted release still runs parity.
