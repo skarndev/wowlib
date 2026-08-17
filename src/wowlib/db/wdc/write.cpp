@@ -211,7 +211,13 @@ namespace wowlib::db::wdc
             }
         for (FieldPlan& p : plan_)
           if (p.is_pallet())
-            p.elem_bits = unsigned_width(static_cast<std::uint64_t>(p.pallet_index.size()));
+          {
+            // Implicit widening, not a cast: size_t IS uint64_t on LLP64, so
+            // a static_cast here is -Wuseless-cast on Windows and required
+            // nowhere.
+            const std::uint64_t pallet_count = p.pallet_index.size();
+            p.elem_bits = unsigned_width(pallet_count);
+          }
       }
 
       /** Assign each column its bit offset and settle the record stride.
