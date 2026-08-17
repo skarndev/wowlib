@@ -470,6 +470,7 @@ namespace wowlib::formats
             using M = [:std::meta::type_of(m):];
             if (!matched && fourcc == spec->magic)
             {
+              const auto member_slot = static_cast<std::size_t>(index);
               if constexpr (detail::repeated_traits<M>::value)
               {
                 static_assert(detail::annotation<detail::repeats_spec, m>().has_value(),
@@ -480,7 +481,7 @@ namespace wowlib::formats
                   if (!r)
                     return std::unexpected{r.error()};
                   matched = true;
-                  entity.journal.push_back({fourcc, index, occurrences[index]++});
+                  entity.journal.push_back({fourcc, index, occurrences[member_slot]++});
                 }
                 // all slots taken: falls through to the unknown route below
               }
@@ -495,15 +496,15 @@ namespace wowlib::formats
                 if (!r)
                   return std::unexpected{r.error()};
                 matched = true;
-                entity.journal.push_back({fourcc, index, occurrences[index]++});
+                entity.journal.push_back({fourcc, index, occurrences[member_slot]++});
               }
-              else if (occurrences[index] == 0)
+              else if (occurrences[member_slot] == 0)
               {
                 auto r = detail::read_value(entity.[:m:], payload, fourcc, pos, spec->endian);
                 if (!r)
                   return std::unexpected{r.error()};
                 matched = true;
-                entity.journal.push_back({fourcc, index, occurrences[index]++});
+                entity.journal.push_back({fourcc, index, occurrences[member_slot]++});
               }
               // duplicate of a non-repeated chunk: preserved as unknown below
             }
@@ -530,7 +531,7 @@ namespace wowlib::formats
                       spec.has_value() && detail::version_active<E::version, m>()
                         && !detail::annotation<detail::optional_spec, m>().has_value())
         {
-          if (!missing && occurrences[index] == 0)
+          if (!missing && occurrences[static_cast<std::size_t>(index)] == 0)
             missing = Error{ErrorCode::ChunkMissing,
                             std::format("required chunk {} is absent",
                                         fourcc_to_string(spec->magic, spec->endian))};

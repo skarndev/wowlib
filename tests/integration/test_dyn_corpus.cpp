@@ -303,6 +303,7 @@ TEST_CASE("9.2.7: the DB2 corpus decodes and round-trips through DynTable",
     return s;
   }());
   CHECK(failures.empty());
+  INFO("listfile db2 paths without a catalog schema: " << no_schema);
   CHECK(present >= 700);          // ~830 tables have schemas + files locally
   CHECK(round_tripped == present);
   CHECK(with_encrypted >= 100);   // encrypted sections preserved, not decoded

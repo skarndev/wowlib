@@ -167,7 +167,7 @@ namespace wowlib::tests
     std::vector<std::string> failures;  /**< One line per parse failure. */
   };
 
-  /** Every dbfilesclient/*.db2 path in a listfile CSV (CsvListfile resolves
+  /** Every `.db2` path under `dbfilesclient/` in a listfile CSV (CsvListfile resolves
       single paths but does not enumerate).
       @param csv the listfile path.
       @return the lowercased db2 paths. */

@@ -117,6 +117,8 @@ if(WOWLIB_BUILD_PYTHON)
     ${CMAKE_CURRENT_BINARY_DIR})
   add_dependencies(wowlib_py wowlib_opaque wowlib_dbdgen)
   target_link_libraries(wowlib_py PRIVATE wowlib welder::headers welder::nanobind)
+  # First-party code — same warning discipline (and CI -Werror) as the library.
+  target_compile_options(wowlib_py PRIVATE ${WOWLIB_CXX_FLAGS})
   if(TARGET wowlib_db_tables)
     target_link_libraries(wowlib_py PRIVATE wowlib_db_tables)
   endif()

@@ -224,12 +224,11 @@ namespace wowlib::formats::wdt
         if constexpr (by_fdid)
           if (fdid == 0)
             return {};  // the map has no such satellite
-        const FileKey satellite_key = [&]() -> FileKey {
-          if constexpr (by_fdid)
-            return FileKey{FileDataID{fdid}};
-          else
-            return FileKey{satellite_path(root_path, suffix)};
-        }();
+        // Not if-constexpr: both arms are well-formed either way, and gcc-16
+        // false-positives -Wreturn-type on constexpr-exhaustive lambdas.
+        const FileKey satellite_key =
+            by_fdid ? FileKey{FileDataID{fdid}}
+                    : FileKey{satellite_path(root_path, suffix)};
         if (!fs.exists(satellite_key))
           return {};  // absent satellite: stays default-empty
         const auto data = fs.read_file(satellite_key);

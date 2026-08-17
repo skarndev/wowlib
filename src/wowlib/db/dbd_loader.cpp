@@ -1,6 +1,7 @@
 /** @file
     SchemaCatalog::from_dbd_dir — the runtime WoWDBDefs loader: parse a
-    checkout's `definitions/*.dbd`, resolve every targeted era's member list
+    checkout's `definitions` directory of `.dbd` files, resolve every
+    targeted era's member list
     with EXACTLY dbdgen's rules, assemble a WDBS blob in memory and hand it
     to from_blob. The parity contract (tested): built from the same
     definitions, this catalog and the embedded one agree schema for schema —

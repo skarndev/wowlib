@@ -30,7 +30,6 @@ namespace
   {
     if constexpr (formats::detail::is_vector_v<T>)
     {
-      using U = typename T::value_type;
       if (a.size() != b.size())
         return std::format(": size {} vs {}", a.size(), b.size());
       for (std::size_t i = 0; i < a.size(); ++i)

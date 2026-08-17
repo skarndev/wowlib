@@ -18,6 +18,14 @@ endif()
 # so that -Wextra sub-warning stays off.
 set(WOWLIB_CXX_FLAGS -Wall -Wextra -Wno-missing-field-initializers)
 
+# CI configures with -DWOWLIB_WERROR=ON so the zero-warning state cannot rot;
+# off by default so a new gcc patchlevel's novel warning never blocks local
+# development.
+option(WOWLIB_WERROR "Treat warnings as errors on wowlib targets" OFF)
+if(WOWLIB_WERROR)
+  list(APPEND WOWLIB_CXX_FLAGS -Werror)
+endif()
+
 # Public headers carry welder P3394 annotations, so every TU including them needs
 # reflection; gcc-16 enables annotations under the same flag. Propagated PUBLIC on
 # the wowlib target (welder itself checks but does not propagate it).

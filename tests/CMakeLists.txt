@@ -86,6 +86,9 @@ if(WOWLIB_DB_TABLES)
             -s "${CMAKE_SOURCE_DIR}/tools/dbdgen/tests")
 endif()
 target_compile_options(wowlib_tests PRIVATE ${WOWLIB_CXX_FLAGS})
+if(TARGET wowlib_tests_db_corpus)
+  target_compile_options(wowlib_tests_db_corpus PRIVATE ${WOWLIB_CXX_FLAGS})
+endif()
 target_compile_definitions(wowlib_tests PRIVATE
   WOWLIB_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
