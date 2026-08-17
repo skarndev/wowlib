@@ -43,10 +43,10 @@ file.
     ```csharp
     using wowlib;
 
-    // Typed per-era factory (compile-time concrete class) …
+    // Typed per-era factory (compile-time concrete class) — or the dynamic
+    // twin, WMO.ForVersion(Expansion.Wotlk), whose family-base result reads
+    // and writes the same way (see Writing version-agnostic code).
     using var model = wowlib.Formats.Wmo.WMO.Wotlk();
-    // … or version-agnostic, returning the family base:
-    // using var model = wowlib.Formats.Wmo.WMO.ForVersion(Expansion.Wotlk);
     model.Read(fs, new FileKey("World/wmo/Dungeon/AZ_Subway/Subway.wmo"));
     ```
 
@@ -82,15 +82,14 @@ numeric geometry arrays are zero-copy.
 === "C#"
 
     ```csharp
-    var root = model.Root;
-    for (int i = 0; i < root.Materials.Count; ++i)
-        Use(root.Materials[i].Shader, root.Materials[i].BlendMode);
+    foreach (var material in model.Root.Materials)
+        Use(material.Shader, material.BlendMode);
 
-    var groups = model.Groups;
-    for (int g = 0; g < groups.Count; ++g)
+    foreach (var group in model.Groups)     // live views into the entity
     {
-        var body = groups[g].Body;          // live view into the entity
+        var body = group.Body;
         Upload(body.Vertices, body.Normals, body.Batches);
+        // Scalar vectors also span zero-copy: body.Indices.AsSpan()
     }
     ```
 
@@ -117,6 +116,9 @@ fields according to the target's schema:
 ```python
 retail_model = model.convert(wowlib.Expansion.Shadowlands)
 ```
+
+For code that should run on *any* era — driven by whatever client is open —
+see **[Writing version-agnostic code](version-agnostic.md)**.
 
 The exact per-field version coverage is documented with expansion badges on
 the **[WMO root](../python/wmo/root.md)** and

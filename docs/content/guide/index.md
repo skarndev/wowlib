@@ -19,6 +19,8 @@ every page follows. For the exhaustive *what*, see the generated
   and editing terrain tiles.
 - **[Database tables (DBC & DB2)](db.md)** — ~1200 client databases through
   one engine, typed per era.
+- **[Writing version-agnostic code](version-agnostic.md)** — `for_version` /
+  `ForVersion`, the family bases and typing unions: one tool, every client.
 - **[Validating before writing](validation.md)** — the validation contracts
   and how to read a report.
 

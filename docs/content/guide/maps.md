@@ -136,10 +136,9 @@ physical file a chunk lives in.**
     tile.Read(fs, new FileKey("World/Maps/Azeroth/Azeroth_32_48.adt"),
               Adt.AlphaFormat.lowres_4bit);
 
-    var chunks = tile.Chunks;
-    for (int c = 0; c < chunks.Count; ++c)    // 256 chunks, row-major
+    foreach (var chunk in tile.Chunks)        // 256 chunks, row-major
     {
-        var heights = chunks[c].Heights.AsSpan();  // zero-copy
+        var heights = chunk.Heights.AsSpan(); // zero-copy
         for (int i = 0; i < heights.Length; ++i)
             heights[i] += 10.0f;              // raise the terrain
     }

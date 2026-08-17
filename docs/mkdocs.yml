@@ -145,6 +145,7 @@ nav:
       - Models (M2): guide/m2.md
       - Maps (ADT, WDT & WDL): guide/maps.md
       - Database tables (DBC & DB2): guide/db.md
+      - Writing version-agnostic code: guide/version-agnostic.md
       - Validating before writing: guide/validation.md
   - Python API:
       - python/index.md

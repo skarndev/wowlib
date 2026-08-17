@@ -1,5 +1,16 @@
 # Documentation site (`docs/`)
 
+## 2026-08-17 (later): version-agnostic guide page + C# symmetry
+
+guide/version-agnostic.md: for_version/ForVersion, family bases, AnyX
+unions, isinstance/pattern-matching narrowing, convert (C++ = free
+`formats::convert<To>(src)`!), era-generic db loops — anchored on the new
+`fs.version` getter. C# tabs across wmo/m2/maps now use foreach (wrapper
+enumerators) and reference ForVersion as a live equal. Gotchas encoded:
+AsSpan exists only on SCALAR wrappers (Indices yes, Vertices no); C#
+FileSystem previously had NO Version property (that's why the getter was
+added); WDT lights/occlusion are WoD+ (fogs Legion 7.2.5+, mpv BfA+).
+
 ## 2026-08-17: guide restructure — tabbed trilingual examples
 
 Guide pages: getting-started (install tabs: pip wowlib-py / dotnet add

@@ -125,6 +125,10 @@ on a CASC client the FileDataID does, and a **listfile** (the community
 case-insensitive and both slash directions work — they are canonicalized
 before lookup.
 
+The filesystem remembers what it opened: `version` (the full client version —
+the anchor for [version-agnostic code](version-agnostic.md)) and `kind`
+(MPQ or CASC) are properties in every language.
+
 ## Beyond reading
 
 - **Writing back**: pass a `project_directory` in the settings and writes land
