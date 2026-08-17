@@ -1,5 +1,19 @@
 # Documentation site (`docs/`)
 
+## 2026-08-17: guide restructure — tabbed trilingual examples
+
+Guide pages: getting-started (install tabs: pip wowlib-py / dotnet add
+Wowlib / source), client-files (MPQ & CASC gateway), wmo, m2, maps
+(ADT+WDT/WDL), db (the new per-era API), validation. Every example block is
+a pymdownx.tabbed set in the fixed order **C++ / Python / C#**;
+`content.tabs.link` (theme feature) syncs the selection page- and
+site-wide, so keep the tab LABELS exactly "C++"/"Python"/"C#" everywhere.
+C# snippets follow tests/csharp usage (facades `MapWotlk.Open()`, factories
+`Formats.Adt.ADT.Wotlk()`, `Versions.Global.*`, vector wrappers
+Count/indexer/AsSpan). Renamed maps.md anchor: #terrain-tiles-adt
+(python/adt/index.md links to it). python/index.md package table: db.rowbase
+row removed (gone since the generic rework).
+
 One site, two toolchains — the same split welder uses, ported to run from the
 project `.venv` (no CMake target). Driver: **`docs/build.py`** (`build` | `serve`
 | `doxygen`). Deps live in `pyproject.toml` `[project.optional-dependencies].docs`

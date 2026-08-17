@@ -1,14 +1,26 @@
 # Guide
 
 The guide is the narrative introduction to wowlib — *why* each piece exists,
-with runnable examples. For the exhaustive *what*, see the generated
+with runnable examples in every language the library speaks: **C++**,
+**Python** and **C#**. Example blocks are tabbed; pick your language once and
+every page follows. For the exhaustive *what*, see the generated
 [Python API](../python/index.md) and [C++ API Reference](../reference.md).
 
-- **[Getting started](getting-started.md)** — build the C++ library, install the
-  Python extension, open a client.
-- **[Reading a WMO](wmo.md)** — load a world-model object and walk its chunks.
-- **[Reading a map (WDT & WDL)](maps.md)** — the map's tile table, satellites
-  and low-resolution heightmap.
+- **[Getting started](getting-started.md)** — install a package or build from
+  source.
+- **[Reading client files (MPQ & CASC)](client-files.md)** — the `FileSystem`
+  gateway: one API over both storage generations, paths and FileDataIDs,
+  listfiles.
+- **[World models (WMO)](wmo.md)** — the root + groups entity, typed chunks,
+  zero-copy geometry.
+- **[Models (M2)](m2.md)** — the compound animated-model entity and its
+  external companion files.
+- **[Maps (ADT, WDT & WDL)](maps.md)** — the tile table, the far heightmap,
+  and editing terrain tiles.
+- **[Database tables (DBC & DB2)](db.md)** — ~1200 client databases through
+  one engine, typed per era.
+- **[Validating before writing](validation.md)** — the validation contracts
+  and how to read a report.
 
 !!! note "Work in progress"
     wowlib is early. This guide grows with the library; the API references are

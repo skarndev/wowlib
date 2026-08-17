@@ -1,6 +1,36 @@
 # Getting started
 
-## Prerequisites
+## Install a package
+
+Released builds ship for Python and .NET — no toolchain needed:
+
+=== "Python"
+
+    ```bash
+    pip install wowlib-py        # imports as `wowlib`; type stubs included
+    ```
+
+    The distribution is named `wowlib-py` (the bare PyPI name is taken by an
+    unrelated project), but the import is plain `import wowlib`. The wheel
+    bundles the PEP 561 stub tree, so mypy/pyright and IDE completion work
+    out of the box.
+
+=== "C#"
+
+    ```bash
+    dotnet add package Wowlib    # net8.0; linux-x64 / osx-arm64 / win-x64
+    ```
+
+    One package carries the managed wrapper plus every RID's native library;
+    the .NET host picks the right one at load time.
+
+=== "C++"
+
+    No binary package — wowlib is consumed from source (see below), e.g. via
+    CMake `FetchContent`/`add_subdirectory`, since it requires the same
+    gcc-16 toolchain to build against anyway.
+
+## Prerequisites (building from source)
 
 wowlib targets **C++26 reflection**, currently only implemented by the
 **gcc-16** toolchain. For the Python extension you also need **CPython ≥ 3.13**.

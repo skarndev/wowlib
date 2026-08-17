@@ -22,8 +22,7 @@ docstrings here match what you import.
 | [`wowlib.formats.adt`](adt/index.md) | The ADT terrain tile — heights, textures, liquids, placements, unified across split files |
 | [`wowlib.formats.blp`](blp.md) | The BLP texture format — decode to/encode from RGBA |
 | [`wowlib.db`](db/index.md) | Client databases (`DBFilesClient/`) — `LocString`, encryption vocabulary |
-| [`wowlib.db.tables`](db/tables.md) | Every client-database table as a typed class, per era (`Map`, `Spell`, …) |
-| [`wowlib.db.rowbase`](db/tables.md) | Version-agnostic row supertypes, one per table |
+| [`wowlib.db.tables`](db/tables.md) | Typed per-era table modules (`tables.wotlk.Map()`, … one submodule per expansion) |
 | [containers](containers.md) | Opaque `Vector*` types — by-reference, zero-copy NumPy |
 
 !!! tip "Types are shipped"

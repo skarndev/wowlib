@@ -63,6 +63,8 @@ theme:
     - search.highlight
     - content.code.copy
     - content.code.annotate
+    # One selector drives every language tab on a page (and persists across pages).
+    - content.tabs.link
 
 extra_css:
   - stylesheets/extra.css
@@ -138,8 +140,11 @@ nav:
   - Guide:
       - guide/index.md
       - Getting started: guide/getting-started.md
-      - Reading a WMO: guide/wmo.md
-      - Reading a map (WDT & WDL): guide/maps.md
+      - Reading client files (MPQ & CASC): guide/client-files.md
+      - World models (WMO): guide/wmo.md
+      - Models (M2): guide/m2.md
+      - Maps (ADT, WDT & WDL): guide/maps.md
+      - Database tables (DBC & DB2): guide/db.md
       - Validating before writing: guide/validation.md
   - Python API:
       - python/index.md

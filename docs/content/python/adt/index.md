@@ -43,5 +43,5 @@ from wowlib.formats.adt import AnyMapChunk   # MapChunkVanillaToTbc | … | MapC
 `ADT*` class is a subclass of `ADT`, so `isinstance(tile, ADT)` and a
 `tile: ADT` annotation both work.
 
-See the guide's **[Editing terrain (ADT)](../../guide/maps.md#editing-terrain-adt)**
+See the guide's **[Terrain tiles (ADT)](../../guide/maps.md#terrain-tiles-adt)**
 for a worked example.
