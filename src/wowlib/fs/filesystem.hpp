@@ -238,6 +238,13 @@ namespace wowlib::fs
                    "A static fact of the opened client; remains valid after close().")]]
     StorageKind kind() const { return _kind; }
 
+    [[=welder::getter,
+      =welder::doc("The client version this filesystem was opened for — the "
+                   "anchor of version-agnostic code (expansion_of, for_version, "
+                   "Table.open). A static fact of the opened client; remains "
+                   "valid after close().")]]
+    ClientVersion version() const { return _version; }
+
     /** The MPQ composition, for C++ callers that want the static types.
         @return the composition, or nullptr if this filesystem is CASC-backed. */
     [[=welder::mark::exclude]]
@@ -249,20 +256,24 @@ namespace wowlib::fs
     CascFileSystem* casc() { return std::get_if<CascFileSystem>(&_impl); }
 
     /** C++-only; target languages construct through open().
-        @param impl the ready MPQ composition. */
+        @param impl    the ready MPQ composition.
+        @param version the client version the composition was opened for. */
     [[=welder::mark::exclude]]
-    explicit FileSystem(MpqFileSystem impl)
+    explicit FileSystem(MpqFileSystem impl, ClientVersion version)
       : _impl(std::move(impl))
       , _kind(StorageKind::Mpq)
+      , _version(version)
     {
     }
 
     /** C++-only; target languages construct through open().
-        @param impl the ready CASC composition. */
+        @param impl    the ready CASC composition.
+        @param version the client version the composition was opened for. */
     [[=welder::mark::exclude]]
-    explicit FileSystem(CascFileSystem impl)
+    explicit FileSystem(CascFileSystem impl, ClientVersion version)
       : _impl(std::move(impl))
       , _kind(StorageKind::Casc)
+      , _version(version)
     {
     }
 
@@ -287,5 +298,6 @@ namespace wowlib::fs
     // never observe it (a moved-from FileSystem still holds a composition).
     std::variant<std::monostate, MpqFileSystem, CascFileSystem> _impl;
     StorageKind _kind;
+    ClientVersion _version{};
   };
 }

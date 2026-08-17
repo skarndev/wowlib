@@ -16,6 +16,9 @@ def test_lifetime_surface_is_welded():
 
 def test_read_returns_bytes_and_filekey_is_equivalent(wotlk_fs):
     assert wotlk_fs.kind == wowlib.StorageKind.Mpq
+    # version remembers what was opened — the anchor of era-generic code.
+    assert wotlk_fs.version == wowlib.versions.wotlk
+    assert wowlib.expansion_of(wotlk_fs.version) == wowlib.Expansion.Wotlk
     data = wotlk_fs.read_file("DBFilesClient/Map.dbc")
     assert isinstance(data, bytes) and data[:4] == b"WDBC"
     assert wotlk_fs.read_file(wowlib.FileKey("DBFilesClient/Map.dbc")) == data

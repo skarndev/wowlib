@@ -53,7 +53,8 @@ namespace wowlib::fs
         return std::unexpected(storage.error());
 
       return FileSystem{MpqFileSystem{std::move(*storage), NullListfile{},
-                                      std::move(project)}};
+                                      std::move(project)},
+                        settings.version};
     }
 
     // The supplied CSV is the working database: lookups read it, registrations
@@ -76,7 +77,8 @@ namespace wowlib::fs
       return std::unexpected(storage.error());
 
     return FileSystem{CascFileSystem{std::move(*storage), std::move(listfile),
-                                     std::move(project)}};
+                                     std::move(project)},
+                      settings.version};
   }
 
   namespace

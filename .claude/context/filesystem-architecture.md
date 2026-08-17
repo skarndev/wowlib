@@ -2,6 +2,11 @@
 
 Read when: touching anything under `src/wowlib/fs/` or the core types it builds on.
 
+2026-08-17: FileSystem gained a welded `version` getter (the opened
+ClientVersion, stored via the two mark::exclude'd ctors from
+settings.version in open(); valid after close(), like `kind`) — the anchor
+for version-agnostic code in every language (`expansion_of(fs.version)`).
+
 ## Layers (static polymorphism, no virtuals)
 
 ```
