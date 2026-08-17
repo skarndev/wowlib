@@ -14,13 +14,15 @@ jobs:
   macos:
     # Apple Silicon (arm64) — mirrors the reference development platform. The
     # gcc-16 Mach-O literal-atom workaround (cmake/darwin-as-shim) is applied
-    # automatically by CompilerSettings.cmake.
+    # automatically by CompilerSettings.cmake. Release only: it is what ships,
+    # and the Debug configuration adds nothing here worth a second 75-min job
+    # (see ci-linux.yml).
     runs-on: macos-latest
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
-        preset: [gcc16-debug, gcc16-release]
+        preset: [gcc16-release]
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +54,7 @@ jobs:
           # (exactly what a welder pin bump hit). Exact match or cold fetch.
 
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }}
+        run: cmake --preset ${{ matrix.preset }} -DWOWLIB_WERROR=ON
 
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }}
@@ -107,6 +109,7 @@ jobs:
       - name: Configure
         run: >-
           cmake --preset gcc16-bindings-release
+          -DWOWLIB_WERROR=ON
           -DPython_EXECUTABLE=$PWD/.venv/bin/python
 
       - name: Build extension + stubs

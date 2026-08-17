@@ -68,3 +68,16 @@ Box jobs set TMPDIR=/root/tmp (disk). Never park binaries or listfile copies
 in /tmp — an ENOSPC there truncated an audit listfile copy mid-write and
 zeroed 10.2.7's enumeration; the run then died at the end and (pre-fix)
 uploaded no artifact. The audit upload step is if: always() now.
+
+## Hosted-CI shape (2026-08-17)
+One configuration per platform: Release only — it is what ships and what the
+integration/audit artifacts come from; the Debug legs (linux `debug` job,
+macos matrix entry) were dropped as pure duplication (~75 min/platform/push).
+Every hosted configure passes -DWOWLIB_WERROR=ON (CompilerSettings option
+appending -Werror to WOWLIB_CXX_FLAGS — wowlib, wowlib_tests, the db-corpus
+object lib and wowlib_py; deps and welder-generated shim targets are not
+covered). Local builds stay non-Werror so a new gcc patchlevel's novel
+warning never blocks development.
+ci-linux also has a `csharp` job: gcc16-csharp preset build (native shim +
+generated wrapper + facades), then `dotnet test tests/csharp` — the C#
+equivalent of the bindings job's pytest gate.

@@ -77,6 +77,21 @@ a standalone partial factory class with the per-era statics only — the
 BASED set in the script mirrors which families have welded bases and the
 compile check catches drift (CS0029 on the switch).
 
+## Tests + CI (2026-08-17)
+
+tests/csharp is an xunit suite over the GENERATED Wowlib project
+(ProjectReference into the build tree; override with
+-p:WowlibProject=<path>). It locks the db Table surface, the dbdgen
+facades and the format factories — client-free only, mirroring which
+pytest tests run on hosted runners. Run: build the gcc16-csharp preset,
+then `dotnet test tests/csharp`. CI: the ci-linux `csharp` job. Notes:
+`using wowlib;` does NOT import the nested namespaces (alias Db/Versions),
+version constants live at wowlib.Versions.Global.*, struct-returning
+indexers need a local before property assignment (CS1612), and the single
+exception type is WelderNativeException (message carries the ErrorCode
+name). ItemSparse has no schema at the 4.3.4 era snap — use Shadowlands
+for positive checks.
+
 ## Shim sharding
 
 `welder_csharp_generate_bindings(... SHARDS N)` (default 16 now) splits the

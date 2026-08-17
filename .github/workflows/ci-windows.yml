@@ -61,6 +61,7 @@ jobs:
       - name: Configure
         run: >-
           cmake --preset ${{ matrix.preset }}
+          -DWOWLIB_WERROR=ON
           -DCMAKE_C_COMPILER=gcc
           -DCMAKE_CXX_COMPILER=g++
 
@@ -123,6 +124,7 @@ jobs:
           PYEXE=$(cygpath -m "$pythonLocation/python.exe")
           echo "MSVC CPython: $PYEXE"
           cmake --preset gcc16-bindings-release \
+            -DWOWLIB_WERROR=ON \
             -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
             -DPython_EXECUTABLE="$PYEXE"
 

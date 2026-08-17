@@ -16,55 +16,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# A single configuration per platform: Release, because it is what ships
+# (wheels, NuGet, the audit/integration artifacts) and CI time should test
+# that. The Debug configuration is a local development tool; nothing in it
+# beyond assert() coverage differs, which is not worth a duplicate 75-min
+# build per platform on every push.
 jobs:
-  debug:
-    runs-on: ubuntu-latest
-    timeout-minutes: 150
-    steps:
-      - uses: actions/checkout@v4
-
-      # gcc-16 is the only toolchain with C++26 reflection; Homebrew-on-Linux
-      # carries it well ahead of the Ubuntu archives.
-      - name: Install gcc-16 toolchain (Homebrew)
-        run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
-          echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
-          # `brew update` refreshes the taps and is the single flakiest step in
-          # every job — a tap fetch failure killed a macOS run in 19s, before a
-          # line of wowlib was compiled. It is also NOT fatal: the runner image
-          # ships recent taps, so a failed refresh only means slightly older
-          # formulae. Retry, then carry on regardless and let `brew install`
-          # (which IS fatal) be the real gate.
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          export HOMEBREW_NO_INSTALL_CLEANUP=1
-          for i in 1 2 3; do brew update && break || sleep 15; done || true
-          brew install gcc ninja cmake
-          gcc-16 --version
-
-      - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
-        with:
-          path: build/*/_deps
-          key: deps-linux-gcc16-debug-${{ hashFiles('cmake/Dependencies.cmake') }}
-          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
-          # fallback would restore a _deps tree built from different pins.
-          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
-          # the new pin names, so the configure dies instead of self-healing
-          # (exactly what a welder pin bump hit). Exact match or cold fetch.
-
-      - name: Configure
-        run: cmake --preset gcc16-debug
-
-      - name: Build
-        run: cmake --build --preset gcc16-debug
-
-      # Client-integration tests self-skip (Catch2 SKIP + SKIP_RETURN_CODE):
-      # WOWLIB_TEST_CLIENTS_DIR / WOWLIB_TEST_LISTFILE are unset on hosted
-      # runners, so only the client-free unit suite actually runs.
-      - name: Test
-        run: ctest --preset gcc16-debug
-
   # The release build doubles as the integration-artifact producer: the test
   # binary it uploads is what the self-hosted job below runs against the real
   # client fleet — no second build anywhere.
@@ -108,6 +65,7 @@ jobs:
       - name: Configure
         run: >-
           cmake --preset gcc16-release
+          -DWOWLIB_WERROR=ON
           -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
       - name: Build
@@ -233,6 +191,7 @@ jobs:
       - name: Configure
         run: >-
           cmake --preset gcc16-bindings-release
+          -DWOWLIB_WERROR=ON
           -DPython_EXECUTABLE=$PWD/.venv/bin/python
           -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
@@ -275,3 +234,53 @@ jobs:
             build/release/bindings/python/wowlib.abi3.so
             build/release/bindings/python/stubs
           if-no-files-found: error
+
+  # The C# surface: native shim + generated managed wrapper + facades, locked
+  # by the dotnet test suite (tests/csharp) — the same role the bindings job's
+  # pytest run plays for Python.
+  csharp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcc-16 toolchain (Homebrew)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/sbin" >> "$GITHUB_PATH"
+          # `brew update` refreshes the taps and is the single flakiest step in
+          # every job — a tap fetch failure killed a macOS run in 19s, before a
+          # line of wowlib was compiled. It is also NOT fatal: the runner image
+          # ships recent taps, so a failed refresh only means slightly older
+          # formulae. Retry, then carry on regardless and let `brew install`
+          # (which IS fatal) be the real gate.
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          export HOMEBREW_NO_INSTALL_CLEANUP=1
+          for i in 1 2 3; do brew update && break || sleep 15; done || true
+          brew install gcc ninja cmake
+          gcc-16 --version
+          dotnet --version
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/*/_deps
+          key: deps-linux-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
+          # NO restore-keys: the key hashes Dependencies.cmake, and a PREFIX
+          # fallback would restore a _deps tree built from different pins.
+          # FETCHCONTENT_UPDATES_DISCONNECTED then forbids fetching the ref
+          # the new pin names, so the configure dies instead of self-healing
+          # (exactly what a welder pin bump hit). Exact match or cold fetch.
+
+      - name: Configure
+        run: cmake --preset gcc16-csharp -DWOWLIB_WERROR=ON
+
+      - name: Build
+        run: cmake --build --preset gcc16-csharp
+
+      # dotnet-test the generated Wowlib project: managed wrapper + db facades
+      # + format factories compile together, and the tests exercise them over
+      # the just-built native shim.
+      - name: C# binding tests
+        run: dotnet test tests/csharp
