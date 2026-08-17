@@ -3,6 +3,12 @@ name: ci-macos
 on:
   push:
     branches: [main]
+    # Docs-only pushes don't need builds or box time.
+    paths-ignore:
+      - '.claude/**'
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
   pull_request:
   workflow_dispatch:
 
