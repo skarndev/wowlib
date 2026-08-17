@@ -22,6 +22,16 @@ endif()
 # to configure without this override.
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
+# Dep-configure noise control, both scoped to this file: deprecation chatter
+# from the deps' old cmake_minimum_required lines is not ours to fix (the
+# CACHE form is required — cmake_minimum_required ignores a normal variable;
+# re-enabled at the bottom of this file), and CMP0077 NEW makes their option()
+# calls HONOR the normal variables set here (BUILD_SHARED_LIBS below) instead
+# of clearing them with a policy warning — the honoring is what we meant.
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL
+    "scoped off during dep configure (Dependencies.cmake)" FORCE)
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+
 set(BUILD_SHARED_LIBS OFF)
 
 # --- StormLib (MPQ, pre-WoD clients) ---
@@ -160,8 +170,11 @@ target_include_directories(stb_dxt INTERFACE ${stb_dxt_SOURCE_DIR})
 
 # Storage libraries are never debugged into and their table/manifest parsing is
 # hot on every storage open — keep them optimized even in Debug configurations.
-target_compile_options(storm PRIVATE -O2)
-target_compile_options(casc_static PRIVATE -O2)
+# And silent (-w): their own TUs warn plenty (StormLib's bundled zlib is
+# old-style C) and third-party code is not ours to keep warning-clean — the
+# wowlib -Werror lock covers our targets, this keeps dep noise out of logs.
+target_compile_options(storm PRIVATE -O2 -w)
+target_compile_options(casc_static PRIVATE -O2 -w)
 
 # Their headers are third-party code compiled into OUR warning-clean TUs
 # (fs/mpq, fs/casc): mark the interface includes SYSTEM so a dep header's
@@ -189,3 +202,6 @@ if(WOWLIB_BUILD_TESTS)
   FetchContent_MakeAvailable(Catch2)
   list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 endif()
+# Deprecation warnings back on for OUR OWN cmake code (scoped off above for
+# the deps' configure).
+set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)

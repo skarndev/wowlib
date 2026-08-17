@@ -43,7 +43,7 @@ jobs:
       # listfile copy and zeroed a client's enumeration).
       TMPDIR: /root/tmp
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The newest successful main ci-linux run still holding the module
       # artifact — on the nightly cron that is simply "the last built main".

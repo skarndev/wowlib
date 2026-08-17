@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Unlike welder's docs job, wowlib's needs the full gcc-16 bindings
       # build: the Python API pages are mkdocstrings over the .pyi stub tree,
@@ -74,7 +74,7 @@ jobs:
           dot -V
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-linux-docs-${{ hashFiles('cmake/Dependencies.cmake') }}

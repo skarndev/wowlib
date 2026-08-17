@@ -36,7 +36,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       publish: ${{ steps.v.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0            # setuptools-scm needs the history AND tags
           ref: ${{ inputs.ref || github.ref }}
@@ -95,7 +95,7 @@ jobs:
       run:
         shell: ${{ startsWith(matrix.os, 'windows') && 'msys2 {0}' || 'bash' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
@@ -134,7 +134,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-${{ matrix.name }}-wheel-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -284,7 +284,7 @@ jobs:
     # regression should FAIL, not absorb six hours of runner time.
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
@@ -321,7 +321,7 @@ jobs:
           python-version: '3.13'
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/csharp/_deps
           key: deps-linux-x64-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -426,7 +426,7 @@ jobs:
       run:
         shell: ${{ startsWith(matrix.os, 'windows') && 'msys2 {0}' || 'bash' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
@@ -463,7 +463,7 @@ jobs:
           python-version: '3.13'
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/csharp/_deps
           key: deps-${{ matrix.rid }}-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -541,7 +541,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { ref: '${{ inputs.ref || github.ref }}' }
 
       - uses: actions/setup-dotnet@v4

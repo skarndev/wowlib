@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install gcc-16 toolchain (Homebrew)
         run: |
@@ -49,7 +49,7 @@ jobs:
           gcc-16 --version
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-linux-gcc16-release-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -112,7 +112,7 @@ jobs:
       # copies, project overlays) goes to the disk instead.
       TMPDIR: /root/tmp
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Refresh community listfile (monthly)
         run: |
@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install gcc-16 toolchain (Homebrew)
         run: |
@@ -174,7 +174,7 @@ jobs:
           uv pip install numpy
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-linux-bindings-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -242,7 +242,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install gcc-16 toolchain (Homebrew)
         run: |
@@ -263,7 +263,7 @@ jobs:
           dotnet --version
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-linux-csharp-${{ hashFiles('cmake/Dependencies.cmake') }}

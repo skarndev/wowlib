@@ -24,7 +24,7 @@ jobs:
       matrix:
         preset: [gcc16-release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install gcc-16 toolchain (Homebrew)
         run: |
@@ -43,7 +43,7 @@ jobs:
           ninja --version
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-macos-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -69,7 +69,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install gcc-16 toolchain (Homebrew)
         run: |
@@ -96,7 +96,7 @@ jobs:
           uv pip install numpy
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-macos-bindings-${{ hashFiles('cmake/Dependencies.cmake') }}

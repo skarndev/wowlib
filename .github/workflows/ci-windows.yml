@@ -26,7 +26,7 @@ jobs:
       matrix:
         preset: [gcc16-release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install gcc-16 toolchain (MSYS2 UCRT64)
         uses: msys2/setup-msys2@v2
@@ -48,7 +48,7 @@ jobs:
           python --version
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-windows-${{ matrix.preset }}-${{ hashFiles('cmake/Dependencies.cmake') }}
@@ -84,7 +84,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up MSVC CPython 3.13 (bindings target)
         uses: actions/setup-python@v5
@@ -109,7 +109,7 @@ jobs:
             mingw-w64-ucrt-x86_64-python
 
       - name: Cache FetchContent dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/*/_deps
           key: deps-windows-bindings-${{ hashFiles('cmake/Dependencies.cmake') }}
