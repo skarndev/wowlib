@@ -275,6 +275,15 @@ gating exists to prevent.
   PyPI check).
 
 
+## 2026-08-17: v0.0.3 — first fully clean run
+
+Every job green on the first attempt (3 wheels, C# matrix, NuGet, both
+publishes); PyPI live immediately, nuget.org indexed within the hour.
+The smoke test now also asserts the PEP 561 stub tree inside each wheel
+(incl. db/tables/wotlk.pyi from the per-era stub split). Verified post-
+publish: pip install wowlib-py==0.0.3 from PyPI → import + era API +
+47 stub files, no .pyi.orig (now install-EXCLUDEd).
+
 ## 2026-08-16: post-generic-DB budgets
 
 The per-era table classes left every artifact (plan fluffy-twirling-hickey):
