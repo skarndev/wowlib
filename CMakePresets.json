@@ -46,13 +46,26 @@
         "CMAKE_CXX_FLAGS_RELEASE": "-O2 -DNDEBUG"
       },
       "description": "-O2 (not Release's -O3): the bindings are registration glue, so -O2 compiles ~18% faster per shard with negligible runtime impact. NOMINSIZE (bindings/CMakeLists.txt) drops nanobind's -Os, which mis-emits std typeinfos on gcc-16/macOS."
+    },
+    {
+      "name": "gcc16-csharp",
+      "displayName": "gcc-16 Release + C# bindings",
+      "inherits": "gcc16-base",
+      "binaryDir": "${sourceDir}/build/csharp",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "WOWLIB_BUILD_CSHARP": "ON",
+        "WOWLIB_BUILD_TESTS": "OFF"
+      },
+      "description": "The C# surface: native shim + generated managed wrapper + facades. dotnet-test it with tests/csharp (see that directory's README header)."
     }
   ],
   "buildPresets": [
     { "name": "gcc16-debug", "configurePreset": "gcc16-debug" },
     { "name": "gcc16-release", "configurePreset": "gcc16-release" },
     { "name": "gcc16-bindings", "configurePreset": "gcc16-bindings" },
-    { "name": "gcc16-bindings-release", "configurePreset": "gcc16-bindings-release" }
+    { "name": "gcc16-bindings-release", "configurePreset": "gcc16-bindings-release" },
+    { "name": "gcc16-csharp", "configurePreset": "gcc16-csharp" }
   ],
   "testPresets": [
     {

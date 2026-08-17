@@ -26,3 +26,7 @@ m2_survey.py
 m2_survey_*.csv
 m2_survey_*.log
 *_m2_decoded.json
+
+# dotnet build artifacts of the C# test project
+tests/csharp/bin/
+tests/csharp/obj/

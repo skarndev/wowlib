@@ -1,0 +1,29 @@
+<!-- The C# binding tests, run against the generated Wowlib project of a C#
+     build tree (which carries the compiled managed wrapper, the dbdgen db
+     facades, the per-era format factories AND the native shim beside it):
+
+         cmake ~preset gcc16-csharp && cmake ~build ~preset gcc16-csharp
+         dotnet test tests/csharp
+
+     (read `~` as the usual double-dash: XML comments cannot hold one.)
+     A non-default tree overrides the reference:
+
+         dotnet test tests/csharp -p:WowlibProject=/path/to/bindings/Wowlib/Wowlib.csproj
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- Match the wrapper's TFM but run on whatever newer runtime the machine
+         has (a dotnet 10 SDK need not carry the 8.0 runtime). -->
+    <RollForward>Major</RollForward>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <WowlibProject Condition="'$(WowlibProject)' == ''">$(MSBuildThisFileDirectory)../../build/csharp/bindings/Wowlib/Wowlib.csproj</WowlibProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(WowlibProject)" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+</Project>
