@@ -374,6 +374,28 @@ instead of building and running the generator")
       "TargetFramework of the generated NuGet project ([LibraryImport] needs net7+)")
   set(WOWLIB_CSHARP_PACKAGE_VERSION "0.0.1" CACHE STRING
       "Version stamped into the wowlib NuGet package")
+  # The per-era FORMAT factories (the C# for_version): plain-C# statics
+  # merged onto the welded family bases via partial classes, generated from
+  # the ranges headers' X-macro tables — the same single source of truth the
+  # welded aliases use. Lands beside the db facades so the same EXTRA_COMPILE
+  # glob packs it.
+  set(_wowlib_cs_format_facades ${WOWLIB_CS_FACADES_DIR}/FormatFacades.cs)
+  file(GLOB _wowlib_ranges_headers
+       ${CMAKE_CURRENT_SOURCE_DIR}/instantiations/*_ranges.hpp)
+  add_custom_command(
+    OUTPUT ${_wowlib_cs_format_facades}
+    COMMAND "${Python3_EXECUTABLE}"
+            ${PROJECT_SOURCE_DIR}/tools/gen_cs_format_facades.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/instantiations
+            ${_wowlib_cs_format_facades}
+    DEPENDS ${_wowlib_ranges_headers}
+            ${PROJECT_SOURCE_DIR}/tools/gen_cs_format_facades.py
+    COMMENT "Generating per-era C# format factories"
+    VERBATIM)
+  add_custom_target(wowlib_cs_format_facades
+    DEPENDS ${_wowlib_cs_format_facades})
+  add_dependencies(wowlib_cs wowlib_cs_format_facades)
+
   # The dbdgen-emitted typed facades ride the package as plain C# sources
   # (EXTRA_COMPILE globs; welder-csharp 297fb03).
   welder_csharp_nuget_project(wowlib_cs

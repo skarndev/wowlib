@@ -121,7 +121,7 @@ FetchContent_Declare(welder
 # wrapper's Roslyn interop-generator time all scale with that count).
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 297fb038ba037aed46f922434d99cdb3dfe49505)
+  GIT_TAG 1cf2f03ea78de0da6539bb109f22e48d5f9eda5a)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH

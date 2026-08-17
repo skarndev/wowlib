@@ -63,6 +63,20 @@ opener with the era-canonical ClientVersion. No interop of their own;
 packed into the NuGet via welder-csharp's nuget `EXTRA_COMPILE` globs
 (297fb03). Doc text XML-escapes (CS1570 otherwise).
 
+## for_version in C# (2026-08-17)
+
+The welded wrapper classes are PARTIAL (welder-csharp 1cf2f03), and
+`tools/gen_cs_format_facades.py` (wired in bindings/CMakeLists, packed via
+the same EXTRA_COMPILE glob as the db facades) generates per-era statics
+ONTO the welded family bases from the ranges headers' X-macro tables:
+`Formats.Adt.ADT.ForVersion(Expansion.Mop)` (dynamic, returns the family
+base — the concretes derive it) and `ADT.Wotlk()` (typed, returns the
+covering range class, resolved at compile time). Families whose concretes
+weld standalone (the M2 record/track families, M2SkinSection/Profile) get
+a standalone partial factory class with the per-era statics only — the
+BASED set in the script mirrors which families have welded bases and the
+compile check catches drift (CS0029 on the switch).
+
 ## Shim sharding
 
 `welder_csharp_generate_bindings(... SHARDS N)` (default 16 now) splits the
