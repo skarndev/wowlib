@@ -590,7 +590,9 @@ jobs:
               <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
               <!-- Ships the XML sidecar IntelliSense reads for descriptions. -->
               <GenerateDocumentationFile>true</GenerateDocumentationFile>
-              <NoWarn>$(NoWarn);CS1591;CS0649;CS1573;CS1572</NoWarn>
+              <!-- CS0108: the generated base fs verbs intentionally share the
+                   concretes' signatures (the base dispatches to them). -->
+              <NoWarn>$(NoWarn);CS1591;CS0649;CS1573;CS1572;CS0108</NoWarn>
             </PropertyGroup>
             <ItemGroup>
               <Compile Include="../managed/Bindings.*.cs" />

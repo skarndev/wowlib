@@ -88,6 +88,22 @@ FAMILIES: dict[str, list[tuple[str, str]]] = {
 }
 
 
+# The six entities carrying the per-version fs-I/O verbs in C# (the
+# mark::only(lua, cs) read/write methods live on the CONCRETES because the
+# C++ formats are statically polymorphic). Their family bases get generated
+# Read/Write that type-switch to the concrete, so a ForVersion(...) result
+# is as usable as Python's for_version object without a downcast.
+FS_VERBS: dict[str, list[tuple[str, str]]] = {
+    "WMO": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
+    "M2": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
+    "Skeleton": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
+    "WDT": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
+    "WDL": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
+    "ADT": [("Fs.FileSystem", "fs"), ("FileKey", "key"),
+            ("Formats.Adt.AlphaFormat", "alpha")],
+}
+
+
 # Families whose concretes DERIVE a welded family base in the wrapper —
 # these get a dynamic ForVersion(Expansion) returning the base, on top of
 # the per-era statics. (The M2 record families weld standalone concretes.)
@@ -148,6 +164,28 @@ def main() -> int:
                 lines.append("            _ => throw new System.ArgumentOut"
                              "OfRangeException(nameof(era)),")
                 lines.append("        };")
+            if family in FS_VERBS:
+                params = FS_VERBS[family]
+                sig = ", ".join(f"{t} {n}" for t, n in params)
+                args = ", ".join(n for _, n in params)
+                suffixes = [suffix for suffix, _ in rows]
+                for verb in ("Read", "Write"):
+                    lines.append(f"        /// <summary>Version-agnostic"
+                                 f" {verb}: dispatches to the concrete era"
+                                 f" class this instance is (the fs verbs"
+                                 f" live on the concretes).</summary>")
+                    lines.append(f"        public void {verb}({sig})")
+                    lines.append("        {")
+                    lines.append("            switch (this)")
+                    lines.append("            {")
+                    for suffix in suffixes:
+                        lines.append(f"                case {family}{suffix}"
+                                     f" _c: _c.{verb}({args}); break;")
+                    lines.append("                default: throw new System."
+                                 "InvalidOperationException(\"no era "
+                                 "dispatch for \" + GetType().Name);")
+                    lines.append("            }")
+                    lines.append("        }")
             for era, method, covering in covering_by_era:
                 lines.append(f"        /// <summary>A fresh {family} for"
                              f" {era} clients ({family}{covering}).</summary>")

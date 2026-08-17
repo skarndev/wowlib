@@ -129,9 +129,13 @@ FetchContent_Declare(welder
 # ~25 shared entry points instead of per-field thunks, collapsing the DB
 # concretes' ~110k P/Invokes to ~20k (shim compile, dylib size, and the
 # wrapper's Roslyn interop-generator time all scale with that count).
+# 66a6bc9 on top: duck-typed foreach on every sequence wrapper (pattern
+# GetEnumerator, no IEnumerable) + CS0108 in the generated csproj's NoWarn
+# (the base fs verbs our facade generator layers on intentionally share the
+# concretes' signatures).
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 1cf2f03ea78de0da6539bb109f22e48d5f9eda5a)
+  GIT_TAG 66a6bc96648b75f06500e5c67547f787b2625bc4)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH

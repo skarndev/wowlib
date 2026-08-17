@@ -63,6 +63,28 @@ opener with the era-canonical ClientVersion. No interop of their own;
 packed into the NuGet via welder-csharp's nuget `EXTRA_COMPILE` globs
 (297fb03). Doc text XML-escapes (CS1570 otherwise).
 
+## 2026-08-17 (later): foreach + usable ForVersion
+
+- **welder-csharp 66a6bc9**: every sequence wrapper (vector / fixed array /
+  scalar seq) carries a duck-typed `GetEnumerator()` + nested struct
+  Enumerator (pattern-based, no IEnumerable, allocation-free; Count re-read
+  per step to match live-view semantics) — `foreach` compiles everywhere.
+  Golden + roundtrip tests updated; CS0108 added to the generated csproj's
+  NoWarn (see next point). Pin bumped in Dependencies.cmake.
+- **gen_cs_format_facades.py FS_VERBS**: the six fs-I/O entities' family
+  bases (WMO/M2/Skeleton/ADT/WDT/WDL) get generated Read/Write that
+  type-switch to the concrete range class — a ForVersion(...) result now
+  reads/writes without a downcast (parity with Python's base verbs). The
+  concretes' identical signatures HIDE the base's (intentional; CS0108
+  suppressed in welder-csharp's csproj template AND release.yml's pack
+  csproj). A bare `new ADT()` base instance throws
+  InvalidOperationException from the dispatch default arm.
+- **FileSystem::version getter** (fs change, all languages): welded getter
+  returning the opened ClientVersion (stored via the two excluded ctors,
+  set from settings in open()) — the anchor for era-generic code
+  (`expansion_of(fs.version)`). Guide page guide/version-agnostic.md
+  documents the whole story trilingually.
+
 ## for_version in C# (2026-08-17)
 
 The welded wrapper classes are PARTIAL (welder-csharp 1cf2f03), and

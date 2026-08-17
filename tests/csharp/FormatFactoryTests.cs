@@ -56,6 +56,61 @@ public class FormatFactoryTests
     }
 
     [Fact]
+    public void FamilyBasesCarryTheFsVerbs()
+    {
+        // Version-agnostic code is the point of ForVersion: the base must be
+        // able to Read/Write without a downcast. Method-group assignments
+        // compile-lock the base verbs' signatures; a bare base instance (no
+        // concrete era) reports itself instead of nulling into a backend.
+        using var adt = wowlib.Formats.Adt.ADT.ForVersion(Expansion.Wotlk);
+        System.Action<wowlib.Fs.FileSystem, FileKey,
+                      wowlib.Formats.Adt.AlphaFormat> adtRead = adt.Read;
+        System.Action<wowlib.Fs.FileSystem, FileKey,
+                      wowlib.Formats.Adt.AlphaFormat> adtWrite = adt.Write;
+        Assert.NotNull(adtRead);
+        Assert.NotNull(adtWrite);
+
+        using var wmo = wowlib.Formats.Wmo.WMO.ForVersion(Expansion.Vanilla);
+        using var m2 = wowlib.Formats.M2.M2.ForVersion(Expansion.Legion);
+        using var wdt = wowlib.Formats.Wdt.WDT.ForVersion(Expansion.Cata);
+        using var wdl = wowlib.Formats.Wdl.WDL.ForVersion(Expansion.Tbc);
+        using var skel =
+            wowlib.Formats.M2.Skeleton.ForVersion(Expansion.Shadowlands);
+        foreach (var entity in new object[] { wmo, m2, wdt, wdl, skel })
+        {
+            var read = entity.GetType().GetMethod(
+                "Read", new[] { typeof(wowlib.Fs.FileSystem), typeof(FileKey) });
+            Assert.NotNull(read);
+        }
+
+        using var bare = new wowlib.Formats.Adt.ADT();
+        Assert.Throws<System.InvalidOperationException>(
+            () => bare.Read(null!, null!, default));
+    }
+
+    [Fact]
+    public void SequenceWrappersSupportForeach()
+    {
+        // Duck-typed enumerators (welder-csharp 66a6bc9): foreach compiles on
+        // every sequence wrapper — scalar vectors sum, class vectors yield
+        // live views, and an empty vector yields nothing.
+        var numbers = new VectorUshort();
+        numbers.Add(1);
+        numbers.Add(2);
+        numbers.Add(4);
+        var sum = 0;
+        foreach (var n in numbers)
+            sum += n;
+        Assert.Equal(7, sum);
+
+        using var root = wowlib.Formats.Wmo.Root.WMORoot.Wotlk();
+        var count = 0;
+        foreach (var material in root.Materials)
+            ++count;
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
     public void StandaloneFamiliesStillGetPerEraStatics()
     {
         // M2SkinProfile welds standalone concretes (no family base), so it has
