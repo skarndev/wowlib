@@ -262,6 +262,20 @@ jobs:
           "$PY" -m pip install --upgrade pip
           "$PY" -m pip install dist/*.whl
           "$PY" -c "import wowlib; print('wowlib', wowlib.__version__ if hasattr(wowlib,'__version__') else '(no __version__)'); print(wowlib.__file__)"
+          # The wheel is also the typing story: it must carry the PEP 561
+          # wowlib-stubs tree (mypy/pyright/IDEs discover it automatically
+          # once installed). A wheel without it would install and import
+          # fine, silently shipping an untyped release.
+          "$PY" - <<'CHECK'
+          import pathlib, sys, sysconfig
+          stubs = pathlib.Path(sysconfig.get_path("purelib")) / "wowlib-stubs"
+          missing = [p for p in ("__init__.pyi", "py.typed", "db/__init__.pyi",
+                                 "db/tables/wotlk.pyi")
+                     if not (stubs / p).is_file()]
+          if missing:
+              sys.exit(f"::error::wheel is missing stub files: {missing}")
+          print(f"stub tree OK: {sum(1 for _ in stubs.rglob('*.pyi'))} .pyi files")
+          CHECK
 
       - uses: actions/upload-artifact@v4
         with:
