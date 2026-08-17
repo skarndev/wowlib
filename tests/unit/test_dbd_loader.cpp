@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 
 #include <wowlib/db/schema_catalog.hpp>
@@ -11,6 +12,19 @@ using namespace wowlib;
   #error "tests/CMakeLists.txt defines WOWLIB_TEST_DBDEFS_DIR"
 #endif
 
+namespace
+{
+  /** The definitions directory: the build-tree path baked at compile time,
+      overridable at runtime — the test binary travels to the integration box,
+      where the build tree's absolute path does not exist. */
+  std::filesystem::path dbdefs_dir()
+  {
+    if (const char* env = std::getenv("WOWLIB_TEST_DBDEFS_DIR"))
+      return env;
+    return WOWLIB_TEST_DBDEFS_DIR;
+  }
+}
+
 TEST_CASE("the runtime WoWDBDefs loader reproduces the embedded catalog",
           "[db][schema][dbd]")
 {
@@ -18,7 +32,11 @@ TEST_CASE("the runtime WoWDBDefs loader reproduces the embedded catalog",
   // from_dbd_dir and the embedded catalog agree schema for schema — every
   // table, every era, every column fact. This is the fence around the
   // C++ port of dbdgen's mangling rules.
-  const auto loaded = db::SchemaCatalog::from_dbd_dir(WOWLIB_TEST_DBDEFS_DIR);
+  const auto definitions = dbdefs_dir();
+  if (!std::filesystem::exists(definitions))
+    SKIP("no WoWDBDefs checkout at " << definitions.string()
+         << " (travelling binary; set WOWLIB_TEST_DBDEFS_DIR)");
+  const auto loaded = db::SchemaCatalog::from_dbd_dir(definitions);
   REQUIRE(loaded.has_value());
   const db::SchemaCatalog& embedded = db::SchemaCatalog::embedded();
 

@@ -26,4 +26,16 @@
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
+  <!-- The native shim sits beside the generated project's parent directory
+       (build/csharp/bindings/). Copy it explicitly: the transitive flow of the
+       Wowlib project's copy-to-output item proved platform-flaky (worked on
+       macOS, silently didn't on Linux CI). The glob matches whichever of
+       libwowlib_native.so/.dylib / wowlib_native.dll this platform built and
+       drops cleanly when none exists. -->
+  <PropertyGroup>
+    <WowlibNativeDir Condition="'$(WowlibNativeDir)' == ''">$([System.IO.Path]::GetFullPath('$([System.IO.Path]::GetDirectoryName('$(WowlibProject)'))/..'))</WowlibNativeDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(WowlibNativeDir)/*wowlib_native.*" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
 </Project>
