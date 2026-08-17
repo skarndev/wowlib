@@ -151,14 +151,15 @@ namespace wowlib::fs
         // reads match the client's case-insensitive lookup (both sides are
         // lowercased/backslashed by normalize_path).
         OpenedArchive slot{member.path, true};
-        std::error_code ec;
+        std::error_code walk_ec;
         for (const auto& entry :
-             std::filesystem::recursive_directory_iterator{member.path, ec})
+             std::filesystem::recursive_directory_iterator{member.path, walk_ec})
         {
-          if (!entry.is_regular_file(ec))
+          if (!entry.is_regular_file(walk_ec))
             continue;
-          const auto relative = std::filesystem::relative(entry.path(), member.path, ec);
-          if (ec)
+          const auto relative =
+              std::filesystem::relative(entry.path(), member.path, walk_ec);
+          if (walk_ec)
             continue;
           slot.loose.emplace(normalize_path(relative.generic_string()), entry.path());
         }

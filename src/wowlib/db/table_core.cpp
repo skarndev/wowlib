@@ -139,12 +139,12 @@ namespace wowlib::db
 
       if (has_id)
       {
-        const std::uint32_t id = source.id_of(r);
-        if (const auto [at, fresh] = first_seen.try_emplace(id, r); !fresh)
+        const std::uint32_t record_id = source.id_of(r);
+        if (const auto [at, fresh] = first_seen.try_emplace(record_id, r); !fresh)
           report.add_error(std::format("records[{}]", r),
                            std::format("duplicate id {} (already used by records[{}]); the "
                                        "client indexes records by id",
-                                       id, at->second));
+                                       record_id, at->second));
       }
     }
     return report;

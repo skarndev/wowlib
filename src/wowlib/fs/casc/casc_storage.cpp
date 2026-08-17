@@ -18,6 +18,14 @@ namespace wowlib::fs
   {
     namespace fsys = std::filesystem;
 
+    /** CascOpenFile's by-FileDataID calling convention smuggles the id through
+        the name pointer — CascLib's CASC_FILE_DATA_ID macro, respelled without
+        its C-style casts. */
+    LPCSTR casc_fdid_name(std::uint32_t fdid)
+    {
+      return reinterpret_cast<LPCSTR>(static_cast<std::uintptr_t>(fdid));
+    }
+
     struct BuildConfigCandidate
     {
       std::string key;              // hex file name under Data/config/xx/yy/
@@ -163,7 +171,7 @@ namespace wowlib::fs
         _storage = handle;
         return {};
       }
-    const auto plain_native = static_cast<std::uint32_t>(GetCascError());
+    const std::uint32_t plain_native = GetCascError();
 
     // (b) a repack without .build.info: synthesize one per build config candidate
     // in a shim directory and try until the storage opens. Only opening tells
@@ -223,11 +231,11 @@ namespace wowlib::fs
 
     if (key.fdid)
     {
-      if (CascOpenFile(_storage, CASC_FILE_DATA_ID(key.fdid->value),
+      if (CascOpenFile(_storage, casc_fdid_name(key.fdid->value),
                        casc_locale_flag(_options.locale), CASC_OPEN_BY_FILEID, &file))
         return read_open_file(file, std::format("FileDataID {}", key.fdid->value));
 
-      const auto native = static_cast<std::uint32_t>(GetCascError());
+      const std::uint32_t native = GetCascError();
       return make_error(ErrorCode::FileNotFound,
                         std::format("FileDataID {} was not found in the CASC storage",
                                     key.fdid->value),
@@ -241,7 +249,7 @@ namespace wowlib::fs
                        CASC_OPEN_BY_NAME, &file))
         return read_open_file(file, std::format("'{}'", name));
 
-      const auto native = static_cast<std::uint32_t>(GetCascError());
+      const std::uint32_t native = GetCascError();
       return make_error(ErrorCode::PathNotResolvable,
                         std::format("'{}' could not be opened by name — this client's "
                                     "root manifest likely has no name hashes; resolve "
@@ -265,7 +273,7 @@ namespace wowlib::fs
     if (!CascAddEncryptionKey(_storage, key_name, bytes.data()))
       return make_error(ErrorCode::BackendError,
                         std::format("CascLib rejected TACT key {:016X}", key_name),
-                        static_cast<std::uint32_t>(GetCascError()));
+                        GetCascError());
     return {};
   }
 
@@ -277,7 +285,7 @@ namespace wowlib::fs
     const std::string list{key_list};
     if (!CascImportKeysFromString(_storage, list.c_str()))
       return make_error(ErrorCode::BackendError, "CascLib rejected the TACT key list",
-                        static_cast<std::uint32_t>(GetCascError()));
+                        GetCascError());
     return {};
   }
 
@@ -291,7 +299,7 @@ namespace wowlib::fs
     HANDLE find = CascFindFirstFile(_storage, "*", &found, nullptr);
     if (!find)
       return make_error(ErrorCode::BackendError, "CascFindFirstFile failed",
-                        static_cast<std::uint32_t>(GetCascError()));
+                        GetCascError());
 
     std::vector<FileDataID> fdids;
     do
@@ -319,7 +327,7 @@ namespace wowlib::fs
     bool ok = false;
 
     if (key.fdid)
-      ok = CascOpenFile(_storage, CASC_FILE_DATA_ID(key.fdid->value),
+      ok = CascOpenFile(_storage, casc_fdid_name(key.fdid->value),
                         casc_locale_flag(_options.locale), CASC_OPEN_BY_FILEID, &file);
     else if (key.path)
       ok = CascOpenFile(_storage, casc_name(*key.path).c_str(),

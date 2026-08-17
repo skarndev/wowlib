@@ -651,7 +651,7 @@ namespace wowlib::formats::blp::detail
         const std::uint32_t y1 = std::min(2 * y + 1, height - 1);
         for (std::uint32_t ch = 0; ch < 4; ++ch)
         {
-          const std::uint32_t sum = rgba[(std::size_t{y0} * width + x0) * 4 + ch]
+          const int sum = rgba[(std::size_t{y0} * width + x0) * 4 + ch]
                                     + rgba[(std::size_t{y0} * width + x1) * 4 + ch]
                                     + rgba[(std::size_t{y1} * width + x0) * 4 + ch]
                                     + rgba[(std::size_t{y1} * width + x1) * 4 + ch];

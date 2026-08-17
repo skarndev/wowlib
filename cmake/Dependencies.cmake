@@ -166,7 +166,9 @@ if(WOWLIB_BUILD_CSHARP)
 endif()
 
 add_library(stb_dxt INTERFACE)
-target_include_directories(stb_dxt INTERFACE ${stb_dxt_SOURCE_DIR})
+# SYSTEM: the header compiles inside blp.cpp and is not ours to keep clean
+# under the strict warning set (old-style casts, conversions).
+target_include_directories(stb_dxt SYSTEM INTERFACE ${stb_dxt_SOURCE_DIR})
 
 # Storage libraries are never debugged into and their table/manifest parsing is
 # hot on every storage open — keep them optimized even in Debug configurations.

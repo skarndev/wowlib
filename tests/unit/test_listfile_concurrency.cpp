@@ -50,7 +50,7 @@ TEST_CASE("concurrent lookups and registrations keep the maps consistent",
     });
 
   for (int w = 0; w < writers; ++w)
-    threads[w].join();
+    threads[static_cast<std::size_t>(w)].join();
   stop = true;
   threads.clear();
 

@@ -13,10 +13,18 @@ if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSIO
     "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 endif()
 
-# Warnings applied to wowlib targets only (deps are warning-noisy). Partial
-# designated initialization of settings/options aggregates is a core idiom here,
-# so that -Wextra sub-warning stays off.
-set(WOWLIB_CXX_FLAGS -Wall -Wextra -Wno-missing-field-initializers)
+# Warnings applied to wowlib targets only (deps are warning-noisy): welder's
+# strict set (its CMakeLists' welder_warnings target), which the wowlib
+# targets share so a warning never again surfaces only through welder's
+# generator TUs compiling our headers. Partial designated initialization of
+# settings/options aggregates is a core idiom here, so that -Wextra
+# sub-warning stays off.
+set(WOWLIB_CXX_FLAGS
+    -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion
+    -Wcast-qual -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual
+    -Wdouble-promotion -Wformat=2 -Wimplicit-fallthrough -Wuseless-cast
+    -Wextra-semi -Wmisleading-indentation -Wredundant-decls
+    -Wno-missing-field-initializers)
 
 # CI configures with -DWOWLIB_WERROR=ON so the zero-warning state cannot rot;
 # off by default so a new gcc patchlevel's novel warning never blocks local

@@ -179,9 +179,14 @@ namespace
   static_assert(sl_rows[4].magic == 0);  // unannotated member has no chunk
 }
 
-// --- explicit instantiation spelled with versions:: constants
-template struct Entity<versions::wotlk>;
-template struct Entity<versions::shadowlands>;
+// --- explicit instantiation spelled with versions:: constants (inside the
+// anonymous namespace: pedantically, an instantiation outside it would need a
+// nested-name-specifier it cannot have)
+namespace
+{
+  template struct Entity<versions::wotlk>;
+  template struct Entity<versions::shadowlands>;
+}
 
 TEST_CASE("reflection dispatch matches active annotated members only", "[formats][reflect]")
 {

@@ -117,8 +117,13 @@ if(WOWLIB_BUILD_PYTHON)
     ${CMAKE_CURRENT_BINARY_DIR})
   add_dependencies(wowlib_py wowlib_opaque wowlib_dbdgen)
   target_link_libraries(wowlib_py PRIVATE wowlib welder::headers welder::nanobind)
-  # First-party code — same warning discipline (and CI -Werror) as the library.
-  target_compile_options(wowlib_py PRIVATE ${WOWLIB_CXX_FLAGS})
+  # First-party code — same warning discipline (and CI -Werror) as the
+  # library, MINUS -Wshadow: gcc-16 reports a `template for` loop variable as
+  # shadowing ITSELF, once per expansion after the first (warning and note
+  # point at the same line:column), and the binding TUs run template-for over
+  # the expansion/error enumerators in ~16 places — 215 bogus warnings against
+  # 0 real ones. Re-join the flag when the compiler stops doing that.
+  target_compile_options(wowlib_py PRIVATE ${WOWLIB_CXX_FLAGS} -Wno-shadow)
   if(TARGET wowlib_db_tables)
     target_link_libraries(wowlib_py PRIVATE wowlib_db_tables)
   endif()

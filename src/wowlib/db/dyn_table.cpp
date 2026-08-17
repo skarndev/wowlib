@@ -476,12 +476,12 @@ namespace wowlib::db
     return {};
   }
 
-  Result<std::size_t> DynTable::find_by_id(std::uint32_t id) const
+  Result<std::size_t> DynTable::find_by_id(std::uint32_t record_id) const
   {
-    const std::size_t at = rows_.find_by_id(id);
+    const std::size_t at = rows_.find_by_id(record_id);
     if (at == rows_.size())
       return make_error(ErrorCode::TableUnknown,
-                        std::format("{}: no row with id {}", name_, id));
+                        std::format("{}: no row with id {}", name_, record_id));
     return at;
   }
 

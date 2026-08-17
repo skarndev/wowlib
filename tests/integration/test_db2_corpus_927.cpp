@@ -331,7 +331,7 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
   // re-decode also proves the pallet / common / bitpacked-signed / array
   // encoders round-trip. `max_pct` guards that the re-encode stays near
   // Blizzard's size (compression reproduced, not exploded).
-  const auto check = [&](std::string_view path, auto table, int max_pct) {
+  const auto check = [&](std::string_view path, auto table, std::size_t max_pct) {
     const auto fdid = listfile->path_to_fdid(path);
     REQUIRE(fdid.has_value());
     const auto data = storage->read_file(FileKey{*fdid});

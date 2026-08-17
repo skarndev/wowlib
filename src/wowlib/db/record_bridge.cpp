@@ -208,11 +208,11 @@ namespace wowlib::db
                 ops_->columns[ops_->id_column], 0, new_id);
   }
 
-  std::size_t ErasedRecordSink::find_by_id(std::uint32_t id) const
+  std::size_t ErasedRecordSink::find_by_id(std::uint32_t record_id) const
   {
     const std::size_t n = ops_->size(vec_);
     for (std::size_t i = 0; i < n; ++i)
-      if (id_of_record(*ops_, ops_->cat(vec_, i)) == id)
+      if (id_of_record(*ops_, ops_->cat(vec_, i)) == record_id)
         return i;
     return n;
   }
