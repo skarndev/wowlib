@@ -2,8 +2,13 @@
 
 #if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+// ifndef-guarded: MSYS2's g++ already predefines NOMINMAX.
+#ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+  #define NOMINMAX
+#endif
 #include <windows.h>
 
 static_assert(sizeof(void*) == sizeof(SRWLOCK),
