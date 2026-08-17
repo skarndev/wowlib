@@ -281,6 +281,11 @@ jobs:
 
       # dotnet-test the generated Wowlib project: managed wrapper + db facades
       # + format factories compile together, and the tests exercise them over
-      # the just-built native shim.
+      # the just-built native shim. Same libstdc++ story as the bindings job:
+      # the shim needs GLIBCXX_3.4.35, newer than the runner's system copy —
+      # point the loader at the Homebrew toolchain that built it.
       - name: C# binding tests
-        run: dotnet test tests/csharp
+        run: |
+          export LD_LIBRARY_PATH="$(dirname "$(find "$(brew --prefix gcc)/lib" \
+            -name libstdc++.so.6 | head -1)"):${LD_LIBRARY_PATH:-}"
+          dotnet test tests/csharp
