@@ -41,6 +41,27 @@ preserved and reported; key injection is wired but not yet exercisable locally.
 [^mpq]: The 3.3.5a patch chain was verified against the client binary itself
 (reverse-engineered); the MoP chain table awaits a 5.4.8 install.
 
+## Classic clients
+
+WoW Classic Era, the Classic progression realms (BCC, WotLK, Cataclysm, MoP
+Classic) and the Anniversary realms are **not** old clients — they are the
+modern client rebuilt from whatever retail branch was current, shipping
+old-looking content. Classic Era 1.15.9 is a Midnight-era CASC client; Cata
+Classic 4.4.2 writes War Within-era files. One version *number* can even span
+two engines (4.4.0 shipped on Dragonflight and, months later, on The War
+Within), and `wow_classic_titan` calls itself 3.80.
+
+wowlib keys these off the **build number** — Blizzard's counter is global
+across every product — via a `flavor` on `ClientVersion` and the
+`format_lineage` it implies, so a Classic client resolves to whichever retail
+column above its files actually match. `ClientInstall.detect` reads the exact
+version and product code off an installation; see
+[Classic clients](guide/version-agnostic.md#classic-clients).
+
+Coverage therefore rides on the retail columns. There is no Classic install
+locally, so the build → engine mapping is covered by unit tests rather than a
+file corpus.
+
 ## Not yet implemented
 
 - Structured M2 `.phys` records

@@ -32,7 +32,10 @@ def test_filekey_both_halves():
 def test_settings_carry_nsdmi_defaults():
     s = wowlib.fs.FileSystemSettings(client_path="/no/such/client",
                                      version=wowlib.versions.wotlk)
-    assert s.casc_product == "wow"
+    # casc_product is unset by default: open() derives it from the version's
+    # flavor, which is the only way one default can serve retail AND Classic.
+    assert s.casc_product is None
+    assert s.version.default_casc_product == "wow"
     assert s.locale == wowlib.Locale.enUS
     assert s.custom_fdid_start.value == 1_000_000_000
 

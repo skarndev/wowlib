@@ -33,8 +33,16 @@ namespace wowlib::formats
   /** A version-gated base: the entity inherits @a Trait (flattening its chunk
       members in) iff @a Since <= @a V < @a Until, else the empty absent<Trait>.
       Group the chunks that share an availability range into one Trait; a chunk
-      removed at some version goes in a trait with that version as @a Until. */
+      removed at some version goes in a trait with that version as @a Until.
+
+      @a V is compared on the retail timeline (ClientVersion::format_lineage),
+      so a Classic version gets the chunk set its ENGINE defines rather than
+      the one its legacy version number suggests. Entities reached through the
+      canonicalizing family aliases are already instantiated at a retail grid
+      version, so this only matters to code naming a detail:: template itself. */
   template <ClientVersion V, ClientVersion Since, class Trait,
             ClientVersion Until = version_never_removed>
-  using slot = std::conditional_t<(V >= Since && V < Until), Trait, absent<Trait>>;
+  using slot = std::conditional_t<(V.format_lineage() >= Since
+                                   && V.format_lineage() < Until),
+                                  Trait, absent<Trait>>;
 }

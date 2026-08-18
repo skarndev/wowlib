@@ -116,6 +116,7 @@ namespace wowlib_py
   struct FamilyEra
   {
     wowlib::Expansion expansion;
+    wowlib::ClientVersion canonical;  /**< the range's canonical grid version */
     nb::object type;
   };
 
@@ -135,6 +136,48 @@ namespace wowlib_py
       },
       nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
       nb::sig(persist("def for_version(expansion: wowlib.Expansion) -> Any"
+                      + std::string{base_name})));
+  }
+
+  /** @brief Attach the @c ClientVersion overload of @c for_version: the axis
+      that can name a Classic client.
+
+      @c Expansion is the CONTENT axis and cannot express "Cataclysm Classic",
+      whose files are War Within-era; a full @c ClientVersion can, because
+      @c canonical_version places it by build (see version_range.hpp). One
+      erased closure per family: the requested version is canonicalized and
+      matched against the ranges' canonicals, so a Classic version lands on the
+      very class its retail counterpart does.
+
+      @param base      the welded family base to receive the static method.
+      @param base_name the base's Python name, for the @c AnyX return spelling.
+      @param eras      the family's (expansion → class) rows, shared/heap-kept.
+      @param pivots    the family's canonicalization pivots (static storage).
+      @param grid      the family's release grid (static storage). */
+  inline void def_for_version_client_version_erased(
+    nb::handle base, std::string_view base_name,
+    std::shared_ptr<std::vector<FamilyEra>> eras,
+    std::span<const wowlib::ClientVersion> pivots,
+    std::span<const wowlib::ClientVersion> grid)
+  {
+    nb::cpp_function(
+      [eras = std::move(eras), pivots, grid](wowlib::ClientVersion version) -> nb::object
+      {
+        // An era-subset family (Skin is WotLK+, Skeleton Legion+) has no class
+        // for versions below its grid; canonical_version would silently floor
+        // them onto its first entry, so reject them instead.
+        if (version.format_lineage() < grid.front())
+          throw nb::value_error("no wowlib instantiation for that client version");
+
+        const wowlib::ClientVersion canonical =
+          wowlib::formats::canonical_version(version, pivots, grid);
+        for (const FamilyEra& fe : *eras)
+          if (fe.canonical == canonical)
+            return fe.type();
+        throw nb::value_error("no wowlib instantiation for that client version");
+      },
+      nb::name("for_version"), nb::scope(base), nb::arg("version"),
+      nb::sig(persist("def for_version(version: wowlib.ClientVersion) -> Any"
                       + std::string{base_name})));
   }
 
@@ -187,7 +230,8 @@ namespace wowlib_py
   /** @brief Attach @c for_version to a family @p base.
 
       Emits one @c Literal overload per expansion (mypy narrows each to the concrete
-      class) plus an @c Expansion → @c AnyX runtime fallback.
+      class), an @c Expansion → @c AnyX runtime fallback, and a @c ClientVersion
+      overload — the only axis that can name a Classic client.
 
       @tparam F the family class template.
       @param base the welded family base to receive the static method.
@@ -208,8 +252,11 @@ namespace wowlib_py
         nb::object type = nb::borrow(nb::type<typename concrete_of<F, X>::type>());
         def_for_version_overload_erased(base, X, type,
                                         for_version_sig(base_name, X, pivots, grid));
-        eras->push_back(FamilyEra{X, std::move(type)});
+        eras->push_back(FamilyEra{
+          X, wowlib::formats::canonical_version(wowlib::to_client_version(X), pivots, grid),
+          std::move(type)});
       }
+    def_for_version_client_version_erased(base, base_name, eras, pivots, grid);
     def_for_version_fallback_erased(base, base_name, std::move(eras));
   }
 

@@ -41,10 +41,13 @@ it:
     {
       // fs.version() remembers what was opened; dispatch it once onto the
       // template — per era you support, exactly what the binding facades do.
+      // Compare on format_lineage(), never on the raw version: that is what
+      // puts a Classic client on the engine it actually is.
       using namespace wowlib;
-      if (fs.version() == versions::wotlk)
+      const ClientVersion engine = fs.version().format_lineage();
+      if (engine == versions::wotlk)
         dump_map<versions::wotlk>(fs);
-      else if (fs.version() == versions::shadowlands)
+      else if (engine == versions::shadowlands)
         dump_map<versions::shadowlands>(fs);
     }
     ```
@@ -57,12 +60,16 @@ it:
 
     def open_model(fs: wowlib.fs.FileSystem, path: str) -> wmo.AnyWMO:
         """Load a WMO from WHATEVER client fs has open."""
-        era = wowlib.expansion_of(fs.version)
-        assert era is not None
-        model = wmo.WMO.for_version(era)   # the era's concrete class
+        model = wmo.WMO.for_version(fs.version)   # the version's concrete class
         model.read(fs, wowlib.FileKey(path))
         return model
     ```
+
+    `for_version` takes either an `Expansion` (when you mean "the WotLK
+    layout") or a full `ClientVersion` (when you mean "whatever this client
+    is"). Prefer the version: it is the only form that handles Classic
+    clients, whose expansion number says nothing about their file formats —
+    see [Classic clients](#classic-clients) below.
 
 === "C#"
 
@@ -73,13 +80,91 @@ it:
     {
         // Load a WMO from WHATEVER client fs has open. The family base
         // carries the fs verbs, so no downcast is needed to read/write.
-        var era = Global.ExpansionOf(fs.Version)
-                  ?? throw new ArgumentException("unknown client era");
-        var model = Formats.Wmo.WMO.ForVersion(era);
+        var model = Formats.Wmo.WMO.ForVersion(fs.Version);
         model.Read(fs, new FileKey(path));
         return model;
     }
     ```
+
+    `ForVersion` is overloaded on `Expansion` and on `ClientVersion`. Prefer
+    the version: it is the only form that handles Classic clients — see
+    [Classic clients](#classic-clients) below.
+
+## Classic clients
+
+WoW Classic Era, the Classic progression realms (BCC, WotLK, Cataclysm, MoP
+Classic) and the Anniversary realms are **not** old clients. They are the
+modern client, rebuilt from whatever retail branch was current at the time,
+shipping content that *looks* like an old expansion. So:
+
+- Classic Era 1.15.9 is a Midnight-era client. Its models are chunked MD21
+  M2s, its maps are split ADTs behind a `MAID` WDT, its tables are WDC DB2s,
+  and its storage is CASC — none of which existed in 1.12.
+- Cataclysm Classic 4.4.2 writes War Within-era files, not Cataclysm ones.
+- One version *number* can span two engines: Cata Classic 4.4.0 shipped on
+  the Dragonflight branch in April 2024 and on The War Within branch by
+  October, under the same `4.4.0`.
+- The `wow_classic_titan` product calls itself `3.80.2`, a version no
+  expansion ever had.
+
+The version tuple is therefore useless as a format key, and the **build
+number** is authoritative — Blizzard's build counter is global across every
+product, so a build uniquely places a client on the engine timeline.
+
+wowlib models this with a **flavor** on `ClientVersion` and a
+`format_lineage` derived from it:
+
+=== "C++"
+
+    ```cpp
+    using namespace wowlib;
+
+    constexpr ClientVersion cata_classic{4, 4, 2, 60895, ClientFlavor::Classic};
+
+    static_assert(cata_classic.format_lineage() == versions::tww);
+    static_assert(cata_classic.storage_kind() == StorageKind::Casc);
+    static_assert(expansion_of(cata_classic) == Expansion::Cata);  // content
+    // ... and so the entity IS the War Within one, not the Cataclysm one:
+    static_assert(std::is_same_v<formats::wmo::WMO<cata_classic>,
+                                 formats::wmo::WMO<versions::tww>>);
+    ```
+
+=== "Python"
+
+    ```python
+    from wowlib import versions, ClientFlavor, ClientVersion
+
+    cata_classic = versions.classic_cata          # 4.4.2.60895 (Classic)
+    cata_classic.format_lineage                   # 11.2.7.65299 — the engine
+    cata_classic.storage_kind                     # StorageKind.Casc
+    wowlib.expansion_of(cata_classic)             # Expansion.Cata — the content
+
+    # for_version places it by build; no separate Classic class exists.
+    model = wmo.WMO.for_version(cata_classic)     # -> WMOTheWarWithin
+
+    # Any build, named exactly:
+    v = ClientVersion(4, 4, 0, 54481, ClientFlavor.Classic)
+    wmo.WMO.for_version(v)                        # -> WMODragonflight
+    ```
+
+=== "C#"
+
+    ```csharp
+    var cataClassic = Versions.Global.ClassicCata;   // 4.4.2.60895 (Classic)
+    var engine = cataClassic.FormatLineage;          // 11.2.7.65299
+    var model = Formats.Wmo.WMO.ForVersion(cataClassic);  // -> WMOTheWarWithin
+    ```
+
+Because a Classic version resolves onto an *existing* retail range class,
+supporting Classic adds no new types, no new instantiations and no binary
+size — a Classic client simply *is* its engine's client.
+
+`wowlib.versions` carries a constant per living Classic line
+(`classic_era`, `classic_bcc`, `classic_wotlk`, `classic_cata`,
+`classic_mop`, `anniversary`), but those products ship new builds
+continuously. For anything real, read the version off the installation
+instead — see
+[Reading client files](client-files.md#detecting-what-is-installed).
 
 ## Processing without naming an era
 

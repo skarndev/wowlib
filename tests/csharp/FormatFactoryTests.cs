@@ -4,6 +4,7 @@
 // the era's covering range class.
 
 using wowlib;
+using Versions = wowlib.Versions;
 using Xunit;
 
 namespace Wowlib.Tests;
@@ -119,5 +120,43 @@ public class FormatFactoryTests
         using var wotlk = wowlib.Formats.M2.Skin.M2SkinProfile.Wotlk();
         Assert.IsType<wowlib.Formats.M2.Skin.M2SkinProfileVanilla>(vanilla);
         Assert.IsType<wowlib.Formats.M2.Skin.M2SkinProfileTbcToWotlk>(wotlk);
+    }
+
+    [Theory]
+    // The Classic axis: Expansion cannot name these clients (Cataclysm Classic
+    // is not Cataclysm), so ForVersion takes a full ClientVersion and places it
+    // by build number on the retail engine timeline.
+    [InlineData(2, 5, 4, 44833u, typeof(wowlib.Formats.Wmo.WMOShadowlands))]
+    [InlineData(4, 4, 2, 60895u, typeof(wowlib.Formats.Wmo.WMOTheWarWithin))]
+    [InlineData(1, 15, 9, 69109u, typeof(wowlib.Formats.Wmo.WMOTheWarWithin))]
+    public void ForVersionAcceptsAClassicClientVersion(
+        int major, int minor, int patch, uint build, System.Type expected)
+    {
+        using var version = new ClientVersion((ushort)major, (ushort)minor,
+                                              (ushort)patch, build,
+                                              ClientFlavor.Classic);
+        using var wmo = wowlib.Formats.Wmo.WMO.ForVersion(version);
+        Assert.Equal(expected, wmo.GetType());
+    }
+
+    [Fact]
+    public void ForVersionOnARetailVersionMatchesTheExpansionOverload()
+    {
+        using var byVersion = wowlib.Formats.Adt.ADT.ForVersion(Versions.Global.Wotlk);
+        using var byEra = wowlib.Formats.Adt.ADT.ForVersion(Expansion.Wotlk);
+        Assert.Equal(byEra.GetType(), byVersion.GetType());
+    }
+
+    [Fact]
+    public void SameVersionNumberDifferentBuildDifferentEngine()
+    {
+        // Cataclysm Classic 4.4.0 shipped on Dragonflight and, months later,
+        // on The War Within. Only the build tells them apart.
+        using var early = new ClientVersion(4, 4, 0, 54481, ClientFlavor.Classic);
+        using var late = new ClientVersion(4, 4, 0, 57244, ClientFlavor.Classic);
+        using var earlyWmo = wowlib.Formats.Wmo.WMO.ForVersion(early);
+        using var lateWmo = wowlib.Formats.Wmo.WMO.ForVersion(late);
+        Assert.Equal(typeof(wowlib.Formats.Wmo.WMODragonflight), earlyWmo.GetType());
+        Assert.Equal(typeof(wowlib.Formats.Wmo.WMOTheWarWithin), lateWmo.GetType());
     }
 }

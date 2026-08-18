@@ -20,6 +20,7 @@
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/fs/casc/casc_storage.hpp>
 #include <wowlib/fs/client_filesystem.hpp>
+#include <wowlib/fs/client_install.hpp>
 #include <wowlib/fs/csv_listfile.hpp>
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 
@@ -30,6 +31,10 @@ namespace wowlib::fs
 
   /** The concrete composition for CASC-era clients (listfile-resolved FileDataIDs). */
   using CascFileSystem = ClientFileSystem<CascStorage, CsvListfile>;
+
+  /** The first FileDataID handed to project files by default — far above
+      Blizzard's ~6-7M so future official content never collides. */
+  inline constexpr FileDataID default_custom_fdid_start{1'000'000'000};
 
   struct [[
     =welder::weld,
@@ -69,10 +74,42 @@ namespace wowlib::fs
     [[=welder::doc(R"(
         First FileDataID handed to files added to the project; keep far above
         Blizzard's ~6-7M so future official content never collides.)")]]
-    const FileDataID custom_fdid_start{1'000'000'000};
+    const FileDataID custom_fdid_start{default_custom_fdid_start};
 
-    [[=welder::doc("TACT product code for CASC storages ('wow', 'wowt', ...).")]]
-    const std::string casc_product = "wow";
+    [[=welder::doc(R"(
+        TACT product code for CASC storages ('wow', 'wow_classic_era', 'wowt',
+        ...). Left unset it is derived from the version's flavor
+        (ClientVersion.default_casc_product), which is right for every ordinary
+        install; set it explicitly for PTR, beta and one-off products
+        ('wow_classic_titan'), or let ClientInstall.detect read the exact code
+        off the installation.)")]]
+    const std::optional<std::string> casc_product{};
+
+    [[=welder::doc(R"(
+        Settings for a client whose version is read off the installation itself
+        (see ClientInstall.detect) instead of being spelled out — the reliable
+        way to open anything Classic, where the build number decides which
+        engine's file formats you get. The remaining arguments are the same
+        optional configuration the constructor takes.
+
+        Example:
+            ```python
+            settings = FileSystemSettings.detect("/Games/World of Warcraft/_classic_era_",
+                                                 listfile_csv="listfile.csv")
+            with FileSystem.open(settings) as fs:
+                ...     # formats resolve to the engine the install really is
+            ```)"),
+      =welder::returns("the settings, or the error ClientInstall.detect raised")]]
+    static Result<FileSystemSettings> detect(
+      std::filesystem::path client_path
+      [[=welder::doc("the installation directory holding Data/")]],
+      Locale locale [[=welder::doc("client locale")]] = Locale::enUS,
+      std::optional<std::filesystem::path> project_directory
+      [[=welder::doc("the project-directory overlay")]] = {},
+      std::optional<std::filesystem::path> listfile_csv
+      [[=welder::doc("the working listfile CSV")]] = {},
+      FileDataID custom_fdid_start
+      [[=welder::doc("first FileDataID for added files")]] = default_custom_fdid_start);
   };
 
   class [[

@@ -38,15 +38,23 @@ namespace wowlib::formats
 {
   /** The latest pivot at or below @a v — the identity of @a v's range. Two
       versions with the same floor have identical family content.
-      @param v      the version to classify.
-      @param pivots the family's change points (any order).
+
+      @a v is placed on the retail timeline first (ClientVersion::format_lineage),
+      because that — not the version tuple — is what a client's file layout
+      follows. Only so does a Classic client land in the right range: Cataclysm
+      Classic 4.4.2 is a War Within-era client, and comparing its 4.4 tuple
+      against the pivots would floor it onto the Cataclysm layouts.
+
+      @param v      the version to classify (any flavor).
+      @param pivots the family's change points (any order, all retail).
       @return the floor pivot, or the zero version below every pivot. */
   constexpr ClientVersion version_floor(ClientVersion v,
                                         std::span<const ClientVersion> pivots)
   {
+    const ClientVersion lineage = v.format_lineage();
     ClientVersion out{0, 0, 0, 0};
     for (const ClientVersion& p : pivots)
-      if (p <= v && out <= p)
+      if (p <= lineage && out <= p)
         out = p;
     return out;
   }
@@ -54,7 +62,9 @@ namespace wowlib::formats
   /** The canonical version @a v collapses to: the FIRST grid version in
       @a v's range. Only canonical versions instantiate; every other version
       aliases to its canonical (the family's welded name covers the range).
-      @param v      the requested version.
+      Classic versions collapse onto the retail grid like any other (see
+      @ref version_floor), so supporting them costs no extra instantiation.
+      @param v      the requested version (any flavor).
       @param pivots the family's change points.
       @param grid   the targeted release list, ascending (wmo_versions /
                     m2_versions or a family's era subset of it).

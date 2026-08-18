@@ -567,9 +567,11 @@ def emit_cs_facades(tables: list[tuple[str, list["Range"]]],
             out.append(f"    public sealed class {opener}")
             out.append("    {")
             out.append(f"        public const string TableName = \"{table}\";")
+            # The flavor is spelled out: welder's aggregate constructor has no
+            # optional parameters, and a schema range is always a retail release.
             out.append(f"        public static readonly ClientVersion Version"
                        f" = new ClientVersion({canonical[0]}, {canonical[1]}, "
-                       f"{canonical[2]}, {canonical[3]});")
+                       f"{canonical[2]}, {canonical[3]}, ClientFlavor.Retail);")
             out.append("        /// <summary>The generic table underneath "
                        "(columns, cells, validation, encryption).</summary>")
             out.append("        public Db.Table Table { get; }")

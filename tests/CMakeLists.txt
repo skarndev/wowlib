@@ -5,6 +5,7 @@ add_executable(wowlib_tests
   unit/test_reflection_spike.cpp
   unit/test_path_normalization.cpp
   unit/test_client_version.cpp
+  unit/test_client_flavor.cpp
   unit/test_expansion.cpp
   unit/test_fourcc.cpp
   unit/test_chunk_framework.cpp

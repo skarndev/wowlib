@@ -77,6 +77,65 @@ on a CASC client the FileDataID does, and a **listfile** (the community
     using var fs = Fs.FileSystem.Open(settings);
     ```
 
+## Detecting what is installed
+
+Spelling the version out is fine when you know it. When you do not — and for
+**any Classic client**, where the build number decides which engine's file
+formats you get — read it off the installation instead. A CASC install
+records its product code in `.flavor.info` beside `Data/`, and its exact
+version in `.build.info` there or one directory up.
+
+=== "C++"
+
+    ```cpp
+    #include <wowlib/fs/client_install.hpp>
+
+    auto install = wowlib::fs::ClientInstall::detect(
+      "/games/World of Warcraft/_classic_era_");
+    if (!install)
+      return report(install.error());
+
+    // install->version   1.15.9.69109 (ClassicEra)
+    // install->casc_product   "wow_classic_era"
+    auto fs = wowlib::fs::FileSystem::open({.client_path = install->path,
+                                            .version = install->version,
+                                            .casc_product = install->casc_product});
+    ```
+
+=== "Python"
+
+    ```python
+    settings = wowlib.fs.FileSystemSettings.detect(
+        "/games/World of Warcraft/_classic_era_",
+        listfile_csv="/data/listfile.csv")
+
+    with wowlib.fs.FileSystem.open(settings) as fs:
+        print(fs.version)                # 1.15.9.69109 (ClassicEra)
+        print(fs.version.format_lineage) # the retail engine its files follow
+
+    # Or just the facts, without building settings:
+    install = wowlib.fs.ClientInstall.detect("/games/World of Warcraft/_retail_")
+    install.version, install.casc_product
+    ```
+
+=== "C#"
+
+    ```csharp
+    using var settings = Fs.FileSystemSettings.Detect(
+        "/games/World of Warcraft/_classic_era_");
+    using var fs = Fs.FileSystem.Open(settings);
+    ```
+
+Detection is CASC-only: MPQ-era clients (< 6.0) record no such file, and
+neither do bare repacks that ship only `Data/`. Both raise `NotSupported` —
+construct their `ClientVersion` directly, which is unambiguous anyway, since
+no Classic product shares those version numbers *and* build range.
+
+If `casc_product` is left unset, `FileSystem.open` derives it from the
+version's flavor (`wow`, `wow_classic`, `wow_classic_era`,
+`wow_anniversary`). Set it explicitly for PTR, beta and one-off products —
+or let detection supply the exact code the installation recorded.
+
 ## Reading files
 
 === "C++"

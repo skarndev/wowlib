@@ -62,7 +62,10 @@ namespace wowlib
   }
 
   [[=welder::weld,
-    =welder::doc("The expansion whose targeted release is exactly this version."),
+    =welder::doc("The expansion whose targeted release is exactly this version. "
+                 "Never matches a Classic constant — Classic clients are not "
+                 "expansion releases; pass version.format_lineage to ask which "
+                 "expansion's FORMATS one uses."),
     =welder::returns("the expansion, or None if the version is not one of the "
                      "versions constants")]]
   constexpr std::optional<Expansion> to_expansion(ClientVersion version
@@ -75,8 +78,14 @@ namespace wowlib
   }
 
   [[=welder::weld,
-    =welder::doc("The expansion a client version belongs to, by major version — "
-                 "works for any build, not just the targeted releases."),
+    =welder::doc(R"(
+        The expansion a client version belongs to, by major version — works for
+        any build, not just the targeted releases.
+
+        This is the CONTENT axis: Cataclysm Classic 4.4.2 reports Cata, because
+        that is the game it is. It is NOT the format axis — that same client
+        writes War Within-era files. For formats, ask
+        to_expansion(version.format_lineage) instead.)"),
     =welder::returns("the expansion, or None for unknown majors")]]
   constexpr std::optional<Expansion> expansion_of(ClientVersion version
                                                   [[=welder::doc("a full client version")]])
