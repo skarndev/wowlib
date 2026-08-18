@@ -59,7 +59,12 @@ jobs:
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
             # Dry run: derive a version for the build, publish nothing.
-            version="$(git describe --tags --always --dirty || echo 0.0.0)"
+            # describe's raw output (v0.0.4-3-gabc) is neither PEP 440 nor
+            # NuGet-valid and fails the builds through the pinned version;
+            # <last-tag>.<commit-count> (0.0.4.412) is legal in both.
+            base="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+            [ -n "$base" ] || base=0.0.0
+            version="$base.$(git rev-list --count HEAD)"
             echo "publish=false" >> "$GITHUB_OUTPUT"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -216,7 +221,7 @@ jobs:
           $dump "$mod" || true
           # NOT `! cmd`: bash exempts a negated command from `set -e`, so a
           # failed assertion would be ignored and the step would pass.
-          if $dump "$mod" | grep -qiE 'libstdc\+\+|libgcc_s'; then
+          if $dump "$mod" | grep -qiE 'libstdc\+\+|libgcc_s|libwinpthread'; then
             echo "::error::$mod still links a dynamic C++ runtime — the wheel is not portable"
             exit 1
           fi
@@ -373,6 +378,28 @@ jobs:
           set -euo pipefail
           cmake --build build/csharp --target wowlib_cs
 
+      # Same portability bar as the wheels: the native library ships to
+      # machines with no MinGW/Homebrew toolchain, so no toolchain-owned
+      # runtime (libstdc++, libgcc, libwinpthread) may remain a dynamic
+      # dependency. 0.0.4's win-x64 DLL imported libwinpthread-1.dll and
+      # failed to load on stock Windows — this fails the build where the
+      # cause is legible instead.
+      - name: Assert no toolchain runtime dependency
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Windows) lib=build/csharp/bindings/wowlib_native.dll; dump='objdump -p' ;;
+            macOS)   lib=build/csharp/bindings/libwowlib_native.dylib; dump='otool -L' ;;
+            *)       lib=build/csharp/bindings/libwowlib_native.so; dump='ldd' ;;
+          esac
+          [ -f "$lib" ] || { echo "::error::$lib not found to check"; exit 1; }
+          $dump "$lib" || true
+          if $dump "$lib" | grep -qiE 'libstdc\+\+|libgcc_s|libwinpthread'; then
+            echo "::error::$lib depends on a toolchain runtime library — not portable"
+            exit 1
+          fi
+          echo "no toolchain runtime dependency"
+
       - name: Stage the native library
         run: |
           set -euo pipefail
@@ -390,6 +417,15 @@ jobs:
           set -euo pipefail
           mkdir -p managed generated
           cp build/csharp/bindings/csharp/Bindings.*.cs managed/
+          # The typed facades are part of the managed surface: the dbdgen
+          # per-table classes (Facades.*.cs) and the per-era format factories
+          # (FormatFacades.cs). Locally they ride welder-csharp's csproj via
+          # EXTRA_COMPILE; the nuget job below writes its OWN csproj, so they
+          # must travel in this artifact — 0.0.3/0.0.4 shipped without them
+          # (no MapWotlk, no ForVersion) because this step staged only the
+          # Bindings files.
+          cp build/csharp/generated/cs_facades/Facades.*.cs managed/
+          cp build/csharp/generated/cs_facades/FormatFacades.cs managed/
           cp build/csharp/bindings/csharp/Bindings.*.cs generated/
           cp build/csharp/bindings/csharp/shim.*.cpp generated/
           echo "$(ls managed | wc -l) managed file(s), $(ls generated/shim.*.cpp | wc -l) shim TU(s)"
@@ -492,8 +528,17 @@ jobs:
         run: |
           set -euo pipefail
           EXTRA=""
+          LINK="-static-libstdc++ -static-libgcc"
           if [ "$RUNNER_OS" = "Windows" ]; then
             EXTRA="-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++"
+            # MinGW's posix-threads gcc links libwinpthread-1.dll DYNAMICALLY
+            # even with the two static-runtime flags above — a consumer
+            # without MSYS2 on PATH then fails at the first P/Invoke (user
+            # report on 0.0.4). -static pulls every toolchain-owned library,
+            # winpthread included, into the DLL; system import libs
+            # (kernel32, the UCRT api-sets) are unaffected. The wheel leg
+            # never had this problem — only this DLL did.
+            LINK="$LINK -static"
           else
             EXTRA="-DCMAKE_C_COMPILER=gcc-16 -DCMAKE_CXX_COMPILER=g++-16"
           fi
@@ -505,7 +550,7 @@ jobs:
             -DWOWLIB_BUILD_CSHARP=ON \
             -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
             -DWOWLIB_CS_PREGENERATED_DIR="$PWD/generated" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+            -DCMAKE_SHARED_LINKER_FLAGS="$LINK"
 
       # The whole premise of this job is that it compiles PRE-GENERATED
       # sources. On v0.0.2 the welder-csharp pin predated PREGENERATED_DIR,
@@ -528,6 +573,28 @@ jobs:
         run: |
           set -euo pipefail
           cmake --build build/csharp --target wowlib_cs
+
+      # Same portability bar as the wheels: the native library ships to
+      # machines with no MinGW/Homebrew toolchain, so no toolchain-owned
+      # runtime (libstdc++, libgcc, libwinpthread) may remain a dynamic
+      # dependency. 0.0.4's win-x64 DLL imported libwinpthread-1.dll and
+      # failed to load on stock Windows — this fails the build where the
+      # cause is legible instead.
+      - name: Assert no toolchain runtime dependency
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Windows) lib=build/csharp/bindings/wowlib_native.dll; dump='objdump -p' ;;
+            macOS)   lib=build/csharp/bindings/libwowlib_native.dylib; dump='otool -L' ;;
+            *)       lib=build/csharp/bindings/libwowlib_native.so; dump='ldd' ;;
+          esac
+          [ -f "$lib" ] || { echo "::error::$lib not found to check"; exit 1; }
+          $dump "$lib" || true
+          if $dump "$lib" | grep -qiE 'libstdc\+\+|libgcc_s|libwinpthread'; then
+            echo "::error::$lib depends on a toolchain runtime library — not portable"
+            exit 1
+          fi
+          echo "no toolchain runtime dependency"
 
       - name: Stage the native library
         run: |
@@ -596,6 +663,10 @@ jobs:
             </PropertyGroup>
             <ItemGroup>
               <Compile Include="../managed/Bindings.*.cs" />
+              <!-- The typed facades: dbdgen per-table classes + the per-era
+                   format factories. Zero interop of their own. -->
+              <Compile Include="../managed/Facades.*.cs" />
+              <Compile Include="../managed/FormatFacades.cs" />
             </ItemGroup>
             <ItemGroup>
               <None Include="../natives/native-linux-x64/libwowlib_native.so"
@@ -630,7 +701,18 @@ jobs:
             "runtimes/win-x64/native/wowlib_native.dll"; do
             unzip -l "$pkg" | grep -q "$want" || { echo "::error::package is missing $want"; exit 1; }
           done
-          echo "package carries the assembly, the XML docs and every built RID"
+          # The typed facades must be IN the assembly, not just staged beside
+          # it — 0.0.3/0.0.4 shipped a 2.4 MB assembly (instead of ~9 MB)
+          # with no MapWotlk / ForVersion because the pack csproj compiled
+          # only the Bindings files. Type/method names live as plain text in
+          # the CLI metadata heaps, so a binary grep suffices.
+          for sym in MapWotlk ForVersion; do
+            if ! unzip -p "$pkg" lib/net8.0/Wowlib.dll | grep -qa "$sym"; then
+              echo "::error::assembly is missing the typed facades ($sym not in metadata)"
+              exit 1
+            fi
+          done
+          echo "package carries the assembly (facades included), the XML docs and every built RID"
 
       - uses: actions/upload-artifact@v4
         with:

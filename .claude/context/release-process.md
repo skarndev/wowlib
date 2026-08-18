@@ -275,6 +275,30 @@ gating exists to prevent.
   PyPI check).
 
 
+## 2026-08-18: two shipped-artifact bugs found post-0.0.4 (fixed for 0.0.5)
+
+- **The published NuGet never contained the typed facades** (0.0.3 AND
+  0.0.4): no MapWotlk, no ForVersion — assembly 2.4 MB instead of ~9. The
+  nuget job writes its OWN csproj compiling `../managed/Bindings.*.cs`
+  only; the facades ride welder-csharp's EXTRA_COMPILE csproj LOCALLY, so
+  local packs and dotnet test were complete while the release artifact was
+  not. csharp-generate now stages Facades.*.cs + FormatFacades.cs into the
+  managed artifact, the pack csproj compiles them, and the verify step
+  binary-greps the DLL metadata for MapWotlk/ForVersion (type names are
+  plain text in the CLI #Strings heap).
+- **win-x64 wowlib_native.dll imported libwinpthread-1.dll** (user report:
+  fails to load without MSYS2 on PATH). -static-libstdc++ -static-libgcc
+  does NOT cover winpthread on MinGW; the Windows csharp leg now adds
+  `-static`. Curious: the WHEEL's .pyd never had the import — only the C#
+  DLL. Both csharp jobs now assert (ldd/otool/objdump) that no
+  libstdc++/libgcc_s/libwinpthread dependency survives (published
+  linux/macos natives were verified clean, so the assert is safe there),
+  and the wheel assert grep gained libwinpthread.
+- **workflow_dispatch dry runs were unusable**: guard fed raw `git
+  describe` (v0.0.4-3-gabc) into SETUPTOOLS_SCM_PRETEND_VERSION /
+  the NuGet Version — invalid in both. Dry runs now derive
+  `<last-tag>.<commit-count>` (0.0.4.412), legal in PEP 440 and NuGet.
+
 ## 2026-08-17: v0.0.3 — first fully clean run
 
 Every job green on the first attempt (3 wheels, C# matrix, NuGet, both
