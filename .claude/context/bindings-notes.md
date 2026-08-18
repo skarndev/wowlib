@@ -351,6 +351,28 @@ for nanobind is preserved: `Table<Record>` is a NON-welded mixin, so `{table}_` 
   (`build/bindings/bindings/python:$SITE`) or the editable `.pth` finder loads the
   stale installed `wowlib.abi3.so` instead of the fresh build.
 
+### wowlib_pyi must be an ALL target (2026-08-18)
+
+`nanobind_add_stub` declares `wowlib_pyi_raw` with `ALL`, so **every** plain
+`cmake --build build/bindings` regenerates the raw stubgen tree. The typed db
+merge (`tools/merge_db_stub.py`, target `wowlib_pyi`) was NOT `ALL`, so an
+`all` build stripped the typed db completion back off — `wowlib/db/tables/*.pyi`
+reverted to 9-line `__getattr__ -> object` placeholders and `Table.open` lost
+its 1221 Literal overloads.
+
+Symptom: the three `tests/python/typing/test_db_typed.mypy-testing` cases fail
+with `reveal_type` showing `Any`/`object`, and they look "pre-existing" because
+*any* local tree that was last built with `all` has them. **CI and the wheel
+never saw it** — both name the target explicitly (`--target wowlib_py
+wowlib_pyi` in ci-linux.yml, `build.targets` in pyproject) — so this was a
+local-only, silently-degrading trap. The docs site was affected too: it renders
+the Python API from the same stub tree.
+
+Fixed by adding `ALL` to `wowlib_pyi`. If a stub/typing test ever fails with
+`Any` where a db type is expected, check the stub tree BEFORE believing the
+test: `grep -c 'Literal\[' build/bindings/bindings/python/stubs/wowlib/db/__init__.pyi`
+should print 1221, not 0.
+
 ## The db tables are SHARDED across TUs — and why weld_type, not weld_namespace (2026-07-30)
 ~1200 tables in one TU is a wall of compile; dbdgen fans them out into
 `db_shard_N.cpp` (default 16, `WOWLIB_DB_SHARDS`; round-robin by table for even

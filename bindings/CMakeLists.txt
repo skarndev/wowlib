@@ -258,7 +258,15 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
             ${PROJECT_SOURCE_DIR}/tools/merge_db_stub.py
     COMMENT "Assembling typed db completion into wowlib/db/"
     VERBATIM)
-  add_custom_target(wowlib_pyi DEPENDS ${_wowlib_stub_merge_stamp})
+  # ALL, and not optional: nanobind_add_stub makes wowlib_pyi_raw an ALL target,
+  # so every plain `cmake --build` REGENERATES the raw stubs and would leave the
+  # typed db completion stripped back off. The merge has to ride along in the
+  # same build or the tree silently degrades to untyped between explicit
+  # `--target wowlib_pyi` invocations — which is exactly what happened: the
+  # tests/python/typing db cases failed locally for anyone who built `all`,
+  # while CI and the wheel (both of which name wowlib_pyi explicitly, see
+  # ci-linux.yml and pyproject build.targets) stayed green.
+  add_custom_target(wowlib_pyi ALL DEPENDS ${_wowlib_stub_merge_stamp})
 
   # --- Install rules (Python packaging) --------------------------------------
   # Consumed by scikit-build-core to assemble the wheel; a plain `cmake --install`

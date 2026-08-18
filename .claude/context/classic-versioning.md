@@ -112,8 +112,10 @@ expansion release. Both are documented in place; do not "fix" them.
   `PYTHONPATH=build/bindings/bindings/python:$SITE`, or the editable `.pth`
   finder silently serves the stale installed `wowlib.abi3.so` and every new
   binding assertion "passes" against the old module. See [[bindings-notes]].
-- `tests/python/typing/test_db_typed.mypy-testing` has 3 pre-existing failures
-  unrelated to any of this (the untouched `build/release` tree fails them too).
+- `tests/python/typing/test_db_typed.mypy-testing` failed 3 cases here — NOT
+  caused by this work, but not "pre-existing noise" either: the typed db stub
+  merge was missing from `all` builds. Root-caused and fixed in the same
+  branch; see [[bindings-notes]] "wowlib_pyi must be an ALL target".
 
 ## Tests
 
