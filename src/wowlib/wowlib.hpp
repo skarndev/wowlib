@@ -40,6 +40,7 @@ namespace wowlib
 
 #include <wowlib/fs/casc/casc_storage.hpp>
 #include <wowlib/fs/client_filesystem.hpp>
+#include <wowlib/fs/client_install.hpp>
 #include <wowlib/fs/csv_listfile.hpp>
 #include <wowlib/fs/fdid_allocator.hpp>
 #include <wowlib/fs/filesystem.hpp>
@@ -58,7 +59,9 @@ namespace wowlib
   [[=welder::doc(R"(
       Client file formats: chunked binary serialization with byte-perfect
       round-trips. Versioned formats are flat suffixed classes (WMOWotlk,
-      WMOShadowlands, ...) plus load_* factories keyed on Expansion.)")]]
+      WMOShadowlands, ...) plus for_version factories keyed on an Expansion or
+      on a full ClientVersion — the latter being the only axis that can name a
+      Classic client.)")]]
   formats
   {
   }

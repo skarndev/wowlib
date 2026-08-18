@@ -1,10 +1,22 @@
 #include <wowlib/core/client_version.hpp>
 
 #include <array>
+#include <ostream>
 #include <utility>
+
+#include <wowlib/core/reflect.hpp>
 
 namespace wowlib
 {
+  std::ostream& operator<<(std::ostream& out, const ClientVersion& version)
+  {
+    out << version.major << '.' << version.minor << '.' << version.patch << '.'
+        << version.build;
+    if (version.is_classic())
+      out << " (" << enum_name(version.flavor) << ')';
+    return out;
+  }
+
   namespace
   {
     // CASC_LOCALE_* values from CascLib (CascPort.h); kept here so the public header

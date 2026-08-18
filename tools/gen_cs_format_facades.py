@@ -147,8 +147,8 @@ def main() -> int:
             lines.append(f"    /// <summary>Era-resolved construction for the"
                          f" {family} family (the C# for_version): one static"
                          f" per era returning the concrete range class, plus"
-                         f" ForVersion(Expansion) where a common welded base"
-                         f" exists.</summary>")
+                         f" ForVersion(Expansion) and ForVersion(ClientVersion)"
+                         f" where a common welded base exists.</summary>")
             lines.append(f"    public partial class {family}")
             lines.append("    {")
             if family in BASED:
@@ -164,6 +164,18 @@ def main() -> int:
                 lines.append("            _ => throw new System.ArgumentOut"
                              "OfRangeException(nameof(era)),")
                 lines.append("        };")
+                lines.append("")
+                lines.append(f"        /// <summary>A fresh {family} for an"
+                             f" exact client version — the only axis that can"
+                             f" name a Classic client, whose files follow the"
+                             f" engine its build was cut on rather than its"
+                             f" 1.15 / 4.4 version number.</summary>")
+                lines.append(f"        public static {family} ForVersion("
+                             f"wowlib.ClientVersion version) => ForVersion(")
+                lines.append("            wowlib.Global.ExpansionOf(version"
+                             ".FormatLineage)")
+                lines.append("            ?? throw new System.ArgumentOutOf"
+                             "RangeException(nameof(version)));")
             if family in FS_VERBS:
                 params = FS_VERBS[family]
                 sig = ", ".join(f"{t} {n}" for t, n in params)

@@ -32,3 +32,18 @@ def mypy_read_write_buffer_overloads_type_check() -> None:
     w.read(b"", [io.BytesIO(b"")])
     w.read(io.BytesIO(b""), [])
     w.write(io.BytesIO(), [])
+
+
+@pytest.mark.mypy_testing
+def mypy_for_version_on_a_client_version_widens_to_the_union() -> None:
+    # A ClientVersion resolves at runtime (a Classic build can land on any
+    # era), so the overload returns the union rather than one concrete class.
+    reveal_type(wmo.WMO.for_version(wowlib.versions.classic_cata))  # R: wowlib.formats.wmo.WMOVanillaToWotlk | wowlib.formats.wmo.WMOCata | wowlib.formats.wmo.WMOMop | wowlib.formats.wmo.WMOWod | wowlib.formats.wmo.WMOLegion | wowlib.formats.wmo.WMOBfa | wowlib.formats.wmo.WMOShadowlands | wowlib.formats.wmo.WMODragonflight | wowlib.formats.wmo.WMOTheWarWithin
+
+
+@pytest.mark.mypy_testing
+def mypy_flavor_axis_type_checks_clean() -> None:
+    v = wowlib.ClientVersion(4, 4, 2, 60895, wowlib.ClientFlavor.Classic)
+    lineage: wowlib.ClientVersion = v.format_lineage
+    classic: bool = v.is_classic
+    product: str = v.default_casc_product

@@ -33,6 +33,24 @@ namespace wowlib::fs
     }
   }
 
+  Result<FileSystemSettings> FileSystemSettings::detect(
+    std::filesystem::path client_path, Locale locale,
+    std::optional<std::filesystem::path> project_directory,
+    std::optional<std::filesystem::path> listfile_csv, FileDataID custom_fdid_start)
+  {
+    auto install = ClientInstall::detect(std::move(client_path));
+    if (!install)
+      return std::unexpected(install.error());
+
+    return FileSystemSettings{.client_path = std::move(install->path),
+                              .version = install->version,
+                              .locale = locale,
+                              .project_directory = std::move(project_directory),
+                              .listfile_csv = std::move(listfile_csv),
+                              .custom_fdid_start = custom_fdid_start,
+                              .casc_product = std::move(install->casc_product)};
+  }
+
   Result<FileSystem> FileSystem::open(FileSystemSettings settings)
   {
     std::optional<ProjectDirectory> project;
@@ -70,7 +88,8 @@ namespace wowlib::fs
     }
 
     auto storage = CascStorage::open({.client_root = settings.client_path,
-                                      .product = settings.casc_product,
+                                      .product = settings.casc_product.value_or(
+                                        std::string{settings.version.default_casc_product()}),
                                       .locale = settings.locale,
                                       .build = settings.version.build});
     if (!storage)
