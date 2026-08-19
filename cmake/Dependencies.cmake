@@ -133,9 +133,17 @@ FetchContent_Declare(welder
 # GetEnumerator, no IEnumerable) + CS0108 in the generated csproj's NoWarn
 # (the base fs verbs our facade generator layers on intentionally share the
 # concretes' signatures).
+# 6c5bdbf on top: the FAMILY SURFACE — every welded family (our per-range
+# concretes deriving a welded base) gains rod-synthesized version-agnostic
+# dispatch members ON the base: the member intersection as type-switch
+# properties/methods, welded members as the member family's base, welded
+# sequences as FamilyVector<Base> views. This is what makes a ForVersion(...)
+# result carry DATA, not just verbs; the facade script's FS_VERBS dispatch
+# was superseded by it (the rod now hoists Read/Write itself — emitting both
+# would be CS0111).
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 66a6bc96648b75f06500e5c67547f787b2625bc4)
+  GIT_TAG 6c5bdbf63aee54503233f2915b346d33dc4ef8b0)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH

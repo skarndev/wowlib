@@ -1,15 +1,18 @@
 """Generate the C# per-era format factories (FormatFacades.cs).
 
 The C# surface welds one concrete class per version RANGE
-(``Formats.Adt.ADTWotlk``, ``Formats.Wmo.WMOVanillaToWod``, ...); nothing
-version-agnostic exists because the C++ formats are statically polymorphic —
-the concretes share no base a dynamic ``ForVersion`` could return. The C#
-spelling of Python's ``for_version`` is therefore RESOLVED AT COMPILE TIME:
-one static factory class per welded family with one method per era, each
-returning that era's covering range class::
+(``Formats.Adt.ADTWotlk``, ``Formats.Wmo.WMOVanillaToWod``, ...). The
+version-agnostic DATA surface is the rod's: welder-csharp's family synthesis
+(options::family_surface) hoists the member intersection onto each welded
+family base as dispatch members — fs verbs included — so a base-typed
+instance reads, writes and carries data without a downcast. What the rod
+CANNOT know is the era ladder: which range covers which expansion. That
+mapping is this script's contribution — one static factory per welded family
+with one method per era, each returning that era's covering range class,
+plus the dynamic ``ForVersion``::
 
-    var adt = Formats.Adt.ADT.Wotlk();     // -> ADTWotlk
-    var wmo = Formats.Wmo.WMO.Vanilla();   // -> WMOVanillaToWod
+    var adt = Formats.Adt.ADT.Wotlk();     // -> ADTWotlk (typed)
+    var wmo = Formats.Wmo.WMO.ForVersion(fs.Version);  // -> the family base
 
 The era -> range mapping is read from the X-macro tables in
 ``bindings/instantiations/*_ranges.hpp`` — the same single source of truth
@@ -88,22 +91,6 @@ FAMILIES: dict[str, list[tuple[str, str]]] = {
 }
 
 
-# The six entities carrying the per-version fs-I/O verbs in C# (the
-# mark::only(lua, cs) read/write methods live on the CONCRETES because the
-# C++ formats are statically polymorphic). Their family bases get generated
-# Read/Write that type-switch to the concrete, so a ForVersion(...) result
-# is as usable as Python's for_version object without a downcast.
-FS_VERBS: dict[str, list[tuple[str, str]]] = {
-    "WMO": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
-    "M2": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
-    "Skeleton": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
-    "WDT": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
-    "WDL": [("Fs.FileSystem", "fs"), ("FileKey", "key")],
-    "ADT": [("Fs.FileSystem", "fs"), ("FileKey", "key"),
-            ("Formats.Adt.AlphaFormat", "alpha")],
-}
-
-
 # Families whose concretes DERIVE a welded family base in the wrapper —
 # these get a dynamic ForVersion(Expansion) returning the base, on top of
 # the per-era statics. (The M2 record families weld standalone concretes.)
@@ -176,28 +163,6 @@ def main() -> int:
                              ".FormatLineage)")
                 lines.append("            ?? throw new System.ArgumentOutOf"
                              "RangeException(nameof(version)));")
-            if family in FS_VERBS:
-                params = FS_VERBS[family]
-                sig = ", ".join(f"{t} {n}" for t, n in params)
-                args = ", ".join(n for _, n in params)
-                suffixes = [suffix for suffix, _ in rows]
-                for verb in ("Read", "Write"):
-                    lines.append(f"        /// <summary>Version-agnostic"
-                                 f" {verb}: dispatches to the concrete era"
-                                 f" class this instance is (the fs verbs"
-                                 f" live on the concretes).</summary>")
-                    lines.append(f"        public void {verb}({sig})")
-                    lines.append("        {")
-                    lines.append("            switch (this)")
-                    lines.append("            {")
-                    for suffix in suffixes:
-                        lines.append(f"                case {family}{suffix}"
-                                     f" _c: _c.{verb}({args}); break;")
-                    lines.append("                default: throw new System."
-                                 "InvalidOperationException(\"no era "
-                                 "dispatch for \" + GetType().Name);")
-                    lines.append("            }")
-                    lines.append("        }")
             for era, method, covering in covering_by_era:
                 lines.append(f"        /// <summary>A fresh {family} for"
                              f" {era} clients ({family}{covering}).</summary>")

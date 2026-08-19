@@ -85,6 +85,36 @@ packed into the NuGet via welder-csharp's nuget `EXTRA_COMPILE` globs
   (`expansion_of(fs.version)`). Guide page guide/version-agnostic.md
   documents the whole story trilingually.
 
+## The family surface: ForVersion results carry DATA (2026-08-20)
+
+welder-csharp 6c5bdbf synthesizes a version-agnostic surface onto every
+welded FAMILY base (≥2 welded classes deriving one welded base — all our
+per-range concretes): the member INTERSECTION the eras bind identically, as
+type-switch dispatch members in a `partial class <Base>` block. Pure managed
+text over the concretes' accessors — zero new P/Invokes, shim byte-identical.
+This is the C# twin of Python's `AnyWMO` union-intersection semantics:
+
+- identical spellings hoist exactly (scalars, strings, `VectorUshort`-style
+  scalar-seq wrappers — those are one shared type across eras), settable
+  when every era's is;
+- welded members hoist as their own family base (`WMO.Root` → `WMORoot`;
+  getter upcasts, setter downcasts — wrong era = `InvalidCastException`);
+- vectors/fixed arrays of welded elements hoist as read-only
+  `FamilyVector<ElementBase>` (Count/indexer/foreach live view; mutate via
+  pattern matching);
+- identically-spelled methods hoist as dispatch (`Read`/`Write`/`Validate`
+  ride this) — `gen_cs_format_facades.py`'s FS_VERBS block was DELETED
+  (emitting both would be CS0111); the script now contributes only the
+  era→range factories (`ForVersion` + per-era statics), the one mapping the
+  rod cannot know;
+- era-gated / shape-changing members stay on the concretes (pattern match;
+  same contract as Python's isinstance narrowing);
+- `options.family_surface` (default ON) gates the whole pass; bare base
+  instance → `InvalidOperationException` from the dispatch default arm.
+
+M2's standalone-welded record families (no welded base) get nothing — same
+BASED distinction the facade script already encodes.
+
 ## for_version in C# (2026-08-17)
 
 The welded wrapper classes are PARTIAL (welder-csharp 1cf2f03), and
