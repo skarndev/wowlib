@@ -7,6 +7,9 @@ on:
       - docs/**
       - src/**
       - bindings/**
+      # dbdgen + gen_cs_format_facades shape both rendered API surfaces (the
+      # Python db stubs and the C# facades).
+      - tools/**
       - pyproject.toml
       - CMakeLists.txt
       - cmake/**
@@ -24,8 +27,10 @@ concurrency:
 
 jobs:
   build:
+    # 150 covered the Python bindings build; the C# generator (reflection-heavy
+    # like the binding shards, though it compiles no shim TUs) rides on top now.
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v7
 
@@ -105,6 +110,29 @@ jobs:
 
       - name: Build extension + stubs
         run: cmake --build --preset gcc16-bindings --target wowlib_py wowlib_pyi
+
+      # The C# API reference (DocFX) renders from the generated managed
+      # surface. wowlib_cs_sources produces ONLY the generated C# (wrapper +
+      # facades + the packable csproj) — the generator compiles, but not a
+      # single shim TU, and DocFX's design-time Roslyn build never needs the
+      # native library. Fail-soft end to end: if this tree or docfx were
+      # missing, docs/build.py would warn and skip the C# reference rather
+      # than fail the site.
+      - name: Set up .NET SDK (DocFX runs a design-time Roslyn build)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install DocFX
+        run: |
+          dotnet tool install -g docfx --version 2.78.5
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Configure C# tree
+        run: cmake --preset gcc16-csharp
+
+      - name: Generate the C# surface (no shim compile)
+        run: cmake --build build/csharp --target wowlib_cs_sources
 
       - name: Build documentation site
         run: .venv/bin/python docs/build.py build

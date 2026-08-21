@@ -213,15 +213,99 @@ def run_doxygen() -> Path:
     return ref_dir / "api"
 
 
+def find_docfx() -> str | None:
+    """Locate the docfx CLI: an explicit override, PATH, or the default dotnet
+    global-tools directory (where `dotnet tool install -g docfx` puts it)."""
+    override = os.environ.get("WOWLIB_DOCFX")
+    if override:
+        return override
+    found = shutil.which("docfx")
+    if found:
+        return found
+    home_tool = Path.home() / ".dotnet" / "tools" / "docfx"
+    return str(home_tool) if home_tool.is_file() else None
+
+
+def dotnet_env() -> dict[str, str]:
+    """The environment docfx (a net8 dotnet tool) needs to launch anywhere:
+    roll forward onto whatever newer runtime is installed, and — for layouts
+    where the `dotnet` on PATH is a wrapper (Homebrew) — point DOTNET_ROOT at
+    the real SDK root, resolved from the executable (the same dance
+    welder-csharp's test harness does)."""
+    env = dict(os.environ)
+    env.setdefault("DOTNET_ROLL_FORWARD", "LatestMajor")
+    env.setdefault("DOTNET_CLI_TELEMETRY_OPTOUT", "1")
+    env.setdefault("DOTNET_NOLOGO", "1")
+    if "DOTNET_ROOT" not in env:
+        dotnet = shutil.which("dotnet")
+        if dotnet:
+            real = Path(dotnet).resolve()
+            for root in (real.parent.parent / "libexec", real.parent):
+                if (root / "sdk").is_dir():
+                    env["DOTNET_ROOT"] = str(root)
+                    break
+    return env
+
+
+def run_docfx() -> Path | None:
+    """Build the C# API reference (DocFX over the generated Wowlib project) into
+    ``build/docs/reference/api-cs``. Fail-SOFT like the Python stubs: a missing
+    C# tree or a missing docfx tool logs a warning and skips — the guide, the
+    Python API and the C++ reference still build."""
+    project = Path(
+        os.environ.get(
+            "WOWLIB_CS_PROJECT",
+            REPO_ROOT / "build" / "csharp" / "bindings" / "Wowlib" / "Wowlib.csproj",
+        )
+    )
+    if not project.is_file():
+        log(f"WARNING: {project} not found; the C# API reference will be "
+            "skipped. Configure the gcc16-csharp preset and build the "
+            "'wowlib_cs_sources' target first (or set WOWLIB_CS_PROJECT).")
+        return None
+    docfx = find_docfx()
+    if not docfx:
+        log("WARNING: 'docfx' not found; the C# API reference will be skipped. "
+            "Install it with `dotnet tool install -g docfx` (or set "
+            "WOWLIB_DOCFX).")
+        return None
+    # Substitute the config beside copies of its sibling files, so every
+    # docfx-relative path resolves from ONE out-of-source directory and the
+    # worktree stays clean (the Doxyfile.in pattern).
+    work = BUILD_DIR / "docfx"
+    work.mkdir(parents=True, exist_ok=True)
+    ref_dir = BUILD_DIR / "reference" / "api-cs"
+    text = (DOCS_DIR / "docfx" / "docfx.json.in").read_text(encoding="utf-8")
+    for key, val in {
+        "WOWLIB_CS_PROJECT_DIR": str(project.parent),
+        "DOCFX_SITE_DIR": str(ref_dir),
+        "PROJECT_VERSION": project_version(),
+    }.items():
+        text = text.replace(f"@{key}@", val)
+    (work / "docfx.json").write_text(text, encoding="utf-8")
+    for name in ("filterConfig.yml", "toc.yml", "index.md"):
+        shutil.copyfile(DOCS_DIR / "docfx" / name, work / name)
+    shutil.rmtree(ref_dir, ignore_errors=True)  # never accumulate orphans
+    log(f"building DocFX C# reference -> {ref_dir}")
+    res = subprocess.run([docfx, str(work / "docfx.json")], cwd=work,
+                         env=dotnet_env())
+    if res.returncode != 0 or not (ref_dir / "index.html").is_file():
+        log("WARNING: docfx failed; the C# API reference will be skipped.")
+        return None
+    return ref_dir
+
+
 def check_stubs() -> None:
     if not (REPO_ROOT / STUBS_REL / "wowlib" / "__init__.pyi").is_file():
         log(f"WARNING: Python stubs not found under {STUBS_REL}; the Python API "
             "pages will be empty. Build the 'wowlib_pyi' target first.")
 
 
-def run_mkdocs(action: str, api_dir: Path) -> None:
+def run_mkdocs(action: str, api_dir: Path, cs_api_dir: Path | None) -> None:
     check_stubs()
     env = dict(os.environ, WOWLIB_DOXYGEN_API=str(api_dir))
+    if cs_api_dir:
+        env["WOWLIB_DOCFX_API"] = str(cs_api_dir)
     site_dir = BUILD_DIR / "site"
     cmd = [sys.executable, "-m", "mkdocs", action,
            "--config-file", str(DOCS_DIR / "mkdocs.yml")]
@@ -322,9 +406,12 @@ def refresh_anchors() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Build the wowlib documentation site.")
     ap.add_argument("action", nargs="?", default="build",
-                    choices=["build", "serve", "doxygen", "refresh-anchors"],
-                    help="build the full site (default), serve it, just Doxygen, or "
-                         "refresh the per-format wowdev.wiki FourCC->anchor maps")
+                    choices=["build", "serve", "doxygen", "docfx",
+                             "refresh-anchors"],
+                    help="build the full site (default), serve it, just the "
+                         "Doxygen C++ reference, just the DocFX C# reference, "
+                         "or refresh the per-format wowdev.wiki FourCC->anchor "
+                         "maps")
     args = ap.parse_args()
 
     if args.action == "refresh-anchors":
@@ -332,8 +419,13 @@ def main() -> int:
     if args.action == "doxygen":
         run_doxygen()
         return 0
+    if args.action == "docfx":
+        return 0 if run_docfx() else 1
+    # Order matters: run_doxygen wipes build/docs/reference entirely, so the
+    # C# reference must be (re)built after it.
     api_dir = run_doxygen()
-    run_mkdocs(args.action, api_dir)
+    cs_api_dir = run_docfx()
+    run_mkdocs(args.action, api_dir, cs_api_dir)
     return 0
 
 
