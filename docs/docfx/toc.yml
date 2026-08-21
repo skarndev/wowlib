@@ -1,0 +1,6 @@
+# The DocFX navbar: the API tree, plus a way back to the mkdocs guide the
+# reference is grafted into (<site>/api-cs -> <site>).
+- name: API
+  href: api/
+- name: Guide
+  href: ../

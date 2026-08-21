@@ -186,3 +186,4 @@ nav:
           - Tables & records: python/db/tables.md
       - Containers: python/containers.md
   - C++ API Reference: reference.md
+  - C# API Reference: reference-csharp.md

@@ -414,6 +414,19 @@ instead of building and running the generator")
     DEPENDS ${_wowlib_cs_format_facades})
   add_dependencies(wowlib_cs wowlib_cs_format_facades)
 
+  # Everything the C# API REFERENCE (docs/build.py's docfx step) needs,
+  # without compiling a single shim TU: the generated wrapper, both facade
+  # families, and the packable csproj (written at configure below). DocFX
+  # runs a design-time Roslyn build over Wowlib.csproj, so the native
+  # library is never required — this is what the docs CI builds instead of
+  # wowlib_cs.
+  add_custom_target(wowlib_cs_sources
+    DEPENDS ${WOWLIB_CS_BINDINGS} ${_wowlib_cs_format_facades})
+  add_dependencies(wowlib_cs_sources wowlib_cs_format_facades)
+  if(TARGET wowlib_dbdgen)
+    add_dependencies(wowlib_cs_sources wowlib_dbdgen)
+  endif()
+
   # The dbdgen-emitted typed facades ride the package as plain C# sources
   # (EXTRA_COMPILE globs; welder-csharp 297fb03).
   welder_csharp_nuget_project(wowlib_cs

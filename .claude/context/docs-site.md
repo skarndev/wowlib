@@ -1,5 +1,42 @@
 # Documentation site (`docs/`)
 
+## 2026-08-22: C# API reference (DocFX graft at /api-cs)
+
+Third toolchain, same graft pattern as the C++ reference: **DocFX** renders
+the full C# API from the generated `Wowlib.csproj` (a DESIGN-TIME Roslyn
+build — the native library is never needed), out-of-source to
+`build/docs/reference/api-cs`; `inject_reference.py` (now generalized over
+`WOWLIB_DOXYGEN_API`/`WOWLIB_DOCFX_API`) grafts it into `<site>/api-cs`.
+Nav: "C# API Reference" → `content/reference-csharp.md` → button to
+`../api-cs/index.html`.
+
+- **Inputs**: the `wowlib_cs_sources` target (bindings/CMakeLists) — the
+  generated wrapper + BOTH facade families + the configure-written csproj,
+  WITHOUT compiling a single shim TU. `docs/build.py docfx` builds just this
+  reference; `build`/`serve` run it after Doxygen (run_doxygen WIPES
+  build/docs/reference entirely — order matters). Fail-SOFT throughout:
+  missing csproj/docfx → warn + skip, the rest of the site builds.
+- **Config**: `docs/docfx/docfx.json.in` (@VAR@-substituted into
+  `build/docs/docfx/` beside copies of filterConfig.yml/toc.yml/index.md —
+  the Doxyfile.in pattern). `filterConfig.yml` keeps `wowlib.Db.Tables` to
+  the representative **Map family only** (`Map<Era>` + `Map<Era>Row`, the 11
+  era names spelled exactly) — mirroring the Python docs' choice; everything
+  else renders in full (~830 pages).
+- **Local toolchain**: `dotnet tool install -g docfx` (2.78.5, a net8 tool);
+  build.py's `dotnet_env()` sets DOTNET_ROLL_FORWARD=LatestMajor and derives
+  DOTNET_ROOT from the real dotnet path (Homebrew's is
+  `Cellar/dotnet/<v>/libexec` — the bin/dotnet is a wrapper; without this
+  the tool dies with "missing_runtime").
+- **CI (docs.yml)**: setup-dotnet 8.0.x + docfx 2.78.5 pinned, configure
+  gcc16-csharp, build `wowlib_cs_sources`, then the normal
+  `docs/build.py build`. `tools/**` added to the trigger paths (dbdgen +
+  gen_cs_format_facades shape both API surfaces); timeout 150 → 210 for the
+  generator.
+- Known-benign docfx metadata noise: ~200 warnings = compiler CS0660/0661
+  (generated operators, suppressed in real builds by the csproj NoWarn the
+  design-time build partly bypasses) + ~12 InvalidXmlComment (the `@value`
+  param-tag quirk on Set* methods).
+
 ## 2026-08-17 (later): version-agnostic guide page + C# symmetry
 
 guide/version-agnostic.md: for_version/ForVersion, family bases, AnyX
