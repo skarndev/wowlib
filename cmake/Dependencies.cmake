@@ -133,7 +133,7 @@ FetchContent_Declare(welder
 # GetEnumerator, no IEnumerable) + CS0108 in the generated csproj's NoWarn
 # (the base fs verbs our facade generator layers on intentionally share the
 # concretes' signatures).
-# ffa71b2 on top: the FAMILY SURFACE — a welded family (our per-range
+# 1e93ecc (main): the FAMILY SURFACE — a welded family (our per-range
 # concretes deriving a welded base) whose base carries the ROD'S OWN
 # [[=welder::rods::csharp::family_surface]] opt-in gains rod-synthesized
 # version-agnostic dispatch members ON the base: the member intersection as
@@ -148,7 +148,7 @@ FetchContent_Declare(welder
 # never see the rod's headers.
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG ffa71b25d62b808fb26e36db7dbeda8f8cdcbd2e)
+  GIT_TAG 1e93ecc9b63587ccaddea519d824dacc5de205e5)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
