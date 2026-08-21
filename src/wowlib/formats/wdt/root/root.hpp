@@ -12,6 +12,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/map_placements.hpp>
@@ -36,6 +37,7 @@ namespace wowlib::formats::wdt::root
   struct [[
     =welder::weld,
     =welder::weld_as("WDTRoot"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A WDT main file, abstract over the client version. The main file says
         which map tiles exist (and, since 8.1, which FileDataIDs serve them),

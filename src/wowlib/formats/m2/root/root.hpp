@@ -24,6 +24,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
@@ -78,6 +79,7 @@ namespace wowlib::formats::m2::root
   struct [[
     =welder::weld,
     =welder::weld_as("M2Root"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         An MD20 model body, abstract over the client version. Construct a
         concrete version with M2Root.for_version(expansion); the per-version

@@ -78,6 +78,7 @@ namespace wowlib::formats::adt
   struct [[
     =welder::weld,
     =welder::weld_as("ADT"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A terrain map tile, abstract over the client version — the .adt file (and,
         since Cataclysm, its _tex0/_obj0/_obj1/_lod split files) as one entity.

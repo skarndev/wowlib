@@ -11,6 +11,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
@@ -27,6 +28,7 @@ namespace wowlib::formats::wdt::fogs
   struct [[
     =welder::weld,
     =welder::weld_as("WDTFogs"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A _fogs.wdt volumetric-fog satellite (Legion 7.2.5+), abstract over
         the client version. Construct a concrete version with

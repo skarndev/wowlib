@@ -79,7 +79,8 @@ it:
     static Formats.Wmo.WMO OpenModel(Fs.FileSystem fs, string path)
     {
         // Load a WMO from WHATEVER client fs has open. The family base
-        // carries the fs verbs, so no downcast is needed to read/write.
+        // carries the members every era binds identically — the fs verbs
+        // AND the data — so no downcast is needed to read, write or process.
         var model = Formats.Wmo.WMO.ForVersion(fs.Version);
         model.Read(fs, new FileKey(path));
         return model;
@@ -209,22 +210,27 @@ type systems keep you honest about the rest:
 === "C#"
 
     ```csharp
-    static int TriangleCount(Formats.Wmo.WMO model) => model switch
+    static int TriangleCount(Formats.Wmo.WMO model)
     {
-        // Era-gated data lives on the concretes; pattern matching narrows —
-        // ranges with identical layouts share one class, so the arms stay few.
-        Formats.Wmo.WMOVanillaToWotlk classic => Count(classic),
-        Formats.Wmo.WMOShadowlands sl => Count(sl),
-        _ => 0,
-    };
-
-    static int Count(Formats.Wmo.WMOVanillaToWotlk model)
-    {
+        // The family base carries every member the eras bind identically —
+        // the C# twin of Python's AnyWMO intersection. Members typed per era
+        // surface as their own family base (Groups is a live view of WMOGroup,
+        // group.Body is a WMOGroupBody), so the whole tree stays navigable
+        // without ever naming an era.
         var n = 0;
         foreach (var group in model.Groups)
             n += group.Body.Indices.Count / 3;
         return n;
     }
+
+    static bool Lightmapped(Formats.Wmo.WMO model) => model switch
+    {
+        // Era-gated data lives on the concretes; pattern matching narrows —
+        // ranges with identical layouts share one class, so the arms stay few.
+        Formats.Wmo.WMOShadowlands sl => UsesLightmaps(sl),
+        Formats.Wmo.WMODragonflight df => UsesLightmaps(df),
+        _ => false,
+    };
     ```
 
 ## Converting between eras

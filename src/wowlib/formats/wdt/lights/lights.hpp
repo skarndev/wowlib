@@ -10,6 +10,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
@@ -26,6 +27,7 @@ namespace wowlib::formats::wdt::lights
   struct [[
     =welder::weld,
     =welder::weld_as("WDTLights"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A _lgt.wdt lights satellite (WoD+), abstract over the client version:
         the map's freely placed point and spot lights. Construct a concrete

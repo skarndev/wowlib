@@ -21,6 +21,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/string_block.hpp>
@@ -50,6 +51,7 @@ namespace wowlib::formats::wmo::root
   struct [[
     =welder::weld,
     =welder::weld_as("WMORoot"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A WMO root file, abstract over the client version. The root file lists the
         object's shared data (materials, doodads, portals, lights, fog and the

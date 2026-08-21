@@ -10,6 +10,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
@@ -71,6 +72,7 @@ namespace wowlib::formats::wmo::group::chunks
   struct [[
     =welder::weld,
     =welder::weld_as("WMOGroupHeader"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc("A MOGP group header, abstract over the client version. "
                  "Construct a concrete version with "
                  "WMOGroupHeader.for_version(expansion).")

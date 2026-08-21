@@ -42,6 +42,7 @@ namespace wowlib::formats::wmo
   struct [[
     =welder::weld,
     =welder::weld_as("WMO"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A whole world map object, abstract over the client version — the root
         file and all its group files as one entity. Construct the concrete

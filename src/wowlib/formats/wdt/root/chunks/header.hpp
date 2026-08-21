@@ -12,6 +12,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/wdt/boundaries.hpp>
@@ -67,6 +68,7 @@ namespace wowlib::formats::wdt::root::chunks
   struct [[
     =welder::weld,
     =welder::weld_as("WDTHeader"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc("An MPHD map header, abstract over the client version. "
                  "Construct a concrete version with "
                  "WDTHeader.for_version(expansion).")
