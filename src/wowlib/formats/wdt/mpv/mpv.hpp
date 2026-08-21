@@ -12,6 +12,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/wdt/boundaries.hpp>
@@ -27,6 +28,7 @@ namespace wowlib::formats::wdt::mpv
   struct [[
     =welder::weld,
     =welder::weld_as("WDTParticulates"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A _mpv.wdt particulate-volume satellite (BfA 8.0.1+), abstract over
         the client version: weather particulate volumes in repeated

@@ -57,6 +57,7 @@ namespace wowlib::formats::wdl
   struct [[
     =welder::weld,
     =welder::weld_as("WDL"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A map's low-resolution heightmap file, abstract over the client
         version — the background mountain silhouettes. Construct the concrete

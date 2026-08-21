@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/wdt/boundaries.hpp>
 #include <wowlib/formats/wdt/occlusion/chunks/records.hpp>
@@ -23,6 +24,7 @@ namespace wowlib::formats::wdt::occlusion
   struct [[
     =welder::weld,
     =welder::weld_as("WDTOcclusion"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A _occ.wdt occlusion satellite (WoD+), abstract over the client
         version: per-tile low-resolution heightmaps the renderer occludes

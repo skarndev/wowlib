@@ -47,6 +47,7 @@
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/adt/boundaries.hpp>
 #include <wowlib/formats/adt/chunks/header.hpp>
 #include <wowlib/formats/adt/chunks/liquid.hpp>
@@ -161,6 +162,7 @@ namespace wowlib::formats::adt
   struct [[
     =welder::weld,
     =welder::weld_as("MapChunk"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A terrain chunk (MCNK), abstract over the client version. Usually obtained
         from ADT.chunks rather than constructed; the per-version MapChunk* classes

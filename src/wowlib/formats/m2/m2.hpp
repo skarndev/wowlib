@@ -53,6 +53,7 @@ namespace wowlib::formats::m2
   struct [[
     =welder::weld,
     =welder::weld_as("M2"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A whole model, abstract over the client version — the MD20 body with
         its satellite files (.skin, .anim) baked in. Construct the concrete

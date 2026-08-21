@@ -19,6 +19,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/types.hpp>
@@ -45,6 +46,7 @@ namespace wowlib::formats::wmo::group
   struct [[
     =welder::weld,
     =welder::weld_as("WMOGroupBody"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         The MOGP container payload, abstract over the client version. Construct a
         concrete version with WMOGroupBody.for_version(expansion).)")
@@ -64,6 +66,7 @@ namespace wowlib::formats::wmo::group
   struct [[
     =welder::weld,
     =welder::weld_as("WMOGroup"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         One WMO group file, abstract over the client version. A group file holds
         the 3D model data (geometry, render batches, collision, liquid) for one

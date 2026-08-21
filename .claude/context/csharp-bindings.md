@@ -85,14 +85,29 @@ packed into the NuGet via welder-csharp's nuget `EXTRA_COMPILE` globs
   (`expansion_of(fs.version)`). Guide page guide/version-agnostic.md
   documents the whole story trilingually.
 
-## The family surface: ForVersion results carry DATA (2026-08-20)
+## The family surface: ForVersion results carry DATA (2026-08-20/21)
 
-welder-csharp 6c5bdbf synthesizes a version-agnostic surface onto every
-welded FAMILY base (≥2 welded classes deriving one welded base — all our
-per-range concretes): the member INTERSECTION the eras bind identically, as
-type-switch dispatch members in a `partial class <Base>` block. Pure managed
-text over the concretes' accessors — zero new P/Invokes, shim byte-identical.
-This is the C# twin of Python's `AnyWMO` union-intersection semantics:
+welder-csharp ffa71b2 synthesizes a version-agnostic surface onto a welded
+FAMILY base (≥2 welded classes deriving one welded base — all our per-range
+concretes) — but ONLY when the base carries the ROD'S OWN
+`[[=welder::rods::csharp::family_surface]]` opt-in
+(`<welder/rods/csharp/marks.hpp>`). The mark deliberately does NOT live in
+welder core (a core mark was tried and reverted — welder#3 closed: core
+vocabulary should not name a feature only one rod honors). Because the
+*Base definitions sit in format headers that must parse in Python-only
+builds (where welder-csharp is not fetched) and gcc-16 reads annotations
+off the DEFINING declaration only, the mark is spelled behind the
+`WOWLIB_CS_FAMILY_SURFACE` macro (core/lang.hpp): on C# configures,
+Dependencies.cmake defines `WOWLIB_CSHARP_ROD` and puts the rod's headers
+on the include path DIRECTORY-WIDE (every TU of a tree must agree on a
+class's annotation list); everywhere else the macro expands to nothing and
+the annotation never exists. All 21 `*Base` classes carry the macro (after
+weld_as, before doc; the trailing comma rides inside the macro).
+Synthesized: the member INTERSECTION the eras bind identically, as
+type-switch dispatch members in a `partial class <Base>` block. Pure
+managed text over the concretes' accessors — zero new P/Invokes, shim
+byte-identical. This is the C# twin of Python's `AnyWMO`
+union-intersection semantics:
 
 - identical spellings hoist exactly (scalars, strings, `VectorUshort`-style
   scalar-seq wrappers — those are one shared type across eras), settable
@@ -109,11 +124,15 @@ This is the C# twin of Python's `AnyWMO` union-intersection semantics:
   rod cannot know;
 - era-gated / shape-changing members stay on the concretes (pattern match;
   same contract as Python's isinstance narrowing);
-- `options.family_surface` (default ON) gates the whole pass; bare base
-  instance → `InvalidOperationException` from the dispatch default arm.
+- an UNMARKED base is never touched, however hoistable its family's
+  intersection is (there is no blanket option — the mark is the one
+  switch); bare base instance → `InvalidOperationException` from the
+  dispatch default arm.
 
 M2's standalone-welded record families (no welded base) get nothing — same
-BASED distinction the facade script already encodes.
+BASED distinction the facade script already encodes. Skeleton /
+WDTOcclusion / WDTParticulates are single-range today (nothing to
+intersect) but carry the mark, so a future range split lights them up.
 
 ## for_version in C# (2026-08-17)
 

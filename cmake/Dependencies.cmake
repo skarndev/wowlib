@@ -133,17 +133,22 @@ FetchContent_Declare(welder
 # GetEnumerator, no IEnumerable) + CS0108 in the generated csproj's NoWarn
 # (the base fs verbs our facade generator layers on intentionally share the
 # concretes' signatures).
-# 6c5bdbf on top: the FAMILY SURFACE — every welded family (our per-range
-# concretes deriving a welded base) gains rod-synthesized version-agnostic
-# dispatch members ON the base: the member intersection as type-switch
-# properties/methods, welded members as the member family's base, welded
-# sequences as FamilyVector<Base> views. This is what makes a ForVersion(...)
-# result carry DATA, not just verbs; the facade script's FS_VERBS dispatch
-# was superseded by it (the rod now hoists Read/Write itself — emitting both
-# would be CS0111).
+# ffa71b2 on top: the FAMILY SURFACE — a welded family (our per-range
+# concretes deriving a welded base) whose base carries the ROD'S OWN
+# [[=welder::rods::csharp::family_surface]] opt-in gains rod-synthesized
+# version-agnostic dispatch members ON the base: the member intersection as
+# type-switch properties/methods, welded members as the member family's
+# base, welded sequences as FamilyVector<Base> views. This is what makes a
+# ForVersion(...) result carry DATA, not just verbs; the facade script's
+# FS_VERBS dispatch was superseded by it (the rod now hoists Read/Write
+# itself — emitting both would be CS0111). An unmarked base is never
+# touched. Our *Base classes spell the mark behind WOWLIB_CS_FAMILY_SURFACE
+# (core/lang.hpp), which expands to nothing unless this build defines
+# WOWLIB_CSHARP_ROD below — welder core stays untouched, and non-C# builds
+# never see the rod's headers.
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 6c5bdbf63aee54503233f2915b346d33dc4ef8b0)
+  GIT_TAG ffa71b25d62b808fb26e36db7dbeda8f8cdcbd2e)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
@@ -175,6 +180,14 @@ FetchContent_MakeAvailable(StormLib CascLib welder stb_dxt)
 
 if(WOWLIB_BUILD_CSHARP)
   FetchContent_MakeAvailable(welder_csharp)
+  # The rod's family-surface mark rides the *Base annotation lists behind
+  # WOWLIB_CS_FAMILY_SURFACE (core/lang.hpp). Annotations are part of a
+  # class's DEFINITION, so every TU of this tree must agree on the list —
+  # define the gate and put the rod's headers on the include path
+  # directory-wide (the library, the generator TUs and the shim all inherit
+  # both), never per-target.
+  add_compile_definitions(WOWLIB_CSHARP_ROD=1)
+  include_directories(${welder_csharp_SOURCE_DIR}/src)
 endif()
 
 add_library(stb_dxt INTERFACE)

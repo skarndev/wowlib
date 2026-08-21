@@ -10,6 +10,7 @@
 #include <welder/vocabulary.hpp>
 
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/wmo/boundaries.hpp>
@@ -73,6 +74,7 @@ namespace wowlib::formats::wmo::group::chunks
   struct [[
     =welder::weld,
     =welder::weld_as("WMOBatch"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc("A MOBA render batch, abstract over the client version. "
                  "Construct a concrete version with "
                  "WMOBatch.for_version(expansion).")

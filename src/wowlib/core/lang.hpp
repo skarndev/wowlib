@@ -23,3 +23,24 @@ namespace wowlib::lang
       for wowlib's annotation sites (`mark::only`, `mark::exclude`, `weld_as`). */
   inline constexpr welder::lang cs{welder::user_lang<0>};
 }
+
+/** @def WOWLIB_CS_FAMILY_SURFACE
+    The C# rod's family-surface opt-in, spellable in every build.
+
+    `[[=welder::rods::csharp::family_surface]]` on a welded `*Base` opts its
+    family into the rod-synthesized version-agnostic surface — but the marker
+    TYPE lives in the rod, which only `WOWLIB_BUILD_CSHARP` configures fetch,
+    while these headers must parse in every build. So the annotation hides
+    behind this macro: on C# configures CMake defines `WOWLIB_CSHARP_ROD`
+    tree-wide (every TU of a build must agree on a class's annotation list —
+    gcc-16 reads annotations off the DEFINING declaration only), the rod's
+    marks header is on every include path, and the macro expands to the mark;
+    everywhere else it expands to nothing and the annotation never exists.
+    The trailing comma rides inside the macro so the empty expansion leaves a
+    well-formed annotation list. */
+#if defined(WOWLIB_CSHARP_ROD)
+#include <welder/rods/csharp/marks.hpp>
+#define WOWLIB_CS_FAMILY_SURFACE =welder::rods::csharp::family_surface,
+#else
+#define WOWLIB_CS_FAMILY_SURFACE
+#endif

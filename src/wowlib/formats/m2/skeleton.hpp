@@ -209,6 +209,7 @@ namespace wowlib::formats::m2
   struct [[
     =welder::weld,
     =welder::weld_as("Skeleton"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A shared model skeleton (.skel, Legion 7.3+), abstract over the client
         version. Construct a concrete version with

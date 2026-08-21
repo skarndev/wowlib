@@ -44,6 +44,7 @@ namespace wowlib::formats::wdt
   struct [[
     =welder::weld,
     =welder::weld_as("WDT"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A whole map description, abstract over the client version — the main
         .wdt file and its era's satellite files (_occ/_lgt/_fogs/_mpv) as one

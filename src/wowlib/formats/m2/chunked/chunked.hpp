@@ -21,6 +21,7 @@
 
 #include <wowlib/core/client_builds.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/lang.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/chunked/records.hpp>
@@ -39,6 +40,7 @@ namespace wowlib::formats::m2::chunked
   struct [[
     =welder::weld,
     =welder::weld_as("M2ChunkedFile"),
+    WOWLIB_CS_FAMILY_SURFACE
     =welder::doc(R"(
         A chunked .m2 shell (Legion+), abstract over the client version.
         Construct a concrete version with M2ChunkedFile.for_version(expansion); the
