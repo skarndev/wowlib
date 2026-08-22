@@ -102,6 +102,24 @@ public class FamilySurfaceTests
     }
 
     [Fact]
+    public unsafe void BlittableMirrorsCoverTheHotRecords()
+    {
+        // The renderer-profile fix: per-vertex records read in BULK — one
+        // interop crossing per buffer via the blittable Data mirror, instead
+        // of several per element through live views.
+        using var normals = new Vector<Formats.ADT.Chunks.McnrEntry>();
+        for (int i = 0; i < 4; i++)
+            using (var e = new Formats.ADT.Chunks.McnrEntry())
+                normals.Add(e);
+        var span = normals.AsSpan<Formats.ADT.Chunks.McnrEntry.Data>();
+        Assert.Equal(4, span.Length);
+        span[2].Normal[1] = -7;                       // straight to native
+        Assert.Equal(-7, normals[2].Normal[1]);       // seen by the live view
+        Assert.Throws<System.ArgumentException>(
+            () => normals.AsSpan<ulong>());           // size gate holds
+    }
+
+    [Fact]
     public void BareBaseInstanceThrowsFromTheDispatchDefaultArm()
     {
         using var bare = new Formats.WMO.WMO();

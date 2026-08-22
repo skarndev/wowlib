@@ -154,7 +154,7 @@ FetchContent_Declare(welder
 # — welder core resolves those through name_of, no rod feature involved.
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 772e6c9cf35b7b7a255d1831bf50584749e7f2d5)
+  GIT_TAG 7f847607bd947eb9f2e2236e6206c9521a496567)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
