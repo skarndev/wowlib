@@ -22,6 +22,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/core/lang.hpp>
+#include <wowlib/formats/common/file_entity.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/m2/bone/bone.hpp>
@@ -59,7 +60,7 @@ namespace wowlib::formats::m2
         its satellite files (.skin, .anim) baked in. Construct the concrete
         version with M2.for_version(expansion), then read()/write(); the
         per-version M2* classes are subclasses. See https://wowdev.wiki/M2.)")
-  ]] M2Base
+  ]] M2Base : FileEntityBase
   {
     bool operator==(const M2Base&) const = default;
   };

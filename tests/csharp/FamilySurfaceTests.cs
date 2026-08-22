@@ -77,6 +77,49 @@ public class FamilySurfaceTests
     }
 
     [Fact]
+    public void FileEntityRootRunsTheSharedContract()
+    {
+        // Every file-level entity derives Formats.FileEntity; the multi-level
+        // family surface hoists the contract they ALL bind (Validate /
+        // EnsureValid), so a heterogeneous collection processes uniformly —
+        // WMO family member and unversioned BLP alike.
+        using var wmo = Formats.WMO.WMO.ForVersion(Expansion.Wotlk);
+        using var blp = new Formats.BLP.BLP();
+        var entities = new Formats.FileEntity[] { wmo, blp };
+        foreach (var e in entities)
+        {
+            using var report = e.Validate();
+            Assert.NotNull(report);
+        }
+        // fs Read/Write do NOT leak to the root: ADT's signature differs, so
+        // the intersection correctly excludes them.
+        Assert.Null(typeof(Formats.FileEntity).GetMethod("Read"));
+        Assert.NotNull(typeof(Formats.WMO.WMO).GetMethod("Read"));
+        // The copy-constructor idiom replaced Clone().
+        Assert.Null(typeof(Formats.BLP.BLP).GetMethod("Clone"));
+        using var copy = new Formats.BLP.BLP(blp);
+        Assert.NotNull(copy);
+    }
+
+    [Fact]
+    public unsafe void BlittableMirrorsCoverTheHotRecords()
+    {
+        // The renderer-profile fix: per-vertex records read in BULK — one
+        // interop crossing per buffer via the blittable Data mirror, instead
+        // of several per element through live views.
+        using var normals = new Vector<Formats.ADT.Chunks.McnrEntry>();
+        for (int i = 0; i < 4; i++)
+            using (var e = new Formats.ADT.Chunks.McnrEntry())
+                normals.Add(e);
+        var span = normals.AsDataSpan();   // the generated sugar for AsSpan<McnrEntry.Data>()
+        Assert.Equal(4, span.Length);
+        span[2].Normal[1] = -7;                       // straight to native
+        Assert.Equal(-7, normals[2].Normal[1]);       // seen by the live view
+        Assert.Throws<System.ArgumentException>(
+            () => normals.AsSpan<ulong>());           // size gate holds
+    }
+
+    [Fact]
     public void BareBaseInstanceThrowsFromTheDispatchDefaultArm()
     {
         using var bare = new Formats.WMO.WMO();

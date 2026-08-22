@@ -37,6 +37,7 @@
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/common/validation.hpp>
 #include <wowlib/fs/filesystem.hpp>
+#include <wowlib/formats/common/file_entity.hpp>
 
 namespace wowlib::formats::blp
 {
@@ -207,6 +208,10 @@ namespace wowlib::formats::blp
 
   struct [[
     =welder::weld,
+    // The dotnet style would coerce the all-caps identifier to Blp; the
+    // format acronym is the name (round-1 API feedback). Python already
+    // spells BLP, so the rename is cs-scoped.
+    =welder::weld_as(wowlib::lang::cs, "BLP"),
     =welder::doc(R"(
         A BLP2 texture file — every WoW client release reads the same layout,
         so the class carries no client-version axis. read()/write() move the
@@ -216,7 +221,7 @@ namespace wowlib::formats::blp
         settings) rebuilds the palette/compression/mip chain from one. Raw
         payload access goes through mip()/set_mip(). See
         https://wowdev.wiki/BLP.)")
-  ]] BLP
+  ]] BLP : FileEntityBase
   {
     [[=welder::doc("The header version field; 1 in every shipped file.")]]
     std::uint32_t version = blp_version_1;

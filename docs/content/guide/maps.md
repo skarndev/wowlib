@@ -183,3 +183,27 @@ including WotLK — Outland tiles still use it) lives on `chunk.legacy_liquid`.
 See the **[ADT](../python/adt/index.md)**, **[WDT](../python/wdt/index.md)**
 and **[WDL](../python/wdl/index.md)** format pages for the authoritative
 shapes and per-field version badges.
+
+## Bulk access to per-vertex records (C#)
+
+Per-vertex chunk data — heights, normals, colors — is hot-path material for
+renderers, and element-wise access through the live views pays interop cost
+per element. Every POD record type carries a blittable `Data` mirror of the
+native layout; reinterpret the whole buffer as one span instead:
+
+```csharp
+using WoWLib;
+
+foreach (var chunk in tile.Chunks)
+{
+    // ONE interop crossing for all 145 normals, zero allocations:
+    var normals = chunk.Normals.AsDataSpan();   // == AsSpan<McnrEntry.Data>()
+    for (int i = 0; i < normals.Length; i++)
+        Emit(normals[i].Normal[0], normals[i].Normal[1], normals[i].Normal[2]);
+}
+```
+
+The same applies to any scalar vector (`Indices`, `Heights`, …) through the
+non-generic `AsSpan()`. Both spans are zero-copy views of C++ memory — valid
+until a size-changing operation or `Dispose`, and writable (edits land
+directly in the entity).

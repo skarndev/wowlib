@@ -30,6 +30,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/core/lang.hpp>
+#include <wowlib/formats/common/file_entity.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/formats/common/map_placements.hpp>
@@ -64,7 +65,7 @@ namespace wowlib::formats::wdl
         version with WDL.for_version(expansion), then read()/write(); the
         per-version WDL* classes are subclasses. See
         https://wowdev.wiki/WDL.)")
-  ]] WDLBase
+  ]] WDLBase : FileEntityBase
   {
   };
 

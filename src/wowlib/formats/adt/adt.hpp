@@ -54,6 +54,7 @@
 #include <wowlib/formats/adt/chunks/texture.hpp>
 #include <wowlib/formats/adt/liquid.hpp>
 #include <wowlib/formats/adt/map_chunk.hpp>
+#include <wowlib/formats/common/file_entity.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/common/flags.hpp>
@@ -85,7 +86,7 @@ namespace wowlib::formats::adt
         Construct the concrete version with ADT.for_version(expansion), then
         read()/write(); the per-version ADT* classes are subclasses. See
         https://wowdev.wiki/ADT/v18.)")
-  ]] ADTBase
+  ]] ADTBase : FileEntityBase
   {
   };
 

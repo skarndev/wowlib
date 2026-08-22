@@ -17,6 +17,8 @@
          has (a dotnet 10 SDK need not carry the 8.0 runtime). -->
     <RollForward>Major</RollForward>
     <Nullable>enable</Nullable>
+    <!-- The blittable-mirror tests index fixed buffers (Data.Normal[i]). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
     <WowlibProject Condition="'$(WowlibProject)' == ''">$(MSBuildThisFileDirectory)../../build/csharp/bindings/WoWLib/WoWLib.csproj</WowlibProject>
   </PropertyGroup>
