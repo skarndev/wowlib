@@ -111,7 +111,7 @@ public class FamilySurfaceTests
         for (int i = 0; i < 4; i++)
             using (var e = new Formats.ADT.Chunks.McnrEntry())
                 normals.Add(e);
-        var span = normals.AsSpan<Formats.ADT.Chunks.McnrEntry.Data>();
+        var span = normals.AsDataSpan();   // the generated sugar for AsSpan<McnrEntry.Data>()
         Assert.Equal(4, span.Length);
         span[2].Normal[1] = -7;                       // straight to native
         Assert.Equal(-7, normals[2].Normal[1]);       // seen by the live view

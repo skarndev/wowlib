@@ -197,7 +197,7 @@ using WoWLib;
 foreach (var chunk in tile.Chunks)
 {
     // ONE interop crossing for all 145 normals, zero allocations:
-    var normals = chunk.Normals.AsSpan<Formats.ADT.Chunks.McnrEntry.Data>();
+    var normals = chunk.Normals.AsDataSpan();   // == AsSpan<McnrEntry.Data>()
     for (int i = 0; i < normals.Length; i++)
         Emit(normals[i].Normal[0], normals[i].Normal[1], normals[i].Normal[2]);
 }
