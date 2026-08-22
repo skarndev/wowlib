@@ -154,7 +154,7 @@ FetchContent_Declare(welder
 # drops namespace annotations, so the map is the only reliable mechanism).
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 1f2ca62f9a58d8688a510010d9d6a640b2abeada)
+  GIT_TAG 30b4cbcd17142ed5ee0745347cf2febdfc2ef9c2)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
