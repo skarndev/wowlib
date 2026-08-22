@@ -285,7 +285,11 @@ def run_docfx() -> Path | None:
     (work / "docfx.json").write_text(text, encoding="utf-8")
     for name in ("filterConfig.yml", "toc.yml", "index.md"):
         shutil.copyfile(DOCS_DIR / "docfx" / name, work / name)
-    shutil.rmtree(ref_dir, ignore_errors=True)  # never accumulate orphans
+    # Never accumulate orphans — the SITE dir and the metadata YAML dir both:
+    # `docfx build` renders every .yml present, so a stale metadata tree from
+    # a renamed/removed surface would resurrect its pages.
+    shutil.rmtree(work / "api", ignore_errors=True)
+    shutil.rmtree(ref_dir, ignore_errors=True)
     log(f"building DocFX C# reference -> {ref_dir}")
     res = subprocess.run([docfx, str(work / "docfx.json")], cwd=work,
                          env=dotnet_env())
