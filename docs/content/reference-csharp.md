@@ -10,10 +10,14 @@ the member's `<summary>`.
 
 It opens in this same site under `/api-cs`. Two things to know:
 
-- **The typed db facades are filtered to the representative `Map` family** —
-  one class + one row struct per (table × era) would be thousands of
-  near-identical types. Every other table follows the identical pattern; the
-  [database guide](guide/db.md) walks through it.
+- **The typed db facades (`WoWLib.Database.Tables`) are described, not
+  enumerated.** They are generated from the community
+  [WoWDBDefs](https://github.com/wowdev/WoWDBDefs) definitions — one opener
+  class plus one row struct per (table × game version), named per C#
+  conventions (`Map` → `MapWotlk` + `MapWotlkRow`) — thousands of
+  mechanically identical types that would drown the reference. The
+  [database guide](guide/db.md) walks the pattern once; IntelliSense carries
+  each generated member's own documentation.
 - **Family bases carry the version-agnostic surface.** A `ForVersion(...)`
   result's members (the synthesized family surface) are documented on the base
   class pages — `Formats.WMO.WMO`, `Formats.ADT.ADT`, … — beside the per-era

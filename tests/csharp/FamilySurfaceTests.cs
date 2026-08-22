@@ -39,6 +39,13 @@ public class FamilySurfaceTests
         foreach (Formats.WMO.Group.WMOGroup g in wmo.Groups)
             triangles += g.Body.Indices.Count / 3;
         Assert.Equal(1, triangles);
+
+        // The family view's indexer writes too, era-checked: same era
+        // assigns, wrong era throws — the family-setter contract.
+        using var sameEra = new Formats.WMO.Group.WMOGroupVanillaToWotlk();
+        wmo.Groups[0] = sameEra;
+        using var wrongEra = new Formats.WMO.Group.WMOGroupCata();
+        Assert.Throws<System.InvalidCastException>(() => wmo.Groups[0] = wrongEra);
     }
 
     [Fact]

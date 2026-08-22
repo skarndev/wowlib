@@ -1,5 +1,23 @@
 # Documentation site (`docs/`)
 
+## 2026-08-22 (later): C# reference noise fixes (user review)
+
+Three user-reported issues in the DocFX reference, resolved:
+1. `.Enumerator` pages: the nested structs stay (the standard C#
+   allocation-free foreach pattern — BCL's List<T>.Enumerator is the
+   precedent; IEnumerable<T> would box + interface-dispatch every loop),
+   but the docfx filter drops their pages wholesale
+   (uidRegex `\.Enumerator($|`+backtick+`|\.)`).
+2. FamilyVector<T>: gained a real purpose statement AND a version-checked
+   writable indexer (welder-csharp 94736e3) — "why read-only" is now "no
+   size-changing ops" with the reason in the summary (fixed-array members
+   have none; growing takes version-specific elements).
+3. WoWLib.Database.Tables is EXCLUDED from the reference entirely (no more
+   representative-Map listing); the landing page + reference-csharp.md
+   describe the generation scheme instead (WoWDBDefs -> one opener + one
+   row struct per table x version, C# naming conventions).
+
+
 ## 2026-08-22: C# surface polish ripples (WoWLib / acronyms / Era / generics)
 
 The C# API renames (root ns `WoWLib`, `Formats.WMO`-style acronym
