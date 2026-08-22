@@ -77,6 +77,31 @@ public class FamilySurfaceTests
     }
 
     [Fact]
+    public void FileEntityRootRunsTheSharedContract()
+    {
+        // Every file-level entity derives Formats.FileEntity; the multi-level
+        // family surface hoists the contract they ALL bind (Validate /
+        // EnsureValid), so a heterogeneous collection processes uniformly —
+        // WMO family member and unversioned BLP alike.
+        using var wmo = Formats.WMO.WMO.ForVersion(Expansion.Wotlk);
+        using var blp = new Formats.BLP.BLP();
+        var entities = new Formats.FileEntity[] { wmo, blp };
+        foreach (var e in entities)
+        {
+            using var report = e.Validate();
+            Assert.NotNull(report);
+        }
+        // fs Read/Write do NOT leak to the root: ADT's signature differs, so
+        // the intersection correctly excludes them.
+        Assert.Null(typeof(Formats.FileEntity).GetMethod("Read"));
+        Assert.NotNull(typeof(Formats.WMO.WMO).GetMethod("Read"));
+        // The copy-constructor idiom replaced Clone().
+        Assert.Null(typeof(Formats.BLP.BLP).GetMethod("Clone"));
+        using var copy = new Formats.BLP.BLP(blp);
+        Assert.NotNull(copy);
+    }
+
+    [Fact]
     public void BareBaseInstanceThrowsFromTheDispatchDefaultArm()
     {
         using var bare = new Formats.WMO.WMO();

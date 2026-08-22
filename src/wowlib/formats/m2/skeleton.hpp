@@ -33,6 +33,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/core/lang.hpp>
+#include <wowlib/formats/common/file_entity.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 #include <wowlib/formats/m2/offset_block.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
@@ -215,7 +216,7 @@ namespace wowlib::formats::m2
         version. Construct a concrete version with
         Skeleton.for_version(expansion); the per-version Skeleton* classes are
         subclasses. See https://wowdev.wiki/M2/.skel.)")
-  ]] SkeletonBase
+  ]] SkeletonBase : FileEntityBase
   {
     bool operator==(const SkeletonBase&) const = default;
   };

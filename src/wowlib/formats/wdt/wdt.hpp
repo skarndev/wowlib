@@ -19,6 +19,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/core/lang.hpp>
+#include <wowlib/formats/common/file_entity.hpp>
 #include <wowlib/formats/common/version_slot.hpp>
 #include <wowlib/formats/wdt/boundaries.hpp>
 #include <wowlib/formats/wdt/fogs/fogs.hpp>
@@ -51,7 +52,7 @@ namespace wowlib::formats::wdt
         entity. Construct the concrete version with WDT.for_version(expansion),
         then read()/write(); the per-version WDT* classes are subclasses. See
         https://wowdev.wiki/WDT.)")
-  ]] WDTBase
+  ]] WDTBase : FileEntityBase
   {
   };
 
@@ -152,6 +153,24 @@ namespace wowlib::formats::wdt
       Result<void> write(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                          const FileKey& key
                          [[=welder::doc("the main file identity; must resolve to a path")]]) const;
+
+      [[=welder::doc(R"(
+          Check the logical integrity contracts this object must satisfy to
+          LOAD in the client — across the main file AND every engaged
+          satellite — which write() deliberately never enforces. Call it
+          before writing when you want to know the files will load. An object
+          read from a client and left unmodified reports no errors.)"),
+        =welder::returns(R"(every violated contract, each with its member path
+                            ("root..." / "occlusion..." / "lights..." /
+                            "fogs..." / "particulates..."))")]]
+      ValidationReport validate() const;
+
+      [[nodiscard]]
+      [[=welder::doc("Validate and raise on the first error instead of "
+                     "returning a report — the assert-style face of "
+                     "validate()."),
+        =welder::returns("nothing; raises when validate() finds any error")]]
+      Result<void> ensure_valid() const;
 
     private:
       // --- internal fs-I/O helpers (definitions at the bottom of this header) --
@@ -271,6 +290,40 @@ namespace wowlib::formats::wdt
           return r;
     }
     return {};
+  }
+
+  template <ClientVersion V>
+  ValidationReport detail::WDT<V>::validate() const
+  {
+    ValidationReport report;
+    {
+      const std::size_t mark = report.size();
+      formats::detail::validate_entity(root, report);
+      report.prefix_from(mark, "root");
+    }
+    // Each engaged satellite validates under its member path; the version
+    // ranges the entity does not carry cost nothing to gate on.
+    const auto validate_part = [&report](const auto& part, std::string_view name)
+    {
+      const std::size_t mark = report.size();
+      formats::detail::validate_entity(part, report);
+      report.prefix_from(mark, std::string{name});
+    };
+    if constexpr (requires { this->occlusion; })
+      validate_part(this->occlusion, "occlusion");
+    if constexpr (requires { this->lights; })
+      validate_part(this->lights, "lights");
+    if constexpr (requires { this->fogs; })
+      validate_part(this->fogs, "fogs");
+    if constexpr (requires { this->particulates; })
+      validate_part(this->particulates, "particulates");
+    return report;
+  }
+
+  template <ClientVersion V>
+  Result<void> detail::WDT<V>::ensure_valid() const
+  {
+    return validate().to_result();
   }
 
   template <ClientVersion V>

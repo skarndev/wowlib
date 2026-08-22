@@ -233,6 +233,33 @@ type systems keep you honest about the rest:
     };
     ```
 
+## One root above the families (C#)
+
+Every file-level entity in C# — the six format family bases and `BLP` —
+derives **`Formats.FileEntity`**, which carries the contract they all share
+(`Validate`, `EnsureValid`). A mixed batch of loaded files processes
+uniformly, no format named:
+
+```csharp
+using WoWLib;
+
+static void AuditAll(IEnumerable<Formats.FileEntity> entities)
+{
+    foreach (var e in entities)
+    {
+        using var report = e.Validate();   // dispatches format, then version
+        // ...
+    }
+}
+```
+
+Reading and writing stay on the family bases (`Formats.WMO.WMO.Read(...)`,
+…): ADT's verbs genuinely take an extra alpha-format argument, so a uniform
+root signature would be a lie. Copies are the C# copy-constructor idiom —
+`new WMOWotlk(model)` — and `Dispose` is optional deterministic cleanup (the
+finalizer releases native memory on collection anyway; `using` just makes it
+prompt).
+
 ## Converting between eras
 
 `convert` is the bridge from generic reading to targeted writing — read from

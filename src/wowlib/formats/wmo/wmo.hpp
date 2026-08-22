@@ -16,6 +16,7 @@
 
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
+#include <wowlib/formats/common/file_entity.hpp>
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/core/lang.hpp>
 #include <wowlib/formats/wmo/group/group.hpp>
@@ -48,7 +49,7 @@ namespace wowlib::formats::wmo
         file and all its group files as one entity. Construct the concrete
         version with WMO.for_version(expansion), then read()/write(); the
         per-version WMO* classes are subclasses. See https://wowdev.wiki/WMO.)")
-  ]] WMOBase
+  ]] WMOBase : FileEntityBase
   {
   };
 

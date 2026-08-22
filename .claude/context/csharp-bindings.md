@@ -1,5 +1,25 @@
 # C#/.NET bindings (welder-csharp rod)
 
+## 2026-08-22 (evening): entity hierarchy + copy ctors (user feedback round 2)
+
+- **Q1 (ADT<ClientVersion> generics): assessed INFEASIBLE, by design of C#**
+  — no non-type template parameters (generics take types, not values), and
+  one generic definition has ONE member set while the C++ template
+  instantiations differ per range; 11 era markers over 5 layouts would also
+  split type identity (ADT<Mop> != ADT<Legion> despite one native layout),
+  breaking is-checks and the family dispatch. The hierarchy below is the
+  C#-idiomatic answer.
+- **Q2: `Formats.FileEntity`** (C++ formats::FileEntityBase, welded+marked
+  via the macro): derived by the six family bases AND BLP. welder-csharp
+  a56fca6 makes family surfaces MULTI-LEVEL (synthesized members join the
+  base's manifest; families process deepest-first), so FileEntity auto-hoists
+  exactly the shared contract: Validate()/EnsureValid(). fs Read/Write stay
+  family-level (ADT's alpha param breaks uniformity — intersection excludes
+  them automatically; do NOT hand-add them to the root).
+- **Q3: `public T(T other)` copy constructors replace Clone()** everywhere
+  (BCL idiom); Dispose stays but every wrapper's doc now states it is
+  OPTIONAL deterministic release (SafeHandle finalizer covers collection).
+
 ## 2026-08-22 API polish (feature/csharp-api-polish + welder-csharp feature/generic-containers)
 
 Four breaking (pre-1.0) surface changes, all four user-directed:
