@@ -58,12 +58,12 @@ re-derives offset tables on write.
 === "C#"
 
     ```csharp
-    using wowlib;
+    using WoWLib;
 
-    using var world = wowlib.Formats.Wdt.WDT.Wotlk();
+    using var world = WoWLib.Formats.WDT.WDT.Era.Wotlk();
     world.Read(fs, new FileKey("World/Maps/Azeroth/Azeroth.wdt"));
 
-    using var low = wowlib.Formats.Wdl.WDL.Wotlk();
+    using var low = WoWLib.Formats.WDL.WDL.Era.Wotlk();
     low.Read(fs, new FileKey("World/Maps/Azeroth/Azeroth.wdl"));
     ```
 
@@ -129,12 +129,12 @@ physical file a chunk lives in.**
 === "C#"
 
     ```csharp
-    using wowlib;
-    using Adt = wowlib.Formats.Adt;
+    using WoWLib;
+    using ADT = WoWLib.Formats.ADT;
 
-    using var tile = Adt.ADT.Wotlk();
+    using var tile = ADT.ADT.Era.Wotlk();
     tile.Read(fs, new FileKey("World/Maps/Azeroth/Azeroth_32_48.adt"),
-              Adt.AlphaFormat.lowres_4bit);
+              ADT.AlphaFormat.lowres_4bit);
 
     foreach (var chunk in tile.Chunks)        // 256 chunks, row-major
     {
@@ -144,7 +144,7 @@ physical file a chunk lives in.**
     }
 
     tile.Write(fs, new FileKey("World/Maps/Azeroth/Azeroth_32_48.adt"),
-               Adt.AlphaFormat.lowres_4bit);
+               ADT.AlphaFormat.lowres_4bit);
     ```
 
 ### Adding a texture is version-agnostic

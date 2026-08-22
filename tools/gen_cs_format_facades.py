@@ -49,13 +49,13 @@ ERA_INDEX = {era: i for i, (era, _) in enumerate(ERAS)}
 # (family alias, C# namespace) per RANGES macro — mirrors the contributor
 # TUs (bindings/csharp/gen_<fmt>.cpp); extend both when a family is added.
 FAMILIES: dict[str, list[tuple[str, str]]] = {
-    "WOWLIB_WMO_RANGES_ROOT": [("WMORoot", "Formats.Wmo.Root")],
-    "WOWLIB_WMO_RANGES_GROUP": [("WMOGroupBody", "Formats.Wmo.Group"),
-                                ("WMOGroup", "Formats.Wmo.Group")],
+    "WOWLIB_WMO_RANGES_ROOT": [("WMORoot", "Formats.WMO.Root")],
+    "WOWLIB_WMO_RANGES_GROUP": [("WMOGroupBody", "Formats.WMO.Group"),
+                                ("WMOGroup", "Formats.WMO.Group")],
     "WOWLIB_WMO_RANGES_GROUP_HEADER": [("WMOGroupHeader",
-                                        "Formats.Wmo.Group.Chunks")],
-    "WOWLIB_WMO_RANGES_BATCH": [("WMOBatch", "Formats.Wmo.Group.Chunks")],
-    "WOWLIB_WMO_RANGES_ASSEMBLY": [("WMO", "Formats.Wmo")],
+                                        "Formats.WMO.Group.Chunks")],
+    "WOWLIB_WMO_RANGES_BATCH": [("WMOBatch", "Formats.WMO.Group.Chunks")],
+    "WOWLIB_WMO_RANGES_ASSEMBLY": [("WMO", "Formats.WMO")],
     "WOWLIB_M2_RANGES_TRACKS": [
         (name, "Formats.M2.Root.Record") for name in (
             "M2TrackC3Vector", "M2TrackC4Quaternion", "M2TrackCompQuat",
@@ -78,16 +78,16 @@ FAMILIES: dict[str, list[tuple[str, str]]] = {
         ("SkelBones", "Formats.M2"), ("SkelAttachments", "Formats.M2"),
         ("Skeleton", "Formats.M2")],
     "WOWLIB_M2_RANGES_ASSEMBLY": [("M2", "Formats.M2")],
-    "WOWLIB_ADT_RANGES_ASSEMBLY": [("ADT", "Formats.Adt")],
-    "WOWLIB_ADT_RANGES_MAPCHUNK": [("MapChunk", "Formats.Adt")],
-    "WOWLIB_WDT_RANGES_ROOT": [("WDTRoot", "Formats.Wdt.Root")],
-    "WOWLIB_WDT_RANGES_HEADER": [("WDTHeader", "Formats.Wdt.Root.Chunks")],
-    "WOWLIB_WDT_RANGES_OCCLUSION": [("WDTOcclusion", "Formats.Wdt.Occlusion")],
-    "WOWLIB_WDT_RANGES_LIGHTS": [("WDTLights", "Formats.Wdt.Lights")],
-    "WOWLIB_WDT_RANGES_FOGS": [("WDTFogs", "Formats.Wdt.Fogs")],
-    "WOWLIB_WDT_RANGES_MPV": [("WDTParticulates", "Formats.Wdt.Mpv")],
-    "WOWLIB_WDT_RANGES_ASSEMBLY": [("WDT", "Formats.Wdt")],
-    "WOWLIB_WDL_RANGES": [("WDL", "Formats.Wdl")],
+    "WOWLIB_ADT_RANGES_ASSEMBLY": [("ADT", "Formats.ADT")],
+    "WOWLIB_ADT_RANGES_MAPCHUNK": [("MapChunk", "Formats.ADT")],
+    "WOWLIB_WDT_RANGES_ROOT": [("WDTRoot", "Formats.WDT.Root")],
+    "WOWLIB_WDT_RANGES_HEADER": [("WDTHeader", "Formats.WDT.Root.Chunks")],
+    "WOWLIB_WDT_RANGES_OCCLUSION": [("WDTOcclusion", "Formats.WDT.Occlusion")],
+    "WOWLIB_WDT_RANGES_LIGHTS": [("WDTLights", "Formats.WDT.Lights")],
+    "WOWLIB_WDT_RANGES_FOGS": [("WDTFogs", "Formats.WDT.Fogs")],
+    "WOWLIB_WDT_RANGES_MPV": [("WDTParticulates", "Formats.WDT.Mpv")],
+    "WOWLIB_WDT_RANGES_ASSEMBLY": [("WDT", "Formats.WDT")],
+    "WOWLIB_WDL_RANGES": [("WDL", "Formats.WDL")],
 }
 
 
@@ -132,21 +132,22 @@ def main() -> int:
                 if covering is not None:
                     covering_by_era.append((era, method, covering))
             lines.append(f"    /// <summary>Era-resolved construction for the"
-                         f" {family} family (the C# for_version): one static"
-                         f" per era returning the concrete range class, plus"
-                         f" ForVersion(Expansion) and ForVersion(ClientVersion)"
-                         f" where a common welded base exists.</summary>")
+                         f" {family} family (the C# for_version): the dynamic"
+                         f" ForVersion pair where a common welded base exists,"
+                         f" and the nested Era factory mapping each expansion"
+                         f" to its covering range class at compile"
+                         f" time.</summary>")
             lines.append(f"    public partial class {family}")
             lines.append("    {")
             if family in BASED:
                 lines.append(f"        /// <summary>A fresh {family} for the"
                              f" given era, as the family base — the dynamic"
-                             f" twin of the typed per-era statics.</summary>")
+                             f" twin of the typed Era factories.</summary>")
                 lines.append(f"        public static {family} ForVersion("
-                             f"wowlib.Expansion era) => era switch")
+                             f"WoWLib.Expansion era) => era switch")
                 lines.append("        {")
                 for era, method, covering in covering_by_era:
-                    lines.append(f"            wowlib.Expansion.{method} => "
+                    lines.append(f"            WoWLib.Expansion.{method} => "
                                  f"new {family}{covering}(),")
                 lines.append("            _ => throw new System.ArgumentOut"
                              "OfRangeException(nameof(era)),")
@@ -158,16 +159,28 @@ def main() -> int:
                              f" engine its build was cut on rather than its"
                              f" 1.15 / 4.4 version number.</summary>")
                 lines.append(f"        public static {family} ForVersion("
-                             f"wowlib.ClientVersion version) => ForVersion(")
-                lines.append("            wowlib.Global.ExpansionOf(version"
+                             f"WoWLib.ClientVersion version) => ForVersion(")
+                lines.append("            WoWLib.Global.ExpansionOf(version"
                              ".FormatLineage)")
                 lines.append("            ?? throw new System.ArgumentOutOf"
                              "RangeException(nameof(version)));")
+                lines.append("")
+            # The typed era->range mapping, nested so the family class's own
+            # surface stays clean: `ADT.Era.Mop()` -> ADTCataToLegion. The
+            # concrete range constructors are public too — Era exists for
+            # the cases where the caller knows the EXPANSION, not the range.
+            lines.append(f"        /// <summary>The typed era factories:"
+                         f" one method per expansion, each returning the"
+                         f" concrete range class covering it — the"
+                         f" compile-time twin of ForVersion.</summary>")
+            lines.append("        public static class Era")
+            lines.append("        {")
             for era, method, covering in covering_by_era:
-                lines.append(f"        /// <summary>A fresh {family} for"
+                lines.append(f"            /// <summary>A fresh {family} for"
                              f" {era} clients ({family}{covering}).</summary>")
-                lines.append(f"        public static {family}{covering} "
+                lines.append(f"            public static {family}{covering} "
                              f"{method}() => new {family}{covering}();")
+            lines.append("        }")
             lines.append("    }")
             lines.append("")
 
@@ -175,7 +188,7 @@ def main() -> int:
            "// range classes (tools/gen_cs_format_facades.py). Do not edit.",
            "#nullable enable", ""]
     for namespace, lines in by_namespace.items():
-        out.append(f"namespace wowlib.{namespace}")
+        out.append(f"namespace WoWLib.{namespace}")
         out.append("{")
         out.extend(lines)
         out.append("}")

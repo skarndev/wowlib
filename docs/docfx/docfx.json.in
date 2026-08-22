@@ -1,8 +1,8 @@
 {
-  "$comment": "Template for the C# API reference (DocFX). docs/build.py substitutes the @VAR@ placeholders and writes the result to build/docs/docfx/docfx.json beside copies of the sibling files, so paths here are relative to THAT directory. Metadata runs a design-time Roslyn build over the generated Wowlib.csproj (build the wowlib_cs_sources target first) — the native library is never needed.",
+  "$comment": "Template for the C# API reference (DocFX). docs/build.py substitutes the @VAR@ placeholders and writes the result to build/docs/docfx/docfx.json beside copies of the sibling files, so paths here are relative to THAT directory. Metadata runs a design-time Roslyn build over the generated WoWLib.csproj (build the wowlib_cs_sources target first) — the native library is never needed.",
   "metadata": [
     {
-      "src": [{ "files": ["Wowlib.csproj"], "src": "@WOWLIB_CS_PROJECT_DIR@" }],
+      "src": [{ "files": ["WoWLib.csproj"], "src": "@WOWLIB_CS_PROJECT_DIR@" }],
       "dest": "api",
       "filter": "filterConfig.yml"
     }

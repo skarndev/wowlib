@@ -8,6 +8,6 @@
 # Everything outside wowlib.Db.Tables is included in full.
 apiRules:
 - include:
-    uidRegex: '^wowlib\.Db\.Tables\.Map(Vanilla|Tbc|Wotlk|Cata|Mop|Wod|Legion|Bfa|Shadowlands|Dragonflight|TheWarWithin)(Row)?($|\.|`)'
+    uidRegex: '^WoWLib\.Db\.Tables\.Map(Vanilla|Tbc|Wotlk|Cata|Mop|Wod|Legion|Bfa|Shadowlands|Dragonflight|TheWarWithin)(Row)?($|\.|`)'
 - exclude:
-    uidRegex: '^wowlib\.Db\.Tables\.'
+    uidRegex: '^WoWLib\.Db\.Tables\.'

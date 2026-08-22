@@ -430,10 +430,10 @@ instead of building and running the generator")
   # The dbdgen-emitted typed facades ride the package as plain C# sources
   # (EXTRA_COMPILE globs; welder-csharp 297fb03).
   welder_csharp_nuget_project(wowlib_cs
-    PACKAGE_ID Wowlib
+    PACKAGE_ID WoWLib
     VERSION ${WOWLIB_CSHARP_PACKAGE_VERSION}
     TFM ${WOWLIB_CSHARP_TFM}
-    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/Wowlib
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/WoWLib
     EXTRA_COMPILE "${WOWLIB_CS_FACADES_DIR}/*.cs")
 endif()
 

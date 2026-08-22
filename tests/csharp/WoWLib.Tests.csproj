@@ -8,7 +8,7 @@
      (read `~` as the usual double-dash: XML comments cannot hold one.)
      A non-default tree overrides the reference:
 
-         dotnet test tests/csharp -p:WowlibProject=/path/to/bindings/Wowlib/Wowlib.csproj
+         dotnet test tests/csharp -p:WowlibProject=/path/to/bindings/WoWLib/WoWLib.csproj
 -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -18,7 +18,7 @@
     <RollForward>Major</RollForward>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <WowlibProject Condition="'$(WowlibProject)' == ''">$(MSBuildThisFileDirectory)../../build/csharp/bindings/Wowlib/Wowlib.csproj</WowlibProject>
+    <WowlibProject Condition="'$(WowlibProject)' == ''">$(MSBuildThisFileDirectory)../../build/csharp/bindings/WoWLib/WoWLib.csproj</WowlibProject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="$(WowlibProject)" />

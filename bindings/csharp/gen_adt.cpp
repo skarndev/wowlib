@@ -22,7 +22,7 @@ namespace wowlib_cs
   {
     namespace wcs = ::welder::rods::csharp;
     using W = ::welder::welder<wcs::rod, wcs::dotnet>;
-    auto m0 = wcs::rod::at(doc, "Formats.Adt");
+    auto m0 = wcs::rod::at(doc, "Formats.ADT");
 
     #define X(S, v) W::weld_type<^^::wowlib::formats::adt::ADT##S>(m0, "ADT" #S);
     WOWLIB_ADT_RANGES_ASSEMBLY(X)

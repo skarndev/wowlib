@@ -1,7 +1,7 @@
 # C# API Reference
 
 The full **C# reference** is a standalone DocFX site — generated from the
-`Wowlib` NuGet package's managed surface (the welder-generated wrapper, the
+`WoWLib` NuGet package's managed surface (the welder-generated wrapper, the
 per-era format factories and the typed db facades), carrying the same doc text
 as the Python and C++ references: every `[[=welder::doc]]` annotation becomes
 the member's `<summary>`.
@@ -16,7 +16,7 @@ It opens in this same site under `/api-cs`. Two things to know:
   [database guide](guide/db.md) walks through it.
 - **Family bases carry the version-agnostic surface.** A `ForVersion(...)`
   result's members (the synthesized family surface) are documented on the base
-  class pages — `Formats.Wmo.WMO`, `Formats.Adt.ADT`, … — beside the per-era
+  class pages — `Formats.WMO.WMO`, `Formats.ADT.ADT`, … — beside the per-era
   range classes.
 
 If the link 404s, the reference has not been generated yet — build the C#
@@ -29,6 +29,6 @@ cmake --build build/csharp --target wowlib_cs_sources   # no shim compile
 ```
 
 `wowlib_cs_sources` produces only the generated C# (wrapper + facades); DocFX
-runs a design-time Roslyn build over the generated `Wowlib.csproj`, so the
+runs a design-time Roslyn build over the generated `WoWLib.csproj`, so the
 native library is never required. `docs/build.py docfx` rebuilds just this
 reference.

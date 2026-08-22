@@ -61,9 +61,9 @@ on a CASC client the FileDataID does, and a **listfile** (the community
 === "C#"
 
     ```csharp
-    using wowlib;
-    using Fs = wowlib.Fs;
-    using Versions = wowlib.Versions;
+    using WoWLib;
+    using Fs = WoWLib.Fs;
+    using Versions = WoWLib.Versions;
 
     // Wrath of the Lich King 3.3.5a — an MPQ-era client.
     using var settings = new Fs.FileSystemSettings(

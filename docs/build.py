@@ -248,14 +248,14 @@ def dotnet_env() -> dict[str, str]:
 
 
 def run_docfx() -> Path | None:
-    """Build the C# API reference (DocFX over the generated Wowlib project) into
+    """Build the C# API reference (DocFX over the generated WoWLib project) into
     ``build/docs/reference/api-cs``. Fail-SOFT like the Python stubs: a missing
     C# tree or a missing docfx tool logs a warning and skips — the guide, the
     Python API and the C++ reference still build."""
     project = Path(
         os.environ.get(
             "WOWLIB_CS_PROJECT",
-            REPO_ROOT / "build" / "csharp" / "bindings" / "Wowlib" / "Wowlib.csproj",
+            REPO_ROOT / "build" / "csharp" / "bindings" / "WoWLib" / "WoWLib.csproj",
         )
     )
     if not project.is_file():

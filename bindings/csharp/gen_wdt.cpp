@@ -22,13 +22,13 @@ namespace wowlib_cs
   {
     namespace wcs = ::welder::rods::csharp;
     using W = ::welder::welder<wcs::rod, wcs::dotnet>;
-    auto m0 = wcs::rod::at(doc, "Formats.Wdt.Root");
-    auto m1 = wcs::rod::at(doc, "Formats.Wdt.Root.Chunks");
-    auto m2 = wcs::rod::at(doc, "Formats.Wdt.Occlusion");
-    auto m3 = wcs::rod::at(doc, "Formats.Wdt.Lights");
-    auto m4 = wcs::rod::at(doc, "Formats.Wdt.Fogs");
-    auto m5 = wcs::rod::at(doc, "Formats.Wdt.Mpv");
-    auto m6 = wcs::rod::at(doc, "Formats.Wdt");
+    auto m0 = wcs::rod::at(doc, "Formats.WDT.Root");
+    auto m1 = wcs::rod::at(doc, "Formats.WDT.Root.Chunks");
+    auto m2 = wcs::rod::at(doc, "Formats.WDT.Occlusion");
+    auto m3 = wcs::rod::at(doc, "Formats.WDT.Lights");
+    auto m4 = wcs::rod::at(doc, "Formats.WDT.Fogs");
+    auto m5 = wcs::rod::at(doc, "Formats.WDT.Mpv");
+    auto m6 = wcs::rod::at(doc, "Formats.WDT");
 
     #define X(S, v) W::weld_type<^^::wowlib::formats::wdt::root::WDTRoot##S>(m0, "WDTRoot" #S);
     WOWLIB_WDT_RANGES_ROOT(X)

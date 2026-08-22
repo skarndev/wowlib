@@ -22,7 +22,7 @@ namespace wowlib_cs
   {
     namespace wcs = ::welder::rods::csharp;
     using W = ::welder::welder<wcs::rod, wcs::dotnet>;
-    auto m0 = wcs::rod::at(doc, "Formats.Wdl");
+    auto m0 = wcs::rod::at(doc, "Formats.WDL");
 
     #define X(S, v) W::weld_type<^^::wowlib::formats::wdl::WDL##S>(m0, "WDL" #S);
     WOWLIB_WDL_RANGES(X)

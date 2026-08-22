@@ -41,12 +41,12 @@ file.
 === "C#"
 
     ```csharp
-    using wowlib;
+    using WoWLib;
 
     // Typed per-era factory (compile-time concrete class) — or the dynamic
     // twin, WMO.ForVersion(Expansion.Wotlk), whose family-base result reads
     // and writes the same way (see Writing version-agnostic code).
-    using var model = wowlib.Formats.Wmo.WMO.Wotlk();
+    using var model = WoWLib.Formats.WMO.WMO.Era.Wotlk();
     model.Read(fs, new FileKey("World/wmo/Dungeon/AZ_Subway/Subway.wmo"));
     ```
 

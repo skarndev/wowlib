@@ -279,7 +279,7 @@ jobs:
       - name: Build
         run: cmake --build --preset gcc16-csharp
 
-      # dotnet-test the generated Wowlib project: managed wrapper + db facades
+      # dotnet-test the generated WoWLib project: managed wrapper + db facades
       # + format factories compile together, and the tests exercise them over
       # the just-built native shim. Same libstdc++ story as the bindings job:
       # the shim needs GLIBCXX_3.4.35, newer than the runner's system copy —

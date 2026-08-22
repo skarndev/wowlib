@@ -1,5 +1,19 @@
 # Documentation site (`docs/`)
 
+## 2026-08-22: C# surface polish ripples (WoWLib / acronyms / Era / generics)
+
+The C# API renames (root ns `WoWLib`, `Formats.WMO`-style acronym
+namespaces, `ADT.Era.Mop()` nesting, generic `Vector<T>`/`FixedArray<T>`)
+touched the docs infra: docfx filter regex is `^WoWLib\.Db\.Tables\.`,
+docfx/index.md links `api/WoWLib.*.html`, build.py + docfx.json.in point at
+`bindings/WoWLib/WoWLib.csproj`, and every guide C# tab spells
+`using WoWLib;` + the acronym namespaces + `.Era.` factories. The DocFX
+reference shrank by the ~400 per-T container pages — `Vector<T>` /
+`FixedArray<T>` / `FamilyVector<T>` / `WelderContainerHandle` are the only
+container types now. (Python API docs are untouched — the renames are
+C#-only.)
+
+
 ## 2026-08-22: C# API reference (DocFX graft at /api-cs)
 
 Third toolchain, same graft pattern as the C++ reference: **DocFX** renders
