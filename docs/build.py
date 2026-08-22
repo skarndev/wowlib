@@ -248,14 +248,14 @@ def dotnet_env() -> dict[str, str]:
 
 
 def run_docfx() -> Path | None:
-    """Build the C# API reference (DocFX over the generated Wowlib project) into
+    """Build the C# API reference (DocFX over the generated WoWLib project) into
     ``build/docs/reference/api-cs``. Fail-SOFT like the Python stubs: a missing
     C# tree or a missing docfx tool logs a warning and skips — the guide, the
     Python API and the C++ reference still build."""
     project = Path(
         os.environ.get(
             "WOWLIB_CS_PROJECT",
-            REPO_ROOT / "build" / "csharp" / "bindings" / "Wowlib" / "Wowlib.csproj",
+            REPO_ROOT / "build" / "csharp" / "bindings" / "WoWLib" / "WoWLib.csproj",
         )
     )
     if not project.is_file():
@@ -285,7 +285,11 @@ def run_docfx() -> Path | None:
     (work / "docfx.json").write_text(text, encoding="utf-8")
     for name in ("filterConfig.yml", "toc.yml", "index.md"):
         shutil.copyfile(DOCS_DIR / "docfx" / name, work / name)
-    shutil.rmtree(ref_dir, ignore_errors=True)  # never accumulate orphans
+    # Never accumulate orphans — the SITE dir and the metadata YAML dir both:
+    # `docfx build` renders every .yml present, so a stale metadata tree from
+    # a renamed/removed surface would resurrect its pages.
+    shutil.rmtree(work / "api", ignore_errors=True)
+    shutil.rmtree(ref_dir, ignore_errors=True)
     log(f"building DocFX C# reference -> {ref_dir}")
     res = subprocess.run([docfx, str(work / "docfx.json")], cwd=work,
                          env=dotnet_env())

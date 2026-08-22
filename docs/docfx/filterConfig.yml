@@ -1,13 +1,16 @@
 # What the C# API reference includes. First matching rule wins.
 #
-# The dbdgen-generated typed db facades (wowlib.Db.Tables) are one class +
-# one row struct per (table x era) — thousands of near-identical types that
-# would dominate the toc and the search index. Mirror the Python API docs:
-# keep the REPRESENTATIVE Map family (the worked example the guide's db page
-# walks through) and drop the rest; the per-table pattern is identical.
-# Everything outside wowlib.Db.Tables is included in full.
+# - The nested `Enumerator` structs are the standard C# allocation-free
+#   foreach pattern (the BCL's own List<T>.Enumerator is the precedent) — an
+#   implementation detail nobody names, so their pages are dropped wholesale.
+# - The dbdgen-generated typed db facades (WoWLib.Database.Tables) are one
+#   class + one row struct per (table x era) — thousands of mechanically
+#   generated types that would drown the toc and the search index. The
+#   reference EXCLUDES the namespace entirely; the landing page and the
+#   database guide describe the generation scheme (WoWDBDefs -> C# naming
+#   conventions) and the per-table pattern, which is identical everywhere.
 apiRules:
-- include:
-    uidRegex: '^wowlib\.Db\.Tables\.Map(Vanilla|Tbc|Wotlk|Cata|Mop|Wod|Legion|Bfa|Shadowlands|Dragonflight|TheWarWithin)(Row)?($|\.|`)'
 - exclude:
-    uidRegex: '^wowlib\.Db\.Tables\.'
+    uidRegex: '\.Enumerator($|`|\.)'
+- exclude:
+    uidRegex: '^WoWLib\.Database\.Tables($|\.)'

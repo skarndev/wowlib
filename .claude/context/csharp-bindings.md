@@ -1,5 +1,39 @@
 # C#/.NET bindings (welder-csharp rod)
 
+## 2026-08-22 API polish (feature/csharp-api-polish + welder-csharp feature/generic-containers)
+
+Four breaking (pre-1.0) surface changes, all four user-directed:
+
+1. **Root namespace + package are `WoWLib`** (was `wowlib`/`Wowlib`):
+   gen.cpp `opts.cs_namespace`, PACKAGE_ID/csproj (build/csharp/bindings/
+   WoWLib/WoWLib.csproj — beware macOS case-insensitive FS reusing an old
+   `Wowlib/` dir locally), release.yml pack leg, tests, docs, guide tabs.
+2. **Namespace spellings**: `Formats.WMO/.M2/.ADT/.WDT/.WDL/.BLP` (acronyms
+   as-is) and `Database`/`Filesystem` (the terse `db`/`fs` spelled out) via
+   lang-scoped `weld_as` on namespace REOPENINGS
+   (bindings/csharp/cs_namespace_names.hpp, included by gen.cpp only) —
+   welder core resolves namespace weld_as through name_of like any entity.
+   An earlier claim that "gcc-16 drops namespace annotations" was a TEST
+   ARTIFACT: annotating with a constexpr VARIABLE reflects as `const T`, so
+   a `type_of(a) == ^^T` filter silently misses it — use
+   annotations_of_with_type. (What IS dropped, with a warning: annotating a
+   CLASS after its definition; a forward declaration works.) Contributor
+   TUs' `at()` strings and the facade script's FAMILIES map must stay in
+   sync with the annotated names (dbdgen's facade emitter spells
+   `WoWLib.Database.Tables` + relative `Database.Table`/`Filesystem.FileSystem`).
+   `Formats.WMO.WMO` (ns + class same name) is fine — `Formats.M2.M2` always
+   worked.
+3. **Per-era statics are nested**: `ADT.Era.Mop()` (was `ADT.Mop()`) — the
+   family class surface stays clean; ForVersion pair unchanged on the base.
+4. **Generic containers**: `Vector<T>` / `FixedArray<T>` replace the 207
+   per-instantiation wrapper classes (welder-csharp containers/generic.hpp:
+   ops objects + WelderContainers registry + one WelderContainerHandle;
+   same native thunks, shim unchanged). AsSpan/CopyFrom/implicit `T[]`
+   live on the generic (runtime-gated to scalar/enum elements); implicit
+   `T[]` -> FixedArray<T> resolves the extent by source length. std::map
+   wrappers keep the old per-instantiation form (wowlib has none).
+
+
 Read when: touching `bindings/csharp/`, the `weld` annotations, or any
 `wowlib::lang::cs` site.
 

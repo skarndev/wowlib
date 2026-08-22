@@ -16,6 +16,8 @@
 
 #include "surface_core.hpp"
 
+#include "cs_namespace_names.hpp"
+
 #include <cstdlib>
 
 #include <welder/rods/csharp/rod.hpp>
@@ -26,7 +28,10 @@ int main(int argc, char** argv)
 {
   namespace wcs = ::welder::rods::csharp;
   wcs::options opts{};
-  opts.cs_namespace = "wowlib";
+  // The .NET identity is PascalCase-with-acronyms: root namespace WoWLib;
+  // the format namespaces carry lang-scoped weld_as annotations
+  // (cs_namespace_names.hpp) so the walk names them as the acronyms ARE.
+  opts.cs_namespace = "WoWLib";
   opts.library = "wowlib_native";
   opts.shim_include = "surface.hpp";
   if (argc > 3)

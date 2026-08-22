@@ -6,7 +6,7 @@ family therefore has two spellings:
 
 - a **typed, era-resolved** one — `WMO<versions::wotlk>` in C++,
   `wmo.WMO.for_version(wowlib.Expansion.Wotlk)` in Python,
-  `Formats.Wmo.WMO.Wotlk()` in C# — where every field is known at
+  `Formats.WMO.WMO.Era.Wotlk()` in C# — where every field is known at
   compile/checking time;
 - a **dynamic** one — the same factory driven by a runtime era — returning
   something you can still read, write, convert and inspect without knowing
@@ -74,14 +74,14 @@ it:
 === "C#"
 
     ```csharp
-    using wowlib;
+    using WoWLib;
 
-    static Formats.Wmo.WMO OpenModel(Fs.FileSystem fs, string path)
+    static Formats.WMO.WMO OpenModel(Filesystem.FileSystem fs, string path)
     {
         // Load a WMO from WHATEVER client fs has open. The family base
         // carries the members every era binds identically — the fs verbs
         // AND the data — so no downcast is needed to read, write or process.
-        var model = Formats.Wmo.WMO.ForVersion(fs.Version);
+        var model = Formats.WMO.WMO.ForVersion(fs.Version);
         model.Read(fs, new FileKey(path));
         return model;
     }
@@ -153,7 +153,7 @@ wowlib models this with a **flavor** on `ClientVersion` and a
     ```csharp
     var cataClassic = Versions.Global.ClassicCata;   // 4.4.2.60895 (Classic)
     var engine = cataClassic.FormatLineage;          // 11.2.7.65299
-    var model = Formats.Wmo.WMO.ForVersion(cataClassic);  // -> WMOTheWarWithin
+    var model = Formats.WMO.WMO.ForVersion(cataClassic);  // -> WMOTheWarWithin
     ```
 
 Because a Classic version resolves onto an *existing* retail range class,
@@ -210,7 +210,7 @@ type systems keep you honest about the rest:
 === "C#"
 
     ```csharp
-    static int TriangleCount(Formats.Wmo.WMO model)
+    static int TriangleCount(Formats.WMO.WMO model)
     {
         // The family base carries every member the eras bind identically —
         // the C# twin of Python's AnyWMO intersection. Members typed per era
@@ -223,12 +223,12 @@ type systems keep you honest about the rest:
         return n;
     }
 
-    static bool Lightmapped(Formats.Wmo.WMO model) => model switch
+    static bool Lightmapped(Formats.WMO.WMO model) => model switch
     {
         // Era-gated data lives on the concretes; pattern matching narrows —
         // ranges with identical layouts share one class, so the arms stay few.
-        Formats.Wmo.WMOShadowlands sl => UsesLightmaps(sl),
-        Formats.Wmo.WMODragonflight df => UsesLightmaps(df),
+        Formats.WMO.WMOShadowlands sl => UsesLightmaps(sl),
+        Formats.WMO.WMODragonflight df => UsesLightmaps(df),
         _ => false,
     };
     ```
@@ -290,7 +290,7 @@ tooling loops are one call away:
     ```csharp
     foreach (var name in new[] { "Map", "AreaTable", "Spell" })
     {
-        using var table = Db.Table.Open(name, fs.Version);
+        using var table = Database.Table.Open(name, fs.Version);
         Audit(table);
     }
     ```

@@ -3,32 +3,32 @@
 // tester-reported gap — version-agnostic construction must exist and return
 // the era's covering range class.
 
-using wowlib;
-using Versions = wowlib.Versions;
+using WoWLib;
+using Versions = WoWLib.Versions;
 using Xunit;
 
-namespace Wowlib.Tests;
+namespace WoWLib.Tests;
 
 public class FormatFactoryTests
 {
     [Theory]
     // The ADT assembly ranges (bindings/instantiations/adt_ranges.hpp):
     // Vanilla / Tbc / Wotlk / CataToLegion / BfaPlus.
-    [InlineData(Expansion.Vanilla, typeof(wowlib.Formats.Adt.ADTVanilla))]
-    [InlineData(Expansion.Tbc, typeof(wowlib.Formats.Adt.ADTTbc))]
-    [InlineData(Expansion.Wotlk, typeof(wowlib.Formats.Adt.ADTWotlk))]
-    [InlineData(Expansion.Cata, typeof(wowlib.Formats.Adt.ADTCataToLegion))]
-    [InlineData(Expansion.Mop, typeof(wowlib.Formats.Adt.ADTCataToLegion))]
-    [InlineData(Expansion.Wod, typeof(wowlib.Formats.Adt.ADTCataToLegion))]
-    [InlineData(Expansion.Legion, typeof(wowlib.Formats.Adt.ADTCataToLegion))]
-    [InlineData(Expansion.Bfa, typeof(wowlib.Formats.Adt.ADTBfaPlus))]
-    [InlineData(Expansion.Shadowlands, typeof(wowlib.Formats.Adt.ADTBfaPlus))]
-    [InlineData(Expansion.Dragonflight, typeof(wowlib.Formats.Adt.ADTBfaPlus))]
-    [InlineData(Expansion.TheWarWithin, typeof(wowlib.Formats.Adt.ADTBfaPlus))]
+    [InlineData(Expansion.Vanilla, typeof(WoWLib.Formats.ADT.ADTVanilla))]
+    [InlineData(Expansion.Tbc, typeof(WoWLib.Formats.ADT.ADTTbc))]
+    [InlineData(Expansion.Wotlk, typeof(WoWLib.Formats.ADT.ADTWotlk))]
+    [InlineData(Expansion.Cata, typeof(WoWLib.Formats.ADT.ADTCataToLegion))]
+    [InlineData(Expansion.Mop, typeof(WoWLib.Formats.ADT.ADTCataToLegion))]
+    [InlineData(Expansion.Wod, typeof(WoWLib.Formats.ADT.ADTCataToLegion))]
+    [InlineData(Expansion.Legion, typeof(WoWLib.Formats.ADT.ADTCataToLegion))]
+    [InlineData(Expansion.Bfa, typeof(WoWLib.Formats.ADT.ADTBfaPlus))]
+    [InlineData(Expansion.Shadowlands, typeof(WoWLib.Formats.ADT.ADTBfaPlus))]
+    [InlineData(Expansion.Dragonflight, typeof(WoWLib.Formats.ADT.ADTBfaPlus))]
+    [InlineData(Expansion.TheWarWithin, typeof(WoWLib.Formats.ADT.ADTBfaPlus))]
     public void AdtForVersionCoversEveryEraWithTheCoveringRange(
         Expansion era, System.Type expected)
     {
-        using var adt = wowlib.Formats.Adt.ADT.ForVersion(era);
+        using var adt = WoWLib.Formats.ADT.ADT.ForVersion(era);
         Assert.Equal(expected, adt.GetType());
     }
 
@@ -36,24 +36,24 @@ public class FormatFactoryTests
     public void PerEraStaticsReturnTheConcreteRangeClass()
     {
         // Compile-time typing is the point: no cast on the concrete.
-        using wowlib.Formats.Adt.ADTWotlk adt = wowlib.Formats.Adt.ADT.Wotlk();
-        wowlib.Formats.Adt.ADT asBase = adt;
+        using WoWLib.Formats.ADT.ADTWotlk adt = WoWLib.Formats.ADT.ADT.Era.Wotlk();
+        WoWLib.Formats.ADT.ADT asBase = adt;
         Assert.Same(adt, asBase);
     }
 
     [Fact]
     public void EveryFamilyBaseFactoryConstructs()
     {
-        using var wmo = wowlib.Formats.Wmo.WMO.ForVersion(Expansion.Wotlk);
-        using var m2 = wowlib.Formats.M2.M2.ForVersion(Expansion.Legion);
-        using var wdt = wowlib.Formats.Wdt.WDT.ForVersion(Expansion.Shadowlands);
-        using var wdl = wowlib.Formats.Wdl.WDL.ForVersion(Expansion.Vanilla);
-        using var root = wowlib.Formats.Wmo.Root.WMORoot.ForVersion(Expansion.Tbc);
-        Assert.IsAssignableFrom<wowlib.Formats.Wmo.WMO>(wmo);
-        Assert.IsAssignableFrom<wowlib.Formats.M2.M2>(m2);
-        Assert.IsAssignableFrom<wowlib.Formats.Wdt.WDT>(wdt);
-        Assert.IsAssignableFrom<wowlib.Formats.Wdl.WDL>(wdl);
-        Assert.IsAssignableFrom<wowlib.Formats.Wmo.Root.WMORoot>(root);
+        using var wmo = WoWLib.Formats.WMO.WMO.ForVersion(Expansion.Wotlk);
+        using var m2 = WoWLib.Formats.M2.M2.ForVersion(Expansion.Legion);
+        using var wdt = WoWLib.Formats.WDT.WDT.ForVersion(Expansion.Shadowlands);
+        using var wdl = WoWLib.Formats.WDL.WDL.ForVersion(Expansion.Vanilla);
+        using var root = WoWLib.Formats.WMO.Root.WMORoot.ForVersion(Expansion.Tbc);
+        Assert.IsAssignableFrom<WoWLib.Formats.WMO.WMO>(wmo);
+        Assert.IsAssignableFrom<WoWLib.Formats.M2.M2>(m2);
+        Assert.IsAssignableFrom<WoWLib.Formats.WDT.WDT>(wdt);
+        Assert.IsAssignableFrom<WoWLib.Formats.WDL.WDL>(wdl);
+        Assert.IsAssignableFrom<WoWLib.Formats.WMO.Root.WMORoot>(root);
     }
 
     [Fact]
@@ -63,28 +63,28 @@ public class FormatFactoryTests
         // able to Read/Write without a downcast. Method-group assignments
         // compile-lock the base verbs' signatures; a bare base instance (no
         // concrete era) reports itself instead of nulling into a backend.
-        using var adt = wowlib.Formats.Adt.ADT.ForVersion(Expansion.Wotlk);
-        System.Action<wowlib.Fs.FileSystem, FileKey,
-                      wowlib.Formats.Adt.AlphaFormat> adtRead = adt.Read;
-        System.Action<wowlib.Fs.FileSystem, FileKey,
-                      wowlib.Formats.Adt.AlphaFormat> adtWrite = adt.Write;
+        using var adt = WoWLib.Formats.ADT.ADT.ForVersion(Expansion.Wotlk);
+        System.Action<WoWLib.Filesystem.FileSystem, FileKey,
+                      WoWLib.Formats.ADT.AlphaFormat> adtRead = adt.Read;
+        System.Action<WoWLib.Filesystem.FileSystem, FileKey,
+                      WoWLib.Formats.ADT.AlphaFormat> adtWrite = adt.Write;
         Assert.NotNull(adtRead);
         Assert.NotNull(adtWrite);
 
-        using var wmo = wowlib.Formats.Wmo.WMO.ForVersion(Expansion.Vanilla);
-        using var m2 = wowlib.Formats.M2.M2.ForVersion(Expansion.Legion);
-        using var wdt = wowlib.Formats.Wdt.WDT.ForVersion(Expansion.Cata);
-        using var wdl = wowlib.Formats.Wdl.WDL.ForVersion(Expansion.Tbc);
+        using var wmo = WoWLib.Formats.WMO.WMO.ForVersion(Expansion.Vanilla);
+        using var m2 = WoWLib.Formats.M2.M2.ForVersion(Expansion.Legion);
+        using var wdt = WoWLib.Formats.WDT.WDT.ForVersion(Expansion.Cata);
+        using var wdl = WoWLib.Formats.WDL.WDL.ForVersion(Expansion.Tbc);
         using var skel =
-            wowlib.Formats.M2.Skeleton.ForVersion(Expansion.Shadowlands);
+            WoWLib.Formats.M2.Skeleton.ForVersion(Expansion.Shadowlands);
         foreach (var entity in new object[] { wmo, m2, wdt, wdl, skel })
         {
             var read = entity.GetType().GetMethod(
-                "Read", new[] { typeof(wowlib.Fs.FileSystem), typeof(FileKey) });
+                "Read", new[] { typeof(WoWLib.Filesystem.FileSystem), typeof(FileKey) });
             Assert.NotNull(read);
         }
 
-        using var bare = new wowlib.Formats.Adt.ADT();
+        using var bare = new WoWLib.Formats.ADT.ADT();
         Assert.Throws<System.InvalidOperationException>(
             () => bare.Read(null!, null!, default));
     }
@@ -92,10 +92,12 @@ public class FormatFactoryTests
     [Fact]
     public void SequenceWrappersSupportForeach()
     {
-        // Duck-typed enumerators (welder-csharp 66a6bc9): foreach compiles on
-        // every sequence wrapper — scalar vectors sum, class vectors yield
-        // live views, and an empty vector yields nothing.
-        var numbers = new VectorUshort();
+        // Duck-typed enumerators: foreach compiles on every sequence
+        // wrapper — scalar vectors sum, class vectors yield live views, and
+        // an empty vector yields nothing. Vector<T> is the GENERIC container
+        // (one type for every element; the registry resolves the native
+        // instantiation).
+        var numbers = new Vector<ushort>();
         numbers.Add(1);
         numbers.Add(2);
         numbers.Add(4);
@@ -104,7 +106,7 @@ public class FormatFactoryTests
             sum += n;
         Assert.Equal(7, sum);
 
-        using var root = wowlib.Formats.Wmo.Root.WMORoot.Wotlk();
+        using var root = WoWLib.Formats.WMO.Root.WMORoot.Era.Wotlk();
         var count = 0;
         foreach (var material in root.Materials)
             ++count;
@@ -116,34 +118,34 @@ public class FormatFactoryTests
     {
         // M2SkinProfile welds standalone concretes (no family base), so it has
         // no ForVersion — but the typed per-era statics must exist.
-        using var vanilla = wowlib.Formats.M2.Skin.M2SkinProfile.Vanilla();
-        using var wotlk = wowlib.Formats.M2.Skin.M2SkinProfile.Wotlk();
-        Assert.IsType<wowlib.Formats.M2.Skin.M2SkinProfileVanilla>(vanilla);
-        Assert.IsType<wowlib.Formats.M2.Skin.M2SkinProfileTbcToWotlk>(wotlk);
+        using var vanilla = WoWLib.Formats.M2.Skin.M2SkinProfile.Era.Vanilla();
+        using var wotlk = WoWLib.Formats.M2.Skin.M2SkinProfile.Era.Wotlk();
+        Assert.IsType<WoWLib.Formats.M2.Skin.M2SkinProfileVanilla>(vanilla);
+        Assert.IsType<WoWLib.Formats.M2.Skin.M2SkinProfileTbcToWotlk>(wotlk);
     }
 
     [Theory]
     // The Classic axis: Expansion cannot name these clients (Cataclysm Classic
     // is not Cataclysm), so ForVersion takes a full ClientVersion and places it
     // by build number on the retail engine timeline.
-    [InlineData(2, 5, 4, 44833u, typeof(wowlib.Formats.Wmo.WMOShadowlands))]
-    [InlineData(4, 4, 2, 60895u, typeof(wowlib.Formats.Wmo.WMOTheWarWithin))]
-    [InlineData(1, 15, 9, 69109u, typeof(wowlib.Formats.Wmo.WMOTheWarWithin))]
+    [InlineData(2, 5, 4, 44833u, typeof(WoWLib.Formats.WMO.WMOShadowlands))]
+    [InlineData(4, 4, 2, 60895u, typeof(WoWLib.Formats.WMO.WMOTheWarWithin))]
+    [InlineData(1, 15, 9, 69109u, typeof(WoWLib.Formats.WMO.WMOTheWarWithin))]
     public void ForVersionAcceptsAClassicClientVersion(
         int major, int minor, int patch, uint build, System.Type expected)
     {
         using var version = new ClientVersion((ushort)major, (ushort)minor,
                                               (ushort)patch, build,
                                               ClientFlavor.Classic);
-        using var wmo = wowlib.Formats.Wmo.WMO.ForVersion(version);
+        using var wmo = WoWLib.Formats.WMO.WMO.ForVersion(version);
         Assert.Equal(expected, wmo.GetType());
     }
 
     [Fact]
     public void ForVersionOnARetailVersionMatchesTheExpansionOverload()
     {
-        using var byVersion = wowlib.Formats.Adt.ADT.ForVersion(Versions.Global.Wotlk);
-        using var byEra = wowlib.Formats.Adt.ADT.ForVersion(Expansion.Wotlk);
+        using var byVersion = WoWLib.Formats.ADT.ADT.ForVersion(Versions.Global.Wotlk);
+        using var byEra = WoWLib.Formats.ADT.ADT.ForVersion(Expansion.Wotlk);
         Assert.Equal(byEra.GetType(), byVersion.GetType());
     }
 
@@ -154,9 +156,9 @@ public class FormatFactoryTests
         // on The War Within. Only the build tells them apart.
         using var early = new ClientVersion(4, 4, 0, 54481, ClientFlavor.Classic);
         using var late = new ClientVersion(4, 4, 0, 57244, ClientFlavor.Classic);
-        using var earlyWmo = wowlib.Formats.Wmo.WMO.ForVersion(early);
-        using var lateWmo = wowlib.Formats.Wmo.WMO.ForVersion(late);
-        Assert.Equal(typeof(wowlib.Formats.Wmo.WMODragonflight), earlyWmo.GetType());
-        Assert.Equal(typeof(wowlib.Formats.Wmo.WMOTheWarWithin), lateWmo.GetType());
+        using var earlyWmo = WoWLib.Formats.WMO.WMO.ForVersion(early);
+        using var lateWmo = WoWLib.Formats.WMO.WMO.ForVersion(late);
+        Assert.Equal(typeof(WoWLib.Formats.WMO.WMODragonflight), earlyWmo.GetType());
+        Assert.Equal(typeof(WoWLib.Formats.WMO.WMOTheWarWithin), lateWmo.GetType());
     }
 }

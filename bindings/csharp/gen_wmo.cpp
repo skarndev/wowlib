@@ -22,10 +22,10 @@ namespace wowlib_cs
   {
     namespace wcs = ::welder::rods::csharp;
     using W = ::welder::welder<wcs::rod, wcs::dotnet>;
-    auto m0 = wcs::rod::at(doc, "Formats.Wmo.Root");
-    auto m1 = wcs::rod::at(doc, "Formats.Wmo.Group");
-    auto m2 = wcs::rod::at(doc, "Formats.Wmo.Group.Chunks");
-    auto m3 = wcs::rod::at(doc, "Formats.Wmo");
+    auto m0 = wcs::rod::at(doc, "Formats.WMO.Root");
+    auto m1 = wcs::rod::at(doc, "Formats.WMO.Group");
+    auto m2 = wcs::rod::at(doc, "Formats.WMO.Group.Chunks");
+    auto m3 = wcs::rod::at(doc, "Formats.WMO");
 
     #define X(S, v) W::weld_type<^^::wowlib::formats::wmo::root::WMORoot##S>(m0, "WMORoot" #S);
     WOWLIB_WMO_RANGES_ROOT(X)

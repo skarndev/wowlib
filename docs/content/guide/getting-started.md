@@ -18,7 +18,7 @@ Released builds ship for Python and .NET — no toolchain needed:
 === "C#"
 
     ```bash
-    dotnet add package Wowlib    # net8.0; linux-x64 / osx-arm64 / win-x64
+    dotnet add package WoWLib    # net8.0; linux-x64 / osx-arm64 / win-x64
     ```
 
     One package carries the managed wrapper plus every RID's native library;

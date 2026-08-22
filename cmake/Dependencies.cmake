@@ -146,9 +146,15 @@ FetchContent_Declare(welder
 # (core/lang.hpp), which expands to nothing unless this build defines
 # WOWLIB_CSHARP_ROD below — welder core stays untouched, and non-C# builds
 # never see the rod's headers.
+# fea6506 on top: GENERIC containers — the per-instantiation Vector*/Array*
+# wrapper classes (207 on our surface) are replaced by Vector<T> /
+# FixedArray<T> over per-instantiation ops objects (same thunks, shim
+# unchanged). The format namespaces spell their acronyms via lang-scoped
+# weld_as on namespace reopenings (bindings/csharp/cs_namespace_names.hpp)
+# — welder core resolves those through name_of, no rod feature involved.
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 1e93ecc9b63587ccaddea519d824dacc5de205e5)
+  GIT_TAG 94736e3e4055d84c8e72297a64623ec9c1b0aa06)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH
