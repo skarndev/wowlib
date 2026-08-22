@@ -16,6 +16,8 @@
 
 #include "surface_core.hpp"
 
+#include "cs_namespace_names.hpp"
+
 #include <cstdlib>
 
 #include <welder/rods/csharp/rod.hpp>
@@ -26,17 +28,10 @@ int main(int argc, char** argv)
 {
   namespace wcs = ::welder::rods::csharp;
   wcs::options opts{};
-  // The .NET identity is PascalCase-with-acronyms: root namespace WoWLib,
-  // format namespaces spelled as the acronyms ARE (the dotnet style would
-  // otherwise coerce formats::wmo -> Formats.Wmo). m2 needs no entry — the
-  // style already yields M2. Contributor TUs (gen_<fmt>.cpp) spell their
-  // at() paths against the RENAMED namespaces; keep both in sync.
+  // The .NET identity is PascalCase-with-acronyms: root namespace WoWLib;
+  // the format namespaces carry lang-scoped weld_as annotations
+  // (cs_namespace_names.hpp) so the walk names them as the acronyms ARE.
   opts.cs_namespace = "WoWLib";
-  opts.namespace_renames = {
-      {"Formats.Wmo", "Formats.WMO"}, {"Formats.Adt", "Formats.ADT"},
-      {"Formats.Wdt", "Formats.WDT"}, {"Formats.Wdl", "Formats.WDL"},
-      {"Formats.Blp", "Formats.BLP"},
-  };
   opts.library = "wowlib_native";
   opts.shim_include = "surface.hpp";
   if (argc > 3)

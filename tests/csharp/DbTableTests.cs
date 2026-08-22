@@ -1,9 +1,9 @@
-// The generic client-database surface (WoWLib.Db.Table) from C#: schema
+// The generic client-database surface (WoWLib.Database.Table) from C#: schema
 // resolution per era, strict cell access, and an in-memory WDBC round-trip.
 // Mirrors the client-free half of tests/python/test_db_tables.py.
 
 using WoWLib;
-using Db = WoWLib.Db;
+using Db = WoWLib.Database;
 using Versions = WoWLib.Versions;
 using Xunit;
 

@@ -50,7 +50,7 @@ Each language has a typed per-table surface over the generic engine:
 
     ```csharp
     using WoWLib;
-    using WoWLib.Db.Tables;               // dbdgen typed facades
+    using WoWLib.Database.Tables;               // dbdgen typed facades
 
     var map = MapWotlk.Open();
     map.Read(fs, new FileKey(@"DBFilesClient\Map.dbc"));
@@ -91,7 +91,7 @@ directly — same behavior, runtime schema:
 === "C#"
 
     ```csharp
-    using Db = WoWLib.Db;
+    using Db = WoWLib.Database;
 
     using var table = Db.Table.Open("Map", WoWLib.Versions.Global.Wotlk);
     table.Read(fs.ReadFile(@"DBFilesClient\Map.dbc"));

@@ -8,11 +8,11 @@ annotations the Python and C++ references render.
 
 Highlights:
 
-- [`WoWLib.Fs`](api/WoWLib.Fs.html) — the client filesystem gateway (MPQ & CASC).
+- [`WoWLib.Filesystem`](api/WoWLib.Filesystem.html) — the client filesystem gateway (MPQ & CASC).
 - [`WoWLib.Formats.*`](api/WoWLib.Formats.html) — WMO, M2, ADT, WDT, WDL, BLP.
   Every format family has a version-agnostic base (`ForVersion`, the
   synthesized family surface) beside its per-era range classes.
-- [`WoWLib.Db`](api/WoWLib.Db.html) — the generic ClientDB `Table` engine.
+- [`WoWLib.Database`](api/WoWLib.Database.html) — the generic ClientDB `Table` engine.
   Of the typed per-table facades, only the representative **Map** family is
   listed here — every other table follows the identical pattern; see the
   [database guide](../guide/db/) for the walkthrough.

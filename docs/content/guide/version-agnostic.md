@@ -76,7 +76,7 @@ it:
     ```csharp
     using WoWLib;
 
-    static Formats.WMO.WMO OpenModel(Fs.FileSystem fs, string path)
+    static Formats.WMO.WMO OpenModel(Filesystem.FileSystem fs, string path)
     {
         // Load a WMO from WHATEVER client fs has open. The family base
         // carries the members every era binds identically — the fs verbs
@@ -290,7 +290,7 @@ tooling loops are one call away:
     ```csharp
     foreach (var name in new[] { "Map", "AreaTable", "Spell" })
     {
-        using var table = Db.Table.Open(name, fs.Version);
+        using var table = Database.Table.Open(name, fs.Version);
         Audit(table);
     }
     ```

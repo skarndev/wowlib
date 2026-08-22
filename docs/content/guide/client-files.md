@@ -62,7 +62,7 @@ on a CASC client the FileDataID does, and a **listfile** (the community
 
     ```csharp
     using WoWLib;
-    using Fs = WoWLib.Fs;
+    using Fs = WoWLib.Filesystem;
     using Versions = WoWLib.Versions;
 
     // Wrath of the Lich King 3.3.5a — an MPQ-era client.
@@ -121,9 +121,9 @@ version in `.build.info` there or one directory up.
 === "C#"
 
     ```csharp
-    using var settings = Fs.FileSystemSettings.Detect(
+    using var settings = Filesystem.FileSystemSettings.Detect(
         "/games/World of Warcraft/_classic_era_");
-    using var fs = Fs.FileSystem.Open(settings);
+    using var fs = Filesystem.FileSystem.Open(settings);
     ```
 
 Detection is CASC-only: MPQ-era clients (< 6.0) record no such file, and

@@ -64,9 +64,9 @@ public class FormatFactoryTests
         // compile-lock the base verbs' signatures; a bare base instance (no
         // concrete era) reports itself instead of nulling into a backend.
         using var adt = WoWLib.Formats.ADT.ADT.ForVersion(Expansion.Wotlk);
-        System.Action<WoWLib.Fs.FileSystem, FileKey,
+        System.Action<WoWLib.Filesystem.FileSystem, FileKey,
                       WoWLib.Formats.ADT.AlphaFormat> adtRead = adt.Read;
-        System.Action<WoWLib.Fs.FileSystem, FileKey,
+        System.Action<WoWLib.Filesystem.FileSystem, FileKey,
                       WoWLib.Formats.ADT.AlphaFormat> adtWrite = adt.Write;
         Assert.NotNull(adtRead);
         Assert.NotNull(adtWrite);
@@ -80,7 +80,7 @@ public class FormatFactoryTests
         foreach (var entity in new object[] { wmo, m2, wdt, wdl, skel })
         {
             var read = entity.GetType().GetMethod(
-                "Read", new[] { typeof(WoWLib.Fs.FileSystem), typeof(FileKey) });
+                "Read", new[] { typeof(WoWLib.Filesystem.FileSystem), typeof(FileKey) });
             Assert.NotNull(read);
         }
 

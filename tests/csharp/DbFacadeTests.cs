@@ -1,11 +1,11 @@
-// The dbdgen-generated typed facades (WoWLib.Db.Tables.*): zero-interop
+// The dbdgen-generated typed facades (WoWLib.Database.Tables.*): zero-interop
 // wrappers over the generic Table with typed row properties, an indexer and
 // allocation-free foreach.
 
 using WoWLib;
-using Db = WoWLib.Db;
+using Db = WoWLib.Database;
 using Versions = WoWLib.Versions;
-using WoWLib.Db.Tables;
+using WoWLib.Database.Tables;
 using Xunit;
 
 namespace WoWLib.Tests;
