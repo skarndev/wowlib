@@ -1,5 +1,47 @@
 # C#/.NET bindings (welder-csharp rod)
 
+## 2026-08-23 (later): track TIMELINE surface + the M2Track<T> generics decline
+
+- **Canonical track accessors** (C++, welded → all languages):
+  timeline_count / key_count / timeline_timestamps / timeline_values on
+  BOTH M2Track layouts + both event-track layouts (values-less). Pre-WotLK
+  slices the global timeline by interpolation_ranges (M2Range
+  minimum/maximum INCLUSIVE, clamped; global-sequence or rangeless track =
+  single timeline 0); WotLK+ indexes the per-sequence arrays (external
+  .anim sequences are empty until loaded). Result<> error on out-of-range
+  (InvalidEntityState). Identical signatures per family → the family
+  surface hoists them onto M2TrackC3Vector etc. — version-agnostic in C#
+  through the base, duck-typed in Python/Lua. Accessors COPY; hot loops
+  still branch once on the two range classes for spans.
+- **M2Track<C3Vector> C# generics: declined.** The wrapper machinery
+  (per-class handles/thunks/erased offsets) is per-native-class; a generic
+  entity wrapper would need entity-level ops tables — the container trick
+  at entity scale — for a purely cosmetic rename of M2TrackC3Vector, whose
+  BASE is what users hold anyway now that the timeline surface hoists.
+  C# also cannot alias generics (using aliases take no type params).
+
+## 2026-08-23: M2 record family bases (user feedback round 3)
+
+- **User report 1** ("AsSpan() requires a scalar or enum element type" on a
+  "specific ADT"): NOT data-dependent — the consumer called scalar AsSpan()
+  on `chunk.Layers` (Vector<SMLayer>, records → AsDataSpan()) and
+  `chunk.AlphaMaps` (Vector<Vector<byte>>, nested → iterate). The per-tile
+  catch made it look file-specific. welder-csharp PR#6: the three failure
+  messages now name the element type and the correct call.
+- **User report 2** (root.Sequences.Count needed a 6-arm era switch): the
+  M2 record families welded STANDALONE (the old BASED distinction), so
+  collection members never hoisted to M2Root. Fixed structurally: ~24
+  version-agnostic bases (M2SequenceBase etc. + template
+  M2TrackFamilyBase<T> for the 9 track value families, alias-welded in
+  gen_m2 as M2Track*Fam aliases in m2_ranges.hpp; M2EventTrackBase for the
+  M2TrackBase<V> event family — note the pre-existing name collision:
+  detail::M2TrackBase is the VERSIONED event-track layout). All carry
+  weld_as(family name) + the family_surface macro; all joined the facade
+  BASED set (ForVersion works on every record family now). Multi-level
+  surfaces then hoist M2Root.Sequences/Bones/... as
+  FamilyVector<M2Sequence>/... with Count + era-checked element access.
+  BASE-CLASS CHANGES NEED THE FULL NATIVE REBUILD (new upcast thunks).
+
 ## 2026-08-22 (evening): entity hierarchy + copy ctors (user feedback round 2)
 
 - **Q1 (ADT<ClientVersion> generics): assessed INFEASIBLE, by design of C#**

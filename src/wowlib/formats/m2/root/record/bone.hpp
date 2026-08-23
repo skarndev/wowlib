@@ -9,12 +9,30 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::formats::m2::root::record
 {
+  /** The version-agnostic base of every M2CompBone<V> (welded as "M2CompBone").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2CompBone"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One skeleton bone. Abstract over the client version; construct a concrete
+        version with M2CompBone.ForVersion / for_version.)")
+  ]] M2CompBoneBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2CompBoneBase&) const = default;
+  };
+
   enum class [[
     =welder::weld,
     =welder::doc("M2CompBone flags: parent-transform exemptions, billboarding "
@@ -46,7 +64,7 @@ namespace wowlib::formats::m2::root::record
     struct [[
       =welder::weld,
       =welder::doc("A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
-    ]] M2CompBone<V>
+    ]] M2CompBone<V> : M2CompBoneBase
     {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
       std::int32_t key_bone_id = -1;
@@ -74,7 +92,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("A bone (TBC+): compressed-quaternion rotations plus the debug name "
                    "CRC; the track era inside follows the entity version.")
-    ]] M2CompBone<V>
+    ]] M2CompBone<V> : M2CompBoneBase
     {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
       std::int32_t key_bone_id = -1;

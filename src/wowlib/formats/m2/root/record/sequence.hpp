@@ -10,6 +10,7 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
@@ -17,6 +18,23 @@
 
 namespace wowlib::formats::m2::root::record
 {
+  /** The version-agnostic base of every M2Sequence<V> (welded as "M2Sequence").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2Sequence"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One animation sequence entry. Abstract over the client version; construct a concrete
+        version with M2Sequence.ForVersion / for_version.)")
+  ]] M2SequenceBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2SequenceBase&) const = default;
+  };
+
   enum class [[
     =welder::weld,
     =welder::doc("M2Sequence flags — the 0x20/0x40/0x130 combination decides "
@@ -60,7 +78,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("An animation sequence, pre-WotLK layout: global start/end timestamps, "
                    "one u32 blend time.")
-    ]] M2Sequence<V>
+    ]] M2Sequence<V> : M2SequenceBase
     {
       [[=welder::doc("Animation id in AnimationData.dbc.")]]
       std::uint16_t id = 0;
@@ -113,7 +131,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("An animation sequence, WotLK through MoP layout: an own duration, one "
                    "u32 blend time.")
-    ]] M2Sequence<V>
+    ]] M2Sequence<V> : M2SequenceBase
     {
       [[=welder::doc("Animation id in AnimationData.dbc.")]]
       std::uint16_t id = 0;
@@ -164,7 +182,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("An animation sequence, WoD+ layout: an own duration, split "
                    "blend-in/out times.")
-    ]] M2Sequence<V>
+    ]] M2Sequence<V> : M2SequenceBase
     {
       [[=welder::doc("Animation id in AnimationData.dbc.")]]
       std::uint16_t id = 0;

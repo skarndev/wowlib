@@ -11,12 +11,81 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
 namespace wowlib::formats::m2::root::record
 {
+  /** The version-agnostic base of every M2Color<V> (welded as "M2Color").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2Color"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One color + alpha animation pair. Abstract over the client version; construct a concrete
+        version with M2Color.ForVersion / for_version.)")
+  ]] M2ColorBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2ColorBase&) const = default;
+  };
+
+  /** The version-agnostic base of every M2TextureWeight<V> (welded as "M2TextureWeight").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2TextureWeight"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One texture weight (transparency) track. Abstract over the client version; construct a concrete
+        version with M2TextureWeight.ForVersion / for_version.)")
+  ]] M2TextureWeightBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2TextureWeightBase&) const = default;
+  };
+
+  /** The version-agnostic base of every M2TextureFlipbook<V> (welded as "M2TextureFlipbook").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2TextureFlipbook"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One texture flipbook animation. Abstract over the client version; construct a concrete
+        version with M2TextureFlipbook.ForVersion / for_version.)")
+  ]] M2TextureFlipbookBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2TextureFlipbookBase&) const = default;
+  };
+
+  /** The version-agnostic base of every M2TextureTransform<V> (welded as "M2TextureTransform").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2TextureTransform"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One texture UV transform animation. Abstract over the client version; construct a concrete
+        version with M2TextureTransform.ForVersion / for_version.)")
+  ]] M2TextureTransformBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2TextureTransformBase&) const = default;
+  };
+
   struct [[
     =welder::weld,
     =welder::doc("An M2 vertex: position, 4-bone weights/indices, normal and "
@@ -93,7 +162,7 @@ namespace detail
       =welder::weld,
       =welder::doc("A vertex color + alpha animation pair, referenced from skin batches "
                    "by color index.")
-    ]] M2Color
+    ]] M2Color : M2ColorBase
     {
       [[=welder::doc("RGB vertex color.")]]
       record::M2Track<C3Vector, V> color{};
@@ -107,7 +176,7 @@ namespace detail
     struct [[
       =welder::weld,
       =welder::doc("A global texture weight (transparency) track.")
-    ]] M2TextureWeight
+    ]] M2TextureWeight : M2TextureWeightBase
     {
       [[=welder::doc("0 transparent .. 0x7FFF opaque; multiplies the color "
                      "block's alpha.")]]
@@ -120,7 +189,7 @@ namespace detail
     struct [[
       =welder::weld,
       =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
-    ]] M2TextureFlipbook
+    ]] M2TextureFlipbook : M2TextureFlipbookBase
     {
       [[=welder::doc("Frame index keyframes.")]]
       record::M2Track<std::uint16_t, V> frames{};
@@ -133,7 +202,7 @@ namespace detail
       =welder::weld,
       =welder::doc("A UV animation: translation/rotation/scaling keyframes for the "
                    "texture matrix (rotation pivots at texture center 0.5, 0.5).")
-    ]] M2TextureTransform
+    ]] M2TextureTransform : M2TextureTransformBase
     {
       [[=welder::doc("UV translation keyframes.")]]
       record::M2Track<C3Vector, V> translation{};

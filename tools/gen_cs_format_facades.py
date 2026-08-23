@@ -99,7 +99,47 @@ BASED = {
     "WMO", "M2Root", "M2ChunkedFile",
     "Skin", "Skeleton", "M2", "ADT", "MapChunk", "WDTRoot", "WDTHeader",
     "WDTOcclusion", "WDTLights", "WDTFogs", "WDTParticulates", "WDT", "WDL",
+    # The M2 record families gained welded bases (feature/csharp-m2-record-
+    # bases) — user report: reading root.Sequences.Count through the base
+    # needed a per-era switch. Every family is BASED now.
+    "M2TrackC3Vector", "M2TrackC4Quaternion", "M2TrackCompQuat",
+    "M2TrackFloat", "M2TrackFixed16", "M2TrackUInt8", "M2TrackUInt16",
+    "M2TrackSplineC3Vector", "M2TrackSplineFloat", "M2EventTrack",
+    "M2Color", "M2TextureWeight", "M2TextureFlipbook", "M2TextureTransform",
+    "M2Attachment", "M2Event", "M2Light", "M2Ribbon",
+    "M2Sequence", "M2CompBone", "M2Camera", "M2Particle",
+    "M2SkinSection", "M2SkinProfile",
 }
+
+
+# The track families implementing IAnimTimeline: their hoisted timing trio
+# (TimelineCount/KeyCount/TimelineTimestamps) is signature-identical, so the
+# facade partial declares the interface and the synthesized dispatchers
+# implement it implicitly — timing-driven systems (sequencers, event
+# schedulers) get real C# interface polymorphism across every track family
+# and era. Value access stays per-family typed (TimelineValues' type differs).
+ANIM_TIMELINE = {
+    "M2TrackC3Vector", "M2TrackC4Quaternion", "M2TrackCompQuat",
+    "M2TrackFloat", "M2TrackFixed16", "M2TrackUInt8", "M2TrackUInt16",
+    "M2TrackSplineC3Vector", "M2TrackSplineFloat", "M2EventTrack",
+}
+
+ANIM_TIMELINE_DECL = """    /// <summary>The timing half every animation track shares, era- and
+    /// value-type-agnostic: implemented by every track family base, so
+    /// timing-driven systems (sequencers, event schedulers) hold ONE
+    /// interface over all of them. Value access stays on the family bases
+    /// (TimelineValues' element type is the family's own).</summary>
+    public interface IAnimTimeline
+    {
+        /// <summary>The number of timelines (one per sequence; a single
+        /// timeline for a global-sequence-driven track).</summary>
+        ulong TimelineCount();
+        /// <summary>The number of keys on one timeline.</summary>
+        ulong KeyCount(ulong timeline);
+        /// <summary>One timeline's keyframe timestamps, as a copy.</summary>
+        uint[] TimelineTimestamps(ulong timeline);
+    }
+"""
 
 
 def ranges_of(text: str, macro: str) -> list[tuple[str, str]]:
@@ -137,7 +177,12 @@ def main() -> int:
                          f" and the nested Era factory mapping each expansion"
                          f" to its covering range class at compile"
                          f" time.</summary>")
-            lines.append(f"    public partial class {family}")
+            if family in ANIM_TIMELINE and "IAnimTimeline" not in "".join(lines):
+                lines.append(ANIM_TIMELINE_DECL)
+            lines.append(
+                f"    public partial class {family} : IAnimTimeline"
+                if family in ANIM_TIMELINE
+                else f"    public partial class {family}")
             lines.append("    {")
             if family in BASED:
                 lines.append(f"        /// <summary>A fresh {family} for the"

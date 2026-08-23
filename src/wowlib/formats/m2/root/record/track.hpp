@@ -14,18 +14,58 @@
     sequence's data lives in its .anim file, routed through the offset I/O
     contexts. */
 
+#include <algorithm>
+#include <span>
 #include <cstdint>
+#include <format>
+#include <utility>
 #include <vector>
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/core/client_version.hpp>
+#include <wowlib/core/error.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/common/types.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
 
 namespace wowlib::formats::m2::root::record
 {
+  /** The version-agnostic base of every M2Track<T, V> VALUE FAMILY, one
+      base per value type T (welded per family as "M2TrackC3Vector", ... —
+      see the alias tables in bindings/instantiations/m2_ranges.hpp).
+      Bindings-only, like every *Base. */
+  template <typename T>
+  struct [[
+    =welder::weld,
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        An animation track family for one value type, abstract over the
+        client version; the per-version classes are subclasses.)")
+  ]] M2TrackFamilyBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2TrackFamilyBase&) const = default;
+  };
+
+  /** The version-agnostic base of every M2EventTrack<V> (welded as "M2EventTrack").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2EventTrack"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        A timestamp-only event track (every key fires). Abstract over the client version; construct a concrete
+        version with M2EventTrack.ForVersion / for_version.)")
+  ]] M2EventTrackBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2EventTrackBase&) const = default;
+  };
+
   struct [[
     =welder::weld,
     =welder::doc("An inclusive u32 range: pre-WotLK track interpolation "
@@ -145,7 +185,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("An animation track, pre-WotLK layout: one global timeline with "
                    "per-sequence interpolation ranges.")
-    ]] M2Track<T, V>
+    ]] M2Track<T, V> : M2TrackFamilyBase<T>
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear, 2 bezier, 3 hermite "
                      "(spline types only valid for spline-key tracks).")]]
@@ -166,6 +206,81 @@ namespace wowlib::formats::m2::root::record
         =welder::doc("The keyframe values, one per timestamp.")]]
       std::vector<T> values;
 
+      // --- the version-agnostic TIMELINE surface -----------------------------
+      // Keys live on TIMELINES: here (pre-WotLK) one shared global array,
+      // sliced per sequence by interpolation_ranges; a global-sequence or
+      // rangeless track exposes the whole array as its single timeline 0.
+      // WotLK+ stores one array per sequence outright - same accessors,
+      // different backing, so version-agnostic code never branches.
+
+      [[=welder::doc("The number of timelines this track carries: one per "
+                     "interpolation range, or a single timeline 0 for a "
+                     "global-sequence-driven or rangeless track (0 when the "
+                     "track is empty).")]]
+      std::size_t timeline_count() const
+      {
+        if (global_sequence != 0xFFFF || interpolation_ranges.empty())
+          return timestamps.empty() ? std::size_t{0} : std::size_t{1};
+        return interpolation_ranges.size();
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("The number of keys on one timeline."),
+        =welder::returns("the key count; errors when timeline is out of range")]]
+      Result<std::size_t> key_count(std::size_t timeline
+                                    [[=welder::doc("the timeline index")]]) const
+      {
+        return timeline_slice(timeline).transform([](auto s) { return s.second; });
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("One timeline's keyframe timestamps, as a copy."),
+        =welder::returns("the timestamps; errors when timeline is out of range")]]
+      Result<std::vector<std::uint32_t>> timeline_timestamps(
+        std::size_t timeline [[=welder::doc("the timeline index")]]) const
+      {
+        return timeline_slice(timeline).transform([this](auto s) {
+          const auto window = std::span(timestamps).subspan(s.first, s.second);
+          return std::vector<std::uint32_t>(window.begin(), window.end());
+        });
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("One timeline's keyframe values, as a copy."),
+        =welder::returns("the values; errors when timeline is out of range")]]
+      Result<std::vector<T>> timeline_values(
+        std::size_t timeline [[=welder::doc("the timeline index")]]) const
+      {
+        return timeline_slice(timeline).transform([this](auto s) {
+          const std::size_t max_first = std::min(s.first, values.size());
+          const std::size_t count = std::min(s.second, values.size() - max_first);
+          const auto window = std::span(values).subspan(max_first, count);
+          return std::vector<T>(window.begin(), window.end());
+        });
+      }
+
+    private:
+      /** The [first, count) window of @a timeline into the global arrays:
+          the whole array for a global-sequence/rangeless track, else the
+          inclusive interpolation range clamped to the array.
+          @param timeline the timeline index.
+          @return the window, or InvalidEntityState past timeline_count(). */
+      Result<std::pair<std::size_t, std::size_t>> timeline_slice(std::size_t timeline) const
+      {
+        if (timeline >= timeline_count())
+          return make_error(ErrorCode::InvalidEntityState,
+                            std::format("timeline {} out of range ({} timelines)",
+                                        timeline, timeline_count()));
+        if (global_sequence != 0xFFFF || interpolation_ranges.empty())
+          return std::pair<std::size_t, std::size_t>{0, timestamps.size()};
+        const M2Range& r = interpolation_ranges[timeline];
+        const std::size_t first = std::min<std::size_t>(r.minimum, timestamps.size());
+        const std::size_t end =
+          std::min<std::size_t>(std::size_t{r.maximum} + 1, timestamps.size());
+        return std::pair<std::size_t, std::size_t>{first, end < first ? 0 : end - first};
+      }
+
+    public:
       bool operator==(const M2Track&) const = default;
     };
 
@@ -175,7 +290,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("An animation track, WotLK+ layout: one timestamp/value array per "
                    "sequence; an external sequence keeps its arrays in the .anim file.")
-    ]] M2Track<T, V>
+    ]] M2Track<T, V> : M2TrackFamilyBase<T>
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear, 2 bezier, 3 hermite "
                      "(spline types only valid for spline-key tracks).")]]
@@ -196,6 +311,54 @@ namespace wowlib::formats::m2::root::record
         =welder::doc("Keyframe values, per sequence, parallel to timestamps.")]]
       std::vector<std::vector<T>> values;
 
+      // --- the version-agnostic TIMELINE surface -----------------------------
+      // Same accessors as the pre-WotLK layout, over the native per-sequence
+      // arrays - version-agnostic code never branches on the era.
+
+      [[=welder::doc("The number of timelines this track carries: one per "
+                     "sequence (a global-sequence-driven track stores a "
+                     "single timeline; an external sequence's timeline is "
+                     "empty until its .anim data is loaded).")]]
+      std::size_t timeline_count() const { return timestamps.size(); }
+
+      [[nodiscard]]
+      [[=welder::doc("The number of keys on one timeline."),
+        =welder::returns("the key count; errors when timeline is out of range")]]
+      Result<std::size_t> key_count(std::size_t timeline
+                                    [[=welder::doc("the timeline index")]]) const
+      {
+        if (timeline >= timestamps.size())
+          return make_error(ErrorCode::InvalidEntityState,
+                            std::format("timeline {} out of range ({} timelines)",
+                                        timeline, timestamps.size()));
+        return timestamps[timeline].size();
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("One timeline's keyframe timestamps, as a copy."),
+        =welder::returns("the timestamps; errors when timeline is out of range")]]
+      Result<std::vector<std::uint32_t>> timeline_timestamps(
+        std::size_t timeline [[=welder::doc("the timeline index")]]) const
+      {
+        if (timeline >= timestamps.size())
+          return make_error(ErrorCode::InvalidEntityState,
+                            std::format("timeline {} out of range ({} timelines)",
+                                        timeline, timestamps.size()));
+        return timestamps[timeline];
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("One timeline's keyframe values, as a copy."),
+        =welder::returns("the values; errors when timeline is out of range")]]
+      Result<std::vector<T>> timeline_values(
+        std::size_t timeline [[=welder::doc("the timeline index")]]) const
+      {
+        if (timeline >= values.size())
+          return make_error(ErrorCode::InvalidEntityState,
+                            std::format("timeline {} out of range ({} timelines)",
+                                        timeline, values.size()));
+        return values[timeline];
+      }
       bool operator==(const M2Track&) const = default;
     };
 
@@ -209,7 +372,7 @@ namespace wowlib::formats::m2::root::record
     struct [[
       =welder::weld,
       =welder::doc("A timestamp-only event track, pre-WotLK layout (every key fires).")
-    ]] M2TrackBase<V>
+    ]] M2TrackBase<V> : M2EventTrackBase
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear (keys fire, no value to "
                      "interpolate).")]]
@@ -225,6 +388,62 @@ namespace wowlib::formats::m2::root::record
       [[=welder::doc("The global timeline's trigger timestamps.")]]
       std::vector<std::uint32_t> timestamps;
 
+      // The version-agnostic TIMELINE surface (see M2Track): the event
+      // track's timestamps only.
+
+      [[=welder::doc("The number of timelines this track carries: one per "
+                     "interpolation range, or a single timeline 0 for a "
+                     "global-sequence-driven or rangeless track (0 when the "
+                     "track is empty).")]]
+      std::size_t timeline_count() const
+      {
+        if (global_sequence != 0xFFFF || interpolation_ranges.empty())
+          return timestamps.empty() ? std::size_t{0} : std::size_t{1};
+        return interpolation_ranges.size();
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("The number of trigger keys on one timeline."),
+        =welder::returns("the key count; errors when timeline is out of range")]]
+      Result<std::size_t> key_count(std::size_t timeline
+                                    [[=welder::doc("the timeline index")]]) const
+      {
+        return timeline_slice(timeline).transform([](auto s) { return s.second; });
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("One timeline's trigger timestamps, as a copy."),
+        =welder::returns("the timestamps; errors when timeline is out of range")]]
+      Result<std::vector<std::uint32_t>> timeline_timestamps(
+        std::size_t timeline [[=welder::doc("the timeline index")]]) const
+      {
+        return timeline_slice(timeline).transform([this](auto s) {
+          const auto window = std::span(timestamps).subspan(s.first, s.second);
+          return std::vector<std::uint32_t>(window.begin(), window.end());
+        });
+      }
+
+    private:
+      /** The [first, count) window of @a timeline into the global timeline
+          (see M2Track's twin).
+          @param timeline the timeline index.
+          @return the window, or InvalidEntityState past timeline_count(). */
+      Result<std::pair<std::size_t, std::size_t>> timeline_slice(std::size_t timeline) const
+      {
+        if (timeline >= timeline_count())
+          return make_error(ErrorCode::InvalidEntityState,
+                            std::format("timeline {} out of range ({} timelines)",
+                                        timeline, timeline_count()));
+        if (global_sequence != 0xFFFF || interpolation_ranges.empty())
+          return std::pair<std::size_t, std::size_t>{0, timestamps.size()};
+        const M2Range& r = interpolation_ranges[timeline];
+        const std::size_t first = std::min<std::size_t>(r.minimum, timestamps.size());
+        const std::size_t end =
+          std::min<std::size_t>(std::size_t{r.maximum} + 1, timestamps.size());
+        return std::pair<std::size_t, std::size_t>{first, end < first ? 0 : end - first};
+      }
+
+    public:
       bool operator==(const M2TrackBase&) const = default;
     };
 
@@ -233,7 +452,7 @@ namespace wowlib::formats::m2::root::record
     struct [[
       =welder::weld,
       =welder::doc("A timestamp-only event track, WotLK+ layout (every key fires).")
-    ]] M2TrackBase<V>
+    ]] M2TrackBase<V> : M2EventTrackBase
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear (keys fire, no value to "
                      "interpolate).")]]
@@ -248,6 +467,39 @@ namespace wowlib::formats::m2::root::record
                      "sequence keeps its arrays in the .anim file).")]]
       std::vector<std::vector<std::uint32_t>> timestamps;
 
+      // The version-agnostic TIMELINE surface (see M2Track): the event
+      // track's timestamps only, over the native per-sequence arrays.
+
+      [[=welder::doc("The number of timelines this track carries: one per "
+                     "sequence (an external sequence's timeline is empty "
+                     "until its .anim data is loaded).")]]
+      std::size_t timeline_count() const { return timestamps.size(); }
+
+      [[nodiscard]]
+      [[=welder::doc("The number of trigger keys on one timeline."),
+        =welder::returns("the key count; errors when timeline is out of range")]]
+      Result<std::size_t> key_count(std::size_t timeline
+                                    [[=welder::doc("the timeline index")]]) const
+      {
+        if (timeline >= timestamps.size())
+          return make_error(ErrorCode::InvalidEntityState,
+                            std::format("timeline {} out of range ({} timelines)",
+                                        timeline, timestamps.size()));
+        return timestamps[timeline].size();
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("One timeline's trigger timestamps, as a copy."),
+        =welder::returns("the timestamps; errors when timeline is out of range")]]
+      Result<std::vector<std::uint32_t>> timeline_timestamps(
+        std::size_t timeline [[=welder::doc("the timeline index")]]) const
+      {
+        if (timeline >= timestamps.size())
+          return make_error(ErrorCode::InvalidEntityState,
+                            std::format("timeline {} out of range ({} timelines)",
+                                        timeline, timestamps.size()));
+        return timestamps[timeline];
+      }
       bool operator==(const M2TrackBase&) const = default;
     };
   }
