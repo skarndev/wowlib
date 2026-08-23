@@ -16,6 +16,7 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/common/validation.hpp>
@@ -24,6 +25,40 @@
 
 namespace wowlib::formats::m2::skin
 {
+  /** The version-agnostic base of every M2SkinSection<V> (welded as "M2SkinSection").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2SkinSection"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One renderable geometry section (submesh). Abstract over the client version; construct a concrete
+        version with M2SkinSection.ForVersion / for_version.)")
+  ]] M2SkinSectionBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2SkinSectionBase&) const = default;
+  };
+
+  /** The version-agnostic base of every M2SkinProfile<V> (welded as "M2SkinProfile").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2SkinProfile"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One skin profile (a whole LOD's sections and batches). Abstract over the client version; construct a concrete
+        version with M2SkinProfile.ForVersion / for_version.)")
+  ]] M2SkinProfileBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2SkinProfileBase&) const = default;
+  };
+
 namespace detail
   {
     // The annotated era layouts; instantiate through the canonicalizing
@@ -36,7 +71,7 @@ namespace detail
     struct [[
       =welder::weld,
       =welder::doc("A skin submesh, vanilla layout (no sort data yet).")
-    ]] M2SkinSection<V>
+    ]] M2SkinSection<V> : M2SkinSectionBase
     {
       [[=welder::doc("Mesh part (geoset) id.")]]
       std::uint16_t skin_section_id = 0;
@@ -69,7 +104,7 @@ namespace detail
     struct [[
       =welder::weld,
       =welder::doc("A skin submesh (TBC+): adds the sort center and radius.")
-    ]] M2SkinSection<V>
+    ]] M2SkinSection<V> : M2SkinSectionBase
     {
       [[=welder::doc("Mesh part (geoset) id.")]]
       std::uint16_t skin_section_id = 0;
@@ -184,7 +219,7 @@ namespace detail
       =welder::doc("One LOD view: local vertex/bone lookups into the model, submeshes and "
                    "render batches; embedded in the model pre-WotLK, an own .skin file "
                    "after.")
-    ]] M2SkinProfile
+    ]] M2SkinProfile : M2SkinProfileBase
     {
       [[=welder::doc("Local -> global vertex lookup.")]]
       std::vector<std::uint16_t> vertices;

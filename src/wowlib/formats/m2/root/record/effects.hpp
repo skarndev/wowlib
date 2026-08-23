@@ -13,6 +13,7 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/m2/boundaries.hpp>
@@ -20,6 +21,40 @@
 
 namespace wowlib::formats::m2::root::record
 {
+  /** The version-agnostic base of every M2Ribbon<V> (welded as "M2Ribbon").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2Ribbon"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One ribbon emitter. Abstract over the client version; construct a concrete
+        version with M2Ribbon.ForVersion / for_version.)")
+  ]] M2RibbonBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2RibbonBase&) const = default;
+  };
+
+  /** The version-agnostic base of every M2Particle<V> (welded as "M2Particle").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2Particle"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        One particle emitter. Abstract over the client version; construct a concrete
+        version with M2Particle.ForVersion / for_version.)")
+  ]] M2ParticleBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2ParticleBase&) const = default;
+  };
+
 namespace detail
   {
     // The annotated era layouts; instantiate through the canonicalizing
@@ -29,7 +64,7 @@ namespace detail
       =welder::weld,
       =welder::doc("A ribbon (trail) emitter; the priority/color-index tail exists "
                    "WotLK+.")
-    ]] M2Ribbon
+    ]] M2Ribbon : M2RibbonBase
     {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t ribbon_id = 0xFFFFFFFF;
@@ -119,7 +154,7 @@ namespace detail
       =welder::weld,
       =welder::doc("A particle emitter, vanilla layout: wide u16 blending/emitter header, "
                    "static color/scale/UV ramps, a single spin value.")
-    ]] M2Particle<V>
+    ]] M2Particle<V> : M2ParticleBase
     {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;
@@ -232,7 +267,7 @@ namespace detail
       =welder::weld,
       =welder::doc("A particle emitter, TBC layout: byte-packed blending/emitter beside "
                    "the ParticleColor.dbc index; ramps still static.")
-    ]] M2Particle<V>
+    ]] M2Particle<V> : M2ParticleBase
     {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;
@@ -347,7 +382,7 @@ namespace detail
       =welder::weld,
       =welder::doc("A particle emitter, WotLK-era layout (476 bytes): FBlock ramps, "
                    "lifespan/emission variation, four spin fields.")
-    ]] M2Particle<V>
+    ]] M2Particle<V> : M2ParticleBase
     {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;
@@ -469,7 +504,7 @@ namespace detail
       =welder::weld,
       =welder::doc("A particle emitter (Cata+, 492 bytes): multi-textured — packed "
                    "texture ids, multiTexScale, trailing scroll parameters.")
-    ]] M2Particle<V>
+    ]] M2Particle<V> : M2ParticleBase
     {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;

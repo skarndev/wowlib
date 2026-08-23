@@ -24,6 +24,19 @@ namespace wowlib_cs
     using W = ::welder::welder<wcs::rod, wcs::dotnet>;
     auto m0 = wcs::rod::at(doc, "Formats.M2.Root.Record");
 
+    // The M2Track value families' BASES (alias-welded — templates are
+    // invisible to the namespace walk), named as the families ARE:
+    namespace rec = ::wowlib::formats::m2::root::record;
+    W::weld_type<^^rec::M2TrackC3VectorFam>(m0, "M2TrackC3Vector");
+    W::weld_type<^^rec::M2TrackC4QuaternionFam>(m0, "M2TrackC4Quaternion");
+    W::weld_type<^^rec::M2TrackCompQuatFam>(m0, "M2TrackCompQuat");
+    W::weld_type<^^rec::M2TrackFloatFam>(m0, "M2TrackFloat");
+    W::weld_type<^^rec::M2TrackFixed16Fam>(m0, "M2TrackFixed16");
+    W::weld_type<^^rec::M2TrackUInt8Fam>(m0, "M2TrackUInt8");
+    W::weld_type<^^rec::M2TrackUInt16Fam>(m0, "M2TrackUInt16");
+    W::weld_type<^^rec::M2TrackSplineC3VectorFam>(m0, "M2TrackSplineC3Vector");
+    W::weld_type<^^rec::M2TrackSplineFloatFam>(m0, "M2TrackSplineFloat");
+
     // The version-INDEPENDENT payload aliases the track types reference
     // (declared standalone in m2_ranges.hpp, outside the X-macro tables —
     // the old single-TU walk welded them through its alias branch).

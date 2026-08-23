@@ -98,6 +98,20 @@
 // comes last.
 namespace wowlib::formats::m2::root::record
 {
+  // The version-agnostic BASES of the M2Track VALUE families: one
+  // M2TrackFamilyBase<T> per value type, alias-welded (gen_m2.cpp) under the
+  // family name so each per-value family gets its common supertype — the
+  // non-template record bases weld through the namespace walk instead.
+  using M2TrackC3VectorFam = M2TrackFamilyBase<C3Vector>;
+  using M2TrackC4QuaternionFam = M2TrackFamilyBase<C4Quaternion>;
+  using M2TrackCompQuatFam = M2TrackFamilyBase<M2CompQuat>;
+  using M2TrackFloatFam = M2TrackFamilyBase<float>;
+  using M2TrackFixed16Fam = M2TrackFamilyBase<fixed16>;
+  using M2TrackUInt8Fam = M2TrackFamilyBase<std::uint8_t>;
+  using M2TrackUInt16Fam = M2TrackFamilyBase<std::uint16_t>;
+  using M2TrackSplineC3VectorFam = M2TrackFamilyBase<M2SplineKey<C3Vector>>;
+  using M2TrackSplineFloatFam = M2TrackFamilyBase<M2SplineKey<float>>;
+
   // element/ramp types with no version axis, named once
   using M2SplineKeyC3Vector = M2SplineKey<C3Vector>;
   using M2SplineKeyFloat = M2SplineKey<float>;

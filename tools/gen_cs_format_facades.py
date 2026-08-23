@@ -99,6 +99,16 @@ BASED = {
     "WMO", "M2Root", "M2ChunkedFile",
     "Skin", "Skeleton", "M2", "ADT", "MapChunk", "WDTRoot", "WDTHeader",
     "WDTOcclusion", "WDTLights", "WDTFogs", "WDTParticulates", "WDT", "WDL",
+    # The M2 record families gained welded bases (feature/csharp-m2-record-
+    # bases) — user report: reading root.Sequences.Count through the base
+    # needed a per-era switch. Every family is BASED now.
+    "M2TrackC3Vector", "M2TrackC4Quaternion", "M2TrackCompQuat",
+    "M2TrackFloat", "M2TrackFixed16", "M2TrackUInt8", "M2TrackUInt16",
+    "M2TrackSplineC3Vector", "M2TrackSplineFloat", "M2EventTrack",
+    "M2Color", "M2TextureWeight", "M2TextureFlipbook", "M2TextureTransform",
+    "M2Attachment", "M2Event", "M2Light", "M2Ribbon",
+    "M2Sequence", "M2CompBone", "M2Camera", "M2Particle",
+    "M2SkinSection", "M2SkinProfile",
 }
 
 

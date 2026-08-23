@@ -102,6 +102,33 @@ public class FamilySurfaceTests
     }
 
     [Fact]
+    public void RecordCountsReadThroughTheBase()
+    {
+        // The user-reported flaw: reading root.Sequences.Count needed a
+        // six-arm per-era switch, because the M2 record families welded
+        // standalone. They have bases now, so the collection members hoist
+        // as FamilyVector<RecordBase> — Count and element views included.
+        using var root = Formats.M2.Root.M2Root.ForVersion(Expansion.Wotlk);
+        Assert.Equal(0, root.Sequences.Count);
+        Assert.Equal(0, root.Bones.Count);
+        Assert.Equal(0, root.ParticleEmitters.Count);
+        Assert.Equal(0, root.Attachments.Count);
+
+        // Populated through the concrete, counted and read through the base.
+        var concrete =
+            Assert.IsAssignableFrom<Formats.M2.Root.M2RootWotlk>(root);
+        concrete.Sequences.Add(
+            new Formats.M2.Root.Record.M2SequenceWotlkToMop());
+        Assert.Equal(1, root.Sequences.Count);
+        Formats.M2.Root.Record.M2Sequence seq = root.Sequences[0];
+        Assert.NotNull(seq);
+        // The record family base has its own ForVersion now, like every base.
+        using var anySeq = Formats.M2.Root.Record.M2Sequence.ForVersion(
+            Expansion.Wotlk);
+        Assert.IsAssignableFrom<Formats.M2.Root.Record.M2Sequence>(anySeq);
+    }
+
+    [Fact]
     public unsafe void BlittableMirrorsCoverTheHotRecords()
     {
         // The renderer-profile fix: per-vertex records read in BULK — one

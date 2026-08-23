@@ -19,6 +19,7 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/core/lang.hpp>
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/common/types.hpp>
@@ -26,6 +27,40 @@
 
 namespace wowlib::formats::m2::root::record
 {
+  /** The version-agnostic base of every M2Track<T, V> VALUE FAMILY, one
+      base per value type T (welded per family as "M2TrackC3Vector", ... —
+      see the alias tables in bindings/instantiations/m2_ranges.hpp).
+      Bindings-only, like every *Base. */
+  template <typename T>
+  struct [[
+    =welder::weld,
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        An animation track family for one value type, abstract over the
+        client version; the per-version classes are subclasses.)")
+  ]] M2TrackFamilyBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2TrackFamilyBase&) const = default;
+  };
+
+  /** The version-agnostic base of every M2EventTrack<V> (welded as "M2EventTrack").
+      Bindings-only, like every *Base: it gives the per-version classes a
+      common welded supertype, so the family surface hoists their shared
+      members and containers of them carry a base-typed live view. */
+  struct [[
+    =welder::weld,
+    =welder::weld_as("M2EventTrack"),
+    WOWLIB_CS_FAMILY_SURFACE
+    =welder::doc(R"(
+        A timestamp-only event track (every key fires). Abstract over the client version; construct a concrete
+        version with M2EventTrack.ForVersion / for_version.)")
+  ]] M2EventTrackBase
+  {
+    // The concretes default operator== — the base must be comparable too.
+    bool operator==(const M2EventTrackBase&) const = default;
+  };
+
   struct [[
     =welder::weld,
     =welder::doc("An inclusive u32 range: pre-WotLK track interpolation "
@@ -145,7 +180,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("An animation track, pre-WotLK layout: one global timeline with "
                    "per-sequence interpolation ranges.")
-    ]] M2Track<T, V>
+    ]] M2Track<T, V> : M2TrackFamilyBase<T>
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear, 2 bezier, 3 hermite "
                      "(spline types only valid for spline-key tracks).")]]
@@ -175,7 +210,7 @@ namespace wowlib::formats::m2::root::record
       =welder::weld,
       =welder::doc("An animation track, WotLK+ layout: one timestamp/value array per "
                    "sequence; an external sequence keeps its arrays in the .anim file.")
-    ]] M2Track<T, V>
+    ]] M2Track<T, V> : M2TrackFamilyBase<T>
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear, 2 bezier, 3 hermite "
                      "(spline types only valid for spline-key tracks).")]]
@@ -209,7 +244,7 @@ namespace wowlib::formats::m2::root::record
     struct [[
       =welder::weld,
       =welder::doc("A timestamp-only event track, pre-WotLK layout (every key fires).")
-    ]] M2TrackBase<V>
+    ]] M2TrackBase<V> : M2EventTrackBase
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear (keys fire, no value to "
                      "interpolate).")]]
@@ -233,7 +268,7 @@ namespace wowlib::formats::m2::root::record
     struct [[
       =welder::weld,
       =welder::doc("A timestamp-only event track, WotLK+ layout (every key fires).")
-    ]] M2TrackBase<V>
+    ]] M2TrackBase<V> : M2EventTrackBase
     {
       [[=welder::doc("Interpolation: 0 none, 1 linear (keys fire, no value to "
                      "interpolate).")]]
