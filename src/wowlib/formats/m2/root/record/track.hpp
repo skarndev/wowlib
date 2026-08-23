@@ -15,6 +15,7 @@
     contexts. */
 
 #include <algorithm>
+#include <span>
 #include <cstdint>
 #include <format>
 #include <utility>
@@ -239,8 +240,8 @@ namespace wowlib::formats::m2::root::record
         std::size_t timeline [[=welder::doc("the timeline index")]]) const
       {
         return timeline_slice(timeline).transform([this](auto s) {
-          return std::vector<std::uint32_t>(timestamps.begin() + s.first,
-                                            timestamps.begin() + s.first + s.second);
+          const auto window = std::span(timestamps).subspan(s.first, s.second);
+          return std::vector<std::uint32_t>(window.begin(), window.end());
         });
       }
 
@@ -253,8 +254,8 @@ namespace wowlib::formats::m2::root::record
         return timeline_slice(timeline).transform([this](auto s) {
           const std::size_t max_first = std::min(s.first, values.size());
           const std::size_t count = std::min(s.second, values.size() - max_first);
-          return std::vector<T>(values.begin() + max_first,
-                                values.begin() + max_first + count);
+          const auto window = std::span(values).subspan(max_first, count);
+          return std::vector<T>(window.begin(), window.end());
         });
       }
 
@@ -417,8 +418,8 @@ namespace wowlib::formats::m2::root::record
         std::size_t timeline [[=welder::doc("the timeline index")]]) const
       {
         return timeline_slice(timeline).transform([this](auto s) {
-          return std::vector<std::uint32_t>(timestamps.begin() + s.first,
-                                            timestamps.begin() + s.first + s.second);
+          const auto window = std::span(timestamps).subspan(s.first, s.second);
+          return std::vector<std::uint32_t>(window.begin(), window.end());
         });
       }
 
