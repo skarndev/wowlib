@@ -129,6 +129,59 @@ public class FamilySurfaceTests
     }
 
     [Fact]
+    public void TrackTimelinesAreVersionAgnostic()
+    {
+        // The canonical key surface: the two track layouts (global timeline
+        // + ranges pre-WotLK vs per-sequence arrays WotLK+) answer the SAME
+        // hoisted accessors, so version-agnostic code never branches.
+        using var pre = Formats.M2.Root.Record.M2TrackC3Vector.ForVersion(
+            Expansion.Tbc);
+        var preC = Assert.IsAssignableFrom<
+            Formats.M2.Root.Record.M2TrackC3VectorVanillaToTbc>(pre);
+        preC.Timestamps.Add(0); preC.Timestamps.Add(10);
+        preC.Timestamps.Add(20); preC.Timestamps.Add(30);
+        for (int i = 0; i < 4; i++)
+            using (var v = new Formats.Common.C3Vector())
+                preC.Values.Add(v);
+        using (var r0 = new Formats.M2.Root.Record.M2Range())
+        using (var r1 = new Formats.M2.Root.Record.M2Range())
+        {
+            r0.Minimum = 0; r0.Maximum = 1;
+            r1.Minimum = 2; r1.Maximum = 3;
+            preC.InterpolationRanges.Add(r0);
+            preC.InterpolationRanges.Add(r1);
+        }
+
+        using var post = Formats.M2.Root.Record.M2TrackC3Vector.ForVersion(
+            Expansion.Wotlk);
+        var postC = Assert.IsAssignableFrom<
+            Formats.M2.Root.Record.M2TrackC3VectorWotlkPlus>(post);
+        postC.Timestamps.Add(new uint[] { 20, 30 });
+
+        // One loop over BASE-typed tracks spanning both eras:
+        foreach (var track in new[] { pre, post })
+        {
+            Assert.True(track.TimelineCount() >= 1);
+            var last = track.TimelineCount() - 1;
+            Assert.Equal(2UL, track.KeyCount(last));
+            var times = track.TimelineTimestamps(last);
+            Assert.Equal(new uint[] { 20, 30 }, times);
+        }
+        // Out-of-range errors uniformly (the Result error channel).
+        Assert.ThrowsAny<System.Exception>(() => pre.KeyCount(99));
+
+        // IAnimTimeline: ONE interface over every track family and era —
+        // the timing trio dispatches through the family surface.
+        using var evt = Formats.M2.Root.Record.M2EventTrack.ForVersion(
+            Expansion.Wotlk);
+        var timelines = new Formats.M2.Root.Record.IAnimTimeline[] { pre, post, evt };
+        foreach (var tl in timelines)
+            for (ulong s = 0; s < tl.TimelineCount(); s++)
+                Assert.Equal((int)tl.KeyCount(s),
+                             tl.TimelineTimestamps(s).Length);
+    }
+
+    [Fact]
     public unsafe void BlittableMirrorsCoverTheHotRecords()
     {
         // The renderer-profile fix: per-vertex records read in BULK — one

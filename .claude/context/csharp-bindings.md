@@ -1,5 +1,25 @@
 # C#/.NET bindings (welder-csharp rod)
 
+## 2026-08-23 (later): track TIMELINE surface + the M2Track<T> generics decline
+
+- **Canonical track accessors** (C++, welded → all languages):
+  timeline_count / key_count / timeline_timestamps / timeline_values on
+  BOTH M2Track layouts + both event-track layouts (values-less). Pre-WotLK
+  slices the global timeline by interpolation_ranges (M2Range
+  minimum/maximum INCLUSIVE, clamped; global-sequence or rangeless track =
+  single timeline 0); WotLK+ indexes the per-sequence arrays (external
+  .anim sequences are empty until loaded). Result<> error on out-of-range
+  (InvalidEntityState). Identical signatures per family → the family
+  surface hoists them onto M2TrackC3Vector etc. — version-agnostic in C#
+  through the base, duck-typed in Python/Lua. Accessors COPY; hot loops
+  still branch once on the two range classes for spans.
+- **M2Track<C3Vector> C# generics: declined.** The wrapper machinery
+  (per-class handles/thunks/erased offsets) is per-native-class; a generic
+  entity wrapper would need entity-level ops tables — the container trick
+  at entity scale — for a purely cosmetic rename of M2TrackC3Vector, whose
+  BASE is what users hold anyway now that the timeline surface hoists.
+  C# also cannot alias generics (using aliases take no type params).
+
 ## 2026-08-23: M2 record family bases (user feedback round 3)
 
 - **User report 1** ("AsSpan() requires a scalar or enum element type" on a

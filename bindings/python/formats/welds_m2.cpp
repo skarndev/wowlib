@@ -62,6 +62,21 @@ namespace wowlib_py::formats
     // The version-INDEPENDENT payload aliases (declared standalone in the
     // ranges header, outside the X-macro tables).
     namespace rec = ::wowlib::formats::m2::root::record;
+
+    // The M2Track VALUE families' version-agnostic BASES: class-template
+    // instantiations, invisible to the module walk that registers every
+    // plain *Base — weld them here, BEFORE the per-era concretes that
+    // derive them (nanobind requires a base registered first; missing one
+    // is a critical error at import, which is how their absence surfaced).
+    W::weld_type<rec::M2TrackC3VectorFam>(m0, "M2TrackC3Vector");
+    W::weld_type<rec::M2TrackC4QuaternionFam>(m0, "M2TrackC4Quaternion");
+    W::weld_type<rec::M2TrackCompQuatFam>(m0, "M2TrackCompQuat");
+    W::weld_type<rec::M2TrackFloatFam>(m0, "M2TrackFloat");
+    W::weld_type<rec::M2TrackFixed16Fam>(m0, "M2TrackFixed16");
+    W::weld_type<rec::M2TrackUInt8Fam>(m0, "M2TrackUInt8");
+    W::weld_type<rec::M2TrackUInt16Fam>(m0, "M2TrackUInt16");
+    W::weld_type<rec::M2TrackSplineC3VectorFam>(m0, "M2TrackSplineC3Vector");
+    W::weld_type<rec::M2TrackSplineFloatFam>(m0, "M2TrackSplineFloat");
     W::weld_type<rec::M2SplineKeyC3Vector>(m0, "M2SplineKeyC3Vector");
     W::weld_type<rec::M2SplineKeyFloat>(m0, "M2SplineKeyFloat");
     W::weld_type<rec::FBlockC3Vector>(m0, "FBlockC3Vector");
