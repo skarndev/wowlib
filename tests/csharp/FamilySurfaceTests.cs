@@ -120,6 +120,25 @@ public class FamilySurfaceTests
     }
 
     [Fact]
+    public void ScalarSpanIsCompileTimeGated()
+    {
+        // AsSpan() is a `where T : unmanaged` EXTENSION now: a scalar vector
+        // still spans zero-copy, while a record/nested-element call (the old
+        // "requires scalar" runtime throw, e.g. chunk.AlphaMaps.AsSpan())
+        // no longer compiles at all.
+        using var nums = new Vector<uint> { };
+        nums.Add(3); nums.Add(5);
+        var span = nums.AsSpan();
+        span[1] = 7;
+        Assert.Equal(7u, nums[1]);
+        // The non-generic instance method is gone — nothing for misuse to
+        // bind to (AsSpan<TData>() remains, with its runtime size gate).
+        Assert.DoesNotContain(
+            typeof(Vector<Formats.ADT.Chunks.McnrEntry>).GetMethods(),
+            m => m.Name == "AsSpan" && !m.IsGenericMethod);
+    }
+
+    [Fact]
     public void BareBaseInstanceThrowsFromTheDispatchDefaultArm()
     {
         using var bare = new Formats.WMO.WMO();
