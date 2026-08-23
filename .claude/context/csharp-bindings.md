@@ -352,3 +352,19 @@ cmake --build build/csharp --target wowlib_cs
   files default to `net8.0`; with only the .NET 10 runtime installed a
   `net8.0` app fails to launch — target `net10.0` (or install the 8.0
   runtime).
+
+## AsSpan is compile-time gated (welder-csharp PR #7 / wowlib PR #7)
+
+- Non-generic `AsSpan()` on `Vector<T>`/`FixedArray<T>` is a
+  `where T : unmanaged` EXTENSION (`WelderSpanExtensions`), not an instance
+  method — an instance method cannot constrain the class's own T. Record and
+  nested-container elements get a compile error (the old "requires scalar"
+  runtime throw is gone); the body survives as `internal ScalarSpan()` for
+  the indexer/`ToArray()` fast paths.
+- `unmanaged` is exactly the bound scalar/enum set: every other bound element
+  type is a managed wrapper class.
+- `AsSpan<TData>()` stays an instance method with its runtime size gate
+  (size equality is not expressible in the type system); `AsDataSpan()` is
+  the safe spelling. Instance-vs-extension overload resolution is safe: with
+  no type args the generic instance method is never applicable.
+- Binary-breaking (instance -> extension): flag in the next release notes.
