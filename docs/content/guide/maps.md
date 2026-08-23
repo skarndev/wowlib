@@ -207,3 +207,9 @@ The same applies to any scalar vector (`Indices`, `Heights`, …) through the
 non-generic `AsSpan()`. Both spans are zero-copy views of C++ memory — valid
 until a size-changing operation or `Dispose`, and writable (edits land
 directly in the entity).
+
+`AsSpan()` only *exists* for scalar/enum elements (it is a
+`where T : unmanaged` extension), so calling it on a record- or
+nested-container-element vector is a **compile error**, not a runtime throw
+— `chunk.AlphaMaps` is a vector of per-layer buffers, so index a layer
+first: `chunk.AlphaMaps[i].AsSpan()`.
