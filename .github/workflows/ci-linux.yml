@@ -186,19 +186,19 @@ jobs:
 
       # Static libstdc++/libgcc + no RUNPATH: the module must import anywhere,
       # including the audit box (ci-audit downloads this artifact instead of
-      # building its own). KNOWN GAP: the extension is a MODULE library, so
-      # CMAKE_SHARED_LINKER_FLAGS never reaches its link line and libstdc++
-      # stays dynamic (release.yml passes CMAKE_MODULE_LINKER_FLAGS too, which
-      # is why wheels pass auditwheel). The box instead keeps a libstdc++
-      # runtime >= the Homebrew toolchain used here (Debian sid gcc-16 debs;
-      # see .claude/context/ci-server-notes.md) — a Homebrew gcc bump that
-      # adds a new GLIBCXX version breaks the nightly audit until the box
-      # runtime is bumped to match (exactly what 16.1->16.2 did, 2026-08-22).
+      # building its own), independent of whatever C++ runtime that machine
+      # carries. The MODULE flags are the ones that matter: the nanobind
+      # extension is a MODULE library, which never sees
+      # CMAKE_SHARED_LINKER_FLAGS — passing only the SHARED flags left
+      # libstdc++ dynamic for months, and the Homebrew 16.1->16.2 bump
+      # (new GLIBCXX_3.4.36) then broke the audit import (2026-08-22).
+      # release.yml has always passed both; auditwheel was its safety net.
       - name: Configure
         run: >-
           cmake --preset gcc16-bindings-release
           -DWOWLIB_WERROR=ON
           -DPython_EXECUTABLE=$PWD/.venv/bin/python
+          -DCMAKE_MODULE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
           -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
 
       - name: Build extension + stubs
@@ -208,6 +208,16 @@ jobs:
         run: |
           sudo apt-get install -y patchelf
           patchelf --remove-rpath build/release/bindings/python/wowlib.abi3.so
+          # Hard gate (mirrors release.yml's wheel check): the GNU C++
+          # runtime must be linked in, not a NEEDED dep — a dynamic
+          # libstdc++ is exactly what broke the audit box on the Homebrew
+          # 16.1->16.2 bump.
+          if readelf -d build/release/bindings/python/wowlib.abi3.so \
+              | grep -qiE 'libstdc\+\+|libgcc_s'; then
+            echo '::error::wowlib.abi3.so links the GNU C++ runtime dynamically'
+            readelf -d build/release/bindings/python/wowlib.abi3.so | grep NEEDED
+            exit 1
+          fi
 
       # Runs AFTER patchelf and BEFORE the upload, so what is exercised is the
       # exact artifact that ships (ci-audit consumes it) and a broken module is
@@ -220,15 +230,11 @@ jobs:
       - name: Python binding tests
         run: |
           uv pip install pytest pytest-mypy-testing mypy
-          # The module resolves libstdc++ dynamically (see the Configure
-          # comment: MODULE vs SHARED linker flags) and needs a GLIBCXX newer
-          # than the runner's system copy — so importing it here fails where
-          # the audit box (matching runtime installed) succeeds. Point the
-          # loader at the toolchain that built it. NOTE this makes the
-          # artifact's portability claim untested: it is a real gap, not a
-          # test-only quirk.
-          export LD_LIBRARY_PATH="$(dirname "$(find "$(brew --prefix gcc)/lib" \
-            -name libstdc++.so.6 | head -1)"):${LD_LIBRARY_PATH:-}"
+          # Deliberately NO LD_LIBRARY_PATH here: the runner's system
+          # libstdc++ predates the Homebrew toolchain's, so a module that
+          # still linked the C++ runtime dynamically could not import — this
+          # run doubles as a live portability gate on the exact artifact
+          # that ships (on top of the readelf check above).
           PYTHONPATH=$PWD/build/release/bindings/python \
           MYPYPATH=$PWD/build/release/bindings/python/stubs \
           .venv/bin/python -m pytest tests/python -q

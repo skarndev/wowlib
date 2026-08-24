@@ -14,9 +14,12 @@
   libstdc++6, libgomp1, sanitizers, ...) replaced with Debian sid's 16.2.0-1
   (resolute has no newer; the toolchain PPA carries only LLVM for resolute).
   cmake/ninja stay from apt; python3 stays needed for dbdgen tests. The box
-  only ever executes hosted-built artifacts. RULE: whenever Homebrew gcc bumps
-  on the hosted runners, the box's libstdc++6 must be bumped to match (same
-  Debian-sid deb route) or the audit goes red on import.
+  only ever executes hosted-built artifacts. Later that same day the bindings
+  module became genuinely static (ci-linux now passes
+  CMAKE_MODULE_LINKER_FLAGS — the flags a MODULE library actually reads —
+  gated by readelf + an LD_LIBRARY_PATH-free pytest import), so the audit no
+  longer depends on the box's C++ runtime at all. If the box ever needs a
+  newer libstdc++ again, the Debian-sid deb route above is the recipe.
 - Torrent box: transmission-daemon seeds the client downloads from
   `/var/lib/transmission-daemon/downloads`.
 
