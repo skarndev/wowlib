@@ -260,16 +260,12 @@ gating exists to prevent.
 
 - **No sdist is published.** It would not build for anyone without gcc-16, so
   it would be provenance only.
-- **No Intel macOS artifacts** (dropped in 0.0.1).
-  `cmake/DarwinAtomProbe.cmake` — the configure gate for the gcc-16 Mach-O
-  literal-atom miscompile (GCC PR 126723) — is hand-written **aarch64**
-  assembly (`adrp`/`@PAGE`/`@PAGEOFF`) and does not assemble on x86_64, so the
-  leg cannot configure. The probe must be PORTED, never skipped: the bug hits
-  x86_64 too (confirmed under Rosetta), so an unguarded Intel wheel could
-  corrupt string data silently. To restore, add an x86_64 probe variant
-  (`leaq L.str.N(%rip)` in place of the adrp pair), arch-select it in the
-  probe, then re-add `macos-26-intel` to both matrices and `osx-x64` to the
-  NuGet project + its verification list.
+- **No Intel macOS artifacts** (dropped in 0.0.1). Was blocked on the
+  aarch64-only atom-miscompile probe; since 2026-08-24 the probe and shim are
+  gone (PR 126723 fixed in gcc 16.2; CompilerSettings.cmake refuses Darwin
+  gcc < 16.2 instead — see deps-build-notes). Restoring the leg is now just
+  re-adding `macos-26-intel` to both matrices and `osx-x64` to the NuGet
+  project + its verification list.
 - **No Linux arm64 / musl wheels.**
 - **Nothing verifies the published artifacts** after upload (no install-from-
   PyPI check).

@@ -39,20 +39,21 @@ endif()
 # the wowlib target (welder itself checks but does not propagate it).
 set(WOWLIB_REFLECTION_FLAGS -freflection)
 
-# gcc-16 on Apple Silicon breaks the Mach-O atom model: string literals carry
-# assembler-temporary labels (L.str.N), which do not open an atom, so they get
-# folded into the preceding one. When that atom is a coalescable weak symbol
-# (the std::span __v<N> blobs reflection materializes in every TU that includes
-# wowlib headers), ld's weak coalescing shifts the literals — libstdc++'s
-# to_chars digit table came back NUL-riddled. The as shim renames L.str.* to
-# linker-private l.str.* so each literal keeps its own atom. Propagated with the
-# reflection flag: every TU compiling wowlib headers is exposed. See
-# cmake/darwin-as-shim/as for the full write-up.
-if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  list(APPEND WOWLIB_REFLECTION_FLAGS -B${CMAKE_CURRENT_LIST_DIR}/darwin-as-shim)
-
-  # The corruption is silent, so never assume the shim took effect — build and
-  # run a reproducer and assert it did.
-  include(${CMAKE_CURRENT_LIST_DIR}/DarwinAtomProbe.cmake)
-  wowlib_verify_darwin_atom_workaround(WOWLIB_REFLECTION_FLAGS)
+# gcc 16.1 on Darwin miscompiles string literals (GCC PR 126723): they carry
+# assembler-temporary L.str.N labels, which do not open a Mach-O atom, so a
+# literal after a coalescable weak symbol (the std::span __v<N> blobs
+# reflection materializes in every TU including wowlib headers) silently
+# resolves into whichever TU wins ld's weak coalescing — libstdc++'s to_chars
+# digit table came back NUL-riddled. The corruption has NO diagnostic. Fixed
+# in gcc 16.2 (the Darwin branch Homebrew ships makes all string labels
+# linker-visible l.str.*; upstream r17-3243), so refuse the broken compiler
+# instead of shimming around it. History of the as-shim workaround this
+# replaced: git log -- cmake/darwin-as-shim.
+if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+   AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.2)
+  message(FATAL_ERROR
+    "gcc ${CMAKE_CXX_COMPILER_VERSION} on Darwin silently corrupts string "
+    "literals next to weak definitions (GCC PR 126723) — wowlib's reflection "
+    "headers hit this in every TU. Build with gcc >= 16.2 "
+    "(brew upgrade gcc).")
 endif()

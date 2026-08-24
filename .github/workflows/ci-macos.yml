@@ -18,11 +18,11 @@ concurrency:
 
 jobs:
   macos:
-    # Apple Silicon (arm64) — mirrors the reference development platform. The
-    # gcc-16 Mach-O literal-atom workaround (cmake/darwin-as-shim) is applied
-    # automatically by CompilerSettings.cmake. Release only: it is what ships,
-    # and the Debug configuration adds nothing here worth a second 75-min job
-    # (see ci-linux.yml).
+    # Apple Silicon (arm64) — mirrors the reference development platform.
+    # Requires Homebrew gcc >= 16.2: 16.1 miscompiled Darwin string literals
+    # (GCC PR 126723) and CompilerSettings.cmake hard-fails it at configure.
+    # Release only: it is what ships, and the Debug configuration adds nothing
+    # here worth a second 75-min job (see ci-linux.yml).
     runs-on: macos-latest
     timeout-minutes: 150
     strategy:

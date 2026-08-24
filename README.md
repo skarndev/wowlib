@@ -115,8 +115,11 @@ dotnet add package Wowlib        # C#/.NET
 unrelated, long-abandoned project; the module you import is `wowlib`.)
 
 Building from source requires **gcc ≥ 16** (currently the only toolchain
-implementing C++26 reflection). All dependencies are fetched by CMake — no
-manual installs.
+implementing C++26 reflection); on **macOS specifically, gcc ≥ 16.2** — 16.1's
+Darwin port silently corrupts string literals placed after weak definitions
+([GCC PR 126723](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126723)), which
+reflection-heavy code hits constantly, and the configure refuses it. All
+dependencies are fetched by CMake — no manual installs.
 
 ```bash
 # C++ library + tests

@@ -13,88 +13,33 @@ errors.
   `WOWLIB_TEST_CLIENTS_DIR=/Users/skarn/WoWModding/Clients` and
   `WOWLIB_TEST_LISTFILE=/Users/skarn/WoWModding/Listfiles/community-listfile.csv`.
 
-### The macOS `as` shim (`cmake/darwin-as-shim/`)
-gcc's Darwin port names string literals with assembler-**temporary** labels
-(`L.str.N`). Under `.subsections_via_symbols` a temporary label does not open a
-Mach-O atom, so the literal is absorbed into the atom of the preceding real
-symbol. When that symbol is coalescable — the `std::span<char>::__v<N>` blobs
-reflection materializes in *every* TU including a wowlib header — `ld` keeps one
-TU's atom and drops the rest, and every literal that rode along resolves into the
-survivor at the same offset. It surfaced as `std::format("{:016x}")` returning
-NUL-riddled hex (libstdc++'s digit table sat at `__v<256>+4`), which broke CASC
-opens. Clang is immune: it names literals `l_.str`, the lowercase-l
-*linker-private* class, which opens an atom yet is still stripped from the final
-image. gcc already does this for FP constants (`lCN`) — strings are the gap.
+### The gcc Darwin string-literal miscompile (GCC PR 126723) — RESOLVED 2026-08-24
+gcc 16.1's Darwin port named string literals with assembler-temporary `L.str.N`
+labels (regression from r16-2939, the asan-strings patch — `for_asan` got the
+safe lowercase `l`, plain builds the broken `L`). Under
+`.subsections_via_symbols` such a label opens no Mach-O atom, so a literal in a
+regular section (`__TEXT,__const`, e.g. libstdc++'s to_chars digit table — NOT
+`__cstring`, which ld coalesces by content) after a coalescable weak symbol
+(the `std::span __v<N>` blobs reflection materializes in every wowlib TU) rode
+the weak atom and silently resolved into whichever TU won coalescing:
+`std::format("{:016x}")` returned NUL-riddled hex, breaking CASC opens. Both
+arches were affected (the rename lives in arch-shared `darwin.cc`).
 
-- The shim renames `L.str.*` → `l.str.*` and nothing else. Do **not** widen it:
-  `-Wa,-L` (promote every temporary label) also promotes local branch targets,
-  and aarch64 cannot relocate a conditional branch against an external symbol, so
-  real code stops assembling. `L.str.*` is the only temporary-label class
-  anchoring data in a coalescable section — EH/CFI labels live in `__eh_frame` /
-  `GCC_except_table`, handled separately by the linker.
-- Attached via `-B` on `WOWLIB_REFLECTION_FLAGS`, so it propagates PUBLIC with
-  `-freflection`; consumers (wrender) inherit it automatically.
-- The bug is **runtime-silent**, so `cmake/DarwinAtomProbe.cmake` builds and runs
-  a two-TU reproducer at configure time and hard-fails if the workaround is not
-  in effect. It also reports when the bug stops reproducing *without* the shim,
-  which is the signal that the shim may finally be removable.
-- Landmines the probe exists to catch (all were real): `-pipe` makes gcc feed
-  assembly on stdin with no file to rewrite; a dropped or reordered `-B` falls
-  back to `/usr/bin/as`. Either brings the corruption back with no diagnostic.
-- **Exposure is narrower than "any `L.str`".** `__TEXT,__cstring` is a *literal*
-  section — ld coalesces it by content and never atomizes it by symbol — so
-  literals landing there are safe even unshimmed. Only literals gcc puts in a
-  *regular* section (`__TEXT,__const`, e.g. libstdc++'s to_chars digit table)
-  can ride a weak atom. This is why the third-party targets that do not inherit
-  `-freflection` (imgui, Tracy, CascLib, StormLib) are currently fine: measured
-  2026-08-07, all 5975 of their `L.str` symbols are in `__cstring`, none in
-  `__const`. That is a property of what those TUs happen to instantiate, not a
-  guarantee — a dep that starts using `<format>`/`<charconv>` would become
-  exposed silently. Mixing shimmed and unshimmed TUs in one link is *not* safe
-  in general (verified: an unshimmed TU is still corrupted when a shimmed TU
-  wins coalescing), so if that ever changes, apply the `-B` flag globally
-  instead of hanging it off `-freflection`.
-- Upstream: a **GCC 16 regression** from r16-2939-g4db9571488eb (`for_asan ?
-  'l' : 'L'` in `darwin_encode_section_info`); GCC ≤ 15 is unaffected. As of
-  2026-08 it is unreported on GCC Bugzilla and unfixed on trunk, and no command
-  line option changes the prefix. Worth filing — the fix is to always use `'l'`.
-  **The polarity is the opposite of the commit title** ("…when asan is
-  enabled"): `for_asan` takes the *safe* lowercase `l`, so plain builds are the
-  broken ones and an asan build is accidentally correct (verified on 16.1.0:
-  `-O2` → `L.str.0`, `-O2 -fsanitize=address` → `l.str.0`). asan is not a
-  workaround anyway — it moves literals to `__TEXT,__asan_cstring` wholesale.
-- Filed 2026-08-07 as **GCC PR 126723** (target, wrong-code/ABI, WAITING). Drea
-  Pinski asked (a) to mirror it to iains/gcc-darwin-arm64 since aarch64-darwin
-  is not upstream and (b) whether x86_64-darwin is affected. **It is** —
-  verified 2026-08-08: the renaming lives in target-shared
-  `gcc/config/darwin.cc:darwin_encode_section_info` with no arch conditional,
-  and `gcc/config/i386/darwin.h:185` wires it in via
-  `SUBTARGET_ENCODE_SECTION_INFO`; r16-2939 touched only shared Darwin files
-  and `releases/gcc-15` has no such block. The ld64 half reproduces identically
-  in x86_64 asm (`leaq L.str.900(%rip)` → `otool -rv` shows the reloc against
-  `_wk`, extern SIGNED; lowercase `l.str.*` relocates against the literal and
-  fixes it). Not yet shown: `-S` output from a real x86_64-darwin gcc-16 host —
-  we only have Apple Silicon.
-- Reproducer POC built 2026-08-09 for Iain Sandoe (attachment + comment drafted;
-  Bugzilla is behind Anubis so posting is manual). Two new facts came out of it:
-  - **It reproduces from plain C++ source**, no libstdc++ involvement: two TUs
-    sharing a header-defined coalesced constant, each with a local
-    `constexpr char t[] = {'0','1',…}` — a *braced, non-NUL-terminated* char
-    array, which is what pushes an anonymous string constant into
-    `__TEXT,__const` instead of `__cstring`. That is precisely the shape of
-    libstdc++'s `__to_chars_16::__digits[16]`; a `constexpr char t[] = "…"`
-    string-literal initializer stays in `__cstring` and is safe.
-  - **Whether a TU is exposed depends on gcc's emission order.** gcc flushes the
-    shared constant pool *before* the varpool at `-O1`/`-O2`, so in small TUs the
-    literal lands at the section start with no weak symbol in front of it and
-    relocates against `ltmp1` — harmless. At `-O0` (or `-O2
-    -fno-toplevel-reorder`) the weak var is emitted first and the literal is
-    absorbed. Big real TUs interleave, which is why this bites optimized builds.
-    So a passing small test proves nothing about the shim being unnecessary — the
-    configure probe's hand-written `.s` is the reliable detector, by design.
-  - x86_64 now confirmed at *runtime*, not just by reloc inspection: the
-    hand-written x86_64 pair mis-links the same way and runs wrong under Rosetta 2
-    (still no native x86_64 gcc-16 `-S`).
+Filed as **GCC PR 126723** (2026-08-07). Fixed for GCC 17 on master
+(r17-3243: all Darwin string labels linker-visible `l.str.*`, matching clang's
+aarch64 behavior) and in iains' gcc-16-branch — **Homebrew's gcc 16.2.0 Darwin
+diff carries it** (the `for_asan` conditional is deleted outright; `LaC`
+anchored constants became linker-visible too). Verified locally on 16.2.0:
+a `<format>` TU emits 395 `l.str` / 0 `L.str` beside 81 weak defs.
+
+Consequently the `-B` assembler shim (`cmake/darwin-as-shim/`, renamed
+`L.str.*`→`l.str.*`) and its two-TU configure-time probe
+(`cmake/DarwinAtomProbe.cmake`) were REMOVED 2026-08-24; CompilerSettings.cmake
+now hard-fails a Darwin gcc < 16.2 instead (the corruption is runtime-silent —
+never soften that gate to a warning). Full write-up, probe sources, and the
+mixed-TU/`-pipe`/`-Wa,-L` landmines: `git log -- cmake/darwin-as-shim`. This
+also unblocked the Intel macOS release leg (the probe was aarch64-only asm);
+restoring it needs only the matrix entry + the NuGet `osx-x64` RID.
 
 ## Pins (FetchContent, cmake/Dependencies.cmake)
 | Dep | Tag | Notes |

@@ -84,15 +84,14 @@ jobs:
         include:
           - { os: ubuntu-latest,  name: linux-x64 }
           - { os: macos-latest,   name: macos-arm64,  deployment: '14.0' }
-          # NO INTEL macOS LEG YET. cmake/DarwinAtomProbe.cmake — the configure
-          # gate for the gcc-16 Mach-O literal-atom miscompile (GCC PR 126723)
-          # — is written in aarch64 assembly (adrp/@PAGE/@PAGEOFF) and cannot
-          # assemble on x86_64, so the leg cannot configure. The bug affects
-          # x86_64 too, so the probe must be PORTED, never skipped: an
-          # unverified Intel wheel would corrupt string data silently. Restore
+          # NO INTEL macOS LEG YET. Historically blocked on the (aarch64-only)
+          # atom-miscompile probe; that bug is fixed in gcc 16.2 and the probe
+          # is gone — CompilerSettings.cmake now just refuses Darwin gcc <
+          # 16.2 (PR 126723 hit x86_64 too). Restoring the leg is now only
           # `{ os: macos-26-intel, name: macos-x64, deployment: '13.0' }` here
-          # once the probe has an x86_64 variant. (`macos-13` is retired — an
-          # unschedulable label queues forever instead of failing.)
+          # plus osx-x64 in the NuGet project + its verification list.
+          # (`macos-13` is retired — an unschedulable label queues forever
+          # instead of failing.)
           - { os: windows-latest, name: windows-x64 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 150
