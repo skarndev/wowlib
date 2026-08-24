@@ -193,13 +193,21 @@ jobs:
       # libstdc++ dynamic for months, and the Homebrew 16.1->16.2 bump
       # (new GLIBCXX_3.4.36) then broke the audit import (2026-08-22).
       # release.yml has always passed both; auditwheel was its safety net.
+      #
+      # --exclude-libs,ALL is load-bearing, not hygiene: without it the
+      # static libstdc++'s STB_GNU_UNIQUE symbols (locale facet ids etc.)
+      # stay in .dynsym, and the glibc loader merges UNIQUE symbols
+      # process-wide even under RTLD_LOCAL. numpy's extension loads the
+      # SYSTEM libstdc++, so our 16.2 code ends up bound to the older
+      # runtime's locale data — the first iostream/format call segfaults
+      # (exactly how the first static-linked run died, in str()).
       - name: Configure
         run: >-
           cmake --preset gcc16-bindings-release
           -DWOWLIB_WERROR=ON
           -DPython_EXECUTABLE=$PWD/.venv/bin/python
-          -DCMAKE_MODULE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
-          -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+          -DCMAKE_MODULE_LINKER_FLAGS="-static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL"
+          -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL"
 
       - name: Build extension + stubs
         run: cmake --build --preset gcc16-bindings-release --target wowlib_py wowlib_pyi
@@ -216,6 +224,16 @@ jobs:
               | grep -qiE 'libstdc\+\+|libgcc_s'; then
             echo '::error::wowlib.abi3.so links the GNU C++ runtime dynamically'
             readelf -d build/release/bindings/python/wowlib.abi3.so | grep NEEDED
+            exit 1
+          fi
+          # ...and the static copy must not leak STB_GNU_UNIQUE symbols: the
+          # loader merges those process-wide, so an exported facet id would
+          # cross-bind with whichever libstdc++ numpy drags in (see the
+          # Configure comment). --exclude-libs is what keeps this empty.
+          if readelf --dyn-syms build/release/bindings/python/wowlib.abi3.so \
+              | grep -q ' UNIQUE '; then
+            echo '::error::wowlib.abi3.so exports GNU_UNIQUE symbols'
+            readelf --dyn-syms build/release/bindings/python/wowlib.abi3.so | grep ' UNIQUE ' | head
             exit 1
           fi
 

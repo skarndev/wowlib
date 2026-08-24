@@ -170,6 +170,18 @@ jobs:
           WOWLIB_STATIC_CXX: -static-libstdc++ -static-libgcc
         run: |
           set -euo pipefail
+          # Linux only: hide the statically-linked archives' symbols. Without
+          # this the static libstdc++'s STB_GNU_UNIQUE symbols stay exported,
+          # the glibc loader merges UNIQUE symbols process-wide (RTLD_LOCAL
+          # notwithstanding), and our code cross-binds with whichever OLDER
+          # system libstdc++ numpy's extension loads — first iostream/format
+          # call segfaults (found by ci-linux the day its module went truly
+          # static, 2026-08-24; every Blender install has numpy in-process).
+          # ld64 (macOS) has no --exclude-libs and Mach-O has no GNU_UNIQUE;
+          # PE (Windows) exports nothing by default.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            WOWLIB_STATIC_CXX="$WOWLIB_STATIC_CXX -Wl,--exclude-libs,ALL"
+          fi
           # On Windows this step runs in the MSYS2 shell, which has NO `python`
           # on PATH: the interpreter we build against is deliberately the MSVC
           # CPython from setup-python (so the .pyd links python3.dll and loads
@@ -366,12 +378,22 @@ jobs:
           fi
           # The C++ runtime is linked statically for the same reason as the
           # wheel: the dylib ships to machines with no gcc-16 runtime.
+          LINKFLAGS="-static-libstdc++ -static-libgcc"
+          # Linux: also hide the static archives' symbols, or libstdc++'s
+          # STB_GNU_UNIQUE symbols get merged process-wide against the OLDER
+          # system libstdc++ the .NET host drags in via ICU — same segfault
+          # class the Python module hit (see the wheel job's comment). The
+          # shim's P/Invoke exports come from its own generated TUs, not an
+          # archive, so --exclude-libs cannot hide them.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            LINKFLAGS="$LINKFLAGS -Wl,--exclude-libs,ALL"
+          fi
           cmake -S . -B build/csharp -G Ninja $EXTRA \
             -DCMAKE_BUILD_TYPE=Release \
             -DWOWLIB_BUILD_TESTS=OFF \
             -DWOWLIB_BUILD_CSHARP=ON \
             -DWOWLIB_CSHARP_PACKAGE_VERSION="${{ needs.guard.outputs.version }}" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+            -DCMAKE_SHARED_LINKER_FLAGS="$LINKFLAGS"
 
       - name: Build the native shim
         run: |

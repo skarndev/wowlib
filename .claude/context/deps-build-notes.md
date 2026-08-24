@@ -206,3 +206,14 @@ codegen+optimization, ~40% frontend). It parallelizes perfectly across shards.
   `_deps/*-subbuild` caches are generator-specific: `rm -rf _deps/*-subbuild
   _deps/*-build CMakeCache.txt CMakeFiles` but KEEP `_deps/*-src` (downloaded
   sources) to reconfigure without re-downloading storm/casc/welder/nanobind.
+- **`-static-libstdc++` alone is NOT enough for a Linux artifact that shares a
+  process with another libstdc++ user** (numpy in every Python/Blender process,
+  ICU in every .NET process). The static copy's STB_GNU_UNIQUE symbols (locale
+  facet ids etc.) stay exported, the glibc loader merges UNIQUE symbols
+  process-wide even under RTLD_LOCAL, and gcc-16.2 code cross-bound to an older
+  system libstdc++'s locale data segfaults on the first iostream/format call
+  (bindings module, 2026-08-24 — masked for months by the LD_LIBRARY_PATH the
+  test steps used to export). The pair that works: `-static-libstdc++
+  -static-libgcc -Wl,--exclude-libs,ALL`, plus CI gates (readelf: no NEEDED
+  C++ runtime, no ` UNIQUE ` dynsyms). MODULE libraries read
+  CMAKE_MODULE_LINKER_FLAGS — SHARED flags never reach a nanobind extension.
