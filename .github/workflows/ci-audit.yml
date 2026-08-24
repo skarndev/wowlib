@@ -7,10 +7,11 @@ name: ci-audit
 # tool layer breaks. Nightly + on demand; never on pull_request (the box's
 # runner executes as root and this is a public repository).
 #
-# Nothing is built here: the audit reuses the portable Python module the
-# ci-linux bindings job uploads on every source push (static libstdc++,
-# RUNPATH stripped) — the box itself cannot compile wowlib (apt gcc-16
-# rejects the reflection code) and a duplicate hosted build costs ~75 min.
+# Nothing is built here: the audit reuses the Python module the ci-linux
+# bindings job uploads on every source push (RUNPATH stripped; libstdc++
+# stays DYNAMIC — see the bindings Configure comment) — the box has no C++
+# compiler (runtime-only gcc-16 libs, kept >= the Homebrew toolchain that
+# builds the artifact) and a duplicate hosted build costs ~75 min.
 on:
   schedule:
     - cron: '0 2 * * *'

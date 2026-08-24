@@ -4,12 +4,19 @@
 - Dedicated CI VPS (address in the user's private notes — this file is public),
   Ubuntu 26.04 LTS, 2 cores, 3.7 GiB RAM (+16 GiB swapfile at `/swapfile` —
   gcc-16 needs it), 3.3 TiB disk. SSH as root with key auth.
-- Toolchain from apt (Homebrew refuses root): gcc-16 / g++-16, cmake, ninja —
-  but apt's gcc-16 trunk snapshot (r16-8246) REJECTS wowlib's reflection code
-  (consteval ICE-grade errors in offset framework), so the box never builds
-  wowlib: the ci-integration build job compiles the test binary on the hosted
-  runner (Homebrew gcc-16, static libstdc++/libgcc) and ships it over as an
-  artifact; the box only executes it. python3 stays needed for dbdgen tests.
+- NO C++ compiler since 2026-08-24: Ubuntu resolute's apt gcc-16 was a trunk
+  snapshot (r16-8246) that REJECTED wowlib's reflection code (consteval
+  ICE-grade errors in offset framework) AND its libstdc++ (GLIBCXX <= 3.4.35)
+  fell behind the hosted runners' Homebrew gcc when brew bumped 16.1 -> 16.2
+  (GLIBCXX_3.4.36) — which broke the nightly audit's module import for three
+  nights (2026-08-22..24). Fix: the snapshot compiler/dev packages were
+  removed and the 13 gcc-16 RUNTIME lib debs (gcc-16-base, libgcc-s1,
+  libstdc++6, libgomp1, sanitizers, ...) replaced with Debian sid's 16.2.0-1
+  (resolute has no newer; the toolchain PPA carries only LLVM for resolute).
+  cmake/ninja stay from apt; python3 stays needed for dbdgen tests. The box
+  only ever executes hosted-built artifacts. RULE: whenever Homebrew gcc bumps
+  on the hosted runners, the box's libstdc++6 must be bumped to match (same
+  Debian-sid deb route) or the audit goes red on import.
 - Torrent box: transmission-daemon seeds the client downloads from
   `/var/lib/transmission-daemon/downloads`.
 

@@ -186,8 +186,14 @@ jobs:
 
       # Static libstdc++/libgcc + no RUNPATH: the module must import anywhere,
       # including the audit box (ci-audit downloads this artifact instead of
-      # building its own), whose C++ runtime (apt gcc-16) need not match
-      # Homebrew's.
+      # building its own). KNOWN GAP: the extension is a MODULE library, so
+      # CMAKE_SHARED_LINKER_FLAGS never reaches its link line and libstdc++
+      # stays dynamic (release.yml passes CMAKE_MODULE_LINKER_FLAGS too, which
+      # is why wheels pass auditwheel). The box instead keeps a libstdc++
+      # runtime >= the Homebrew toolchain used here (Debian sid gcc-16 debs;
+      # see .claude/context/ci-server-notes.md) — a Homebrew gcc bump that
+      # adds a new GLIBCXX version breaks the nightly audit until the box
+      # runtime is bumped to match (exactly what 16.1->16.2 did, 2026-08-22).
       - name: Configure
         run: >-
           cmake --preset gcc16-bindings-release
@@ -214,12 +220,13 @@ jobs:
       - name: Python binding tests
         run: |
           uv pip install pytest pytest-mypy-testing mypy
-          # Despite the static-libstdc++ link flags above, the module still
-          # resolves libstdc++ dynamically and needs GLIBCXX_3.4.35, which the
-          # runner's system copy predates — so importing it here fails where the
-          # audit box (apt gcc-16 installed) succeeds. Point the loader at the
-          # toolchain that built it. NOTE this makes the artifact's portability
-          # claim untested: it is a real gap, not a test-only quirk.
+          # The module resolves libstdc++ dynamically (see the Configure
+          # comment: MODULE vs SHARED linker flags) and needs a GLIBCXX newer
+          # than the runner's system copy — so importing it here fails where
+          # the audit box (matching runtime installed) succeeds. Point the
+          # loader at the toolchain that built it. NOTE this makes the
+          # artifact's portability claim untested: it is a real gap, not a
+          # test-only quirk.
           export LD_LIBRARY_PATH="$(dirname "$(find "$(brew --prefix gcc)/lib" \
             -name libstdc++.so.6 | head -1)"):${LD_LIBRARY_PATH:-}"
           PYTHONPATH=$PWD/build/release/bindings/python \
@@ -282,8 +289,8 @@ jobs:
       # dotnet-test the generated WoWLib project: managed wrapper + db facades
       # + format factories compile together, and the tests exercise them over
       # the just-built native shim. Same libstdc++ story as the bindings job:
-      # the shim needs GLIBCXX_3.4.35, newer than the runner's system copy —
-      # point the loader at the Homebrew toolchain that built it.
+      # the shim needs a GLIBCXX newer than the runner's system copy — point
+      # the loader at the Homebrew toolchain that built it.
       - name: C# binding tests
         run: |
           export LD_LIBRARY_PATH="$(dirname "$(find "$(brew --prefix gcc)/lib" \
