@@ -23,8 +23,7 @@
 #include <wowlib/formats/adt/adt.hpp>
 #include <wowlib/formats/wdt/wdt.hpp>
 
-namespace
-{
+namespace {
   using namespace wowlib;
   using namespace wowlib::audit;
   using namespace wowlib::formats;
@@ -34,10 +33,8 @@ namespace
       (0x80) is set, else 2048-byte 4-bit.
       @param mphd_flags the map's MPHD flags.
       @return the alpha format to pass to ADT read()/write(). */
-  adt::AlphaFormat alpha_format_of(std::uint32_t mphd_flags)
-  {
-    return (mphd_flags & 0x4) || (mphd_flags & 0x80) ? adt::AlphaFormat::highres_8bit
-                                                     : adt::AlphaFormat::lowres_4bit;
+  adt::AlphaFormat alpha_format_of(std::uint32_t mphd_flags) {
+    return (mphd_flags & 0x4) || (mphd_flags & 0x80) ? adt::AlphaFormat::highres_8bit : adt::AlphaFormat::lowres_4bit;
   }
 
   /** The map WDT sitting next to a tile: "world\\maps\\azeroth\\azeroth_32_48.adt"
@@ -45,17 +42,13 @@ namespace
       @param tile_path the canonical tile path.
       @return the canonical WDT path, or empty when the tile has no
               map-directory shape. */
-  std::string map_wdt_of(std::string_view tile_path)
-  {
+  std::string map_wdt_of(std::string_view tile_path) {
     const auto last_sep = tile_path.rfind('\\');
-    if (last_sep == std::string_view::npos)
-      return {};
+    if (last_sep == std::string_view::npos) return {};
     const std::string_view dir = tile_path.substr(0, last_sep);
     const auto prev_sep = dir.rfind('\\');
-    const std::string_view map =
-      prev_sep == std::string_view::npos ? dir : dir.substr(prev_sep + 1);
-    if (map.empty())
-      return {};
+    const std::string_view map = prev_sep == std::string_view::npos ? dir : dir.substr(prev_sep + 1);
+    if (map.empty()) return {};
     return std::format("{}\\{}.wdt", dir, map);
   }
 
@@ -67,17 +60,16 @@ namespace
       @param alpha  [out] the derived alpha format.
       @return nullopt on success, or the failed outcome. */
   template <ClientVersion V>
-  std::optional<RoundtripReport> derive_alpha(fs::FileSystem& fs, const std::string& path,
+  std::optional<RoundtripReport> derive_alpha(fs::FileSystem& fs,
+                                              const std::string& path,
                                               RoundtripReport& report,
-                                              adt::AlphaFormat& alpha)
-  {
+                                              adt::AlphaFormat& alpha) {
     const std::string wdt_path = map_wdt_of(path);
     if (wdt_path.empty())
       return audit::detail::fail_with(report, "wdt locate",
-                               "the tile path has no map directory to derive the WDT from");
+                                      "the tile path has no map directory to derive the WDT from");
     const auto raw = fs.read_file(FileKey{wdt_path});
-    if (!raw || raw->empty())
-    {
+    if (!raw || raw->empty()) {
       // An unreadable or zero-byte map WDT is an addressing limitation, not a
       // parse failure: community-listfile placeholder maps ("unkmaps/...")
       // derive a synthetic WDT name no listfile entry or name hash resolves,
@@ -86,10 +78,9 @@ namespace
       // audited.
       return audit::detail::skipped("no-map-wdt");
     }
-    wdt::root::WDTRoot<V> root;
+    wdt::root::WDTRoot < V > root;
     if (auto r = root.read(*raw); !r)
-      return audit::detail::fail_with(report, "wdt parse",
-                               std::format("{}: {}", wdt_path, r.error().message));
+      return audit::detail::fail_with(report, "wdt parse", std::format("{}: {}", wdt_path, r.error().message));
     alpha = alpha_format_of(root.header.flags);
     return std::nullopt;
   }
@@ -102,35 +93,30 @@ namespace
       @param path the canonical tile path.
       @return the outcome. */
   template <ClientVersion V>
-  RoundtripReport roundtrip_adt(fs::FileSystem& fs, const std::string& path)
-  {
+  RoundtripReport roundtrip_adt(fs::FileSystem& fs, const std::string& path) {
     RoundtripReport report;
     adt::AlphaFormat alpha{};
-    if (auto fail = derive_alpha<V>(fs, path, report, alpha))
-      return *fail;
+    if (auto fail = derive_alpha<V>(fs, path, report, alpha)) return *fail;
 
-    adt::ADT<V> tile;
-    if (auto r = tile.read(fs, FileKey{path}, alpha); !r)
-    {
-      if (r.error().code == ErrorCode::EncryptedContent)
-        return audit::detail::skipped("encrypted");
+    adt::ADT < V > tile;
+    if (auto r = tile.read(fs, FileKey{path}, alpha); !r) {
+      if (r.error().code == ErrorCode::EncryptedContent) return audit::detail::skipped("encrypted");
       return audit::detail::fail_with(report, "read", r.error().message);
     }
 
     const auto first = tile.write_file(adt::FileKind::monolithic, alpha);
-    if (!first)
-      return audit::detail::fail_with(report, "write", first.error().message);
+    if (!first) return audit::detail::fail_with(report, "write", first.error().message);
 
-    adt::ADT<V> reparsed;
+    adt::ADT < V > reparsed;
     reparsed.alpha_format = alpha;
-    if (auto r = reparsed.parse_file(*first, adt::FileKind::monolithic); !r)
-      return audit::detail::fail_with(report, "reparse", r.error().message);
+    if (auto r = reparsed.parse_file(*first, adt::FileKind::monolithic); !r) return audit::detail::fail_with(
+      report, "reparse", r.error().message);
 
     const auto second = reparsed.write_file(adt::FileKind::monolithic, alpha);
     if (!second)
       return audit::detail::fail_with(report, "rewrite", second.error().message);
-    if (auto divergence = audit::detail::first_divergence_chunked(*first, *second))
-      return audit::detail::fail_with(report, "compare", *divergence);
+    if (auto divergence = audit::detail::first_divergence_chunked(*first, *second)) return audit::detail::fail_with(
+      report, "compare", *divergence);
     return report;
   }
 
@@ -143,54 +129,44 @@ namespace
       @param path the canonical root tile path.
       @return the outcome. */
   template <ClientVersion V>
-  RoundtripReport roundtrip_adt_split(fs::FileSystem& fs, const std::string& path)
-  {
+  RoundtripReport roundtrip_adt_split(fs::FileSystem& fs, const std::string& path) {
     RoundtripReport report;
     adt::AlphaFormat alpha{};
-    if (auto fail = derive_alpha<V>(fs, path, report, alpha))
-      return *fail;
+    if (auto fail = derive_alpha<V>(fs, path, report, alpha)) return *fail;
 
-    adt::ADT<V> tile;
-    if (auto r = tile.read(fs, FileKey{path}, alpha); !r)
-    {
-      if (r.error().code == ErrorCode::EncryptedContent)
-        return audit::detail::skipped("encrypted");
+    adt::ADT < V > tile;
+    if (auto r = tile.read(fs, FileKey{path}, alpha); !r) {
+      if (r.error().code == ErrorCode::EncryptedContent) return audit::detail::skipped("encrypted");
       return audit::detail::fail_with(report, "read", r.error().message);
     }
 
     constexpr std::array kinds{adt::FileKind::root, adt::FileKind::tex0, adt::FileKind::obj0};
     constexpr std::array names{"root", "_tex0", "_obj0"};
 
-    adt::ADT<V> reparsed;
+    adt::ADT < V > reparsed;
     reparsed.alpha_format = alpha;
-    reparsed.chunks.assign(256, adt::MapChunk<V>{});
+    reparsed.chunks.assign(256, adt::MapChunk < V > {});
 
     std::array<FileBuffer, kinds.size()> firsts{};
-    for (std::size_t i = 0; i < kinds.size(); ++i)
-    {
+    for (std::size_t i = 0; i < kinds.size(); ++i) {
       auto first = tile.write_file(kinds[i], alpha);
       if (!first)
-        return audit::detail::fail_with(report, std::format("write ({})", names[i]),
-                                 first.error().message);
+        return audit::detail::fail_with(report, std::format("write ({})", names[i]), first.error().message);
       if (auto r = reparsed.parse_file(*first, kinds[i]); !r)
-        return audit::detail::fail_with(report, std::format("reparse ({})", names[i]),
-                                 r.error().message);
+        return audit::detail::fail_with(report, std::format("reparse ({})", names[i]), r.error().message);
       firsts[i] = std::move(*first);
     }
     // _obj1/_lod are round-tripped verbatim by write(); mirror that here so
     // the fresh entity is whole (they do not enter the per-kind compares).
-    if constexpr (requires { tile.obj1_data; })
-    {
+    if constexpr (requires { tile.obj1_data; }) {
       reparsed.obj1_data = tile.obj1_data;
       reparsed.lod_data = tile.lod_data;
     }
 
-    for (std::size_t i = 0; i < kinds.size(); ++i)
-    {
+    for (std::size_t i = 0; i < kinds.size(); ++i) {
       const auto second = reparsed.write_file(kinds[i], alpha);
       if (!second)
-        return audit::detail::fail_with(report, std::format("rewrite ({})", names[i]),
-                                 second.error().message);
+        return audit::detail::fail_with(report, std::format("rewrite ({})", names[i]), second.error().message);
       if (auto divergence = audit::detail::first_divergence_chunked(firsts[i], *second))
         return audit::detail::fail_with(report, std::format("compare ({})", names[i]), *divergence);
     }
@@ -198,23 +174,16 @@ namespace
   }
 }
 
-namespace wowlib::audit::detail
-{
-  RoundtripReport FormatDrivers::adt(fs::FileSystem& fs, const std::string& path,
-                                     ClientVersion version)
-  {
+namespace wowlib::audit::detail {
+  RoundtripReport FormatDrivers::adt(fs::FileSystem& fs, const std::string& path, ClientVersion version) {
     RoundtripReport report = skipped("unsupported-version");
     const bool matched = with_version(version, [&]<ClientVersion V>() {
-      if constexpr (version_supported(formats::adt::adt_versions, V))
-      {
-        if constexpr (V < builds::Cata)
-          report = guarded([&] { return roundtrip_adt<V>(fs, path); });
-        else
-          report = guarded([&] { return roundtrip_adt_split<V>(fs, path); });
+      if constexpr (version_supported(formats::adt::adt_versions, V)) {
+        if constexpr (V < builds::Cata) report = guarded([&] { return roundtrip_adt<V>(fs, path); });
+        else report = guarded([&] { return roundtrip_adt_split<V>(fs, path); });
       }
     });
-    if (!matched)
-      return unrecognized_version(version);
+    if (!matched) return unrecognized_version(version);
     return report;
   }
 }

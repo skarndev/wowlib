@@ -14,15 +14,13 @@
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 
-namespace wowlib::formats::wmo::root::chunks
-{
+namespace wowlib::formats::wmo::root::chunks {
   // --- MOMT / MOUV ------------------------------------------------------------
 
   enum class [[
-    =welder::weld,
-    =welder::doc("Material flag bits (SMOMaterial.flags).")
-  ]] MaterialFlags : std::uint32_t
-  {
+      =welder::weld,
+      =welder::doc("Material flag bits (SMOMaterial.flags).")
+    ]] MaterialFlags : std::uint32_t {
     unlit [[=welder::doc("Disable lighting.")]] = 0x1,
     unfogged [[=welder::doc("Disable fog.")]] = 0x2,
     two_sided [[=welder::doc("Disable backface culling.")]] = 0x4,
@@ -34,14 +32,13 @@ namespace wowlib::formats::wmo::root::chunks
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         One MOMT material, 64 bytes. The layout is stable across v17; what
         changed in 8.1 is the meaning of the texture fields - MOTX byte offsets
         before (and in the fallback mode signalled by MOTX's presence),
         FileDataIDs after.)")
-  ]] SMOMaterial
-  {
+    ]] SMOMaterial {
     [[=welder::doc("Render flags; MaterialFlags bits.")]]
     std::uint32_t flags = 0;
 
@@ -81,19 +78,19 @@ namespace wowlib::formats::wmo::root::chunks
     [[=welder::doc("Nulled on load; shader-23 texture FileDataIDs.")]]
     std::array<std::uint32_t, 4> run_time_data{};
   };
+
   static_assert(sizeof(SMOMaterial) == 0x40);
 
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         One MOUV entry (7.3+): texture-coordinate translation speeds for two of
         the material's texture layers. Same count as the materials; all-zero
         entries mean no animation.)")
-  ]] UVAnimation
-  {
+    ]] UVAnimation {
     [[=welder::doc("Translation speed per animated texture layer.")]]
     std::array<C2Vector, 2> translation_speed{};
   };
-  static_assert(sizeof(UVAnimation) == 0x10);
 
+  static_assert(sizeof(UVAnimation) == 0x10);
 }

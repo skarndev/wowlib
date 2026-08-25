@@ -34,8 +34,7 @@
 #include <wowlib/core/expansion.hpp>
 #include <wowlib/core/reflect.hpp>
 
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   /** The latest pivot at or below @a v — the identity of @a v's range. Two
       versions with the same floor have identical family content.
 
@@ -48,14 +47,11 @@ namespace wowlib::formats
       @param v      the version to classify (any flavor).
       @param pivots the family's change points (any order, all retail).
       @return the floor pivot, or the zero version below every pivot. */
-  constexpr ClientVersion version_floor(ClientVersion v,
-                                        std::span<const ClientVersion> pivots)
-  {
+  constexpr ClientVersion version_floor(ClientVersion v, std::span<const ClientVersion> pivots) {
     const ClientVersion lineage = v.format_lineage();
     ClientVersion out{0, 0, 0, 0};
     for (const ClientVersion& p : pivots)
-      if (p <= lineage && out <= p)
-        out = p;
+      if (p <= lineage && out <= p) out = p;
     return out;
   }
 
@@ -72,12 +68,10 @@ namespace wowlib::formats
               precedes the whole grid). */
   constexpr ClientVersion canonical_version(ClientVersion v,
                                             std::span<const ClientVersion> pivots,
-                                            std::span<const ClientVersion> grid)
-  {
+                                            std::span<const ClientVersion> grid) {
     const ClientVersion floor = version_floor(v, pivots);
     for (const ClientVersion& g : grid)
-      if (version_floor(g, pivots) == floor)
-        return g;
+      if (version_floor(g, pivots) == floor) return g;
     return grid.front();
   }
 
@@ -92,29 +86,24 @@ namespace wowlib::formats
       @return the suffix, built from the Expansion enumerator spellings. */
   constexpr std::string range_suffix(ClientVersion canonical,
                                      std::span<const ClientVersion> pivots,
-                                     std::span<const ClientVersion> grid)
-  {
+                                     std::span<const ClientVersion> grid) {
     const ClientVersion floor = version_floor(canonical, pivots);
     ClientVersion last = canonical;
     for (const ClientVersion& g : grid)
-      if (g >= canonical && version_floor(g, pivots) == floor)
-        last = g;
+      if (g >= canonical && version_floor(g, pivots) == floor) last = g;
     const auto name = [](ClientVersion v) {
       return std::string{enum_name(*to_expansion(v))};
     };
-    if (last == canonical)
-      return name(canonical);
-    if (last == grid.back())
-      return name(canonical) + "Plus";
+    if (last == canonical) return name(canonical);
+    if (last == grid.back()) return name(canonical) + "Plus";
     return name(canonical) + "To" + name(last);
   }
 
   /** One row of a family's welded range table: the alias suffix (stringized
       from the X-macro) and the range's canonical version. */
-  struct RangeRow
-  {
-    std::string_view suffix;      /**< e.g. "CataToMop". */
-    ClientVersion version{};      /**< the range's canonical grid version. */
+  struct RangeRow {
+    std::string_view suffix; /**< e.g. "CataToMop". */
+    ClientVersion version{}; /**< the range's canonical grid version. */
   };
 
   /** Does @a rows exactly enumerate the family's ranges — ascending, one row
@@ -128,17 +117,13 @@ namespace wowlib::formats
       @return whether the table is exact. */
   constexpr bool ranges_valid(std::span<const RangeRow> rows,
                               std::span<const ClientVersion> pivots,
-                              std::span<const ClientVersion> grid)
-  {
+                              std::span<const ClientVersion> grid) {
     std::size_t row = 0;
-    for (const ClientVersion& g : grid)
-    {
+    for (const ClientVersion& g : grid) {
       const ClientVersion canonical = canonical_version(g, pivots, grid);
-      if (canonical == g)
-      {
-        if (row >= rows.size() || rows[row].version != g
-            || rows[row].suffix != range_suffix(g, pivots, grid))
-          return false;
+      if (canonical == g) {
+        if (row >= rows.size() || rows[row].version != g || rows[row].suffix != range_suffix(g, pivots, grid)) return
+          false;
         ++row;
       }
     }

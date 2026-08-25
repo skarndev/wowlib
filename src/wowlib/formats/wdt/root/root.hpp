@@ -21,8 +21,7 @@
 #include <wowlib/formats/wdt/boundaries.hpp>
 #include <wowlib/formats/wdt/root/chunks/header.hpp>
 
-namespace wowlib::formats::wdt::root
-{
+namespace wowlib::formats::wdt::root {
   using namespace wowlib::formats::wdt::root::chunks;
 
   /** The version-agnostic base of every WDTRoot<V> (welded as "WDTRoot").
@@ -35,34 +34,31 @@ namespace wowlib::formats::wdt::root
 
       @see https://wowdev.wiki/WDT */
   struct [[
-    =welder::weld,
-    =welder::weld_as("WDTRoot"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("WDTRoot"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         A WDT main file, abstract over the client version. The main file says
         which map tiles exist (and, since 8.1, which FileDataIDs serve them),
         or references the one global WMO of an object-only map. Construct a
         concrete version with WDTRoot.for_version(expansion); the per-version
         WDTRoot* classes are subclasses. See https://wowdev.wiki/WDT.)")
-  ]] WDTRootBase
-  {
-  };
+    ]] WDTRootBase {};
 
-  namespace detail
-  {
+  namespace detail {
     // --- version-range trait bases (unwelded) ---------------------------------
     // One struct per availability range; members keep their chunk/since/until/
     // doc/marks (read off the declaring class, so flattening preserves them).
 
     /** 8.1+ main-file chunks (the FileDataID era). */
-    struct Root81
-    {
+    struct Root81 {
       [[
         =chunk("MAID"),
         =since(builds::BfA_TidesOfVengeance_28294),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Per-tile FileDataIDs (MAID, 8.1.0.28294+): 64 x 64 records in
+        =welder::doc(
+          R"(Per-tile FileDataIDs (MAID, 8.1.0.28294+): 64 x 64 records in
                         row-major order (y outer, x inner), one per map tile —
                         engaged by the has_maid header flag. WMO-only maps omit
                         it.)")]]
@@ -70,21 +66,20 @@ namespace wowlib::formats::wdt::root
     };
 
     /** 9.0+ main-file chunks. */
-    struct Root90
-    {
+    struct Root90 {
       [[
         =chunk("MANM"),
         =since(builds::SL_Alpha_33978),
         =formats::optional,
-        =welder::doc(R"(Map anima paths (MANM, 9.0+): the Shadowlands anima stream
+        =welder::doc(
+          R"(Map anima paths (MANM, 9.0+): the Shadowlands anima stream
                         cables and their node chains. A versioned variable-length
                         layout, kept opaque.)")]]
       ChunkBlob map_anima;
     };
   }
 
-  namespace detail
-  {
+  namespace detail {
     /** A WDT main file for one client version.
 
         The main file holds the map-wide header (MPHD), the 64x64 tile table
@@ -98,18 +93,18 @@ namespace wowlib::formats::wdt::root
         @see https://wowdev.wiki/WDT */
     template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc(R"(
+        =welder::weld,
+        =welder::doc(R"(
           A WDT main file for one client version: the map header, the 64x64
           tile table (row-major, y outer), the per-tile FileDataIDs (8.1+) and
           the global WMO of object-only maps. An instance read from a client
           file rewrites byte-for-byte until modified. See
           https://wowdev.wiki/WDT.)")
-    ]] WDTRoot
-      : ChunkedFile<WDTRoot<V>>, WDTRootBase,
+      ]] WDTRoot
+      : ChunkedFile<WDTRoot<V>>,
+        WDTRootBase,
         slot<V, builds::BfA_TidesOfVengeance_28294, Root81>,
-        slot<V, builds::SL_Alpha_33978, Root90>
-    {
+        slot<V, builds::SL_Alpha_33978, Root90> {
       static constexpr ClientVersion version = V;
 
       [[
@@ -120,21 +115,25 @@ namespace wowlib::formats::wdt::root
 
       [[
         =chunk("MPHD"),
-        =welder::doc("The map header (MPHD): flags and, since 8.1, the satellite "
-                     "FileDataIDs.")]]
+        =welder::doc(
+          "The map header (MPHD): flags and, since 8.1, the satellite "
+          "FileDataIDs.")]]
       SMMapHeader<V> header{};
 
       [[
         =chunk("MAIN"),
         =welder::mark::no_reassign,
-        =welder::doc(R"(The tile table (MAIN): 64 x 64 records in row-major order
-                        (y outer, x inner), flagging which tiles have an ADT.)")]]
+        =welder::doc(
+          R"(The tile table (MAIN): 64 x 64 records in row-major order
+                        (y outer, x inner), flagging which tiles have an ADT.)")
+      ]]
       std::vector<SMAreaInfo> tiles;
 
       [[
         =chunk("MWMO"),
         =formats::optional,
-        =welder::doc(R"(The global-WMO filename (MWMO) of a WMO-only map, as a string
+        =welder::doc(
+          R"(The global-WMO filename (MWMO) of a WMO-only map, as a string
                         block holding the one zero-terminated path (at most 0x100
                         bytes). Terrain maps of pre-8.1 clients still carry the chunk
                         empty; FileDataID-era terrain maps drop it.)")]]
@@ -144,7 +143,8 @@ namespace wowlib::formats::wdt::root
         =chunk("MODF"),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(The global-WMO placement (MODF) of a WMO-only map; at most one
+        =welder::doc(
+          R"(The global-WMO placement (MODF) of a WMO-only map; at most one
                         record. Its name_id is unused — the client always loads the
                         MWMO content (or, in FileDataID-era files without MWMO, treats
                         name_id as the WMO FileDataID).)")]]
@@ -156,8 +156,13 @@ namespace wowlib::formats::wdt::root
           MAI2 (12.0.5+, Midnight) postdates the supported client range; it and
           any other unmodeled chunk round-trip through ChunkExtras::unknown. */
       static constexpr std::array chunk_order = {
-        four_cc("MVER"), four_cc("MPHD"), four_cc("MAIN"), four_cc("MAID"),
-        four_cc("MWMO"), four_cc("MODF"), four_cc("MANM"),
+        four_cc("MVER"),
+        four_cc("MPHD"),
+        four_cc("MAIN"),
+        four_cc("MAID"),
+        four_cc("MWMO"),
+        four_cc("MODF"),
+        four_cc("MANM"),
       };
 
       /** Validation hook (see formats::detail::validate_value): the map-wide
@@ -166,26 +171,22 @@ namespace wowlib::formats::wdt::root
           grid — plus the global-WMO records a WMO-only map is limited to.
           @param report the report findings land in. */
       [[=welder::mark::exclude]]
-      void validate_extra(ValidationReport& report) const
-      {
+      void validate_extra(ValidationReport& report) const {
         // the client addresses a tile as tiles[y * 64 + x]; a short table
         // silently reads the wrong tiles rather than failing
-        if (!tiles.empty() && tiles.size() != wdt_tile_slots)
-          report.add_error("tiles", std::format("the MAIN table holds {} records, not 64*64",
-                                                tiles.size()));
+        if (!tiles.empty() && tiles.size() != wdt_tile_slots) report.add_error(
+          "tiles", std::format("the MAIN table holds {} records, not 64*64", tiles.size()));
 
         // MAID is the same grid: engaged, it must cover every tile
         if constexpr (requires { this->map_fdids; })
           if (!this->map_fdids.empty() && this->map_fdids.size() != wdt_tile_slots)
             report.add_error("map_fdids",
-                             std::format("the MAID table holds {} records, not 64*64",
-                                         this->map_fdids.size()));
+                             std::format("the MAID table holds {} records, not 64*64", this->map_fdids.size()));
 
         // a WMO-only map places exactly one global object
         if (global_wmo.size() > 1)
           report.add_error("global_wmo",
-                           std::format("{} global WMO placements; a map has at most one",
-                                       global_wmo.size()));
+                           std::format("{} global WMO placements; a map has at most one", global_wmo.size()));
       }
     };
   }
@@ -196,6 +197,5 @@ namespace wowlib::formats::wdt::root
       root::detail — a bare detail:: is ambiguous against chunks::detail via
       the using-directive.) */
   template <ClientVersion V>
-  using WDTRoot =
-    root::detail::WDTRoot<canonical_version(V, wdt_root_pivots, wdt_versions)>;
+  using WDTRoot = root::detail::WDTRoot<canonical_version(V, wdt_root_pivots, wdt_versions)>;
 }

@@ -16,18 +16,17 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
-namespace wowlib::audit
-{
+namespace wowlib::audit {
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         The outcome of one file's round-trip: whether the file survived, the
         stage that failed (or the reason it was skipped), the diagnostic, and
         every unmodeled chunk encountered along the way. A plain value — a
         sweep accumulates these without exception handling.)")
-  ]] RoundtripReport
-  {
-    [[=welder::doc("Whether the round-trip succeeded; skipped files count as ok.")]]
+    ]] RoundtripReport {
+    [[=welder::doc(
+      "Whether the round-trip succeeded; skipped files count as ok.")]]
     bool ok = true;
 
     [[=welder::doc(R"(
@@ -48,8 +47,8 @@ namespace wowlib::audit
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         The exhaustive round-trip audit: feed it one client file at a time
         (enumerate them with FileSystem.enumerate_paths) and it round-trips
         the file with the format entity matching the path's extension,
@@ -57,8 +56,7 @@ namespace wowlib::audit
         BLP) compare the rewrite against the original bytes; offset/derived
         formats (M2, ADT) run a write -> parse -> write-again stability
         compare instead. No semantic validation happens — round-trips only.)")
-  ]] Auditor
-  {
+    ]] Auditor {
     [[=welder::doc(R"(
         Round-trip one file, dispatching on the path's extension: .wmo roots
         (group files and _lod variants are covered through their root and
@@ -72,10 +70,10 @@ namespace wowlib::audit
         instantiation for the client's version report skipped:unsupported-version.
         Failures never raise; they come back in the report.)"),
       =welder::returns("the file's outcome report")]]
-    static RoundtripReport roundtrip(
-      fs::FileSystem& fs [[=welder::doc("the opened client filesystem")]],
-      std::string_view path [[=welder::doc("the client-internal file path (any spelling)")]],
-      ClientVersion version
-      [[=welder::doc("the client's version; selects the format layouts")]]);
+    static RoundtripReport roundtrip(fs::FileSystem& fs [[=welder::doc("the opened client filesystem")]],
+      std::string_view path [[=welder::doc(
+        "the client-internal file path (any spelling)")]],
+                                     ClientVersion version [[=welder::doc(
+                                       "the client's version; selects the format layouts")]]);
   };
 }

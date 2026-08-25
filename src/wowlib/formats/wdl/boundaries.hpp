@@ -25,8 +25,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/version_range.hpp>
 
-namespace wowlib::formats::wdl
-{
+namespace wowlib::formats::wdl {
   /** The WDL format version every supported client uses (MVER payload). */
   inline constexpr std::uint32_t wdl_version_18 = 18;
 
@@ -37,12 +36,19 @@ namespace wowlib::formats::wdl
   /** The versions WDL is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
   inline constexpr std::array wdl_versions{
-    versions::vanilla, versions::tbc,         versions::wotlk,
-    versions::cata,    versions::mop,         versions::wod,
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
+    versions::vanilla,
+    versions::tbc,
+    versions::wotlk,
+    versions::cata,
+    versions::mop,
+    versions::wod,
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** WDL: every chunk-set change point (see the file comment). */
-  inline constexpr std::array wdl_pivots{builds::TBC, builds::Legion, builds::BfA,
-                                         builds::SL, builds::TWW};
+  inline constexpr std::array wdl_pivots{builds::TBC, builds::Legion, builds::BfA, builds::SL, builds::TWW};
 }

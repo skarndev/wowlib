@@ -12,8 +12,7 @@
 #include <wowlib/formats/convert.hpp>
 #include <wowlib/formats/m2/m2.hpp>
 
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   /** The M2's supported-version ladder: every targeted last-minor-of-major
       release, in release order (see m2::m2_versions). convert<To>() walks
       this one adjacent step at a time. */

@@ -16,43 +16,42 @@
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::root::record
-{
+namespace wowlib::formats::m2::root::record {
   /** The version-agnostic base of every M2Sequence<V> (welded as "M2Sequence").
       Bindings-only, like every *Base: it gives the per-version classes a
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Sequence"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Sequence"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One animation sequence entry. Abstract over the client version; construct a concrete
         version with M2Sequence.ForVersion / for_version.)")
-  ]] M2SequenceBase
-  {
+    ]] M2SequenceBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2SequenceBase&) const = default;
   };
 
   enum class [[
-    =welder::weld,
-    =welder::doc("M2Sequence flags — the 0x20/0x40/0x130 combination decides "
-                 "where the sequence's track data lives (.m2 vs .anim file).")
-  ]] SequenceFlags : std::uint32_t
-  {
+      =welder::weld,
+      =welder::doc("M2Sequence flags — the 0x20/0x40/0x130 combination decides "
+        "where the sequence's track data lives (.m2 vs .anim file).")
+    ]] SequenceFlags : std::uint32_t {
     SetsRuntimeBlend [[=welder::doc("Sets 0x80 when loaded (M2Init).")]] = 0x1,
     TiltIn [[=welder::doc("Model tilts over X/Y by the end of the animation.")]] = 0x2,
     TiltOut [[=welder::doc("Model starts tilted and returns upright.")]] = 0x4,
     TiltFixed [[=welder::doc("Model stays tilted for the whole animation.")]] = 0x8,
-    LoadedLowPriority [[=welder::doc("Set at runtime for loaded low-priority sequences.")]] = 0x10,
+    LoadedLowPriority [[=
+      welder::doc("Set at runtime for loaded low-priority sequences.")]] = 0x10,
     DataInM2 [[=welder::doc("Primary bone sequence: track data is in the .m2 "
-                            "itself, not an .anim file.")]] = 0x20,
+      "itself, not an .anim file.")]] = 0x20,
     Alias [[=welder::doc("The sequence is an alias: follow alias_next until an "
-                         "entry without this flag owns the data.")]] = 0x40,
+      "entry without this flag owns the data.")]] = 0x40,
     Blended [[=welder::doc("Blend (lerp) into/out of this sequence.")]] = 0x80,
     StoredInModel [[=welder::doc("Sequence stored in the model (0x100).")]] = 0x100,
-    SplitBlendTimes [[=welder::doc("blend_time is the in/out pair, not one u32.")]] = 0x200,
+    SplitBlendTimes [[=
+      welder::doc("blend_time is the in/out pair, not one u32.")]] = 0x200,
     Legion0x800 [[=welder::doc("Seen in Legion 24500 models.")]] = 0x800
   };
 
@@ -60,26 +59,23 @@ namespace wowlib::formats::m2::root::record
       file — the client loads one iff none of 0x10/0x20/0x100 are set.
       @param flags the sequence's flags value.
       @return true when the data lives in "%s%04d-%02d.anim". */
-  constexpr bool sequence_data_external(std::uint32_t flags)
-  {
+  constexpr bool sequence_data_external(std::uint32_t flags) {
     return (flags & 0x130u) == 0;
   }
 
-  namespace detail
-  {
+  namespace detail {
     // The annotated era layouts; instantiate through the canonicalizing
     // aliases below, never directly.
     template <ClientVersion V>
     struct M2Sequence;
 
-    template <ClientVersion V>
-      requires (V < m2_per_sequence_timelines)
+    template <ClientVersion V> requires (V < m2_per_sequence_timelines)
     struct [[
-      =welder::weld,
-      =welder::doc("An animation sequence, pre-WotLK layout: global start/end timestamps, "
-                   "one u32 blend time.")
-    ]] M2Sequence<V> : M2SequenceBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "An animation sequence, pre-WotLK layout: global start/end timestamps, "
+          "one u32 blend time.")
+      ]] M2Sequence<V> : M2SequenceBase {
       [[=welder::doc("Animation id in AnimationData.dbc.")]]
       std::uint16_t id = 0;
       [[=welder::doc("Which variation of the animation this is.")]]
@@ -108,31 +104,29 @@ namespace wowlib::formats::m2::root::record
       std::uint16_t alias_next = 0;
 
       [[=welder::doc("Whether this sequence is an alias (flag 0x40): it owns "
-                     "NO track data — resolve it by following alias_next. "
-                     "Files still carry stale array records for aliases "
-                     "(dead offsets, junk values), so they are never "
-                     "chased.")]]
+        "NO track data — resolve it by following alias_next. "
+        "Files still carry stale array records for aliases "
+        "(dead offsets, junk values), so they are never "
+        "chased.")]]
       constexpr bool is_alias() const { return (flags & 0x40u) != 0; }
 
       [[=welder::doc("Whether this sequence owns an external .anim file: its "
-                     "data is low-priority (0x10/0x20/0x100 all clear) and "
-                     "it is no alias.")]]
-      constexpr bool owns_anim_file() const
-      {
+        "data is low-priority (0x10/0x20/0x100 all clear) and "
+        "it is no alias.")]]
+      constexpr bool owns_anim_file() const {
         return sequence_data_external(flags) && !is_alias();
       }
 
       bool operator==(const M2Sequence&) const = default;
     };
 
-    template <ClientVersion V>
-      requires (V >= m2_per_sequence_timelines && V < m2_split_blend_times)
+    template <ClientVersion V> requires (V >= m2_per_sequence_timelines && V < m2_split_blend_times)
     struct [[
-      =welder::weld,
-      =welder::doc("An animation sequence, WotLK through MoP layout: an own duration, one "
-                   "u32 blend time.")
-    ]] M2Sequence<V> : M2SequenceBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "An animation sequence, WotLK through MoP layout: an own duration, one "
+          "u32 blend time.")
+      ]] M2Sequence<V> : M2SequenceBase {
       [[=welder::doc("Animation id in AnimationData.dbc.")]]
       std::uint16_t id = 0;
       [[=welder::doc("Which variation of the animation this is.")]]
@@ -159,31 +153,29 @@ namespace wowlib::formats::m2::root::record
       std::uint16_t alias_next = 0;
 
       [[=welder::doc("Whether this sequence is an alias (flag 0x40): it owns "
-                     "NO track data — resolve it by following alias_next. "
-                     "Files still carry stale array records for aliases "
-                     "(dead offsets, junk values), so they are never "
-                     "chased.")]]
+        "NO track data — resolve it by following alias_next. "
+        "Files still carry stale array records for aliases "
+        "(dead offsets, junk values), so they are never "
+        "chased.")]]
       constexpr bool is_alias() const { return (flags & 0x40u) != 0; }
 
       [[=welder::doc("Whether this sequence owns an external .anim file: its "
-                     "data is low-priority (0x10/0x20/0x100 all clear) and "
-                     "it is no alias.")]]
-      constexpr bool owns_anim_file() const
-      {
+        "data is low-priority (0x10/0x20/0x100 all clear) and "
+        "it is no alias.")]]
+      constexpr bool owns_anim_file() const {
         return sequence_data_external(flags) && !is_alias();
       }
 
       bool operator==(const M2Sequence&) const = default;
     };
 
-    template <ClientVersion V>
-      requires (V >= m2_split_blend_times)
+    template <ClientVersion V> requires (V >= m2_split_blend_times)
     struct [[
-      =welder::weld,
-      =welder::doc("An animation sequence, WoD+ layout: an own duration, split "
-                   "blend-in/out times.")
-    ]] M2Sequence<V> : M2SequenceBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "An animation sequence, WoD+ layout: an own duration, split "
+          "blend-in/out times.")
+      ]] M2Sequence<V> : M2SequenceBase {
       [[=welder::doc("Animation id in AnimationData.dbc.")]]
       std::uint16_t id = 0;
       [[=welder::doc("Which variation of the animation this is.")]]
@@ -212,17 +204,16 @@ namespace wowlib::formats::m2::root::record
       std::uint16_t alias_next = 0;
 
       [[=welder::doc("Whether this sequence is an alias (flag 0x40): it owns "
-                     "NO track data — resolve it by following alias_next. "
-                     "Files still carry stale array records for aliases "
-                     "(dead offsets, junk values), so they are never "
-                     "chased.")]]
+        "NO track data — resolve it by following alias_next. "
+        "Files still carry stale array records for aliases "
+        "(dead offsets, junk values), so they are never "
+        "chased.")]]
       constexpr bool is_alias() const { return (flags & 0x40u) != 0; }
 
       [[=welder::doc("Whether this sequence owns an external .anim file: its "
-                     "data is low-priority (0x10/0x20/0x100 all clear) and "
-                     "it is no alias.")]]
-      constexpr bool owns_anim_file() const
-      {
+        "data is low-priority (0x10/0x20/0x100 all clear) and "
+        "it is no alias.")]]
+      constexpr bool owns_anim_file() const {
         return sequence_data_external(flags) && !is_alias();
       }
 
@@ -235,20 +226,18 @@ namespace wowlib::formats::m2::root::record
       (m2_sequence_pivots: WotLK's duration layout, WoD's split blend times),
       so one instantiation serves the whole range. */
   template <ClientVersion V>
-  using M2Sequence =
-    detail::M2Sequence<canonical_version(V, m2_sequence_pivots, m2_versions)>;
+  using M2Sequence = detail::M2Sequence<canonical_version(V, m2_sequence_pivots, m2_versions)>;
 
   struct [[
-    =welder::weld,
-    =welder::doc("A pre-WotLK playable-animation fallback: the substitute "
-                 "animation id plus how to play it (0 normal, 1 backwards, "
-                 "2 frame-by-frame, 3 freeze).")
-  ]] M2SequenceFallback
-  {
+      =welder::weld,
+      =welder::doc("A pre-WotLK playable-animation fallback: the substitute "
+        "animation id plus how to play it (0 normal, 1 backwards, "
+        "2 frame-by-frame, 3 freeze).")
+    ]] M2SequenceFallback {
     [[=welder::doc("Substitute animation id in AnimationData.dbc.")]]
     std::int16_t fallback_animation_id = 0;
     [[=welder::doc("Playback mode: 0 normal, 1 backwards, 2 frame-by-frame, "
-                   "3 freeze.")]]
+      "3 freeze.")]]
     std::int16_t flags = 0;
 
     bool operator==(const M2SequenceFallback&) const = default;

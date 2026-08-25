@@ -17,8 +17,7 @@
 #include <wowlib/fs/project_directory.hpp>
 #include <wowlib/fs/storage_backend.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   /** The static composition of one client's file access: storage backend +
       listfile database + optional project-directory overlay. Lookup precedence:
       project directory first (the ultimate patch), then the client storage.
@@ -26,31 +25,23 @@ namespace wowlib::fs
       @tparam Backend  the storage backend (MpqStorage or CascStorage).
       @tparam Listfile the path<->FileDataID database provider. */
   template <StorageBackend Backend, ListfileProvider Listfile = NullListfile>
-  class ClientFileSystem
-  {
+  class ClientFileSystem {
   public:
     /** Compose from ready components (backends are open by construction).
         @param backend  the open storage backend.
         @param listfile the listfile database.
         @param project  the overlay, if any. */
-    ClientFileSystem(Backend backend, Listfile listfile = {},
-                     std::optional<ProjectDirectory> project = std::nullopt)
-      : _backend(std::move(backend))
-      , _listfile(std::move(listfile))
-      , _project(std::move(project))
-    {
-    }
+    ClientFileSystem(Backend backend, Listfile listfile = {}, std::optional<ProjectDirectory> project = std::nullopt)
+      : _backend(std::move(backend)), _listfile(std::move(listfile)), _project(std::move(project)) {}
 
     /** Read a file by key. Missing identity halves are filled from the listfile;
         the project directory wins over the client storage.
         @param key the file identity (path, id, or both).
         @return the file bytes. */
-    Result<FileBuffer> read_file(const FileKey& key)
-    {
+    Result<FileBuffer> read_file(const FileKey& key) {
       const FileKey resolved = resolve(key);
 
-      if (_project && resolved.path && _project->exists(*resolved.path))
-        return _project->read(*resolved.path);
+      if (_project && resolved.path && _project->exists(*resolved.path)) return _project->read(*resolved.path);
 
       return _backend.read_file(resolved);
     }
@@ -58,11 +49,9 @@ namespace wowlib::fs
     /** Whether a file is reachable in the overlay or the storage.
         @param key the file identity.
         @return true if a read would find it. */
-    bool exists(const FileKey& key)
-    {
+    bool exists(const FileKey& key) {
       const FileKey resolved = resolve(key);
-      if (_project && resolved.path && _project->exists(*resolved.path))
-        return true;
+      if (_project && resolved.path && _project->exists(*resolved.path)) return true;
       return _backend.exists(resolved);
     }
 
@@ -70,13 +59,10 @@ namespace wowlib::fs
         best-effort.
         @param key the file identity.
         @return the completed key (unchanged parts preserved). */
-    FileKey resolve(const FileKey& key) const
-    {
+    FileKey resolve(const FileKey& key) const {
       FileKey out = key;
-      if (!out.fdid && out.path)
-        out.fdid = _listfile.path_to_fdid(*out.path);
-      else if (!out.path && out.fdid)
-        out.path = _listfile.fdid_to_path(*out.fdid);
+      if (!out.fdid && out.path) out.fdid = _listfile.path_to_fdid(*out.path);
+      else if (!out.path && out.fdid) out.path = _listfile.fdid_to_path(*out.fdid);
       return out;
     }
 
@@ -87,22 +73,16 @@ namespace wowlib::fs
         @param content the file contents.
         @return the file's FileDataID (0 on MPQ-era clients, which have no id
                 space). */
-    Result<FileDataID> add_file(std::string_view path, std::span<const std::byte> content)
-    {
+    Result<FileDataID> add_file(std::string_view path, std::span<const std::byte> content) {
       if (!_project)
-        return make_error(ErrorCode::NotSupported,
-                          "no project directory is set; there is nowhere to add files");
+        return make_error(ErrorCode::NotSupported, "no project directory is set; there is nowhere to add files");
 
-      if (auto written = _project->write(path, content); !written)
-        return std::unexpected(written.error());
+      if (auto written = _project->write(path, content); !written) return std::unexpected(written.error());
 
-      if constexpr (Backend::kind() == StorageKind::Mpq)
-        return FileDataID{0};
-      else
-      {
+      if constexpr (Backend::kind() == StorageKind::Mpq) return FileDataID{0};
+      else {
         // Overwriting an already-known file keeps its id; only new paths allocate.
-        if (auto existing = _listfile.path_to_fdid(path))
-          return *existing;
+        if (auto existing = _listfile.path_to_fdid(path)) return *existing;
         return _listfile.register_path(path);
       }
     }

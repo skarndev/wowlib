@@ -18,8 +18,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/version_range.hpp>
 
-namespace wowlib::formats::wdt
-{
+namespace wowlib::formats::wdt {
   /** The WDT format version every supported client uses (the .wdt and
       _occ.wdt MVER payload; _lgt/_fogs/_mpv carry their own numbering). */
   inline constexpr std::uint32_t wdt_version_18 = 18;
@@ -39,25 +38,45 @@ namespace wowlib::formats::wdt
   /** The versions WDT is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
   inline constexpr std::array wdt_versions{
-    versions::vanilla, versions::tbc,         versions::wotlk,
-    versions::cata,    versions::mop,         versions::wod,
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
+    versions::vanilla,
+    versions::tbc,
+    versions::wotlk,
+    versions::cata,
+    versions::mop,
+    versions::wod,
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** The _occ/_lgt satellites exist since WoD: their era-subset grid. */
   inline constexpr std::array wdt_satellite_versions{
-    versions::wod,     versions::legion,      versions::bfa,
-    versions::shadowlands, versions::dragonflight, versions::tww};
+    versions::wod,
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** The _fogs satellite exists since Legion 7.2.5: its era-subset grid. */
   inline constexpr std::array wdt_fogs_versions{
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** The _mpv satellite exists since BfA 8.0.1: its era-subset grid. */
   inline constexpr std::array wdt_mpv_versions{
-    versions::bfa,     versions::shadowlands, versions::dragonflight,
-    versions::tww};
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   // --- per-family canonicalization pivots -------------------------------------
 
@@ -72,12 +91,10 @@ namespace wowlib::formats::wdt
 
   /** WDTLights: the Legion light-set replacement (MPLT out; MPL2/MSLT/MTEX/
       MLTA in; the MVER payload bumps to 20) and the Shadowlands MPL3. */
-  inline constexpr std::array wdt_lights_pivots{
-    builds::Legion, builds::Legion_Alpha_20914, builds::SL_Beta_34490};
+  inline constexpr std::array wdt_lights_pivots{builds::Legion, builds::Legion_Alpha_20914, builds::SL_Beta_34490};
 
   /** WDTFogs: the first VFOG content builds and the version-2 VFEX records. */
-  inline constexpr std::array wdt_fogs_pivots{builds::BfA_Beta_25902,
-                                              builds::TWW_Alpha_54935};
+  inline constexpr std::array wdt_fogs_pivots{builds::BfA_Beta_25902, builds::TWW_Alpha_54935};
 
   /** WDTParticulates: stable since its BfA introduction — the PVMI record
       size is keyed on the file's OWN version payload, not the client (kept
@@ -88,10 +105,14 @@ namespace wowlib::formats::wdt
       satellite file's introduction build. */
   inline constexpr std::array wdt_assembly_pivots{
     builds::WoD,
-    builds::Legion,          builds::Legion_Alpha_20914,
+    builds::Legion,
+    builds::Legion_Alpha_20914,
     builds::Legion_TombOfSargeras,
-    builds::BfA_Beta_25902,  builds::BfA_Beta_26287,
+    builds::BfA_Beta_25902,
+    builds::BfA_Beta_26287,
     wdt_map_fdids,
-    builds::SL_Alpha_33978,  builds::SL_Beta_34490,
-    builds::TWW_Alpha_54935};
+    builds::SL_Alpha_33978,
+    builds::SL_Beta_34490,
+    builds::TWW_Alpha_54935
+  };
 }

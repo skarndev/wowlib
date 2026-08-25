@@ -43,8 +43,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/db/schema.hpp>
 
-namespace wowlib::db::blob
-{
+namespace wowlib::db::blob {
   /** The WDBS magic ('WDBS' little-endian). */
   inline constexpr std::uint32_t magic = 0x53424457u;
   /** The one format version this reader understands. */
@@ -59,35 +58,32 @@ namespace wowlib::db::blob
 
   /** One table's directory entry, decoded. Offsets index the string pool;
       range indexes index the blob-global range section. */
-  struct TableEntry
-  {
-    std::uint32_t name_off = 0;      /**< The identifier name's pool offset. */
+  struct TableEntry {
+    std::uint32_t name_off = 0; /**< The identifier name's pool offset. */
     std::uint32_t disk_name_off = 0; /**< The on-disk table name's pool offset. */
-    std::uint32_t first_range = 0;   /**< Index of the table's first range. */
-    std::uint32_t range_count = 0;   /**< Number of consecutive ranges. */
+    std::uint32_t first_range = 0; /**< Index of the table's first range. */
+    std::uint32_t range_count = 0; /**< Number of consecutive ranges. */
   };
 
   /** One schema range: a run of columns valid for the eras in the mask. */
-  struct RangeEntry
-  {
+  struct RangeEntry {
     std::uint32_t first_column = 0; /**< Index of the range's first column. */
     std::uint16_t column_count = 0; /**< Number of consecutive columns. */
-    std::uint16_t era_mask = 0;     /**< Bit i set = valid for the blob's era i. */
+    std::uint16_t era_mask = 0; /**< Bit i set = valid for the blob's era i. */
   };
 
   /** One column, decoded to the raw blob facts (the catalog turns this into a
       @ref wowlib::db::Column with an interned name). */
-  struct ColumnEntry
-  {
-    std::uint32_t name_off = 0;   /**< The column name's pool offset. */
+  struct ColumnEntry {
+    std::uint32_t name_off = 0; /**< The column name's pool offset. */
     ColumnType type = ColumnType::Int; /**< The logical value class. */
-    std::uint8_t bits = 0;        /**< Integer element width in bits. */
-    bool is_signed = false;       /**< flags & 1. */
-    bool is_id = false;           /**< flags & 2. */
-    bool is_relation = false;     /**< flags & 4. */
-    bool noninline = false;       /**< flags & 8. */
+    std::uint8_t bits = 0; /**< Integer element width in bits. */
+    bool is_signed = false; /**< flags & 1. */
+    bool is_id = false; /**< flags & 2. */
+    bool is_relation = false; /**< flags & 4. */
+    bool noninline = false; /**< flags & 8. */
     std::uint8_t locale_count = 0; /**< LocString language slots; 0 otherwise. */
-    std::uint16_t array_len = 1;  /**< Element count; 1 for scalars. */
+    std::uint16_t array_len = 1; /**< Element count; 1 for scalars. */
   };
 
   /** A structural view over one WDBS blob. Construction never throws and
@@ -97,8 +93,7 @@ namespace wowlib::db::blob
       The view neither owns nor copies — the caller keeps the bytes alive
       (the embedded blob has static storage; the catalog owns its file
       buffer). */
-  class View
-  {
+  class View {
   public:
     /** Bind the view to @a bytes (unvalidated — call @ref valid).
         @param bytes the complete blob. */
@@ -108,17 +103,11 @@ namespace wowlib::db::blob
         version, and every section (plus the string pool's terminating NUL
         discipline at the section level) inside bounds.
         @return true when every accessor below is safe to call. */
-    constexpr bool valid() const
-    {
-      if (bytes_.size() < header_bytes || u32(0) != magic ||
-          u32(4) != format_version)
-        return false;
-      const std::size_t need = header_bytes + era_count() * era_bytes +
-                               table_count() * table_bytes +
-                               range_count() * range_bytes +
-                               column_count() * column_bytes + strpool_size();
-      if (bytes_.size() != need || strpool_size() == 0)
-        return false;
+    constexpr bool valid() const {
+      if (bytes_.size() < header_bytes || u32(0) != magic || u32(4) != format_version) return false;
+      const std::size_t need = header_bytes + era_count() * era_bytes + table_count() * table_bytes + range_count() *
+        range_bytes + column_count() * column_bytes + strpool_size();
+      if (bytes_.size() != need || strpool_size() == 0) return false;
       // The pool must end in a terminator or string_at would run off the end.
       return bytes_[bytes_.size() - 1] == 0u;
     }
@@ -137,8 +126,7 @@ namespace wowlib::db::blob
     /** The client version of era slot @a i.
         @param i the era index (`< era_count()`).
         @return the decoded version tuple. */
-    constexpr ClientVersion era(std::size_t i) const
-    {
+    constexpr ClientVersion era(std::size_t i) const {
       const std::size_t at = header_bytes + i * era_bytes;
       return ClientVersion{u16(at), u16(at + 2), u16(at + 4), u32(at + 8)};
     }
@@ -146,8 +134,7 @@ namespace wowlib::db::blob
     /** The directory entry of table @a i (name-sorted order).
         @param i the table index (`< table_count()`).
         @return the decoded entry. */
-    constexpr TableEntry table(std::size_t i) const
-    {
+    constexpr TableEntry table(std::size_t i) const {
       const std::size_t at = tables_off() + i * table_bytes;
       return TableEntry{u32(at), u32(at + 4), u32(at + 8), u32(at + 12)};
     }
@@ -155,8 +142,7 @@ namespace wowlib::db::blob
     /** The range entry @a i (blob-global index).
         @param i the range index (`< range_count()`).
         @return the decoded entry. */
-    constexpr RangeEntry range(std::size_t i) const
-    {
+    constexpr RangeEntry range(std::size_t i) const {
       const std::size_t at = ranges_off() + i * range_bytes;
       return RangeEntry{u32(at), u16(at + 4), u16(at + 6)};
     }
@@ -164,8 +150,7 @@ namespace wowlib::db::blob
     /** The column entry @a i (blob-global index).
         @param i the column index (`< column_count()`).
         @return the decoded entry. */
-    constexpr ColumnEntry column(std::size_t i) const
-    {
+    constexpr ColumnEntry column(std::size_t i) const {
       const std::size_t at = columns_off() + i * column_bytes;
       const std::uint8_t flags = bytes_[at + 6];
       ColumnEntry out{};
@@ -185,10 +170,8 @@ namespace wowlib::db::blob
         pointer cast out of the byte pool is not a constant expression).
         @param off the pool offset (a `*_off` field).
         @return the NUL-terminated string, as a view. */
-    std::string_view string_at(std::uint32_t off) const
-    {
-      const char* base = reinterpret_cast<const char*>(bytes_.data()) +
-                         strpool_off() + off;
+    std::string_view string_at(std::uint32_t off) const {
+      const char* base = reinterpret_cast<const char*>(bytes_.data()) + strpool_off() + off;
       return std::string_view{base};
     }
 
@@ -196,31 +179,25 @@ namespace wowlib::db::blob
         twin of @ref string_at.
         @param off the pool offset.
         @return the string, as an owned copy. */
-    constexpr std::string copy_string_at(std::uint32_t off) const
-    {
+    constexpr std::string copy_string_at(std::uint32_t off) const {
       std::string out{};
-      for (std::size_t at = strpool_off() + off; bytes_[at] != 0u; ++at)
-        out += static_cast<char>(bytes_[at]);
+      for (std::size_t at = strpool_off() + off; bytes_[at] != 0u; ++at) out += static_cast<char>(bytes_[at]);
       return out;
     }
 
     /** Binary-search the (name-sorted) table directory for @a name.
         @param name the table identifier (case-sensitive, e.g. "Map").
         @return the table index, or nullopt when absent. */
-    constexpr std::optional<std::size_t> find_table(std::string_view name) const
-    {
+    constexpr std::optional<std::size_t>
+    find_table(std::string_view name) const {
       std::size_t lo = 0;
       std::size_t hi = table_count();
-      while (lo < hi)
-      {
+      while (lo < hi) {
         const std::size_t mid = lo + (hi - lo) / 2;
         const int cmp = compare_pool(table(mid).name_off, name);
-        if (cmp == 0)
-          return mid;
-        if (cmp < 0)
-          lo = mid + 1;
-        else
-          hi = mid;
+        if (cmp == 0) return mid;
+        if (cmp < 0) lo = mid + 1;
+        else hi = mid;
       }
       return std::nullopt;
     }
@@ -230,49 +207,43 @@ namespace wowlib::db::blob
 
   private:
     /** Little-endian u16 at byte offset @a at. */
-    constexpr std::uint16_t u16(std::size_t at) const
-    {
-      return static_cast<std::uint16_t>(bytes_[at] |
-                                        (std::uint16_t{bytes_[at + 1]} << 8));
+    constexpr std::uint16_t u16(std::size_t at) const {
+      return static_cast<std::uint16_t>(bytes_[at] | (std::uint16_t{bytes_[at + 1]} << 8));
     }
+
     /** Little-endian u32 at byte offset @a at. */
-    constexpr std::uint32_t u32(std::size_t at) const
-    {
-      return bytes_[at] | (std::uint32_t{bytes_[at + 1]} << 8) |
-             (std::uint32_t{bytes_[at + 2]} << 16) |
-             (std::uint32_t{bytes_[at + 3]} << 24);
+    constexpr std::uint32_t u32(std::size_t at) const {
+      return bytes_[at] | (std::uint32_t{bytes_[at + 1]} << 8) | (std::uint32_t{bytes_[at + 2]} << 16) | (std::uint32_t{
+        bytes_[at + 3]
+      } << 24);
     }
+
     /** Section start offsets, derived from the header counts. */
-    constexpr std::size_t tables_off() const
-    {
+    constexpr std::size_t tables_off() const {
       return header_bytes + era_count() * era_bytes;
     }
-    constexpr std::size_t ranges_off() const
-    {
+
+    constexpr std::size_t ranges_off() const {
       return tables_off() + table_count() * table_bytes;
     }
-    constexpr std::size_t columns_off() const
-    {
+
+    constexpr std::size_t columns_off() const {
       return ranges_off() + range_count() * range_bytes;
     }
-    constexpr std::size_t strpool_off() const
-    {
+
+    constexpr std::size_t strpool_off() const {
       return columns_off() + column_count() * column_bytes;
     }
 
     /** Three-way compare of the pool string at @a off against @a name
         (byte-wise, both worlds).
         @return <0, 0, >0 as the pool string orders against @a name. */
-    constexpr int compare_pool(std::uint32_t off, std::string_view name) const
-    {
+    constexpr int compare_pool(std::uint32_t off, std::string_view name) const {
       std::size_t at = strpool_off() + off;
-      for (const char c : name)
-      {
+      for (const char c : name) {
         const unsigned char p = bytes_[at];
-        if (p == 0u || p < static_cast<unsigned char>(c))
-          return -1;
-        if (p > static_cast<unsigned char>(c))
-          return 1;
+        if (p == 0u || p < static_cast<unsigned char>(c)) return -1;
+        if (p > static_cast<unsigned char>(c)) return 1;
         ++at;
       }
       return bytes_[at] == 0u ? 0 : 1;

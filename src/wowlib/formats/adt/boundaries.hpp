@@ -19,8 +19,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/version_range.hpp>
 
-namespace wowlib::formats::adt
-{
+namespace wowlib::formats::adt {
   /** The ADT format version every supported client writes (the MVER payload). */
   inline constexpr std::uint32_t adt_version_18 = 18;
 
@@ -44,10 +43,18 @@ namespace wowlib::formats::adt
   /** The versions ADT is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
   inline constexpr std::array adt_versions{
-    versions::vanilla, versions::tbc,         versions::wotlk,
-    versions::cata,    versions::mop,         versions::wod,
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
+    versions::vanilla,
+    versions::tbc,
+    versions::wotlk,
+    versions::cata,
+    versions::mop,
+    versions::wod,
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   // --- per-family canonicalization pivots -------------------------------------
   // Listed generously; a pivot that does not separate two grid versions is a
@@ -71,25 +78,25 @@ namespace wowlib::formats::adt
       modeled tile chunks, and _obj1/_lod stay raw until stage 3, so Legion and
       SL are not yet pivots. Ranges: Vanilla / Tbc / Wotlk / CataToLegion /
       BfaPlus. */
-  inline constexpr std::array adt_pivots{builds::TBC, builds::WotLK, builds::Cata,
-                                         adt_tex_fdids};
+  inline constexpr std::array adt_pivots{builds::TBC, builds::WotLK, builds::Cata, adt_tex_fdids};
 
   // --- alpha-format context ---------------------------------------------------
 
   enum class [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         The on-disk MCAL alpha-map bit depth for a tile, decided by the map's
         WDT MPHD flags (adt_has_big_alpha 0x4 / adt_has_height_texturing 0x80),
         not the client era. wowlib always decodes alpha maps to a 64x64 8-bit
         edit surface; this records how they were laid out on disk so a write can
         reproduce the same encoding. RLE compression is an independent per-layer
         choice (the MCLY alpha_map_compressed flag), orthogonal to the depth.)")
-  ]] AlphaFormat : std::uint8_t
-  {
-    lowres_4bit [[=welder::doc("2048-byte 4-bit alpha maps (the default when the WDT "
-                               "sets neither big-alpha flag).")]] = 0,
-    highres_8bit [[=welder::doc("4096-byte 8-bit alpha maps (the WDT has adt_has_big_alpha "
-                                "or adt_has_height_texturing).")]] = 1
+    ]] AlphaFormat : std::uint8_t {
+    lowres_4bit [[=welder::doc(
+      "2048-byte 4-bit alpha maps (the default when the WDT "
+      "sets neither big-alpha flag).")]] = 0,
+    highres_8bit [[=welder::doc(
+      "4096-byte 8-bit alpha maps (the WDT has adt_has_big_alpha "
+      "or adt_has_height_texturing).")]] = 1
   };
 }

@@ -23,18 +23,15 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/annotations.hpp>
 
-namespace wowlib::formats::detail
-{
+namespace wowlib::formats::detail {
   /** The first annotation of type @a Spec on reflected member @a M, if any.
       @tparam Spec the annotation payload type (a `*_spec` struct).
       @tparam M    the reflected member.
       @return the payload, or nullopt when the member is unannotated. */
   template <typename Spec, std::meta::info M>
-  consteval std::optional<Spec> annotation()
-  {
+  consteval std::optional<Spec> annotation() {
     auto anns = std::meta::annotations_of_with_type(M, ^^Spec);
-    if (anns.empty())
-      return std::nullopt;
+    if (anns.empty()) return std::nullopt;
     return std::meta::extract<Spec>(anns[0]);
   }
 
@@ -43,12 +40,9 @@ namespace wowlib::formats::detail
       @tparam V the entity's client version.
       @tparam M the reflected member. */
   template <ClientVersion V, std::meta::info M>
-  consteval bool version_active()
-  {
-    if (auto s = annotation<since_spec, M>(); s && V < s->v)
-      return false;
-    if (auto u = annotation<until_spec, M>(); u && V >= u->v)
-      return false;
+  consteval bool version_active() {
+    if (auto s = annotation<since_spec, M>(); s && V < s->v) return false;
+    if (auto u = annotation<until_spec, M>(); u && V >= u->v) return false;
     return true;
   }
 
@@ -67,13 +61,10 @@ namespace wowlib::formats::detail
       come along but carry no chunk() annotation, so every chunk loop skips them.
       @param type the reflected class to walk.
       @param out  the member list being built. */
-  consteval void collect_members(std::meta::info type, std::vector<std::meta::info>& out)
-  {
+  consteval void collect_members(std::meta::info type, std::vector<std::meta::info>& out) {
     for (auto b : std::meta::bases_of(type, std::meta::access_context::unchecked()))
-      if (std::meta::is_public(b))
-        collect_members(std::meta::type_of(b), out);
-    for (auto m : std::meta::nonstatic_data_members_of(type, std::meta::access_context::unchecked()))
-      out.push_back(m);
+      if (std::meta::is_public(b)) collect_members(std::meta::type_of(b), out);
+    for (auto m : std::meta::nonstatic_data_members_of(type, std::meta::access_context::unchecked())) out.push_back(m);
   }
 
   /** The reflected member list of @a E, public bases flattened in (see
@@ -82,8 +73,7 @@ namespace wowlib::formats::detail
       @tparam E the entity type.
       @return a static array of the reflected non-static data members. */
   template <typename E>
-  consteval auto members_of()
-  {
+  consteval auto members_of() {
     std::vector<std::meta::info> out;
     collect_members(^^E, out);
     return std::define_static_array(out);
@@ -98,11 +88,9 @@ namespace wowlib::formats::detail
       @param  name the member identifier to find.
       @return the reflected member, or `std::meta::info{}`. */
   template <typename E>
-  consteval std::meta::info member_named(std::string_view name)
-  {
+  consteval std::meta::info member_named(std::string_view name) {
     for (auto m : members_of<E>())
-      if (std::meta::has_identifier(m) && std::meta::identifier_of(m) == name)
-        return m;
+      if (std::meta::has_identifier(m) && std::meta::identifier_of(m) == name) return m;
     return {};
   }
 
@@ -112,14 +100,10 @@ namespace wowlib::formats::detail
       records, and reflecting into them would walk implementation details.
       @param r the reflected entity (typically a type).
       @return whether `std` encloses it. */
-  consteval bool nested_in_std(std::meta::info r)
-  {
-    while (r != std::meta::info{} && r != ^^::)
-    {
-      if (r == ^^std)
-        return true;
-      if (!std::meta::has_parent(r))
-        return false;
+  consteval bool nested_in_std(std::meta::info r) {
+    while (r != std::meta::info{} && r != ^^::) {
+      if (r == ^^std) return true;
+      if (!std::meta::has_parent(r)) return false;
       r = std::meta::parent_of(r);
     }
     return false;
@@ -128,8 +112,7 @@ namespace wowlib::formats::detail
   /** Whether @a T is a standard-library type (see nested_in_std).
       @tparam T the type to classify. */
   template <typename T>
-  consteval bool is_std_type()
-  {
+  consteval bool is_std_type() {
     return nested_in_std(^^T);
   }
 }

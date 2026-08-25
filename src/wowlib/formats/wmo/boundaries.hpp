@@ -18,8 +18,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/version_range.hpp>
 
-namespace wowlib::formats::wmo
-{
+namespace wowlib::formats::wmo {
   /** The WMO format version every supported client uses (MVER payload). */
   inline constexpr std::uint32_t wmo_version_v17 = 17;
 
@@ -43,10 +42,18 @@ namespace wowlib::formats::wmo
   /** The versions WMO is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
   inline constexpr std::array wmo_versions{
-    versions::vanilla, versions::tbc,         versions::wotlk,
-    versions::cata,    versions::mop,         versions::wod,
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
+    versions::vanilla,
+    versions::tbc,
+    versions::wotlk,
+    versions::cata,
+    versions::mop,
+    versions::wod,
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** SMOBatch: the culling-box prelude gives way to the large material id. */
   inline constexpr std::array wmo_batch_pivots{wmo_batch_large_material};
@@ -58,10 +65,15 @@ namespace wowlib::formats::wmo
       root file carries (GFID/MOUV/MOSI/MODI/the volume family/new lights/
       M3 materials). */
   inline constexpr std::array wmo_root_pivots{
-    builds::Legion_Alpha, builds::Legion_ShadowsOfArgus_24473,
-    builds::BfA_TidesOfVengeance, builds::BfA_VisionsOfNzoth_32044,
-    builds::SL_Alpha_33978, builds::SL_ChainsOfDomination,
-    builds::TWW_Alpha, builds::TWW_Undermined};
+    builds::Legion_Alpha,
+    builds::Legion_ShadowsOfArgus_24473,
+    builds::BfA_TidesOfVengeance,
+    builds::BfA_VisionsOfNzoth_32044,
+    builds::SL_Alpha_33978,
+    builds::SL_ChainsOfDomination,
+    builds::TWW_Alpha,
+    builds::TWW_Undermined
+  };
 
   /** WMOGroupBody / WMOGroup: every trait-slot boundary and chunk build the
       group files carry, plus the two binary-layout pivots above.
@@ -73,20 +85,32 @@ namespace wowlib::formats::wmo
       canonicalize onto the Cata instantiation and the chunk would stay
       unmodelled for the era that introduced it. */
   inline constexpr std::array wmo_group_pivots{
-    builds::Cata,      builds::MoP,
-    builds::WoD,       wmo_batch_large_material,
+    builds::Cata,
+    builds::MoP,
+    builds::WoD,
+    wmo_batch_large_material,
     builds::BfA_TidesOfVengeance,
-    builds::BfA_VisionsOfNzoth_33775,  builds::SL_Alpha_33978,
-    wmo_split_groups,               builds::DF_Alpha};
+    builds::BfA_VisionsOfNzoth_33775,
+    builds::SL_Alpha_33978,
+    wmo_split_groups,
+    builds::DF_Alpha
+  };
 
   /** The WMO assembly: the union of the root and group pivots. */
   inline constexpr std::array wmo_assembly_pivots{
-    builds::Cata,      builds::MoP,
-    builds::WoD,       wmo_batch_large_material,
+    builds::Cata,
+    builds::MoP,
+    builds::WoD,
+    wmo_batch_large_material,
     builds::Legion_ShadowsOfArgus_24473,
-    builds::BfA_TidesOfVengeance,  builds::BfA_VisionsOfNzoth_32044,
-    builds::BfA_VisionsOfNzoth_33775,  builds::SL_Alpha_33978,
-    builds::SL_ChainsOfDomination,  wmo_split_groups,
-    builds::DF_Alpha, builds::TWW_Alpha,
-    builds::TWW_Undermined};
+    builds::BfA_TidesOfVengeance,
+    builds::BfA_VisionsOfNzoth_32044,
+    builds::BfA_VisionsOfNzoth_33775,
+    builds::SL_Alpha_33978,
+    builds::SL_ChainsOfDomination,
+    wmo_split_groups,
+    builds::DF_Alpha,
+    builds::TWW_Alpha,
+    builds::TWW_Undermined
+  };
 }

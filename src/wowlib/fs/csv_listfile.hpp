@@ -17,15 +17,14 @@
 #include <wowlib/fs/fdid_allocator.hpp>
 #include <wowlib/fs/listfile.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   /** Tuning knobs for loading a listfile. */
-  struct CsvListfileOptions
-  {
+  struct CsvListfileOptions {
     /** First FileDataID handed to newly registered files; keep far above
         Blizzard's ~6-7M so future official content never collides. */
     FileDataID custom_fdid_start{1'000'000'000};
   };
+
   // (namespace-scope rather than nested: gcc late-parses nested-class NSDMIs, so a
   // `= {}` default argument cannot aggregate-initialize a nested struct)
 
@@ -35,8 +34,7 @@ namespace wowlib::fs
       append to it, so customizations live right next to the community data and
       survive reloads. Thread-safe: concurrent lookups, exclusive registration.
       Not welded — target languages reach it through the FileSystem facade. */
-  class CsvListfile
-  {
+  class CsvListfile {
   public:
     using Options = CsvListfileOptions;
 
@@ -48,8 +46,7 @@ namespace wowlib::fs
         @param csv     path to the CSV on disk.
         @param options loading options.
         @return the loaded database, or ListfileIoError/ListfileParseError. */
-    static Result<CsvListfile> load(const std::filesystem::path& csv,
-                                    Options options = {});
+    static Result<CsvListfile> load(const std::filesystem::path& csv, Options options = {});
 
     /** Look up the FileDataID of a path (any spelling; canonicalized here).
         @param path the client-internal file path.

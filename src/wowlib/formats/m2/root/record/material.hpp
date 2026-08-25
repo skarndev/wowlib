@@ -16,21 +16,19 @@
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::root::record
-{
+namespace wowlib::formats::m2::root::record {
   /** The version-agnostic base of every M2Color<V> (welded as "M2Color").
       Bindings-only, like every *Base: it gives the per-version classes a
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Color"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Color"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One color + alpha animation pair. Abstract over the client version; construct a concrete
         version with M2Color.ForVersion / for_version.)")
-  ]] M2ColorBase
-  {
+    ]] M2ColorBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2ColorBase&) const = default;
   };
@@ -40,14 +38,13 @@ namespace wowlib::formats::m2::root::record
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2TextureWeight"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2TextureWeight"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One texture weight (transparency) track. Abstract over the client version; construct a concrete
         version with M2TextureWeight.ForVersion / for_version.)")
-  ]] M2TextureWeightBase
-  {
+    ]] M2TextureWeightBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2TextureWeightBase&) const = default;
   };
@@ -57,14 +54,13 @@ namespace wowlib::formats::m2::root::record
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2TextureFlipbook"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2TextureFlipbook"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One texture flipbook animation. Abstract over the client version; construct a concrete
         version with M2TextureFlipbook.ForVersion / for_version.)")
-  ]] M2TextureFlipbookBase
-  {
+    ]] M2TextureFlipbookBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2TextureFlipbookBase&) const = default;
   };
@@ -74,24 +70,22 @@ namespace wowlib::formats::m2::root::record
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2TextureTransform"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2TextureTransform"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One texture UV transform animation. Abstract over the client version; construct a concrete
         version with M2TextureTransform.ForVersion / for_version.)")
-  ]] M2TextureTransformBase
-  {
+    ]] M2TextureTransformBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2TextureTransformBase&) const = default;
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("An M2 vertex: position, 4-bone weights/indices, normal and "
-                 "two texture coordinate sets.")
-  ]] M2Vertex
-  {
+      =welder::weld,
+      =welder::doc("An M2 vertex: position, 4-bone weights/indices, normal and "
+        "two texture coordinate sets.")
+    ]] M2Vertex {
     [[=welder::doc("Position in model space.")]]
     C3Vector pos{};
     [[=welder::doc("Influence weights of the four bones; they sum to 255.")]]
@@ -105,28 +99,27 @@ namespace wowlib::formats::m2::root::record
 
     bool operator==(const M2Vertex&) const = default;
   };
+
   static_assert(sizeof(M2Vertex) == 48);
 
   enum class [[
-    =welder::weld,
-    =welder::doc("M2Material render flags.")
-  ]] MaterialFlags : std::uint16_t
-  {
+      =welder::weld,
+      =welder::doc("M2Material render flags.")
+    ]] MaterialFlags : std::uint16_t {
     Unlit [[=welder::doc("No lighting.")]] = 0x1,
     Unfogged [[=welder::doc("No fog.")]] = 0x2,
     TwoSided [[=welder::doc("No backface culling.")]] = 0x4,
     DepthTest [[=welder::doc("Depth test enabled.")]] = 0x8,
     DepthWrite [[=welder::doc("Depth write enabled.")]] = 0x10,
     NoCustomAlpha [[=welder::doc("MoP+: force fully opaque/transparent for "
-                                 "custom elements.")]] = 0x800
+      "custom elements.")]] = 0x800
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("An M2 material: render flags (see MaterialFlags) and the "
-                 "blending mode (see M2/Rendering M2BLEND).")
-  ]] M2Material
-  {
+      =welder::weld,
+      =welder::doc("An M2 material: render flags (see MaterialFlags) and the "
+        "blending mode (see M2/Rendering M2BLEND).")
+    ]] M2Material {
     [[=welder::doc("See MaterialFlags.")]]
     std::uint16_t flags = 0;
     [[=welder::doc("M2BLEND blending mode (see M2/Rendering).")]]
@@ -134,36 +127,36 @@ namespace wowlib::formats::m2::root::record
 
     bool operator==(const M2Material&) const = default;
   };
+
   static_assert(sizeof(M2Material) == 4);
 
   struct [[
-    =welder::weld,
-    =welder::doc("A texture definition: type 0 references the filename (TXID "
-                 "FileDataIDs replace it in 8.0+); non-zero types are runtime component "
-                 "slots (skin, hair, monster skins, ...).")
-  ]] M2Texture
-  {
+      =welder::weld,
+      =welder::doc("A texture definition: type 0 references the filename (TXID "
+        "FileDataIDs replace it in 8.0+); non-zero types are runtime component "
+        "slots (skin, hair, monster skins, ...).")
+    ]] M2Texture {
     [[=welder::doc("0 = filename-referenced, else a component slot.")]]
     std::uint32_t type = 0;
     [[=welder::doc("0x1 wrap X, 0x2 wrap Y.")]]
     std::uint32_t flags = 0;
-    [[=welder::doc("For type 0; the serializer writes the NUL inside the count.")]]
+    [[=welder::doc(
+      "For type 0; the serializer writes the NUL inside the count.")]]
     std::string filename;
 
     bool operator==(const M2Texture&) const = default;
   };
 
-namespace detail
-  {
+  namespace detail {
     // The annotated era layouts; instantiate through the canonicalizing
     // aliases below, never directly.
-      template <ClientVersion V>
+    template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("A vertex color + alpha animation pair, referenced from skin batches "
-                   "by color index.")
-    ]] M2Color : M2ColorBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A vertex color + alpha animation pair, referenced from skin batches "
+          "by color index.")
+      ]] M2Color : M2ColorBase {
       [[=welder::doc("RGB vertex color.")]]
       record::M2Track<C3Vector, V> color{};
       [[=welder::doc("0 transparent .. 0x7FFF opaque.")]]
@@ -174,12 +167,11 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("A global texture weight (transparency) track.")
-    ]] M2TextureWeight : M2TextureWeightBase
-    {
+        =welder::weld,
+        =welder::doc("A global texture weight (transparency) track.")
+      ]] M2TextureWeight : M2TextureWeightBase {
       [[=welder::doc("0 transparent .. 0x7FFF opaque; multiplies the color "
-                     "block's alpha.")]]
+        "block's alpha.")]]
       record::M2Track<fixed16, V> weight{};
 
       bool operator==(const M2TextureWeight&) const = default;
@@ -187,10 +179,10 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("A pre-WotLK texture flipbook slot; never observed engaged in files.")
-    ]] M2TextureFlipbook : M2TextureFlipbookBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A pre-WotLK texture flipbook slot; never observed engaged in files.")
+      ]] M2TextureFlipbook : M2TextureFlipbookBase {
       [[=welder::doc("Frame index keyframes.")]]
       record::M2Track<std::uint16_t, V> frames{};
 
@@ -199,11 +191,11 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("A UV animation: translation/rotation/scaling keyframes for the "
-                   "texture matrix (rotation pivots at texture center 0.5, 0.5).")
-    ]] M2TextureTransform : M2TextureTransformBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A UV animation: translation/rotation/scaling keyframes for the "
+          "texture matrix (rotation pivots at texture center 0.5, 0.5).")
+      ]] M2TextureTransform : M2TextureTransformBase {
       [[=welder::doc("UV translation keyframes.")]]
       record::M2Track<C3Vector, V> translation{};
       [[=welder::doc("UV rotation keyframes, pivoting at the texture center.")]]
@@ -220,13 +212,9 @@ namespace detail
   template <ClientVersion V>
   using M2Color = detail::M2Color<canonical_version(V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
-  using M2TextureWeight =
-    detail::M2TextureWeight<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2TextureWeight = detail::M2TextureWeight<canonical_version(V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
-  using M2TextureFlipbook =
-    detail::M2TextureFlipbook<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2TextureFlipbook = detail::M2TextureFlipbook<canonical_version(V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
-  using M2TextureTransform =
-    detail::M2TextureTransform<canonical_version(V, m2_track_pivots, m2_versions)>;
-
+  using M2TextureTransform = detail::M2TextureTransform<canonical_version(V, m2_track_pivots, m2_versions)>;
 }

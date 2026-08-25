@@ -19,8 +19,7 @@
 
 #include <wowlib/core/client_version.hpp>
 
-namespace wowlib::builds
-{
+namespace wowlib::builds {
   // --- era markers (build 0: "any client of this expansion") ----------------
 
   /** The Burning Crusade (any 2.x client). */

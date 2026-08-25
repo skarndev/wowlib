@@ -43,22 +43,18 @@
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/validation.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   class FileSystem;
 }
 
-namespace wowlib::db
-{
+namespace wowlib::db {
   /** The erased engine of one table: identity + records access + preserved
       decode state, with every operation's body compiled once. Not welded —
       TableBase below is the bound face. */
-  class TableCore
-  {
+  class TableCore {
   public:
     /** Point the core at its owner's records vector and identity. */
-    void wire(void* records_vec, const detail::RecordOps* ops, TableInfo info)
-    {
+    void wire(void* records_vec, const detail::RecordOps* ops, TableInfo info) {
       vec_ = records_vec;
       ops_ = ops;
       info_ = info;
@@ -71,8 +67,7 @@ namespace wowlib::db
         @param sink   the decode target (kept alive by the owner).
         @param source the encode source (kept alive by the owner).
         @param info   the runtime identity + schema. */
-    void wire(RecordSink* sink, const RecordSource* source, TableInfo info)
-    {
+    void wire(RecordSink* sink, const RecordSource* source, TableInfo info) {
       ext_sink_ = sink;
       ext_source_ = source;
       info_ = info;
@@ -85,8 +80,7 @@ namespace wowlib::db
     /** The external-wiring twin of @ref rewire.
         @param sink   the copied owner's sink.
         @param source the copied owner's source. */
-    void rewire(RecordSink* sink, const RecordSource* source)
-    {
+    void rewire(RecordSink* sink, const RecordSource* source) {
       ext_sink_ = sink;
       ext_source_ = source;
     }
@@ -94,14 +88,14 @@ namespace wowlib::db
     Result<void> read(std::span<const std::byte> data);
     Result<void> read(fs::FileSystem& fs, const FileKey& key);
     Result<FileBuffer> write(EncryptedPolicy policy) const;
-    Result<void> write(fs::FileSystem& fs, const FileKey& key,
-                       EncryptedPolicy policy) const;
+    Result<void> write(fs::FileSystem& fs, const FileKey& key, EncryptedPolicy policy) const;
 
     const formats::StringBlock& strings() const { return state_.strings; }
-    const std::vector<EncryptedSection>& encrypted_sections() const
-    {
+
+    const std::vector<EncryptedSection>& encrypted_sections() const {
       return state_.encrypted;
     }
+
     bool fully_decoded() const { return state_.encrypted.empty(); }
     formats::ValidationReport validate() const;
     Result<void> ensure_valid() const { return validate().to_result(); }
@@ -122,7 +116,7 @@ namespace wowlib::db
 
     void* vec_ = nullptr;
     const detail::RecordOps* ops_ = nullptr;
-    RecordSink* ext_sink_ = nullptr;        /**< External wiring (dyn_table). */
+    RecordSink* ext_sink_ = nullptr; /**< External wiring (dyn_table). */
     const RecordSource* ext_source_ = nullptr; /**< External wiring (dyn_table). */
     TableInfo info_{};
     TableState state_;
@@ -135,69 +129,67 @@ namespace wowlib::db
       emits) derive this; the per-era classes derive those and wire the
       protected core with their typed records vector at construction. */
   class [[
-    =welder::weld,
-    =welder::doc("The common surface of every client-database table: decode "
-                 "(read), encode (write), validation, and the preserved decode "
-                 "state. Concrete tables add their typed records.")]] TableBase
-  {
+      =welder::weld,
+      =welder::doc("The common surface of every client-database table: decode "
+        "(read), encode (write), validation, and the preserved decode "
+        "state. Concrete tables add their typed records.")]] TableBase {
   public:
     [[=welder::doc("Decode a table file image."),
-      =welder::returns("nothing; raises on malformed input or a schema mismatch")]]
-    Result<void> read(std::span<const std::byte> data
-                      [[=welder::doc("the whole file content")]])
-    {
+      =welder::returns(
+        "nothing; raises on malformed input or a schema mismatch")]]
+    Result<void> read(std::span<const std::byte> data [[=welder::doc("the whole file content")]]) {
       return core_.read(data);
     }
 
     [[=welder::doc("Load the table from a client filesystem."),
       =welder::returns("nothing; raises when loading fails")]]
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
-                      const FileKey& key [[=welder::doc("the file to read")]])
-    {
+                      const FileKey& key [[=welder::doc("the file to read")]]) {
       return core_.read(fs, key);
     }
 
-    [[=welder::doc("Serialize the table to a file image; a loaded table re-emits "
-                   "the format it was read from. `policy` decides how keyless "
-                   "encrypted sections are handled."),
+    [[=welder::doc(
+        "Serialize the table to a file image; a loaded table re-emits "
+        "the format it was read from. `policy` decides how keyless "
+        "encrypted sections are handled."),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write(EncryptedPolicy policy
-                             [[=welder::doc("keyless-section handling (WDC only)")]]
-                             = EncryptedPolicy::Preserve) const
-    {
+      [[=welder::doc("keyless-section handling (WDC only)")]]
+      = EncryptedPolicy::Preserve) const {
       return core_.write(policy);
     }
 
     [[=welder::doc("Serialize the table into a client filesystem (project "
-                   "overlay); the target path's extension picks .dbc/.db2 in "
-                   "the mixed eras."),
+        "overlay); the target path's extension picks .dbc/.db2 in "
+        "the mixed eras."),
       =welder::returns("nothing; raises when saving fails")]]
     Result<void> write(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                        const FileKey& key [[=welder::doc("the file to write")]],
                        EncryptedPolicy policy
-                       [[=welder::doc("keyless-section handling (WDC only)")]]
-                       = EncryptedPolicy::Preserve) const
-    {
+        [[=welder::doc("keyless-section handling (WDC only)")]]
+                         = EncryptedPolicy::Preserve) const {
       return core_.write(fs, key, policy);
     }
 
     [[=welder::getter,
-      =welder::doc("The preserved string block the record string fields were decoded "
-                   "from; offsets never move, write() appends new strings past its "
-                   "end.")]]
+      =welder::doc(
+        "The preserved string block the record string fields were decoded "
+        "from; offsets never move, write() appends new strings past its "
+        "end.")]]
     const formats::StringBlock& strings() const { return core_.strings(); }
 
     [[=welder::getter,
-      =welder::doc("The encrypted sections skipped on read: their records are not "
-                   "in records, but the file re-writes them verbatim.")]]
-    const std::vector<EncryptedSection>& encrypted_sections() const
-    {
+      =welder::doc(
+        "The encrypted sections skipped on read: their records are not "
+        "in records, but the file re-writes them verbatim.")]]
+    const std::vector<EncryptedSection>& encrypted_sections() const {
       return core_.encrypted_sections();
     }
 
     [[=welder::getter,
-      =welder::doc("Whether the whole table decoded — false when encrypted sections "
-                   "were skipped.")]]
+      =welder::doc(
+        "Whether the whole table decoded — false when encrypted sections "
+        "were skipped.")]]
     bool fully_decoded() const { return core_.fully_decoded(); }
 
     [[nodiscard]]
@@ -211,7 +203,7 @@ namespace wowlib::db
 
     [[nodiscard]]
     [[=welder::doc("Validate and raise on the first error instead of returning "
-                   "a report — the assert-style face of validate()."),
+        "a report — the assert-style face of validate()."),
       =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const { return core_.ensure_valid(); }
 

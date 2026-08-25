@@ -15,8 +15,7 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/formats/common/version_range.hpp>
 
-namespace wowlib::formats::m2
-{
+namespace wowlib::formats::m2 {
   /** TBC (v260+): bone rotations become compressed M2CompQuat (vanilla stored
       raw C4Quaternion), M2CompBone gains the boneNameCRC field, and the
       particle header packs blendingType/emitterType into bytes next to the
@@ -59,16 +58,11 @@ namespace wowlib::formats::m2
       format_version member.
       @param v the targeted client version.
       @return the on-disk format version number. */
-  consteval std::uint32_t m2_format_version(ClientVersion v)
-  {
-    if (v >= m2_chunked_container)
-      return 274;
-    if (v >= m2_multitex_particles)
-      return 272;
-    if (v >= m2_per_sequence_timelines)
-      return 264;
-    if (v >= m2_compressed_bones)
-      return 263;
+  consteval std::uint32_t m2_format_version(ClientVersion v) {
+    if (v >= m2_chunked_container) return 274;
+    if (v >= m2_multitex_particles) return 272;
+    if (v >= m2_per_sequence_timelines) return 264;
+    if (v >= m2_compressed_bones) return 263;
     return 256;
   }
 
@@ -77,16 +71,11 @@ namespace wowlib::formats::m2
       writing always emits m2_format_version().
       @param v the targeted client version.
       @return {era minimum, era maximum}. */
-  consteval std::pair<std::uint32_t, std::uint32_t> m2_format_version_range(ClientVersion v)
-  {
-    if (v >= m2_chunked_container)
-      return {264, 274};
-    if (v >= m2_multitex_particles)
-      return {265, 273};
-    if (v >= m2_per_sequence_timelines)
-      return {264, 264};
-    if (v >= m2_compressed_bones)
-      return {258, 263};
+  consteval std::pair<std::uint32_t, std::uint32_t> m2_format_version_range(ClientVersion v) {
+    if (v >= m2_chunked_container) return {264, 274};
+    if (v >= m2_multitex_particles) return {265, 273};
+    if (v >= m2_per_sequence_timelines) return {264, 264};
+    if (v >= m2_compressed_bones) return {258, 263};
     return {256, 257};
   }
 
@@ -105,21 +94,40 @@ namespace wowlib::formats::m2
   /** The versions M2 is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
   inline constexpr std::array m2_versions{
-    versions::vanilla, versions::tbc,         versions::wotlk,
-    versions::cata,    versions::mop,         versions::wod,
-    versions::legion,  versions::bfa,         versions::shadowlands,
-    versions::dragonflight, versions::tww};
+    versions::vanilla,
+    versions::tbc,
+    versions::wotlk,
+    versions::cata,
+    versions::mop,
+    versions::wod,
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** The era subset .skin files exist for (WotLK+). */
   inline constexpr std::array m2_skin_versions{
-    versions::wotlk, versions::cata,        versions::mop,
-    versions::wod,   versions::legion,      versions::bfa,
-    versions::shadowlands, versions::dragonflight, versions::tww};
+    versions::wotlk,
+    versions::cata,
+    versions::mop,
+    versions::wod,
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** The era subset the chunked container exists for (Legion+). */
   inline constexpr std::array m2_chunked_versions{
-    versions::legion, versions::bfa, versions::shadowlands,
-    versions::dragonflight, versions::tww};
+    versions::legion,
+    versions::bfa,
+    versions::shadowlands,
+    versions::dragonflight,
+    versions::tww
+  };
 
   /** Track-shaped records (M2Track, M2TrackBase, and every record whose only
       version axis is the tracks it embeds: colors, weights, transforms,
@@ -128,57 +136,63 @@ namespace wowlib::formats::m2
   inline constexpr std::array m2_track_pivots{m2_per_sequence_timelines};
 
   /** M2Sequence: timestamps→duration at WotLK, blend-time split at WoD. */
-  inline constexpr std::array m2_sequence_pivots{m2_per_sequence_timelines,
-                                                m2_split_blend_times};
+  inline constexpr std::array m2_sequence_pivots{m2_per_sequence_timelines, m2_split_blend_times};
 
   /** M2CompBone: raw→compressed quaternions + name CRC at TBC, per-sequence
       track timelines at WotLK. */
-  inline constexpr std::array m2_bone_pivots{m2_compressed_bones,
-                                             m2_per_sequence_timelines};
+  inline constexpr std::array m2_bone_pivots{m2_compressed_bones, m2_per_sequence_timelines};
 
   /** M2Camera: per-sequence tracks at WotLK, static FoV→spline at Cata. */
-  inline constexpr std::array m2_camera_pivots{m2_per_sequence_timelines,
-                                               m2_multitex_particles};
+  inline constexpr std::array m2_camera_pivots{m2_per_sequence_timelines, m2_multitex_particles};
 
   /** M2Particle: byte-packed blending/emitter types at TBC, FBlock ramps and
       spins at WotLK, the multi-texture 492-byte layout at Cata. */
-  inline constexpr std::array m2_particle_pivots{m2_compressed_bones,
-                                                 m2_per_sequence_timelines,
-                                                 m2_multitex_particles};
+  inline constexpr std::array m2_particle_pivots{m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles};
 
   /** M2SkinSection: the sort center/radius tail at TBC. */
   inline constexpr std::array m2_skin_section_pivots{m2_compressed_bones};
 
   /** M2SkinProfile: the section layout at TBC, shadow batches at Cata. */
-  inline constexpr std::array m2_skin_profile_pivots{m2_compressed_bones,
-                                                     m2_multitex_particles};
+  inline constexpr std::array m2_skin_profile_pivots{m2_compressed_bones, m2_multitex_particles};
 
   /** The Skin entity (.skin files, WotLK+): its existence boundary plus the
       profile's Cata shadow batches. Canonicalized over m2_skin_versions. */
-  inline constexpr std::array m2_skin_pivots{m2_per_sequence_timelines,
-                                             m2_multitex_particles};
+  inline constexpr std::array m2_skin_pivots{m2_per_sequence_timelines, m2_multitex_particles};
 
   /** M2Root (the MD20 body): the union of every record pivot, its own trait
       slots (TBC combos, WotLK external skins) and the format-version steps
       (263/264/272/274). */
   inline constexpr std::array m2_data_pivots{
-    m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,
-    m2_split_blend_times, m2_chunked_container};
+    m2_compressed_bones,
+    m2_per_sequence_timelines,
+    m2_multitex_particles,
+    m2_split_blend_times,
+    m2_chunked_container
+  };
 
   /** M2ChunkedFile (the chunked stream): every chunk-introduction build — each
       documented since() value, so the active chunk set is constant within a
       range. Canonicalized over m2_chunked_versions. */
   inline constexpr std::array m2_file_pivots{
     m2_chunked_container,
-    builds::Legion_ShadowsOfArgus_24500,   // EXP2/PABC/PADC/PSBC/PEDC/SKID
-    builds::BfA_Beta,   // TXID/LDV1
-    builds::BfA_TidesOfVengeance,   // RPID/GPID
-    builds::BfA_RiseOfAzshara,   // WFV1/WFV2/PGD1
-    builds::BfA_VisionsOfNzoth_35662,   // PFDC (9.0.1-alpha chunk backported)
-    builds::SL_Alpha_33978,   // WFV3/EDGF/NERF/DBOC
-    builds::SL_Alpha_34365,   // DETL
-    builds::DF,      // AFRA
-    builds::TWW_LegacyOfArathor}; // PCOL/DPIV
+    builds::Legion_ShadowsOfArgus_24500,
+    // EXP2/PABC/PADC/PSBC/PEDC/SKID
+    builds::BfA_Beta,
+    // TXID/LDV1
+    builds::BfA_TidesOfVengeance,
+    // RPID/GPID
+    builds::BfA_RiseOfAzshara,
+    // WFV1/WFV2/PGD1
+    builds::BfA_VisionsOfNzoth_35662,
+    // PFDC (9.0.1-alpha chunk backported)
+    builds::SL_Alpha_33978,
+    // WFV3/EDGF/NERF/DBOC
+    builds::SL_Alpha_34365,
+    // DETL
+    builds::DF,
+    // AFRA
+    builds::TWW_LegacyOfArathor
+  }; // PCOL/DPIV
 
   /** Skeleton and its chunk payloads plus the shell payload records: stable
       across the whole chunked era — no pivots, one instantiation. */
@@ -187,10 +201,20 @@ namespace wowlib::formats::m2
   /** The M2 assembly: the union of the body, skin and stream pivots plus the
       bare-MD20 read gate (m2_chunked_only). */
   inline constexpr std::array m2_assembly_pivots{
-    m2_compressed_bones, m2_per_sequence_timelines, m2_multitex_particles,
-    m2_split_blend_times, m2_chunked_container, m2_chunked_only,
-    builds::Legion_ShadowsOfArgus_24500,  builds::BfA_Beta,
-    builds::BfA_TidesOfVengeance,  builds::BfA_RiseOfAzshara,
-    builds::BfA_VisionsOfNzoth_35662,  builds::SL_Alpha_33978,
-    builds::SL_Alpha_34365,  builds::DF,  builds::TWW_LegacyOfArathor};
+    m2_compressed_bones,
+    m2_per_sequence_timelines,
+    m2_multitex_particles,
+    m2_split_blend_times,
+    m2_chunked_container,
+    m2_chunked_only,
+    builds::Legion_ShadowsOfArgus_24500,
+    builds::BfA_Beta,
+    builds::BfA_TidesOfVengeance,
+    builds::BfA_RiseOfAzshara,
+    builds::BfA_VisionsOfNzoth_35662,
+    builds::SL_Alpha_33978,
+    builds::SL_Alpha_34365,
+    builds::DF,
+    builds::TWW_LegacyOfArathor
+  };
 }

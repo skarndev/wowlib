@@ -14,14 +14,12 @@
 
 #include <wowlib/core/client_version.hpp>
 
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   /** A distinct empty base per @a Trait, so an entity inheriting several *inactive*
       version slots never inherits the same empty type twice (ill-formed). Empty, so
       it is elided (EBO). */
   template <class Trait>
-  struct absent
-  {
+  struct absent {
     // excluded from bindings: the parameter type is this unwelded base
     [[=welder::mark::exclude]]
     bool operator==(const absent&) const = default;
@@ -40,9 +38,6 @@ namespace wowlib::formats
       the one its legacy version number suggests. Entities reached through the
       canonicalizing family aliases are already instantiated at a retail grid
       version, so this only matters to code naming a detail:: template itself. */
-  template <ClientVersion V, ClientVersion Since, class Trait,
-            ClientVersion Until = version_never_removed>
-  using slot = std::conditional_t<(V.format_lineage() >= Since
-                                   && V.format_lineage() < Until),
-                                  Trait, absent<Trait>>;
+  template <ClientVersion V, ClientVersion Since, class Trait, ClientVersion Until = version_never_removed>
+  using slot = std::conditional_t<(V.format_lineage() >= Since && V.format_lineage() < Until), Trait, absent<Trait>>;
 }

@@ -18,8 +18,7 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/file_key.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   /** Local CASC storage. FileDataID is the primary address; opening by name is a
       best-effort fallback that only works on clients whose root manifest still
       carries name hashes (pre-8.2) — on modern clients resolve paths through a
@@ -35,18 +34,16 @@ namespace wowlib::fs
       open-size-read-close sequence; CascLib handles are not documented
       thread-safe. A storage-handle pool is a possible future upgrade (memory-heavy
       — measure first). */
-  class CascStorage
-  {
+  class CascStorage {
   public:
     /** What to open and how. */
-    struct Options
-    {
-      std::filesystem::path client_root;   /**< Client install root (parent of Data/). */
-      std::string product = "wow";         /**< TACT product code. */
-      Locale locale = Locale::enUS;        /**< Locale mask for content selection. */
-      std::optional<std::uint32_t> build;  /**< Preferred client build; orders the
-                                                build-config candidates when a repack
-                                                without .build.info is opened. */
+    struct Options {
+      std::filesystem::path client_root; /**< Client install root (parent of Data/). */
+      std::string product = "wow"; /**< TACT product code. */
+      Locale locale = Locale::enUS; /**< Locale mask for content selection. */
+      std::optional<std::uint32_t> build; /**< Preferred client build; orders the
+                                               build-config candidates when a repack
+                                               without .build.info is opened. */
     };
 
     /** Open the local storage. Fallback ladder for repacks (e.g. WoWCircle) that
@@ -65,16 +62,12 @@ namespace wowlib::fs
     CascStorage& operator=(const CascStorage&) = delete;
 
     CascStorage(CascStorage&& other) noexcept
-      : _options(std::move(other._options))
-      , _storage(other._storage)
-    {
+      : _options(std::move(other._options)), _storage(other._storage) {
       other._storage = nullptr;
     }
 
-    CascStorage& operator=(CascStorage&& other) noexcept
-    {
-      if (this != &other)
-      {
+    CascStorage& operator=(CascStorage&& other) noexcept {
+      if (this != &other) {
         close();
         _options = std::move(other._options);
         _storage = other._storage;
@@ -97,8 +90,7 @@ namespace wowlib::fs
         @param key_name the 64-bit key lookup (the section header's tact_key_hash).
         @param key      the 16-byte key.
         @return nothing, or BackendError when CascLib rejects the key. */
-    Result<void> add_encryption_key(std::uint64_t key_name,
-                                    std::span<const std::byte, 16> key);
+    Result<void> add_encryption_key(std::uint64_t key_name, std::span<const std::byte, 16> key);
 
     /** Register TACT keys from a text list — the community "KeyName KeyHex" per
         line format (16 hex nibbles name, 32 hex nibbles key). Lines that do not
@@ -127,9 +119,7 @@ namespace wowlib::fs
     /** Store the options; open() (the factory) performs the work.
         @param options what to open. */
     explicit CascStorage(Options options)
-      : _options(std::move(options))
-    {
-    }
+      : _options(std::move(options)) {}
 
     /** The opening ladder described on open(); called by the factory on a fresh
         instance.
@@ -143,7 +133,7 @@ namespace wowlib::fs
     bool is_open() const { return _storage != nullptr; }
 
     Options _options;
-    void* _storage = nullptr;             // CascLib HANDLE
+    void* _storage = nullptr; // CascLib HANDLE
     mutable std::mutex _mtx;
   };
 }

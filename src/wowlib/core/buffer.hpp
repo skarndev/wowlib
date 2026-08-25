@@ -6,8 +6,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace wowlib
-{
+namespace wowlib {
   /** Owning byte buffer for file contents read out of a client storage.
 
       A plain vector: cheap to move, maps onto the Python buffer protocol, and has

@@ -19,8 +19,7 @@
 #include <wowlib/core/file_key.hpp>
 #include <wowlib/fs/mpq/mpq_chain.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   /** MPQ chain storage. Opens every member of the version's chain — a StormLib
       archive, or a directory of loose files standing in for one — and resolves
       reads through them in reverse load order (last loaded wins), which
@@ -35,15 +34,13 @@ namespace wowlib::fs
       Thread safety: reads lock only the archive currently probed (one mutex per
       archive), so reads of different archives proceed in parallel. StormLib
       mutates internal state even on lookups, hence probing locks too. */
-  class MpqStorage
-  {
+  class MpqStorage {
   public:
     /** What to open and how. */
-    struct Options
-    {
-      std::filesystem::path data_dir;      /**< The client's Data/ directory. */
-      ClientVersion version;               /**< Selects the chain table. */
-      Locale locale = Locale::enUS;        /**< The locale to open; its Data/{code}/
+    struct Options {
+      std::filesystem::path data_dir; /**< The client's Data/ directory. */
+      ClientVersion version; /**< Selects the chain table. */
+      Locale locale = Locale::enUS; /**< The locale to open; its Data/{code}/
                                                 directory must exist on disk. */
     };
 
@@ -58,15 +55,10 @@ namespace wowlib::fs
     MpqStorage& operator=(const MpqStorage&) = delete;
 
     MpqStorage(MpqStorage&& other) noexcept
-      : _options(std::move(other._options))
-      , _archives(std::move(other._archives))
-    {
-    }
+      : _options(std::move(other._options)), _archives(std::move(other._archives)) {}
 
-    MpqStorage& operator=(MpqStorage&& other) noexcept
-    {
-      if (this != &other)
-      {
+    MpqStorage& operator=(MpqStorage&& other) noexcept {
+      if (this != &other) {
         close();
         _options = std::move(other._options);
         _archives = std::move(other._archives);
@@ -103,12 +95,11 @@ namespace wowlib::fs
     /** One opened member of the chain, for introspection and tests. Exactly one
         source is active — a StormLib archive, or a loose directory whose files
         are indexed by canonical in-game path — as selected by @ref is_directory. */
-    struct OpenedArchive
-    {
-      std::filesystem::path path;      /**< The archive file or loose-dir root on disk. */
-      bool is_directory = false;       /**< true => served from loose files below. */
+    struct OpenedArchive {
+      std::filesystem::path path; /**< The archive file or loose-dir root on disk. */
+      bool is_directory = false; /**< true => served from loose files below. */
 
-      void* handle = nullptr;          /**< StormLib HANDLE (archive members). */
+      void* handle = nullptr; /**< StormLib HANDLE (archive members). */
       std::unique_ptr<std::mutex> mtx; /**< Serializes StormLib calls (archive members). */
 
       /** Whether wow-update patch archives are attached (Cata+). A patched
@@ -133,9 +124,7 @@ namespace wowlib::fs
     /** Store the options; open() (the factory) performs the work.
         @param options what to open. */
     explicit MpqStorage(Options options)
-      : _options(std::move(options))
-    {
-    }
+      : _options(std::move(options)) {}
 
     /** Expand the chain and open every archive present on disk; called by the
         factory on a fresh instance.

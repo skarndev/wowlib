@@ -28,18 +28,16 @@
 #include <wowlib/db/annotations.hpp>
 #include <wowlib/db/locstring.hpp>
 
-namespace wowlib::db
-{
+namespace wowlib::db {
   /** The logical value class of a column. */
   enum class [[
-    =welder::weld,
-    =welder::doc("The logical value class of a table column.")
-  ]] ColumnType : std::uint8_t
-  {
-    Int,       /**< An integer column; Column::bits / Column::is_signed give the shape. */
-    Float,     /**< A 32-bit IEEE float column. */
-    String,    /**< A string-block reference column (u32 offset on disk). */
-    LocString  /**< A pre-Cataclysm localized string column (see LocString). */
+      =welder::weld,
+      =welder::doc("The logical value class of a table column.")
+    ]] ColumnType : std::uint8_t {
+    Int, /**< An integer column; Column::bits / Column::is_signed give the shape. */
+    Float, /**< A 32-bit IEEE float column. */
+    String, /**< A string-block reference column (u32 offset on disk). */
+    LocString /**< A pre-Cataclysm localized string column (see LocString). */
   };
 
   /** One column of a record schema, derived from a record member by
@@ -47,14 +45,13 @@ namespace wowlib::db
       table). Array columns are ONE Column with array_len > 1 — the WoWDBDefs
       view of the world, not the expanded on-disk field list. */
   struct [[
-    =welder::weld,
-    =welder::doc("One column of a table schema: its name, value class, "
-                 "integer shape, array length and key roles.")
-  ]] Column
-  {
+      =welder::weld,
+      =welder::doc("One column of a table schema: its name, value class, "
+        "integer shape, array length and key roles.")
+    ]] Column {
     [[=welder::mark::no_reassign,
       =welder::doc("The column name (WoWDBDefs spelling).")]]
-    const char* name = nullptr;     /**< The member spelling (interned, never dangling). */
+    const char* name = nullptr; /**< The member spelling (interned, never dangling). */
     [[=welder::doc("The logical value class.")]]
     ColumnType type = ColumnType::Int;
     [[=welder::doc("Integer element width in bits; 32 for float/string refs.")]]
@@ -70,7 +67,7 @@ namespace wowlib::db
     [[=welder::doc("Whether this is a relationship key ($relation$).")]]
     bool is_relation = false;
     [[=welder::doc("Whether the column holds no bytes inside the record "
-                   "image ($noninline$).")]]
+      "image ($noninline$).")]]
     bool noninline = false;
 
     /** User-declared (defaulted) so Column is NOT an aggregate: bindings
@@ -87,16 +84,13 @@ namespace wowlib::db
     /** The bytes the column occupies inside a fixed-stride (WDBC/WDB2) record
         image: zero when noninline, the flags field included for LocString.
         @return the on-disk byte width. */
-    constexpr std::size_t inline_bytes() const
-    {
-      if (noninline)
-        return 0;
-      switch (type)
-      {
-        case ColumnType::Int: return static_cast<std::size_t>(bits) / 8 * array_len;
-        case ColumnType::Float:
-        case ColumnType::String: return std::size_t{4} * array_len;
-        case ColumnType::LocString: return (static_cast<std::size_t>(locale_count) + 1) * 4;
+    constexpr std::size_t inline_bytes() const {
+      if (noninline) return 0;
+      switch (type) {
+      case ColumnType::Int: return static_cast<std::size_t>(bits) / 8 * array_len;
+      case ColumnType::Float:
+      case ColumnType::String: return std::size_t{4} * array_len;
+      case ColumnType::LocString: return (static_cast<std::size_t>(locale_count) + 1) * 4;
       }
       return 0;
     }
@@ -105,12 +99,9 @@ namespace wowlib::db
         header field count: arrays count each element, LocString counts every
         language slot plus the flags field, noninline columns count zero.
         @return the field slot count. */
-    constexpr std::uint32_t field_slots() const
-    {
-      if (noninline)
-        return 0;
-      if (type == ColumnType::LocString)
-        return static_cast<std::uint32_t>(locale_count) + 1;
+    constexpr std::uint32_t field_slots() const {
+      if (noninline) return 0;
+      if (type == ColumnType::LocString) return static_cast<std::uint32_t>(locale_count) + 1;
       return array_len;
     }
 
@@ -118,44 +109,37 @@ namespace wowlib::db
         the engine's per-record offset journal).
         @return String columns: the element count; LocString: the language slot
                 count; 0 otherwise. */
-    constexpr std::size_t string_slots() const
-    {
-      if (noninline)
-        return 0;
-      if (type == ColumnType::String)
-        return array_len;
-      if (type == ColumnType::LocString)
-        return locale_count;
+    constexpr std::size_t string_slots() const {
+      if (noninline) return 0;
+      if (type == ColumnType::String) return array_len;
+      if (type == ColumnType::LocString) return locale_count;
       return 0;
     }
   };
 
-  namespace detail
-  {
+  namespace detail {
     /** Trait: is @a T a LocString<N>? Exposes the language slot count. */
     template <typename T>
-    struct locstring_traits
-    {
+    struct locstring_traits {
       static constexpr bool value = false;
     };
+
     template <std::size_t N>
-    struct locstring_traits<LocString<N>>
-    {
+    struct locstring_traits<LocString<N>> {
       static constexpr bool value = true;
       static constexpr std::size_t langs = N;
     };
 
     /** Trait: the element type / extent of a member — unwraps std::array. */
     template <typename T>
-    struct element_traits
-    {
+    struct element_traits {
       using element = T;
       static constexpr std::size_t extent = 1;
       static constexpr bool is_array = false;
     };
+
     template <typename T, std::size_t N>
-    struct element_traits<std::array<T, N>>
-    {
+    struct element_traits<std::array<T, N>> {
       using element = T;
       static constexpr std::size_t extent = N;
       static constexpr bool is_array = true;
@@ -164,9 +148,10 @@ namespace wowlib::db
     /** Whether every byte of @a bytes is zero (an empty span counts as zero).
         @param bytes the span to test.
         @return true when all bytes are zero. */
-    inline bool all_zero(std::span<const std::byte> bytes)
-    {
-      return std::ranges::all_of(bytes, [](std::byte b) { return b == std::byte{0}; });
+    inline bool all_zero(std::span<const std::byte> bytes) {
+      return std::ranges::all_of(bytes, [](std::byte b) {
+        return b == std::byte{0};
+      });
     }
 
     /** The first annotation of type @a Spec on reflected member @a M, if any.
@@ -174,11 +159,9 @@ namespace wowlib::db
         @tparam M    the reflected member.
         @return the payload, or nullopt when the member is unannotated. */
     template <typename Spec, std::meta::info M>
-    consteval std::optional<Spec> annotation()
-    {
+    consteval std::optional<Spec> annotation() {
       auto anns = std::meta::annotations_of_with_type(M, ^^Spec);
-      if (anns.empty())
-        return std::nullopt;
+      if (anns.empty()) return std::nullopt;
       return std::meta::extract<Spec>(anns[0]);
     }
 
@@ -187,35 +170,29 @@ namespace wowlib::db
         @tparam Member the member's declared type.
         @return the partially-filled Column. */
     template <typename Member>
-    consteval Column classify_member()
-    {
+    consteval Column classify_member() {
       using Elem = typename element_traits<Member>::element;
       Column col{};
       col.array_len = static_cast<std::uint16_t>(element_traits<Member>::extent);
-      if constexpr (locstring_traits<Member>::value)
-      {
+      if constexpr (locstring_traits<Member>::value) {
         col.type = ColumnType::LocString;
         col.bits = 32;
         col.locale_count = static_cast<std::uint8_t>(locstring_traits<Member>::langs);
       }
-      else if constexpr (std::same_as<Elem, std::string>)
-      {
+      else if constexpr (std::same_as<Elem, std::string>) {
         col.type = ColumnType::String;
         col.bits = 32;
       }
-      else if constexpr (std::same_as<Elem, float>)
-      {
+      else if constexpr (std::same_as<Elem, float>) {
         col.type = ColumnType::Float;
         col.bits = 32;
       }
-      else if constexpr (std::integral<Elem> && !std::same_as<Elem, bool>)
-      {
+      else if constexpr (std::integral<Elem> && !std::same_as<Elem, bool>) {
         col.type = ColumnType::Int;
         col.bits = static_cast<std::uint8_t>(sizeof(Elem) * 8);
         col.is_signed = std::is_signed_v<Elem>;
       }
-      else
-        static_assert(false, "unsupported record column type");
+      else static_assert(false, "unsupported record column type");
       return col;
     }
 
@@ -224,12 +201,10 @@ namespace wowlib::db
         @tparam Record the record type.
         @return a static array of the reflected members. */
     template <typename Record>
-    consteval auto record_members()
-    {
+    consteval auto record_members() {
       std::vector<std::meta::info> out;
-      for (auto m : std::meta::nonstatic_data_members_of(^^Record,
-                                                         std::meta::access_context::unchecked()))
-        out.push_back(m);
+      for (auto m : std::meta::nonstatic_data_members_of(^^Record, std::meta::access_context::unchecked())) out.
+        push_back(m);
       return std::define_static_array(out);
     }
   }
@@ -239,12 +214,10 @@ namespace wowlib::db
       @tparam Record the record type.
       @return a static span of Columns, never dangling. */
   template <typename Record>
-  consteval auto schema_of()
-  {
+  consteval auto schema_of() {
     std::vector<Column> cols;
     static constexpr auto members = detail::record_members<Record>();
-    template for (constexpr auto m : members)
-    {
+    template for (constexpr auto m : members) {
       using M = [:std::meta::type_of(m):];
       Column col = detail::classify_member<M>();
       col.name = std::define_static_string(std::meta::identifier_of(m));
@@ -260,11 +233,9 @@ namespace wowlib::db
       @tparam Record the record type.
       @return the on-disk record size in bytes. */
   template <typename Record>
-  consteval std::size_t record_stride()
-  {
+  consteval std::size_t record_stride() {
     std::size_t bytes = 0;
-    for (const Column& col : schema_of<Record>())
-      bytes += col.inline_bytes();
+    for (const Column& col : schema_of<Record>()) bytes += col.inline_bytes();
     return bytes;
   }
 
@@ -273,11 +244,9 @@ namespace wowlib::db
       @tparam Record the record type.
       @return the field slot count. */
   template <typename Record>
-  consteval std::uint32_t field_slot_count()
-  {
+  consteval std::uint32_t field_slot_count() {
     std::uint32_t slots = 0;
-    for (const Column& col : schema_of<Record>())
-      slots += col.field_slots();
+    for (const Column& col : schema_of<Record>()) slots += col.field_slots();
     return slots;
   }
 
@@ -286,19 +255,15 @@ namespace wowlib::db
       @tparam Record the record type.
       @return the per-record string slot count. */
   template <typename Record>
-  consteval std::size_t string_slot_count()
-  {
+  consteval std::size_t string_slot_count() {
     std::size_t slots = 0;
-    for (const Column& col : schema_of<Record>())
-      slots += col.string_slots();
+    for (const Column& col : schema_of<Record>()) slots += col.string_slots();
     return slots;
   }
 
   /** A type the table engine can carry as its record: a flat generated (or
       hand-written test) struct naming its client version and table. */
-  template <typename R>
-  concept TableRecord = std::is_class_v<R> && std::default_initializable<R> && requires {
-    { R::version } -> std::convertible_to<ClientVersion>;
-    { std::string_view{R::table_name} };
+  template <typename R> concept TableRecord = std::is_class_v<R> && std::default_initializable<R> && requires {
+    { R::version } -> std::convertible_to<ClientVersion>; { std::string_view{R::table_name} };
   };
 }

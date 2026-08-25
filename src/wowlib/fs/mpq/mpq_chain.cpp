@@ -8,10 +8,8 @@
 #include <string>
 #include <utility>
 
-namespace wowlib::fs::detail
-{
-  namespace
-  {
+namespace wowlib::fs::detail {
+  namespace {
     namespace fsys = std::filesystem;
 
     // 3.3.5a (build 12340). Base tier: the archives the client binary hardcodes,
@@ -166,98 +164,75 @@ namespace wowlib::fs::detail
       MpqChainSpec{versions::mop, mop_base, PatchScheme::UpdateChain},
     };
 
-    std::string expand_locale(std::string_view pattern, std::string_view code)
-    {
+    std::string expand_locale(std::string_view pattern, std::string_view code) {
       std::string out;
       out.reserve(pattern.size() + code.size());
-      for (std::size_t i = 0; i < pattern.size();)
-      {
-        if (pattern.compare(i, 8, "{locale}") == 0)
-        {
+      for (std::size_t i = 0; i < pattern.size();) {
+        if (pattern.compare(i, 8, "{locale}") == 0) {
           out += code;
           i += 8;
         }
-        else
-          out += pattern[i++];
+        else out += pattern[i++];
       }
       return out;
     }
 
-    constexpr char ascii_lower(char c)
-    {
+    constexpr char ascii_lower(char c) {
       return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
     }
 
-    bool ci_equal(std::string_view a, std::string_view b)
-    {
-      return a.size() == b.size() &&
-             std::ranges::equal(a, b, [](char x, char y) {
-               return ascii_lower(x) == ascii_lower(y);
-             });
+    bool ci_equal(std::string_view a, std::string_view b) {
+      return a.size() == b.size() && std::ranges::equal(a, b, [](char x, char y) {
+        return ascii_lower(x) == ascii_lower(y);
+      });
     }
 
     // The client's patch comparator is `-__strnicmp` — case-insensitive
     // lexicographic order over the extension-stripped filename. `patch` precedes
     // `patch-2` (shorter prefix first); base and locale patches interleave by this
     // same key, since the locale code is part of the locale patch's name.
-    bool ci_less(std::string_view a, std::string_view b)
-    {
-      return std::ranges::lexicographical_compare(
-        a, b, [](char x, char y) { return ascii_lower(x) < ascii_lower(y); });
+    bool ci_less(std::string_view a, std::string_view b) {
+      return std::ranges::lexicographical_compare(a, b, [](char x, char y) { return ascii_lower(x) < ascii_lower(y); });
     }
 
     // The name without a trailing ".MPQ" (any case), or nullopt when it is not an
     // MPQ name — non-archive directory entries are not chain members.
-    std::optional<std::string_view> mpq_core(std::string_view name)
-    {
-      if (name.size() < 4 || !ci_equal(name.substr(name.size() - 4), ".MPQ"))
-        return std::nullopt;
+    std::optional<std::string_view> mpq_core(std::string_view name) {
+      if (name.size() < 4 || !ci_equal(name.substr(name.size() - 4), ".MPQ")) return std::nullopt;
       return name.substr(0, name.size() - 4);
     }
 
     // Whether `core` (an extension-stripped name) names a patch for `stem`: either
     // the bare stem ("patch") or the single-char wildcard ("patch-X"). The client
     // matches case-insensitively.
-    bool is_patch_core(std::string_view core, std::string_view stem)
-    {
-      if (ci_equal(core, stem))
-        return true;
-      return core.size() == stem.size() + 2 && core[stem.size()] == '-' &&
-             ci_equal(core.substr(0, stem.size()), stem);
+    bool is_patch_core(std::string_view core, std::string_view stem) {
+      if (ci_equal(core, stem)) return true;
+      return core.size() == stem.size() + 2 && core[stem.size()] == '-' && ci_equal(core.substr(0, stem.size()), stem);
     }
 
     // A fixed base member: prefer a real archive file, fall back to a same-named
     // directory of loose files. Absent -> skipped. (A single Data root cannot
     // hold a file and a directory of one name, so the preference is only ever
     // exercised as the file/dir discriminator.)
-    void push_base(std::vector<ChainMember>& out, fsys::path candidate)
-    {
+    void push_base(std::vector<ChainMember>& out, fsys::path candidate) {
       std::error_code ec;
-      if (fsys::is_regular_file(candidate, ec))
-        out.push_back({std::move(candidate), false});
-      else if (fsys::is_directory(candidate, ec))
-        out.push_back({std::move(candidate), true});
+      if (fsys::is_regular_file(candidate, ec)) out.push_back({std::move(candidate), false});
+      else if (fsys::is_directory(candidate, ec)) out.push_back({std::move(candidate), true});
     }
 
     // The build number of a `wow-update-*` archive name (extension-stripped
     // core): the digits after the last '-'. `wow-update-15595`,
     // `wow-update-base-15595` and `wow-update-ruRU-15595` all yield 15595;
     // names whose tail is not purely numeric yield nullopt (not an update).
-    std::optional<std::uint32_t> update_build(std::string_view core)
-    {
+    std::optional<std::uint32_t> update_build(std::string_view core) {
       constexpr std::string_view stem = "wow-update-";
-      if (core.size() <= stem.size()
-          || !ci_equal(core.substr(0, stem.size()), stem))
-        return std::nullopt;
+      if (core.size() <= stem.size() || !ci_equal(core.substr(0, stem.size()), stem)) return std::nullopt;
       const auto dash = core.rfind('-');
       const std::string_view tail = core.substr(dash + 1);
-      if (tail.empty())
-        return std::nullopt;
+      if (tail.empty()) return std::nullopt;
       std::uint32_t build = 0;
-      for (const char c : tail)
-      {
-        if (c < '0' || c > '9')
-          return std::nullopt;
+      for (const char c : tail) {
+        if (c < '0' || c > '9') return std::nullopt;
         build = build * 10 + static_cast<std::uint32_t>(c - '0');
       }
       return build;
@@ -268,21 +243,17 @@ namespace wowlib::fs::detail
     // path prefix the storage passes to StormLib when attaching ("base" for
     // Data/ updates, the locale code for Data/{locale}/ ones).
     void collect_updates(std::vector<std::pair<std::uint32_t, ChainMember>>& found,
-                         const fsys::path& dir, std::string_view prefix)
-    {
+                         const fsys::path& dir,
+                         std::string_view prefix) {
       std::error_code ec;
-      for (const auto& entry : fsys::directory_iterator{dir, ec})
-      {
+      for (const auto& entry : fsys::directory_iterator{dir, ec}) {
         const std::string name = entry.path().filename().string();
         const auto core = mpq_core(name);
-        if (!core)
-          continue;
+        if (!core) continue;
         const auto build = update_build(*core);
-        if (!build || !entry.is_regular_file(ec))
-          continue;
-        found.emplace_back(*build, ChainMember{.path = entry.path(),
-                                               .incremental = true,
-                                               .prefix = std::string{prefix}});
+        if (!build || !entry.is_regular_file(ec)) continue;
+        found.emplace_back(
+          *build, ChainMember{.path = entry.path(), .incremental = true, .prefix = std::string{prefix}});
       }
     }
 
@@ -294,55 +265,45 @@ namespace wowlib::fs::detail
     // together by the caller, so the two groups interleave exactly as the
     // client's single sorted patch list does.
     void collect_patches(std::vector<std::pair<std::string, ChainMember>>& found,
-                         const fsys::path& dir, std::string_view stem)
-    {
+                         const fsys::path& dir,
+                         std::string_view stem) {
       std::error_code ec;
-      for (const auto& entry : fsys::directory_iterator{dir, ec})
-      {
+      for (const auto& entry : fsys::directory_iterator{dir, ec}) {
         const std::string name = entry.path().filename().string();
         const auto core = mpq_core(name);
-        if (!core || !is_patch_core(*core, stem))
-          continue;
+        if (!core || !is_patch_core(*core, stem)) continue;
         const bool is_dir = entry.is_directory(ec);
-        if (!is_dir && !entry.is_regular_file(ec))
-          continue;
+        if (!is_dir && !entry.is_regular_file(ec)) continue;
         found.emplace_back(std::string{*core}, ChainMember{entry.path(), is_dir});
       }
     }
   }
 
-  const MpqChainSpec* find_chain_spec(const ClientVersion& version)
-  {
+  const MpqChainSpec* find_chain_spec(const ClientVersion& version) {
     for (const auto& spec : chain_specs)
-      if (spec.version.build == version.build)
-        return &spec;
+      if (spec.version.build == version.build) return &spec;
     for (const auto& spec : chain_specs)
-      if (spec.version.major == version.major && spec.version.minor == version.minor &&
-          spec.version.patch == version.patch)
-        return &spec;
+      if (spec.version.major == version.major && spec.version.minor == version.minor && spec.version.patch == version.
+        patch) return &spec;
     return nullptr;
   }
 
   Result<std::vector<ChainMember>>
-  expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir,
-               Locale locale)
-  {
+  expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir, Locale locale) {
     const std::string code{locale_code(locale)};
     const fsys::path locale_dir = data_dir / code;
 
     std::vector<ChainMember> out;
 
     // Base tier, in table order (lowest priority).
-    for (const ChainEntry& entry : spec.base_entries)
-    {
-      switch (entry.kind)
-      {
-        case ChainEntryKind::Fixed:
-          push_base(out, data_dir / entry.pattern);
-          break;
-        case ChainEntryKind::LocaleFixed:
-          push_base(out, locale_dir / expand_locale(entry.pattern, code));
-          break;
+    for (const ChainEntry& entry : spec.base_entries) {
+      switch (entry.kind) {
+      case ChainEntryKind::Fixed:
+        push_base(out, data_dir / entry.pattern);
+        break;
+      case ChainEntryKind::LocaleFixed:
+        push_base(out, locale_dir / expand_locale(entry.pattern, code));
+        break;
       }
     }
 
@@ -351,15 +312,12 @@ namespace wowlib::fs::detail
     // `patch` sorts before `patch-2` (shorter prefix); base and locale patches
     // interleave, so a high base letter-patch (`patch-F`..`patch-Z` for enUS)
     // outranks the locale patches.
-    if (spec.patch_scheme == PatchScheme::ClassicWildcard)
-    {
+    if (spec.patch_scheme == PatchScheme::ClassicWildcard) {
       std::vector<std::pair<std::string, ChainMember>> patches;
       collect_patches(patches, data_dir, "patch");
       collect_patches(patches, locale_dir, std::format("patch-{}", code));
-      std::ranges::stable_sort(patches, ci_less,
-                               &std::pair<std::string, ChainMember>::first);
-      for (auto& [key, member] : patches)
-        out.push_back(std::move(member));
+      std::ranges::stable_sort(patches, ci_less, &std::pair<std::string, ChainMember>::first);
+      for (auto& [key, member] : patches) out.push_back(std::move(member));
     }
 
     // Update tier (Cata/MoP): the wow-update archives of Data/ and
@@ -367,15 +325,12 @@ namespace wowlib::fs::detail
     // first). The stable sort keeps base updates ahead of same-build locale
     // updates — immaterial for attachment (they patch disjoint archives) but
     // deterministic.
-    if (spec.patch_scheme == PatchScheme::UpdateChain)
-    {
+    if (spec.patch_scheme == PatchScheme::UpdateChain) {
       std::vector<std::pair<std::uint32_t, ChainMember>> updates;
       collect_updates(updates, data_dir, "base");
       collect_updates(updates, locale_dir, code);
-      std::ranges::stable_sort(updates, {},
-                               &std::pair<std::uint32_t, ChainMember>::first);
-      for (auto& [build, member] : updates)
-        out.push_back(std::move(member));
+      std::ranges::stable_sort(updates, {}, &std::pair<std::uint32_t, ChainMember>::first);
+      for (auto& [build, member] : updates) out.push_back(std::move(member));
     }
 
     return out;

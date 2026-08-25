@@ -58,13 +58,11 @@
 #include <wowlib/formats/common/annotations.hpp>
 #include <wowlib/formats/common/chunked_file.hpp>
 
-namespace wowlib::formats::m2
-{
+namespace wowlib::formats::m2 {
   /** The non-template marker base every offset block carries (what the
       OffsetEntity concept detects). Stateless — an offset block has no
       round-trip bookkeeping to store, unlike a chunked file's journal. */
-  struct M2OffsetBase
-  {
+  struct M2OffsetBase {
     // excluded: the parameter type is this unwelded base, not the entity
     [[=welder::mark::exclude]]
     bool operator==(const M2OffsetBase&) const = default;
@@ -73,8 +71,7 @@ namespace wowlib::formats::m2
   /** Resolution of `sequence_data` members while reading: where each outer
       element's nested data lives. Without a context (or with an empty
       function) everything is inline in the entity's own buffer. */
-  struct OffsetReadContext
-  {
+  struct OffsetReadContext {
     /** The base span the inner arrays of outer element @a i resolve their
         offsets against — the matching .anim file's bytes for an M2 sequence
         stored externally, or the entity's own buffer for an inline one.
@@ -87,12 +84,14 @@ namespace wowlib::formats::m2
       outer element's nested data blocks are appended to (offsets recorded
       relative to that buffer). Without a context (or a nullptr result) the
       data is written inline after the entity's own image. */
-  struct OffsetWriteContext
-  {
+  struct OffsetWriteContext {
     /** The destination buffer for outer element @a i's nested data — the
         .anim file buffer being assembled for an external M2 sequence, or
         nullptr for inline. */
-    std::function<FileBuffer*(std::size_t i)> sequence_sink;
+    std::function<FileBuffer * (std::size_t i
+    )
+    >
+    sequence_sink;
   };
 
   // --- member-kind classification --------------------------------------------
@@ -103,26 +102,22 @@ namespace wowlib::formats::m2
 
   /** A member serialized as an M2Array<char>: its bytes (NUL included) live in
       a data block, referenced by an `M2Array{count, offset}` slot. */
-  template <typename M>
-  concept OffsetStringMember = std::is_same_v<M, std::string>;
+  template <typename M> concept OffsetStringMember = std::is_same_v<M, std::string>;
 
   /** A member serialized as an `M2Array{count, offset}` reference to a separate
       data block — a std::vector (the block holds its element images) or a
       std::string. The one member kind whose payload is NOT inline. */
-  template <typename M>
-  concept OffsetArrayMember = formats::detail::is_vector_v<M> || OffsetStringMember<M>;
+  template <typename M> concept OffsetArrayMember = formats::detail::is_vector_v<M> || OffsetStringMember<M>;
 
   /** A member serialized inline as a nested record: a non-trivial class the
       walker recurses into member-by-member at the current cursor (M2Track and
       friends). Trivially-copyable classes are raw scalars instead. */
-  template <typename M>
-  concept InlineRecordMember = std::is_class_v<M> && !std::is_trivially_copyable_v<M>
-                               && !formats::detail::is_vector_v<M> && !OffsetStringMember<M>;
+  template <typename M> concept InlineRecordMember = std::is_class_v<M> && !std::is_trivially_copyable_v<M> && !
+    formats::detail::is_vector_v<M> && !OffsetStringMember<M>;
 
   /** A member serialized as inline raw bytes: anything trivially copyable that
       is not an array/string reference (scalars, C3Vector, M2Range, …). */
-  template <typename M>
-  concept InlineScalarMember = std::is_trivially_copyable_v<M> && !OffsetArrayMember<M>;
+  template <typename M> concept InlineScalarMember = std::is_trivially_copyable_v<M> && !OffsetArrayMember<M>;
 
   /** The image footprint of @a T in an offset layout for client version @a V:
       the 8-byte M2Array slot for an array/string reference, sizeof for an
@@ -136,24 +131,17 @@ namespace wowlib::formats::m2
       @tparam V the client version the layout targets.
       @return the number of bytes @a T occupies in place. */
   template <typename T, ClientVersion V>
-  consteval std::size_t layout_size()
-  {
-    if constexpr (OffsetArrayMember<T>)
-      return 8;  // an M2Array{count, offset} reference: two u32s
-    else if constexpr (std::is_trivially_copyable_v<T>)
-      return sizeof(T);
-    else
-    {
+  consteval std::size_t layout_size() {
+    if constexpr (OffsetArrayMember<T>) return 8; // an M2Array{count, offset} reference: two u32s
+    else if constexpr (std::is_trivially_copyable_v<T>) return sizeof(T);
+    else {
       static_assert(InlineRecordMember<T>);
       std::size_t total = 0;
       static constexpr auto members = formats::detail::members_of<T>();
-      template for (constexpr auto m : members)
-      {
-        static_assert(
-          !formats::detail::annotation<formats::detail::gated_by_spec, m>().has_value(),
-          "gated_by members are only supported at the entity top level");
-        if constexpr (formats::detail::version_active<V, m>())
-        {
+      template for (constexpr auto m : members) {
+        static_assert(!formats::detail::annotation<formats::detail::gated_by_spec, m>().has_value(),
+                      "gated_by members are only supported at the entity top level");
+        if constexpr (formats::detail::version_active<V, m>()) {
           using MT = [:std::meta::type_of(m):];
           total += layout_size<MT, V>();
         }
@@ -175,14 +163,12 @@ namespace wowlib::formats::m2
       @tparam Derived the entity itself (the CRTP pattern); it must declare a
               `static constexpr ClientVersion version`. */
   template <typename Derived>
-  struct M2OffsetBlock : M2OffsetBase
-  {
+  struct M2OffsetBlock : M2OffsetBase {
     [[=welder::doc("Deserialize file bytes into this entity, replacing its "
-                   "contents. Offsets resolve against the given buffer; "
-                   "sequence-gated data is read inline.")]]
-    Result<void> read(std::span<const std::byte> data
-                      [[=welder::doc("the file (or containing-chunk payload) bytes")]])
-    {
+      "contents. Offsets resolve against the given buffer; "
+      "sequence-gated data is read inline.")]]
+    Result<void>
+    read(std::span<const std::byte> data [[=welder::doc("the file (or containing-chunk payload) bytes")]]) {
       std::size_t cursor = 0;
       auto& self = static_cast<Derived&>(*this);
       return _read_members(self, data, cursor, data, OffsetReadContext{});
@@ -194,8 +180,7 @@ namespace wowlib::formats::m2
         @param ctx  per-sequence base resolution for `sequence_data` members.
         @return nothing, or the first structural error. */
     [[=welder::mark::exclude]]
-    Result<void> read(std::span<const std::byte> data, const OffsetReadContext& ctx)
-    {
+    Result<void> read(std::span<const std::byte> data, const OffsetReadContext& ctx) {
       std::size_t cursor = 0;
       auto& self = static_cast<Derived&>(*this);
       return _read_members(self, data, cursor, data, ctx);
@@ -203,11 +188,10 @@ namespace wowlib::formats::m2
 
     [[nodiscard]]
     [[=welder::doc("Serialize this entity in wowlib's canonical layout (an "
-                   "offset format has no byte-perfect round-trip guarantee; "
-                   "a written entity re-reads equal instead)."),
+        "offset format has no byte-perfect round-trip guarantee; "
+        "a written entity re-reads equal instead)."),
       =welder::returns("the file bytes")]]
-    Result<FileBuffer> write() const
-    {
+    Result<FileBuffer> write() const {
       return write(OffsetWriteContext{});
     }
 
@@ -216,11 +200,9 @@ namespace wowlib::formats::m2
         @param ctx per-sequence sink resolution for `sequence_data` members.
         @return the file bytes, or the first error. */
     [[=welder::mark::exclude]]
-    Result<FileBuffer> write(const OffsetWriteContext& ctx) const
-    {
+    Result<FileBuffer> write(const OffsetWriteContext& ctx) const {
       FileBuffer out;
-      if (auto r = _write_image(static_cast<const Derived&>(*this), out, ctx); !r)
-        return std::unexpected{r.error()};
+      if (auto r = _write_image(static_cast<const Derived&>(*this), out, ctx); !r) return std::unexpected{r.error()};
       return out;
     }
 
@@ -230,8 +212,7 @@ namespace wowlib::formats::m2
         @param out the destination buffer (appended, not cleared).
         @return nothing, or the first error. */
     [[=welder::mark::exclude]]
-    Result<void> write(FileBuffer& out) const
-    {
+    Result<void> write(FileBuffer& out) const {
       return _write_image(static_cast<const Derived&>(*this), out, OffsetWriteContext{});
     }
 
@@ -240,8 +221,7 @@ namespace wowlib::formats::m2
         always emitted).
         @return always false. */
     [[=welder::mark::exclude]]
-    bool empty() const
-    {
+    bool empty() const {
       return false;
     }
 
@@ -254,8 +234,7 @@ namespace wowlib::formats::m2
         unmodified reports no errors; warnings mark states real client files
         ship.)"),
       =welder::returns("every violated contract, in member order")]]
-    ValidationReport validate() const
-    {
+    ValidationReport validate() const {
       ValidationReport report;
       formats::detail::validate_entity(static_cast<const Derived&>(*this), report);
       return report;
@@ -263,10 +242,9 @@ namespace wowlib::formats::m2
 
     [[nodiscard]]
     [[=welder::doc("Validate and raise on the first error instead of returning "
-                   "a report — the assert-style face of validate()."),
+        "a report — the assert-style face of validate()."),
       =welder::returns("nothing; raises when validate() finds any error")]]
-    Result<void> ensure_valid() const
-    {
+    Result<void> ensure_valid() const {
       return validate().to_result();
     }
 
@@ -276,16 +254,13 @@ namespace wowlib::formats::m2
         data blocks.
         @return the image size in bytes. */
     [[=welder::mark::exclude]]
-    std::size_t image_size() const
-    {
+    std::size_t image_size() const {
       const auto& self = static_cast<const Derived&>(*this);
       static constexpr auto members = formats::detail::members_of<Derived>();
       std::size_t total = 0;
-      template for (constexpr auto m : members)
-      {
+      template for (constexpr auto m : members) {
         if constexpr (formats::detail::version_active<Derived::version, m>())
-          if (_member_present<m>(self))
-          {
+          if (_member_present<m>(self)) {
             using MT = [:std::meta::type_of(m):];
             total += layout_size<MT, Derived::version>();
           }
@@ -305,31 +280,25 @@ namespace wowlib::formats::m2
         @return the byte offset inside the entity's image.
         @throws (consteval) if @a name is unknown, or a gated_by member precedes it. */
     [[=welder::mark::exclude]]
-    static consteval std::size_t member_offset(std::string_view name)
-    {
+    static consteval std::size_t member_offset(std::string_view name) {
       // static: `template for` needs a constant address for the range
       static constexpr auto members = formats::detail::members_of<Derived>();
       static constexpr auto order = _member_order<Derived>();
       std::size_t off = 0;
       bool found = false;
-      template for (constexpr std::size_t idx : order)
-      {
+      template for (constexpr std::size_t idx : order) {
         constexpr auto m = members[idx];
-        if constexpr (formats::detail::version_active<Derived::version, m>())
-        {
-          if (!found && std::meta::identifier_of(m) == name)
-            found = true;
-          if (!found)
-          {
-            if (formats::detail::annotation<formats::detail::gated_by_spec, m>().has_value())
-              throw "member_offset: a gated_by member precedes the target";
+        if constexpr (formats::detail::version_active<Derived::version, m>()) {
+          if (!found && std::meta::identifier_of(m) == name) found = true;
+          if (!found) {
+            if (formats::detail::annotation<formats::detail::gated_by_spec, m>().has_value()) throw
+              "member_offset: a gated_by member precedes the target";
             using MT = [:std::meta::type_of(m):];
             off += layout_size<MT, Derived::version>();
           }
         }
       }
-      if (!found)
-        throw "member_offset: the entity has no such member";
+      if (!found) throw "member_offset: the entity has no such member";
       return off;
     }
 
@@ -339,11 +308,11 @@ namespace wowlib::formats::m2
   protected:
     /** The on-disk shape of an offset-array reference: element count and the
         byte offset of the data block, relative to the entity image base. */
-    struct M2ArrayRef
-    {
+    struct M2ArrayRef {
       std::uint32_t count = 0;
       std::uint32_t offset = 0;
     };
+
     static_assert(sizeof(M2ArrayRef) == 8 && std::is_trivially_copyable_v<M2ArrayRef>);
 
     // --- layout order ---------------------------------------------------------
@@ -352,11 +321,9 @@ namespace wowlib::formats::m2
         @param member the reflected member to inspect.
         @return the anchor spec, or nullopt when the member carries none. */
     static consteval std::optional<formats::detail::offset_after_spec>
-    _offset_anchor_of(std::meta::info member)
-    {
+    _offset_anchor_of(std::meta::info member) {
       auto anns = std::meta::annotations_of_with_type(member, ^^formats::detail::offset_after_spec);
-      if (anns.empty())
-        return std::nullopt;
+      if (anns.empty()) return std::nullopt;
       return std::meta::extract<formats::detail::offset_after_spec>(anns[0]);
     }
 
@@ -375,36 +342,28 @@ namespace wowlib::formats::m2
         @return a static array of member indices in layout order.
         @throws (consteval) if a trait member lacks an anchor, or an anchor is unmatched. */
     template <typename T>
-    static consteval auto _member_order()
-    {
+    static consteval auto _member_order() {
       constexpr auto members = formats::detail::members_of<T>();
-      const auto own =
-        std::meta::nonstatic_data_members_of(^^T, std::meta::access_context::unchecked());
+      const auto own = std::meta::nonstatic_data_members_of(^^T, std::meta::access_context::unchecked());
       const auto is_own = [&](std::meta::info m) {
         for (auto o : own)
-          if (o == m)
-            return true;
+          if (o == m) return true;
         return false;
       };
       for (std::size_t i = 0; i < members.size(); ++i)
         if (!is_own(members[i]) && !_offset_anchor_of(members[i]).has_value())
           throw "an offset entity's trait-base member needs =offset_after(\"own member\")";
       std::vector<std::size_t> order;
-      for (auto o : own)
-      {
+      for (auto o : own) {
         for (std::size_t i = 0; i < members.size(); ++i)
-          if (members[i] == o)
-            order.push_back(i);
-        if (!std::meta::has_identifier(o))
-          continue;
+          if (members[i] == o) order.push_back(i);
+        if (!std::meta::has_identifier(o)) continue;
         for (std::size_t i = 0; i < members.size(); ++i)
           if (!is_own(members[i]))
-            if (auto a = _offset_anchor_of(members[i]);
-                a && a->view() == std::meta::identifier_of(o))
-              order.push_back(i);
+            if (auto a = _offset_anchor_of(members[i]); a && a->view() == std::meta::identifier_of(o)) order.
+              push_back(i);
       }
-      if (order.size() != members.size())
-        throw "an offset_after anchor names no own member of the entity";
+      if (order.size() != members.size()) throw "an offset_after anchor names no own member of the entity";
       return std::define_static_array(order);
     }
 
@@ -418,18 +377,13 @@ namespace wowlib::formats::m2
         @param rec  the record instance whose global_flags gate the member.
         @return true when the member occupies bytes in the layout. */
     template <std::meta::info Mem, typename T>
-    static bool _member_present(const T& rec)
-    {
-      if constexpr (constexpr auto gate =
-                      formats::detail::annotation<formats::detail::gated_by_spec, Mem>();
-                    gate.has_value())
-      {
-        static_assert(requires { rec.global_flags; },
-                      "gated_by members need a global_flags member to gate on");
+    static bool _member_present(const T& rec) {
+      if constexpr (constexpr auto gate = formats::detail::annotation<formats::detail::gated_by_spec, Mem>(); gate.
+        has_value()) {
+        static_assert(requires { rec.global_flags; }, "gated_by members need a global_flags member to gate on");
         return (static_cast<std::uint32_t>(rec.global_flags) & gate->mask) != 0;
       }
-      else
-        return true;
+      else return true;
     }
 
     /** Whether a `sequence_data` member of @a rec resolves its per-element data
@@ -441,14 +395,10 @@ namespace wowlib::formats::m2
         @param rec the record instance (its global_sequence, if any, is read).
         @return true when element data should route through the I/O context. */
     template <bool IsSequenceData, typename T>
-    static bool _resolves_externally(const T& rec)
-    {
-      if constexpr (!IsSequenceData)
-        return false;
-      else if constexpr (requires { rec.global_sequence; })
-        return rec.global_sequence == 0xFFFF;
-      else
-        return true;
+    static bool _resolves_externally(const T& rec) {
+      if constexpr (!IsSequenceData) return false;
+      else if constexpr (requires { rec.global_sequence; }) return rec.global_sequence == 0xFFFF;
+      else return true;
     }
 
     // --- read engine ----------------------------------------------------------
@@ -466,30 +416,25 @@ namespace wowlib::formats::m2
         @param ctx    per-sequence base resolution for `sequence_data` members.
         @return nothing, or the first structural error. */
     template <typename T>
-    static Result<void> _read_members(T& dst, const std::span<const std::byte> image,
-                                     std::size_t& cursor, const std::span<const std::byte> base,
-                                     const OffsetReadContext& ctx)
-    {
+    static Result<void> _read_members(T& dst,
+                                      const std::span<const std::byte> image,
+                                      std::size_t& cursor,
+                                      const std::span<const std::byte> base,
+                                      const OffsetReadContext& ctx) {
       static constexpr auto members = formats::detail::members_of<T>();
       static constexpr auto order = _member_order<T>();
       std::optional<Error> failed;
-      template for (constexpr std::size_t idx : order)
-      {
+      template for (constexpr std::size_t idx : order) {
         constexpr auto m = members[idx];
-        if constexpr (formats::detail::version_active<Derived::version, m>())
-        {
+        if constexpr (formats::detail::version_active<Derived::version, m>()) {
           constexpr std::string_view name = std::meta::identifier_of(m);
-          constexpr bool is_seq =
-            formats::detail::annotation<formats::detail::sequence_data_spec, m>().has_value();
+          constexpr bool is_seq = formats::detail::annotation<formats::detail::sequence_data_spec, m>().has_value();
           if (!failed && _member_present<m>(dst))
-            if (auto r = _read_member(dst.[:m:], image, cursor, base, ctx,
-                                     _resolves_externally<is_seq>(dst), name);
-                !r)
+            if (auto r = _read_member(dst.[:m:], image, cursor, base, ctx, _resolves_externally<is_seq>(dst), name); !r)
               failed = r.error();
         }
       }
-      if (failed)
-        return std::unexpected{*failed};
+      if (failed) return std::unexpected{*failed};
       return {};
     }
 
@@ -505,16 +450,17 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or the first structural error. */
     template <typename M>
-    static Result<void> _read_member(M& dst, const std::span<const std::byte> image, std::size_t& cursor,
-                                    const std::span<const std::byte> base, const OffsetReadContext& ctx,
-                                    const bool external, const std::string_view what)
-    {
+    static Result<void> _read_member(M& dst,
+                                     const std::span<const std::byte> image,
+                                     std::size_t& cursor,
+                                     const std::span<const std::byte> base,
+                                     const OffsetReadContext& ctx,
+                                     const bool external,
+                                     const std::string_view what) {
       if constexpr (OffsetArrayMember<M>)
         return _read_array_member(dst, image, cursor, base, ctx, external, what);
-      else if constexpr (InlineRecordMember<M>)
-        return _read_members(dst, image, cursor, base, ctx);
-      else
-      {
+      else if constexpr (InlineRecordMember<M>) return _read_members(dst, image, cursor, base, ctx);
+      else {
         static_assert(InlineScalarMember<M>, "offset members are arrays, records, or scalars");
         return _read_scalar(dst, image, cursor, what);
       }
@@ -528,13 +474,13 @@ namespace wowlib::formats::m2
         @param what   the member name, for diagnostics.
         @return nothing, or OffsetOutOfBounds if the value overruns @a image. */
     template <typename M>
-    static Result<void> _read_scalar(M& dst, const std::span<const std::byte> image, std::size_t& cursor,
-                                    const std::string_view what)
-    {
+    static Result<void> _read_scalar(M& dst,
+                                     const std::span<const std::byte> image,
+                                     std::size_t& cursor,
+                                     const std::string_view what) {
       if (image.size() < sizeof(M) || image.size() - sizeof(M) < cursor)
         return _offset_error(ErrorCode::OffsetOutOfBounds, what,
-                            std::format("{}-byte value at image offset {:#x} overruns the image",
-                                        sizeof(M), cursor));
+                             std::format("{}-byte value at image offset {:#x} overruns the image", sizeof(M), cursor));
       std::memcpy(&dst, image.data() + cursor, sizeof(M));
       cursor += sizeof(M);
       return {};
@@ -547,12 +493,12 @@ namespace wowlib::formats::m2
         @param cursor the read position; advanced by 8.
         @param what   the member name, for diagnostics.
         @return nothing, or OffsetOutOfBounds if the slot overruns @a image. */
-    static Result<void> _read_array_ref(M2ArrayRef& ref, const std::span<const std::byte> image,
-                                       std::size_t& cursor, const std::string_view what)
-    {
+    static Result<void> _read_array_ref(M2ArrayRef& ref,
+                                        const std::span<const std::byte> image,
+                                        std::size_t& cursor,
+                                        const std::string_view what) {
       if (cursor > image.size() || image.size() - cursor < sizeof(M2ArrayRef))
-        return _offset_error(ErrorCode::OffsetOutOfBounds, what,
-                            "M2Array slot overruns the image");
+        return _offset_error(ErrorCode::OffsetOutOfBounds, what, "M2Array slot overruns the image");
       std::memcpy(&ref, image.data() + cursor, sizeof ref);
       cursor += sizeof ref;
       return {};
@@ -570,18 +516,17 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or the first structural error. */
     template <typename M>
-    static Result<void> _read_array_member(M& dst, const std::span<const std::byte> image,
-                                          std::size_t& cursor, const std::span<const std::byte> base,
-                                          const OffsetReadContext& ctx, const bool external,
-                                          const std::string_view what)
-    {
+    static Result<void> _read_array_member(M& dst,
+                                           const std::span<const std::byte> image,
+                                           std::size_t& cursor,
+                                           const std::span<const std::byte> base,
+                                           const OffsetReadContext& ctx,
+                                           const bool external,
+                                           const std::string_view what) {
       M2ArrayRef ref;
-      if (auto r = _read_array_ref(ref, image, cursor, what); !r)
-        return r;
-      if constexpr (OffsetStringMember<M>)
-        return _read_string_block(dst, ref, base, what);
-      else
-        return _read_vector_block(dst, ref, base, ctx, external, what);
+      if (auto r = _read_array_ref(ref, image, cursor, what); !r) return r;
+      if constexpr (OffsetStringMember<M>) return _read_string_block(dst, ref, base, what);
+      else return _read_vector_block(dst, ref, base, ctx, external, what);
     }
 
     /** Decode a string data block referenced by @a ref out of @a base. The
@@ -592,16 +537,16 @@ namespace wowlib::formats::m2
         @param base the buffer the offset resolves against.
         @param what the member name, for diagnostics.
         @return nothing, or OffsetOutOfBounds if the block overruns @a base. */
-    static Result<void> _read_string_block(std::string& dst, const M2ArrayRef ref,
-                                          const std::span<const std::byte> base, const std::string_view what)
-    {
+    static Result<void> _read_string_block(std::string& dst,
+                                           const M2ArrayRef ref,
+                                           const std::span<const std::byte> base,
+                                           const std::string_view what) {
       dst.clear();
-      if (ref.count == 0)
-        return {};
+      if (ref.count == 0) return {};
       if (std::uint64_t{ref.offset} + ref.count > base.size())
         return _offset_error(ErrorCode::OffsetOutOfBounds, what,
-                            std::format("string [{} at {:#x}] overruns the {}-byte buffer",
-                                        ref.count, ref.offset, base.size()));
+                             std::format("string [{} at {:#x}] overruns the {}-byte buffer", ref.count, ref.offset,
+                                         base.size()));
       const auto* chars = reinterpret_cast<const char*>(base.data() + ref.offset);
       const auto* nul = static_cast<const char*>(std::memchr(chars, 0, ref.count));
       dst.assign(chars, nul ? static_cast<std::size_t>(nul - chars) : ref.count);
@@ -622,31 +567,29 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or OffsetOutOfBounds if the block overruns @a base. */
     template <typename M>
-    static Result<void> _read_vector_block(M& dst, const M2ArrayRef ref, const std::span<const std::byte> base,
-                                          const OffsetReadContext& ctx, const bool external,
-                                          const std::string_view what)
-    {
+    static Result<void> _read_vector_block(M& dst,
+                                           const M2ArrayRef ref,
+                                           const std::span<const std::byte> base,
+                                           const OffsetReadContext& ctx,
+                                           const bool external,
+                                           const std::string_view what) {
       using U = typename M::value_type;
       dst.clear();
-      if (ref.count == 0)
-        return {};
+      if (ref.count == 0) return {};
       // An external sequence element whose context base is empty (missing .anim
       // file): leave the member empty rather than fail.
-      if (base.empty())
-        return {};
+      if (base.empty()) return {};
       constexpr std::size_t elem = layout_size<U, Derived::version>();
       if (std::uint64_t{ref.offset} + std::uint64_t{ref.count} * elem > base.size())
         return _offset_error(ErrorCode::OffsetOutOfBounds, what,
-                            std::format("array [{} x {} at {:#x}] overruns the {}-byte buffer",
-                                        ref.count, elem, ref.offset, base.size()));
+                             std::format("array [{} x {} at {:#x}] overruns the {}-byte buffer", ref.count, elem,
+                                         ref.offset, base.size()));
       dst.resize(ref.count);
-      if constexpr (std::is_trivially_copyable_v<U>)
-      {
+      if constexpr (std::is_trivially_copyable_v<U>) {
         std::memcpy(dst.data(), base.data() + ref.offset, std::size_t{ref.count} * elem);
         return {};
       }
-      else
-        return _read_array_elements(dst, ref, base, ctx, external, what);
+      else return _read_array_elements(dst, ref, base, ctx, external, what);
     }
 
     /** Read the non-trivial elements of @a dst, each from its own element image
@@ -662,23 +605,19 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or the first structural error. */
     template <typename M>
-    static Result<void> _read_array_elements(M& dst, const M2ArrayRef ref,
-                                            const std::span<const std::byte> base,
-                                            const OffsetReadContext& ctx, const bool external,
-                                            const std::string_view what)
-    {
+    static Result<void> _read_array_elements(M& dst,
+                                             const M2ArrayRef ref,
+                                             const std::span<const std::byte> base,
+                                             const OffsetReadContext& ctx,
+                                             const bool external,
+                                             const std::string_view what) {
       using U = typename M::value_type;
       constexpr std::size_t elem = layout_size<U, Derived::version>();
-      for (std::size_t i = 0; i < dst.size(); ++i)
-      {
+      for (std::size_t i = 0; i < dst.size(); ++i) {
         const auto element_image = base.subspan(ref.offset + i * elem, elem);
-        const std::span<const std::byte> element_base =
-          external && ctx.sequence_base ? ctx.sequence_base(i) : base;
+        const std::span<const std::byte> element_base = external && ctx.sequence_base ? ctx.sequence_base(i) : base;
         std::size_t element_cursor = 0;
-        if (auto r =
-              _read_member(dst[i], element_image, element_cursor, element_base, ctx, false, what);
-            !r)
-          return r;
+        if (auto r = _read_member(dst[i], element_image, element_cursor, element_base, ctx, false, what); !r) return r;
       }
       return {};
     }
@@ -693,9 +632,11 @@ namespace wowlib::formats::m2
         @param cursor   the position within the record; advanced by @a n.
         @param bytes    the source bytes.
         @param n        the byte count. */
-    static void _put_bytes(FileBuffer& image, const std::size_t image_pos, std::size_t& cursor,
-                          const void* bytes, const std::size_t n)
-    {
+    static void _put_bytes(FileBuffer& image,
+                           const std::size_t image_pos,
+                           std::size_t& cursor,
+                           const void* bytes,
+                           const std::size_t n) {
       std::memcpy(image.data() + image_pos + cursor, bytes, n);
       cursor += n;
     }
@@ -707,8 +648,8 @@ namespace wowlib::formats::m2
         @param target the buffer to grow.
         @param bytes  the block size to reserve.
         @return the byte index of the reserved block. */
-    static std::size_t _alloc_block(FileBuffer& target, const std::size_t bytes)
-    {
+    static std::size_t
+    _alloc_block(FileBuffer& target, const std::size_t bytes) {
       target.resize((target.size() + 15) / 16 * 16);
       const std::size_t at = target.size();
       target.resize(target.size() + bytes);
@@ -723,14 +664,11 @@ namespace wowlib::formats::m2
         @param out  the destination buffer (appended, not cleared).
         @param ctx  per-sequence sink resolution.
         @return nothing, or the first error. */
-    static Result<void> _write_image(const Derived& self, FileBuffer& out,
-                                    const OffsetWriteContext& ctx)
-    {
+    static Result<void> _write_image(const Derived& self, FileBuffer& out, const OffsetWriteContext& ctx) {
       FileBuffer buffer;
       buffer.resize(self.image_size());
       std::size_t cursor = 0;
-      if (auto r = _write_members(self, buffer, 0, cursor, buffer, ctx); !r)
-        return r;
+      if (auto r = _write_members(self, buffer, 0, cursor, buffer, ctx); !r) return r;
       out.insert(out.end(), buffer.begin(), buffer.end());
       return {};
     }
@@ -747,30 +685,26 @@ namespace wowlib::formats::m2
         @param ctx      per-sequence sink resolution.
         @return nothing, or the first error. */
     template <typename T>
-    static Result<void> _write_members(const T& src, FileBuffer& image, const std::size_t image_pos,
-                                      std::size_t& cursor, FileBuffer& blocks,
-                                      const OffsetWriteContext& ctx)
-    {
+    static Result<void> _write_members(const T& src,
+                                       FileBuffer& image,
+                                       const std::size_t image_pos,
+                                       std::size_t& cursor,
+                                       FileBuffer& blocks,
+                                       const OffsetWriteContext& ctx) {
       static constexpr auto members = formats::detail::members_of<T>();
       static constexpr auto order = _member_order<T>();
       std::optional<Error> failed;
-      template for (constexpr std::size_t idx : order)
-      {
+      template for (constexpr std::size_t idx : order) {
         constexpr auto m = members[idx];
-        if constexpr (formats::detail::version_active<Derived::version, m>())
-        {
+        if constexpr (formats::detail::version_active<Derived::version, m>()) {
           constexpr std::string_view name = std::meta::identifier_of(m);
-          constexpr bool is_seq =
-            formats::detail::annotation<formats::detail::sequence_data_spec, m>().has_value();
+          constexpr bool is_seq = formats::detail::annotation<formats::detail::sequence_data_spec, m>().has_value();
           if (!failed && _member_present<m>(src))
             if (auto r = _write_member(src.[:m:], image, image_pos, cursor, blocks, ctx,
-                                      _resolves_externally<is_seq>(src), name);
-                !r)
-              failed = r.error();
+                                       _resolves_externally<is_seq>(src), name); !r) failed = r.error();
         }
       }
-      if (failed)
-        return std::unexpected{*failed};
+      if (failed) return std::unexpected{*failed};
       return {};
     }
 
@@ -787,17 +721,18 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or the first error. */
     template <typename M>
-    static Result<void> _write_member(const M& src, FileBuffer& image, const std::size_t image_pos,
-                                     std::size_t& cursor, FileBuffer& blocks,
-                                     const OffsetWriteContext& ctx, const bool external,
-                                     const std::string_view what)
-    {
+    static Result<void> _write_member(const M& src,
+                                      FileBuffer& image,
+                                      const std::size_t image_pos,
+                                      std::size_t& cursor,
+                                      FileBuffer& blocks,
+                                      const OffsetWriteContext& ctx,
+                                      const bool external,
+                                      const std::string_view what) {
       if constexpr (OffsetArrayMember<M>)
         return _write_array_member(src, image, image_pos, cursor, blocks, ctx, external, what);
-      else if constexpr (InlineRecordMember<M>)
-        return _write_members(src, image, image_pos, cursor, blocks, ctx);
-      else
-      {
+      else if constexpr (InlineRecordMember<M>) return _write_members(src, image, image_pos, cursor, blocks, ctx);
+      else {
         static_assert(InlineScalarMember<M>, "offset members are arrays, records, or scalars");
         _put_bytes(image, image_pos, cursor, &src, sizeof(M));
         return {};
@@ -817,13 +752,15 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or the first error. */
     template <typename M>
-    static Result<void> _write_array_member(const M& src, FileBuffer& image, const std::size_t image_pos,
-                                           std::size_t& cursor, FileBuffer& blocks,
-                                           const OffsetWriteContext& ctx, const bool external,
-                                           const std::string_view what)
-    {
-      if constexpr (OffsetStringMember<M>)
-        return _write_string_block(src, image, image_pos, cursor, blocks);
+    static Result<void> _write_array_member(const M& src,
+                                            FileBuffer& image,
+                                            const std::size_t image_pos,
+                                            std::size_t& cursor,
+                                            FileBuffer& blocks,
+                                            const OffsetWriteContext& ctx,
+                                            const bool external,
+                                            const std::string_view what) {
+      if constexpr (OffsetStringMember<M>) return _write_string_block(src, image, image_pos, cursor, blocks);
       else
         return _write_vector_block(src, image, image_pos, cursor, blocks, ctx, external, what);
     }
@@ -837,15 +774,15 @@ namespace wowlib::formats::m2
         @param cursor   the position within the record; advanced past the slot.
         @param blocks   the buffer receiving the character block.
         @return nothing (never fails). */
-    static Result<void> _write_string_block(const std::string& src, FileBuffer& image,
-                                           const std::size_t image_pos, std::size_t& cursor,
-                                           FileBuffer& blocks)
-    {
+    static Result<void> _write_string_block(const std::string& src,
+                                            FileBuffer& image,
+                                            const std::size_t image_pos,
+                                            std::size_t& cursor,
+                                            FileBuffer& blocks) {
       const std::size_t at = _alloc_block(blocks, src.size() + 1);
       std::memcpy(blocks.data() + at, src.data(), src.size());
       blocks[at + src.size()] = std::byte{0};
-      const M2ArrayRef ref{static_cast<std::uint32_t>(src.size() + 1),
-                           static_cast<std::uint32_t>(at)};
+      const M2ArrayRef ref{static_cast<std::uint32_t>(src.size() + 1), static_cast<std::uint32_t>(at)};
       _put_bytes(image, image_pos, cursor, &ref, sizeof ref);
       return {};
     }
@@ -865,14 +802,16 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or the first error. */
     template <typename M>
-    static Result<void> _write_vector_block(const M& src, FileBuffer& image, const std::size_t image_pos,
-                                           std::size_t& cursor, FileBuffer& blocks,
-                                           const OffsetWriteContext& ctx, const bool external,
-                                           const std::string_view what)
-    {
+    static Result<void> _write_vector_block(const M& src,
+                                            FileBuffer& image,
+                                            const std::size_t image_pos,
+                                            std::size_t& cursor,
+                                            FileBuffer& blocks,
+                                            const OffsetWriteContext& ctx,
+                                            const bool external,
+                                            const std::string_view what) {
       using U = typename M::value_type;
-      if (src.empty())
-      {
+      if (src.empty()) {
         const M2ArrayRef empty{0, 0};
         _put_bytes(image, image_pos, cursor, &empty, sizeof empty);
         return {};
@@ -881,13 +820,11 @@ namespace wowlib::formats::m2
       const std::size_t at = _alloc_block(blocks, src.size() * elem);
       const M2ArrayRef ref{static_cast<std::uint32_t>(src.size()), static_cast<std::uint32_t>(at)};
       _put_bytes(image, image_pos, cursor, &ref, sizeof ref);
-      if constexpr (std::is_trivially_copyable_v<U>)
-      {
+      if constexpr (std::is_trivially_copyable_v<U>) {
         std::memcpy(blocks.data() + at, src.data(), src.size() * elem);
         return {};
       }
-      else
-        return _write_array_elements(src, at, blocks, ctx, external, what);
+      else return _write_array_elements(src, at, blocks, ctx, external, what);
     }
 
     /** Write the non-trivial elements of @a src into the block already reserved
@@ -905,20 +842,19 @@ namespace wowlib::formats::m2
         @param what     the member name, for diagnostics.
         @return nothing, or the first error. */
     template <typename M>
-    static Result<void> _write_array_elements(const M& src, const std::size_t block_at,
-                                             FileBuffer& blocks, const OffsetWriteContext& ctx,
-                                             const bool external, const std::string_view what)
-    {
+    static Result<void> _write_array_elements(const M& src,
+                                              const std::size_t block_at,
+                                              FileBuffer& blocks,
+                                              const OffsetWriteContext& ctx,
+                                              const bool external,
+                                              const std::string_view what) {
       using U = typename M::value_type;
       constexpr std::size_t elem = layout_size<U, Derived::version>();
-      for (std::size_t i = 0; i < src.size(); ++i)
-      {
+      for (std::size_t i = 0; i < src.size(); ++i) {
         FileBuffer* sink = external && ctx.sequence_sink ? ctx.sequence_sink(i) : nullptr;
         std::size_t element_cursor = 0;
-        if (auto r = _write_member(src[i], blocks, block_at + i * elem, element_cursor,
-                                  sink ? *sink : blocks, ctx, false, what);
-            !r)
-          return r;
+        if (auto r = _write_member(src[i], blocks, block_at + i * elem, element_cursor, sink ? *sink : blocks, ctx,
+                                   false, what); !r) return r;
       }
       return {};
     }
@@ -930,17 +866,16 @@ namespace wowlib::formats::m2
         @param member the entity member being transferred.
         @param what   the failure description.
         @return the error, ready to return from a Result function. */
-    static std::unexpected<Error> _offset_error(const ErrorCode code, const std::string_view member,
-                                               const std::string_view what)
-    {
+    static std::unexpected<Error> _offset_error(const ErrorCode code,
+                                                const std::string_view member,
+                                                const std::string_view what) {
       return make_error(code, std::format("offset member '{}': {}", member, what));
     }
   };
 
   /** A type the offset engine can read and write: it is an M2 offset block and
       declares the client version it is laid out for. */
-  template <typename E>
-  concept OffsetEntity = std::derived_from<E, M2OffsetBase> && requires {
+  template <typename E> concept OffsetEntity = std::derived_from<E, M2OffsetBase> && requires {
     { E::version } -> std::convertible_to<ClientVersion>;
   };
 }

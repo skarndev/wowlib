@@ -26,14 +26,12 @@
 #include <wowlib/formats/common/fourcc.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
-namespace wowlib::audit::detail
-{
+namespace wowlib::audit::detail {
   /** A failed outcome.
       @param stage which stage failed.
       @param error the failure diagnostic.
       @return the report. */
-  inline RoundtripReport failed(std::string stage, std::string error)
-  {
+  inline RoundtripReport failed(std::string stage, std::string error) {
     RoundtripReport report;
     report.ok = false;
     report.stage = std::move(stage);
@@ -44,8 +42,7 @@ namespace wowlib::audit::detail
   /** A skipped outcome — ok, tagged with the reason.
       @param reason the skip reason ("wmo-group", "unsupported-version", ...).
       @return the report. */
-  inline RoundtripReport skipped(std::string_view reason)
-  {
+  inline RoundtripReport skipped(std::string_view reason) {
     RoundtripReport report;
     report.stage = std::format("skipped:{}", reason);
     return report;
@@ -57,9 +54,7 @@ namespace wowlib::audit::detail
       @param stage  which stage failed.
       @param error  the failure diagnostic.
       @return @a report, moved. */
-  inline RoundtripReport fail_with(RoundtripReport& report, std::string stage,
-                                   std::string error)
-  {
+  inline RoundtripReport fail_with(RoundtripReport& report, std::string stage, std::string error) {
     report.ok = false;
     report.stage = std::move(stage);
     report.error = std::move(error);
@@ -76,16 +71,12 @@ namespace wowlib::audit::detail
       @return the outcome to return early, or nullopt when the bytes are usable. */
   inline std::optional<RoundtripReport> classify_read(RoundtripReport& report,
                                                       std::string stage,
-                                                      const Result<FileBuffer>& result)
-  {
-    if (!result)
-    {
-      if (result.error().code == ErrorCode::EncryptedContent)
-        return skipped("encrypted");
+                                                      const Result<FileBuffer>& result) {
+    if (!result) {
+      if (result.error().code == ErrorCode::EncryptedContent) return skipped("encrypted");
       return fail_with(report, std::move(stage), result.error().message);
     }
-    if (result->empty())
-      return skipped("empty-file");
+    if (result->empty()) return skipped("empty-file");
     return std::nullopt;
   }
 
@@ -93,9 +84,9 @@ namespace wowlib::audit::detail
       one fourcc spelling per occurrence.
       @param report the report accumulating the sweep.
       @param extras the entity's chunk bookkeeping. */
-  inline void tally_unknown(RoundtripReport& report, const formats::ChunkExtras& extras,
-                            formats::FourCCEndian endian = formats::FourCCEndian::reversed)
-  {
+  inline void tally_unknown(RoundtripReport& report,
+                            const formats::ChunkExtras& extras,
+                            formats::FourCCEndian endian = formats::FourCCEndian::reversed) {
     for (const formats::UnknownChunk& unknown : extras.unknown)
       report.unknown_chunks.push_back(formats::fourcc_to_string(unknown.fourcc, endian));
   }
@@ -106,18 +97,14 @@ namespace wowlib::audit::detail
       @param f the driver call.
       @return the driver's outcome, or failed{stage="exception"}. */
   template <typename F>
-  RoundtripReport guarded(F&& f)
-  {
-    try
-    {
+  RoundtripReport guarded(F&& f) {
+    try {
       return f();
     }
-    catch (const std::exception& e)
-    {
+    catch (const std::exception& e) {
       return failed("exception", e.what());
     }
-    catch (...)
-    {
+    catch (...) {
       return failed("exception", "unknown exception");
     }
   }
@@ -128,18 +115,13 @@ namespace wowlib::audit::detail
       @param original  the reference bytes.
       @param rewritten the bytes to compare.
       @return the description, or nullopt when identical. */
-  inline std::optional<std::string> first_divergence(const FileBuffer& original,
-                                                     const FileBuffer& rewritten)
-  {
-    if (original == rewritten)
-      return std::nullopt;
+  inline std::optional<std::string> first_divergence(const FileBuffer& original, const FileBuffer& rewritten) {
+    if (original == rewritten) return std::nullopt;
 
     const std::size_t common = std::min(original.size(), rewritten.size());
     std::size_t at = 0;
-    while (at < common && original[at] == rewritten[at])
-      ++at;
-    return std::format("first divergence at {:#x} (sizes {} vs {})", at, original.size(),
-                       rewritten.size());
+    while (at < common && original[at] == rewritten[at]) ++at;
+    return std::format("first divergence at {:#x} (sizes {} vs {})", at, original.size(), rewritten.size());
   }
 
   /** The first byte divergence between an original chunk stream and its
@@ -149,34 +131,28 @@ namespace wowlib::audit::detail
       @param original  the reference bytes.
       @param rewritten the bytes to compare.
       @return the description, or nullopt when identical. */
-  inline std::optional<std::string> first_divergence_chunked(const FileBuffer& original,
-                                                             const FileBuffer& rewritten)
-  {
-    if (original == rewritten)
-      return std::nullopt;
+  inline std::optional<std::string> first_divergence_chunked(const FileBuffer& original, const FileBuffer& rewritten) {
+    if (original == rewritten) return std::nullopt;
 
     const std::size_t common = std::min(original.size(), rewritten.size());
     std::size_t at = 0;
-    while (at < common && original[at] == rewritten[at])
-      ++at;
+    while (at < common && original[at] == rewritten[at]) ++at;
 
     // locate the chunk of the original stream the divergence falls into
     std::string inside = "<no chunk>";
-    for (std::size_t pos = 0; pos + 8 <= original.size();)
-    {
+    for (std::size_t pos = 0; pos + 8 <= original.size();) {
       std::uint32_t fourcc = 0;
       std::uint32_t size = 0;
       std::memcpy(&fourcc, original.data() + pos, 4);
       std::memcpy(&size, original.data() + pos + 4, 4);
-      if (at < pos + 8 + size)
-      {
+      if (at < pos + 8 + size) {
         inside = formats::fourcc_to_string(fourcc);
         break;
       }
       pos += 8 + size;
     }
-    return std::format("first divergence at {:#x} inside chunk {} (sizes {} vs {})", at, inside,
-                       original.size(), rewritten.size());
+    return std::format("first divergence at {:#x} inside chunk {} (sizes {} vs {})", at, inside, original.size(),
+                       rewritten.size());
   }
 
   /** Invoke @a f with the targeted release constant matching @a v as a
@@ -187,12 +163,10 @@ namespace wowlib::audit::detail
       @param f the functor to invoke.
       @return whether @a v matched a targeted release (f ran). */
   template <typename F>
-  bool with_version(const ClientVersion v, F&& f)
-  {
+  bool with_version(const ClientVersion v, F&& f) {
     bool matched = false;
     const auto try_one = [&]<ClientVersion V>() {
-      if (!matched && v == V)
-      {
+      if (!matched && v == V) {
         matched = true;
         f.template operator()<V>();
       }
@@ -216,23 +190,19 @@ namespace wowlib::audit::detail
       @param grid the format's `*_versions` array.
       @param v    the version to look for.
       @return true when the format instantiates for @a v. */
-  constexpr bool version_supported(std::span<const ClientVersion> grid, const ClientVersion v)
-  {
+  constexpr bool version_supported(std::span<const ClientVersion> grid, const ClientVersion v) {
     for (const ClientVersion& g : grid)
-      if (g == v)
-        return true;
+      if (g == v) return true;
     return false;
   }
 
   /** The dispatch-failure outcome for a version outside the targeted releases.
       @param v the unrecognized version.
       @return the failed report. */
-  inline RoundtripReport unrecognized_version(const ClientVersion v)
-  {
-    return failed("dispatch",
-                  std::format("unrecognized client version {}.{}.{} (build {}) — not one of "
-                              "the targeted releases",
-                              v.major, v.minor, v.patch, v.build));
+  inline RoundtripReport unrecognized_version(const ClientVersion v) {
+    return failed("dispatch", std::format(
+                    "unrecognized client version {}.{}.{} (build {}) — not one of " "the targeted releases", v.major,
+                    v.minor, v.patch, v.build));
   }
 
   /** The per-format round-trip drivers behind Auditor::roundtrip. One static
@@ -241,8 +211,7 @@ namespace wowlib::audit::detail
       parallel. Every driver dispatches the runtime version itself and
       answers skipped:unsupported-version for clients its format does not
       instantiate. */
-  class FormatDrivers
-  {
+  class FormatDrivers {
   public:
     /** Byte-perfect round-trip of one root WMO and all its group files
         (GFID-located on Legion+, name-derived before).
@@ -250,8 +219,7 @@ namespace wowlib::audit::detail
         @param path    the canonical root .wmo path.
         @param version the client version.
         @return the outcome. */
-    static RoundtripReport wmo(fs::FileSystem& fs, const std::string& path,
-                               ClientVersion version);
+    static RoundtripReport wmo(fs::FileSystem& fs, const std::string& path, ClientVersion version);
 
     /** Stability round-trip of one model: the assembly read (satellites baked
         in), then write -> parse -> write-again compares of the body (external
@@ -260,8 +228,7 @@ namespace wowlib::audit::detail
         @param path    the canonical .m2 path.
         @param version the client version.
         @return the outcome. */
-    static RoundtripReport m2(fs::FileSystem& fs, const std::string& path,
-                              ClientVersion version);
+    static RoundtripReport m2(fs::FileSystem& fs, const std::string& path, ClientVersion version);
 
     /** Stability round-trip of one terrain tile (monolithic pre-Cata, split
         Cata+), deriving the map's alpha format from its WDT per call.
@@ -269,24 +236,21 @@ namespace wowlib::audit::detail
         @param path    the canonical root .adt path.
         @param version the client version.
         @return the outcome. */
-    static RoundtripReport adt(fs::FileSystem& fs, const std::string& path,
-                               ClientVersion version);
+    static RoundtripReport adt(fs::FileSystem& fs, const std::string& path, ClientVersion version);
 
     /** Byte-perfect round-trip of one main WDT file.
         @param fs      the client filesystem.
         @param path    the canonical .wdt path.
         @param version the client version.
         @return the outcome. */
-    static RoundtripReport wdt(fs::FileSystem& fs, const std::string& path,
-                               ClientVersion version);
+    static RoundtripReport wdt(fs::FileSystem& fs, const std::string& path, ClientVersion version);
 
     /** Byte-perfect round-trip of one WDL file.
         @param fs      the client filesystem.
         @param path    the canonical .wdl path.
         @param version the client version.
         @return the outcome. */
-    static RoundtripReport wdl(fs::FileSystem& fs, const std::string& path,
-                               ClientVersion version);
+    static RoundtripReport wdl(fs::FileSystem& fs, const std::string& path, ClientVersion version);
 
     /** Byte-perfect round-trip of one BLP texture (the format is
         version-stable, so no version dispatch).

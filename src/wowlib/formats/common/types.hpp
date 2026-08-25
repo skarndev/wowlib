@@ -24,13 +24,12 @@
 #  define WOWLIB_EMPTY_BASES
 #endif
 
-namespace wowlib::formats::common
-{
+namespace wowlib::formats::common {
   struct [[
-    =welder::weld,
-    =welder::doc("A 2D float vector: texture coordinates, UV animation speeds.")
-  ]] C2Vector
-  {
+      =welder::weld,
+      =welder::doc(
+        "A 2D float vector: texture coordinates, UV animation speeds.")
+    ]] C2Vector {
     [[=welder::doc("The x component.")]]
     float x = 0;
     [[=welder::doc("The y component.")]]
@@ -40,10 +39,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 2D integer vector.")
-  ]] C2iVector
-  {
+      =welder::weld,
+      =welder::doc("A 2D integer vector.")
+    ]] C2iVector {
     [[=welder::doc("The x component.")]]
     std::int32_t x = 0;
     [[=welder::doc("The y component.")]]
@@ -53,11 +51,10 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 3D float vector — the workhorse: positions, normals, "
-                 "rotations-as-Euler-degrees in placements.")
-  ]] C3Vector
-  {
+      =welder::weld,
+      =welder::doc("A 3D float vector — the workhorse: positions, normals, "
+        "rotations-as-Euler-degrees in placements.")
+    ]] C3Vector {
     [[=welder::doc("The x component.")]]
     float x = 0;
     [[=welder::doc("The y component.")]]
@@ -69,10 +66,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 3D integer vector.")
-  ]] C3iVector
-  {
+      =welder::weld,
+      =welder::doc("A 3D integer vector.")
+    ]] C3iVector {
     [[=welder::doc("The x component.")]]
     std::int32_t x = 0;
     [[=welder::doc("The y component.")]]
@@ -84,10 +80,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 4D float vector.")
-  ]] C4Vector
-  {
+      =welder::weld,
+      =welder::doc("A 4D float vector.")
+    ]] C4Vector {
     [[=welder::doc("The x component.")]]
     float x = 0;
     [[=welder::doc("The y component.")]]
@@ -101,12 +96,11 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         A quaternion with the scalar part LAST on disk (x, y, z, w) — note the
         difference from math libraries that lead with w.)")
-  ]] C4Quaternion
-  {
+    ]] C4Quaternion {
     [[=welder::doc("The x component.")]]
     float x = 0;
     [[=welder::doc("The y component.")]]
@@ -120,10 +114,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 3x3 matrix as three column C3Vectors.")
-  ]] C33Matrix
-  {
+      =welder::weld,
+      =welder::doc("A 3x3 matrix as three column C3Vectors.")
+    ]] C33Matrix {
     [[=welder::doc("The three columns.")]]
     std::array<C3Vector, 3> columns{};
 
@@ -131,10 +124,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 3x4 matrix as four column C3Vectors.")
-  ]] C34Matrix
-  {
+      =welder::weld,
+      =welder::doc("A 3x4 matrix as four column C3Vectors.")
+    ]] C34Matrix {
     [[=welder::doc("The four columns.")]]
     std::array<C3Vector, 4> columns{};
 
@@ -142,10 +134,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 4x4 matrix as four column C4Vectors.")
-  ]] C44Matrix
-  {
+      =welder::weld,
+      =welder::doc("A 4x4 matrix as four column C4Vectors.")
+    ]] C44Matrix {
     [[=welder::doc("The four columns.")]]
     std::array<C4Vector, 4> columns{};
 
@@ -153,10 +144,10 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A plane as a normal and its signed distance from the origin.")
-  ]] C4Plane
-  {
+      =welder::weld,
+      =welder::doc(
+        "A plane as a normal and its signed distance from the origin.")
+    ]] C4Plane {
     [[=welder::doc("The plane normal.")]]
     C3Vector normal{};
     [[=welder::doc("The signed distance from the origin.")]]
@@ -166,10 +157,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("An axis-aligned bounding box: minimum and maximum corners.")
-  ]] CAaBox
-  {
+      =welder::weld,
+      =welder::doc("An axis-aligned bounding box: minimum and maximum corners.")
+    ]] CAaBox {
     [[=welder::doc("The minimum corner.")]]
     C3Vector min{};
     [[=welder::doc("The maximum corner.")]]
@@ -179,10 +169,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("An axis-aligned sphere: position and radius.")
-  ]] CAaSphere
-  {
+      =welder::weld,
+      =welder::doc("An axis-aligned sphere: position and radius.")
+    ]] CAaSphere {
     [[=welder::doc("The center position.")]]
     C3Vector position{};
     [[=welder::doc("The radius.")]]
@@ -192,10 +181,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A float range: minimum and maximum.")
-  ]] CRange
-  {
+      =welder::weld,
+      =welder::doc("A float range: minimum and maximum.")
+    ]] CRange {
     [[=welder::doc("The minimum.")]]
     float min = 0;
     [[=welder::doc("The maximum.")]]
@@ -205,10 +193,9 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A color stored as r, g, b, a bytes.")
-  ]] CArgb
-  {
+      =welder::weld,
+      =welder::doc("A color stored as r, g, b, a bytes.")
+    ]] CArgb {
     [[=welder::doc("The red component.")]]
     std::uint8_t r = 0;
     [[=welder::doc("The green component.")]]
@@ -222,11 +209,11 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A color stored as b, g, r, a bytes — the client's immediate-mode "
-                 "vertex color layout (WMO MOCV, doodad colors).")
-  ]] CImVector
-  {
+      =welder::weld,
+      =welder::doc(
+        "A color stored as b, g, r, a bytes — the client's immediate-mode "
+        "vertex color layout (WMO MOCV, doodad colors).")
+    ]] CImVector {
     [[=welder::doc("The blue component.")]]
     std::uint8_t b = 0;
     [[=welder::doc("The green component.")]]
@@ -240,16 +227,19 @@ namespace wowlib::formats::common
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("A signed 16-bit fixed-point value with an implicit 0x7FFF scale.")
-  ]] fixed16
-  {
-    [[=welder::doc("The raw fixed-point integer; value / 0x7FFF is the float.")]]
+      =welder::weld,
+      =welder::doc(
+        "A signed 16-bit fixed-point value with an implicit 0x7FFF scale.")
+    ]] fixed16 {
+    [[=welder::doc("The raw fixed-point integer; value / 0x7FFF is the float.")]
+    ]
     std::int16_t value = 0;
 
     [[=welder::getter,
       =welder::doc("The value as a float in [-1, 1].")]]
-    constexpr float as_float() const { return static_cast<float>(value) / 0x7FFF; }
+    constexpr float as_float() const {
+      return static_cast<float>(value) / 0x7FFF;
+    }
 
     bool operator==(const fixed16&) const = default;
   };
@@ -277,7 +267,6 @@ namespace wowlib::formats::common
 // directive keeps both bare (C3Vector) and wowlib::formats::C3Vector lookups working —
 // qualified name lookup follows using-directives — WITHOUT re-declaring them as members
 // of wowlib::formats (so welder still binds them under `common`, not twice).
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   using namespace common;
 }

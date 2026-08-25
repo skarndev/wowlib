@@ -2,8 +2,7 @@
 
 #include <wowlib/core/lang.hpp>
 
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   /** The version-agnostic root of every file-level entity (welded as
       "FileEntity").
 
@@ -21,17 +20,15 @@ namespace wowlib::formats
 
       @see https://wowdev.wiki/Main_Page */
   struct [[
-    =welder::weld,
-    =welder::weld_as("FileEntity"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("FileEntity"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         The version-agnostic root of every file-level entity: the WMO, M2,
         Skeleton, ADT, WDT and WDL family bases and the BLP all derive it.
         Holds the contract every entity shares (validate / ensure_valid), so a
         heterogeneous collection of loaded files can be processed uniformly;
         reading and writing stay on the per-format types, whose signatures
         differ.)")
-  ]] FileEntityBase
-  {
-  };
+    ]] FileEntityBase {};
 }

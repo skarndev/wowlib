@@ -12,18 +12,17 @@
 
 #include <wowlib/formats/common/types.hpp>
 
-namespace wowlib::formats::wdl::chunks
-{
+namespace wowlib::formats::wdl::chunks {
   struct [[
-    =welder::weld,
-    =welder::doc("One sky scene (an MSSN record, Shadowlands+), tying a "
-                 "SkySceneID to its condition and object ranges.")
-  ]] SkyScene
-  {
+      =welder::weld,
+      =welder::doc("One sky scene (an MSSN record, Shadowlands+), tying a "
+        "SkySceneID to its condition and object ranges.")
+    ]] SkyScene {
     [[=welder::doc("Foreign key into SkySceneXPlayerCondition (SkySceneID).")]]
     std::uint32_t sky_scene_id = 0;
 
-    [[=welder::doc("Unknown; possibly the SkySceneXPlayerCondition record count.")]]
+    [[=welder::doc(
+      "Unknown; possibly the SkySceneXPlayerCondition record count.")]]
     std::uint32_t unk_1 = 0;
 
     [[=welder::doc("First condition record in MSSC.")]]
@@ -50,22 +49,23 @@ namespace wowlib::formats::wdl::chunks
     [[=welder::doc("Unknown.")]]
     std::uint32_t unk_7 = 0;
   };
+
   static_assert(sizeof(SkyScene) == 32);
 
   struct [[
-    =welder::weld,
-    =welder::doc("One sky-scene condition (an MSSC record, Shadowlands+).")
-  ]] SkySceneCondition
-  {
+      =welder::weld,
+      =welder::doc("One sky-scene condition (an MSSC record, Shadowlands+).")
+    ]] SkySceneCondition {
     [[=welder::doc("Unknown.")]]
     std::uint32_t unk_0 = 0;
 
     [[=welder::doc("Unknown.")]]
     std::uint32_t unk_1 = 0;
 
-    [[=welder::doc("What condition_value keys into: 1 AreaTable (a parent of the "
-                   "player's area), 2 LightParams, 3 LightSkybox (the current "
-                   "skybox), 5 ZoneLight.")]]
+    [[=welder::doc(
+      "What condition_value keys into: 1 AreaTable (a parent of the "
+      "player's area), 2 LightParams, 3 LightSkybox (the current "
+      "skybox), 5 ZoneLight.")]]
     std::uint32_t condition_type = 0;
 
     [[=welder::doc("Unknown.")]]
@@ -80,14 +80,15 @@ namespace wowlib::formats::wdl::chunks
     [[=welder::doc("The db2 key condition_type selects.")]]
     std::uint32_t condition_value = 0;
   };
+
   static_assert(sizeof(SkySceneCondition) == 28);
 
   struct [[
-    =welder::weld,
-    =welder::doc("One sky-scene object (an MSSO record, Shadowlands+): a placed "
-                 "distant M2.")
-  ]] SkySceneObject
-  {
+      =welder::weld,
+      =welder::doc(
+        "One sky-scene object (an MSSO record, Shadowlands+): a placed "
+        "distant M2.")
+    ]] SkySceneObject {
     [[=welder::doc("Unknown.")]]
     std::uint32_t unk_0 = 0;
 
@@ -112,28 +113,30 @@ namespace wowlib::formats::wdl::chunks
     [[=welder::doc("Unknown.")]]
     std::uint32_t unk_11 = 0;
   };
+
   static_assert(sizeof(SkySceneObject) == 48);
 
   struct [[
-    =welder::weld,
-    =welder::doc("One sky-scene object params record (an MSSF record; documented "
-                 "as Dragonflight+ but observed in 9.2.7 files).")
-  ]] SkySceneObjectParams
-  {
+      =welder::weld,
+      =welder::doc(
+        "One sky-scene object params record (an MSSF record; documented "
+        "as Dragonflight+ but observed in 9.2.7 files).")
+    ]] SkySceneObjectParams {
     [[=welder::doc("Unknown.")]]
     float unk_0 = 0;
 
     [[=welder::doc("Unknown.")]]
     float unk_1 = 0;
   };
+
   static_assert(sizeof(SkySceneObjectParams) == 8);
 
   struct [[
-    =welder::weld,
-    =welder::doc("One scene-living (world) definition (an MSLD record, The War "
-                 "Within+): a time-windowed scene schedule.")
-  ]] SceneLivingDef
-  {
+      =welder::weld,
+      =welder::doc(
+        "One scene-living (world) definition (an MSLD record, The War "
+        "Within+): a time-windowed scene schedule.")
+    ]] SceneLivingDef {
     [[=welder::doc("Unknown.")]]
     std::uint32_t unk_0 = 0;
 
@@ -158,5 +161,6 @@ namespace wowlib::formats::wdl::chunks
     [[=welder::doc("Window end (second pair value).")]]
     std::uint32_t time_end_1 = 0;
   };
+
   static_assert(sizeof(SceneLivingDef) == 32);
 }

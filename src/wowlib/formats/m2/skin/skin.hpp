@@ -17,10 +17,9 @@
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/skin/records.hpp>
 
-namespace wowlib::formats::m2::skin
-{
+namespace wowlib::formats::m2::skin {
   /** The .skin leading magic, as memcpy'd from disk. */
-  inline constexpr std::uint32_t skin_magic = 0x4E494B53;  // "SKIN"
+  inline constexpr std::uint32_t skin_magic = 0x4E494B53; // "SKIN"
 
   /** The version-agnostic base of every Skin<V> (welded as "Skin").
 
@@ -31,16 +30,15 @@ namespace wowlib::formats::m2::skin
 
       @see https://wowdev.wiki/M2/.skin */
   struct [[
-    =welder::weld,
-    =welder::weld_as("Skin"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("Skin"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         An external model LOD view (.skin file), abstract over the client
         version. Construct a concrete version with Skin.for_version(expansion);
         the per-version Skin* classes are subclasses. See
         https://wowdev.wiki/M2/.skin.)")
-  ]] SkinBase
-  {
+    ]] SkinBase {
     bool operator==(const SkinBase&) const = default;
   };
 
@@ -50,39 +48,34 @@ namespace wowlib::formats::m2::skin
       the magic.
       @tparam V the client version this skin targets.
       @see https://wowdev.wiki/M2/.skin */
-  namespace detail
-  {
-  template <ClientVersion V>
-    requires (V >= m2_per_sequence_timelines)
-  struct [[
-    =welder::weld,
-    =welder::doc(R"(
+  namespace detail {
+    template <ClientVersion V> requires (V >= m2_per_sequence_timelines)
+    struct [[
+        =welder::weld,
+        =welder::doc(R"(
         One external LOD view (.skin file, WotLK+): the 'SKIN' magic plus the
         profile tables (local lookups, submeshes, render batches). See
         https://wowdev.wiki/M2/.skin.)")
-  ]] Skin : M2OffsetBlock<Skin<V>>, SkinBase
-  {
-    static constexpr ClientVersion version = V;
+      ]] Skin : M2OffsetBlock<Skin<V>>, SkinBase {
+      static constexpr ClientVersion version = V;
 
-    [[=welder::mark::exclude,
-      =welder::doc("The leading magic, 'SKIN' — constant on every view file; "
-                   "hidden from the bindings.")]]
-    std::uint32_t magic = skin_magic;
+      [[=welder::mark::exclude,
+        =welder::doc("The leading magic, 'SKIN' — constant on every view file; "
+          "hidden from the bindings.")]]
+      std::uint32_t magic = skin_magic;
 
-    [[=welder::doc("The LOD view's tables (local lookups, submeshes, "
-                   "batches).")]]
-    skin::M2SkinProfile<V> profile{};
+      [[=welder::doc("The LOD view's tables (local lookups, submeshes, "
+        "batches).")]]
+      skin::M2SkinProfile<V> profile{};
 
-    bool operator==(const Skin&) const = default;
-  };
+      bool operator==(const Skin&) const = default;
+    };
   }
 
   /** An external LOD view — the canonicalizing face of detail::Skin: every
       WotLK+ version maps to its range's first grid version (m2_skin_pivots:
       only Cata's shadow batches split the era, so two instantiations cover
       all nine releases). Pre-WotLK versions stay a substitution failure. */
-  template <ClientVersion V>
-    requires (V >= m2_per_sequence_timelines)
-  using Skin =
-    detail::Skin<canonical_version(V, m2_skin_pivots, m2_skin_versions)>;
+  template <ClientVersion V> requires (V >= m2_per_sequence_timelines)
+  using Skin = detail::Skin<canonical_version(V, m2_skin_pivots, m2_skin_versions)>;
 }

@@ -19,21 +19,19 @@
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::root::record
-{
+namespace wowlib::formats::m2::root::record {
   /** The version-agnostic base of every M2Ribbon<V> (welded as "M2Ribbon").
       Bindings-only, like every *Base: it gives the per-version classes a
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Ribbon"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Ribbon"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One ribbon emitter. Abstract over the client version; construct a concrete
         version with M2Ribbon.ForVersion / for_version.)")
-  ]] M2RibbonBase
-  {
+    ]] M2RibbonBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2RibbonBase&) const = default;
   };
@@ -43,29 +41,27 @@ namespace wowlib::formats::m2::root::record
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Particle"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Particle"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One particle emitter. Abstract over the client version; construct a concrete
         version with M2Particle.ForVersion / for_version.)")
-  ]] M2ParticleBase
-  {
+    ]] M2ParticleBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2ParticleBase&) const = default;
   };
 
-namespace detail
-  {
+  namespace detail {
     // The annotated era layouts; instantiate through the canonicalizing
     // aliases below, never directly.
-      template <ClientVersion V>
+    template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("A ribbon (trail) emitter; the priority/color-index tail exists "
-                   "WotLK+.")
-    ]] M2Ribbon : M2RibbonBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A ribbon (trail) emitter; the priority/color-index tail exists "
+          "WotLK+.")
+      ]] M2Ribbon : M2RibbonBase {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t ribbon_id = 0xFFFFFFFF;
       [[=welder::doc("The bone the ribbon trails from.")]]
@@ -83,7 +79,7 @@ namespace detail
       [[=welder::doc("Ribbon width above the bone origin.")]]
       record::M2Track<float, V> height_above{};
       [[=welder::doc("Ribbon width below the bone origin; do not set equal to "
-                     "height_above.")]]
+        "height_above.")]]
       record::M2Track<float, V> height_below{};
       [[=welder::doc("Quad emission rate.")]]
       float edges_per_second = 0;
@@ -113,7 +109,7 @@ namespace detail
       [[
         =since(m2_per_sequence_timelines),
         =welder::doc("Index into the texture-transform combos, applied only "
-                     "under global flag 0x20000 (WotLK+).")]]
+          "under global flag 0x20000 (WotLK+).")]]
       std::int8_t texture_transform_lookup_index = 0;
 
       bool operator==(const M2Ribbon&) const = default;
@@ -128,10 +124,9 @@ namespace detail
 
 
   struct [[
-    =welder::weld,
-    =welder::doc("A 2D vector of 6.9 fixed-point values (raw u16 storage).")
-  ]] M2Vec2FP69
-  {
+      =welder::weld,
+      =welder::doc("A 2D vector of 6.9 fixed-point values (raw u16 storage).")
+    ]] M2Vec2FP69 {
     [[=welder::doc("Raw 6.9 fixed-point x component.")]]
     std::uint16_t x = 0;
     [[=welder::doc("Raw 6.9 fixed-point y component.")]]
@@ -139,23 +134,22 @@ namespace detail
 
     bool operator==(const M2Vec2FP69&) const = default;
   };
+
   static_assert(sizeof(M2Vec2FP69) == 4);
 
-namespace detail
-  {
+  namespace detail {
     // The annotated era layouts; instantiate through the canonicalizing
     // aliases below, never directly.
-      template <ClientVersion V>
+    template <ClientVersion V>
     struct M2Particle;
 
-    template <ClientVersion V>
-      requires (V < m2_compressed_bones)
+    template <ClientVersion V> requires (V < m2_compressed_bones)
     struct [[
-      =welder::weld,
-      =welder::doc("A particle emitter, vanilla layout: wide u16 blending/emitter header, "
-                   "static color/scale/UV ramps, a single spin value.")
-    ]] M2Particle<V> : M2ParticleBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A particle emitter, vanilla layout: wide u16 blending/emitter header, "
+          "static color/scale/UV ramps, a single spin value.")
+      ]] M2Particle<V> : M2ParticleBase {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;
       [[=welder::doc("See wowdev's particle flag table.")]]
@@ -189,13 +183,13 @@ namespace detail
       [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
       [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
-                     "plane, of the position for sphere emitters.")]]
+        "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
       [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
-                     "for plane, of the position for sphere emitters.")]]
+        "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
       [[=welder::doc("Gravity; a compressed direction vector under the "
-                     "CompressedGravity flag.")]]
+        "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
       [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
@@ -206,7 +200,7 @@ namespace detail
       [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
       [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
-                     "to the spawn point.")]]
+        "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Parametric middle of the lifespan.")]]
       float mid_point = 0;
@@ -215,10 +209,10 @@ namespace detail
       [[=welder::doc("Start/middle/end scale.")]]
       std::array<float, 3> scale_values{};
       [[=welder::doc("Head flipbook cells, first half of life "
-                     "(start/middle/end).")]]
+        "(start/middle/end).")]]
       std::array<std::uint16_t, 3> lifespan_uv_anim{};
       [[=welder::doc("Head flipbook cells, second half of life "
-                     "(start/middle/end).")]]
+        "(start/middle/end).")]]
       std::array<std::uint16_t, 3> decay_uv_anim{};
       [[=welder::doc("Tail flipbook cells, first half of life (start/end).")]]
       std::array<std::int16_t, 2> tail_uv_anim{};
@@ -245,7 +239,7 @@ namespace detail
       [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
       [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
-                     "follow by follow_scale1.")]]
+        "follow by follow_scale1.")]]
       float follow_speed1 = 0;
       [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
@@ -261,14 +255,13 @@ namespace detail
       bool operator==(const M2Particle&) const = default;
     };
 
-    template <ClientVersion V>
-      requires (V >= m2_compressed_bones && V < m2_per_sequence_timelines)
+    template <ClientVersion V> requires (V >= m2_compressed_bones && V < m2_per_sequence_timelines)
     struct [[
-      =welder::weld,
-      =welder::doc("A particle emitter, TBC layout: byte-packed blending/emitter beside "
-                   "the ParticleColor.dbc index; ramps still static.")
-    ]] M2Particle<V> : M2ParticleBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A particle emitter, TBC layout: byte-packed blending/emitter beside "
+          "the ParticleColor.dbc index; ramps still static.")
+      ]] M2Particle<V> : M2ParticleBase {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;
       [[=welder::doc("See wowdev's particle flag table.")]]
@@ -304,13 +297,13 @@ namespace detail
       [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
       [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
-                     "plane, of the position for sphere emitters.")]]
+        "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
       [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
-                     "for plane, of the position for sphere emitters.")]]
+        "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
       [[=welder::doc("Gravity; a compressed direction vector under the "
-                     "CompressedGravity flag.")]]
+        "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
       [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
@@ -321,7 +314,7 @@ namespace detail
       [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
       [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
-                     "to the spawn point.")]]
+        "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Parametric middle of the lifespan.")]]
       float mid_point = 0;
@@ -330,10 +323,10 @@ namespace detail
       [[=welder::doc("Start/middle/end scale.")]]
       std::array<float, 3> scale_values{};
       [[=welder::doc("Head flipbook cells, first half of life "
-                     "(start/middle/end).")]]
+        "(start/middle/end).")]]
       std::array<std::uint16_t, 3> lifespan_uv_anim{};
       [[=welder::doc("Head flipbook cells, second half of life "
-                     "(start/middle/end).")]]
+        "(start/middle/end).")]]
       std::array<std::uint16_t, 3> decay_uv_anim{};
       [[=welder::doc("Tail flipbook cells, first half of life (start/end).")]]
       std::array<std::int16_t, 2> tail_uv_anim{};
@@ -360,7 +353,7 @@ namespace detail
       [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
       [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
-                     "follow by follow_scale1.")]]
+        "follow by follow_scale1.")]]
       float follow_speed1 = 0;
       [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
@@ -376,14 +369,13 @@ namespace detail
       bool operator==(const M2Particle&) const = default;
     };
 
-    template <ClientVersion V>
-      requires (V >= m2_per_sequence_timelines && V < m2_multitex_particles)
+    template <ClientVersion V> requires (V >= m2_per_sequence_timelines && V < m2_multitex_particles)
     struct [[
-      =welder::weld,
-      =welder::doc("A particle emitter, WotLK-era layout (476 bytes): FBlock ramps, "
-                   "lifespan/emission variation, four spin fields.")
-    ]] M2Particle<V> : M2ParticleBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A particle emitter, WotLK-era layout (476 bytes): FBlock ramps, "
+          "lifespan/emission variation, four spin fields.")
+      ]] M2Particle<V> : M2ParticleBase {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;
       [[=welder::doc("See wowdev's particle flag table.")]]
@@ -419,13 +411,13 @@ namespace detail
       [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
       [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
-                     "plane, of the position for sphere emitters.")]]
+        "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
       [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
-                     "for plane, of the position for sphere emitters.")]]
+        "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
       [[=welder::doc("Gravity; a compressed direction vector under the "
-                     "CompressedGravity flag.")]]
+        "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
       [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
@@ -434,14 +426,14 @@ namespace detail
       [[=welder::doc("Particles emitted per second.")]]
       record::M2Track<float, V> emission_rate{};
       [[=welder::doc("+ emission_rate_variation * random(-1, 1), rerolled per "
-                     "update.")]]
+        "update.")]]
       float emission_rate_variation = 0;
       [[=welder::doc("Plane: emission area width; sphere: max radius.")]]
       record::M2Track<float, V> emission_area_width{};
       [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
       [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
-                     "to the spawn point.")]]
+        "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Usually 3 keys: start/middle/end.")]]
       FBlock<C3Vector> color_track{};
@@ -482,7 +474,7 @@ namespace detail
       [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
       [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
-                     "follow by follow_scale1.")]]
+        "follow by follow_scale1.")]]
       float follow_speed1 = 0;
       [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
@@ -498,14 +490,13 @@ namespace detail
       bool operator==(const M2Particle&) const = default;
     };
 
-    template <ClientVersion V>
-      requires (V >= m2_multitex_particles)
+    template <ClientVersion V> requires (V >= m2_multitex_particles)
     struct [[
-      =welder::weld,
-      =welder::doc("A particle emitter (Cata+, 492 bytes): multi-textured — packed "
-                   "texture ids, multiTexScale, trailing scroll parameters.")
-    ]] M2Particle<V> : M2ParticleBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A particle emitter (Cata+, 492 bytes): multi-textured — packed "
+          "texture ids, multiTexScale, trailing scroll parameters.")
+      ]] M2Particle<V> : M2ParticleBase {
       [[=welder::doc("Always -1 in known files.")]]
       std::uint32_t particle_id = 0xFFFFFFFF;
       [[=welder::doc("See wowdev's particle flag table.")]]
@@ -539,13 +530,13 @@ namespace detail
       [[=welder::doc("Random emission-speed variation (0..1).")]]
       record::M2Track<float, V> speed_variation{};
       [[=welder::doc("Max polar angle (0..pi): of the initial velocity for "
-                     "plane, of the position for sphere emitters.")]]
+        "plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> vertical_range{};
       [[=welder::doc("Max azimuth angle (0..2*pi): of the initial velocity "
-                     "for plane, of the position for sphere emitters.")]]
+        "for plane, of the position for sphere emitters.")]]
       record::M2Track<float, V> horizontal_range{};
       [[=welder::doc("Gravity; a compressed direction vector under the "
-                     "CompressedGravity flag.")]]
+        "CompressedGravity flag.")]]
       record::M2Track<float, V> gravity{};
       [[=welder::doc("Seconds each particle stays alive.")]]
       record::M2Track<float, V> lifespan{};
@@ -554,14 +545,14 @@ namespace detail
       [[=welder::doc("Particles emitted per second.")]]
       record::M2Track<float, V> emission_rate{};
       [[=welder::doc("+ emission_rate_variation * random(-1, 1), rerolled per "
-                     "update.")]]
+        "update.")]]
       float emission_rate_variation = 0;
       [[=welder::doc("Plane: emission area width; sphere: max radius.")]]
       record::M2Track<float, V> emission_area_width{};
       [[=welder::doc("Plane: emission area length; sphere: min radius.")]]
       record::M2Track<float, V> emission_area_length{};
       [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) "
-                     "to the spawn point.")]]
+        "to the spawn point.")]]
       record::M2Track<float, V> z_source{};
       [[=welder::doc("Usually 3 keys: start/middle/end.")]]
       FBlock<C3Vector> color_track{};
@@ -602,7 +593,7 @@ namespace detail
       [[=welder::doc("Undocumented; paired with the static wind vector.")]]
       float wind_time = 0;
       [[=welder::doc("Emitter-follow ramp: at this emitter speed particles "
-                     "follow by follow_scale1.")]]
+        "follow by follow_scale1.")]]
       float follow_speed1 = 0;
       [[=welder::doc("Fraction of emitter motion applied at follow_speed1.")]]
       float follow_scale1 = 0;
@@ -627,7 +618,5 @@ namespace detail
       (m2_particle_pivots: TBC's byte-packed types, WotLK's ramps and spins,
       Cata's multi-texture layout). */
   template <ClientVersion V>
-  using M2Particle =
-    detail::M2Particle<canonical_version(V, m2_particle_pivots, m2_versions)>;
-
+  using M2Particle = detail::M2Particle<canonical_version(V, m2_particle_pivots, m2_versions)>;
 }

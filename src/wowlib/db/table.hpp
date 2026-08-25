@@ -39,8 +39,7 @@
 #include <wowlib/formats/common/validation.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
-namespace wowlib::db
-{
+namespace wowlib::db {
   /** A client database table: the typed records of one DBFilesClient file.
 
       A thin typed shell: the records vector and the identity are here, the
@@ -49,8 +48,7 @@ namespace wowlib::db
       @tparam Record the record type (generated, or hand-written per
               schema.hpp's TableRecord contract). */
   template <TableRecord Record>
-  class Table
-  {
+  class Table {
   public:
     /** The client version the record schema belongs to. */
     static constexpr ClientVersion version = Record::version;
@@ -60,24 +58,24 @@ namespace wowlib::db
 
     [[=welder::mark::no_reassign,
       =welder::doc("The decoded records, file order. Mutate in place; write() "
-                   "serializes exactly this list.")]]
+        "serializes exactly this list.")]]
     std::vector<Record> records;
 
     Table() { wire(); }
     Table(const Table& o) : records{o.records}, core_{o.core_} { wire(); }
-    Table(Table&& o) noexcept : records{std::move(o.records)}, core_{std::move(o.core_)}
-    {
+
+    Table(Table&& o) noexcept : records{std::move(o.records)}, core_{std::move(o.core_)} {
       wire();
     }
-    Table& operator=(const Table& o)
-    {
+
+    Table& operator=(const Table& o) {
       records = o.records;
       core_ = o.core_;
       wire();
       return *this;
     }
-    Table& operator=(Table&& o) noexcept
-    {
+
+    Table& operator=(Table&& o) noexcept {
       records = std::move(o.records);
       core_ = std::move(o.core_);
       wire();
@@ -88,10 +86,9 @@ namespace wowlib::db
         @param data the whole file content.
         @return nothing, or why the image does not decode. */
     [[=welder::doc("Decode a table file image."),
-      =welder::returns("nothing; raises on malformed input or a schema mismatch")]]
-    Result<void> read(std::span<const std::byte> data
-                      [[=welder::doc("the whole file content")]])
-    {
+      =welder::returns(
+        "nothing; raises on malformed input or a schema mismatch")]]
+    Result<void> read(std::span<const std::byte> data [[=welder::doc("the whole file content")]]) {
       return core_.read(data);
     }
 
@@ -100,8 +97,7 @@ namespace wowlib::db
         @param key the file to read.
         @return nothing, or why loading failed. */
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
-                      const FileKey& key [[=welder::doc("the file to read")]])
-    {
+                      const FileKey& key [[=welder::doc("the file to read")]]) {
       return core_.read(fs, key);
     }
 
@@ -110,14 +106,14 @@ namespace wowlib::db
         (write(fs, key) can override by the target path's extension).
         @param policy how keyless encrypted sections are handled (WDC only).
         @return the file image, or why encoding failed. */
-    [[=welder::doc("Serialize the table to a file image; a loaded table re-emits "
-                   "the format it was read from. `policy` decides how keyless "
-                   "encrypted sections are handled."),
+    [[=welder::doc(
+        "Serialize the table to a file image; a loaded table re-emits "
+        "the format it was read from. `policy` decides how keyless "
+        "encrypted sections are handled."),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> write(EncryptedPolicy policy
-                             [[=welder::doc("keyless-section handling (WDC only)")]]
-                             = EncryptedPolicy::Preserve) const
-    {
+      [[=welder::doc("keyless-section handling (WDC only)")]]
+      = EncryptedPolicy::Preserve) const {
       return core_.write(policy);
     }
 
@@ -129,36 +125,37 @@ namespace wowlib::db
     Result<void> write(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                        const FileKey& key [[=welder::doc("the file to write")]],
                        EncryptedPolicy policy
-                       [[=welder::doc("keyless-section handling (WDC only)")]]
-                       = EncryptedPolicy::Preserve) const
-    {
+        [[=welder::doc("keyless-section handling (WDC only)")]]
+                         = EncryptedPolicy::Preserve) const {
       return core_.write(fs, key, policy);
     }
 
     /** The preserved string block the record string fields were decoded from.
         @return the decoded (offset, value) entries. */
     [[=welder::getter,
-      =welder::doc("The preserved string block the record string fields were decoded "
-                   "from; offsets never move, write() appends new strings past its "
-                   "end.")]]
+      =welder::doc(
+        "The preserved string block the record string fields were decoded "
+        "from; offsets never move, write() appends new strings past its "
+        "end.")]]
     const formats::StringBlock& strings() const { return core_.strings(); }
 
     /** The encrypted sections skipped on the last read (empty when the file was
         fully decodable or is not a WDC format).
         @return the encrypted-section reports. */
     [[=welder::getter,
-      =welder::doc("The encrypted sections skipped on read: their records are not "
-                   "in records, but the file re-writes them verbatim.")]]
-    const std::vector<EncryptedSection>& encrypted_sections() const
-    {
+      =welder::doc(
+        "The encrypted sections skipped on read: their records are not "
+        "in records, but the file re-writes them verbatim.")]]
+    const std::vector<EncryptedSection>& encrypted_sections() const {
       return core_.encrypted_sections();
     }
 
     /** Whether every record of the file was decoded (no encrypted sections).
         @return true when records holds the whole table. */
     [[=welder::getter,
-      =welder::doc("Whether the whole table decoded — false when encrypted sections "
-                   "were skipped.")]]
+      =welder::doc(
+        "Whether the whole table decoded — false when encrypted sections "
+        "were skipped.")]]
     bool fully_decoded() const { return core_.fully_decoded(); }
 
     // There is deliberately NO "value fits its column" check: a column's width
@@ -177,7 +174,7 @@ namespace wowlib::db
 
     [[nodiscard]]
     [[=welder::doc("Validate and raise on the first error instead of returning "
-                   "a report — the assert-style face of validate()."),
+        "a report — the assert-style face of validate()."),
       =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const { return validate().to_result(); }
 
@@ -186,11 +183,9 @@ namespace wowlib::db
 
   private:
     /** (Re-)point the core at this instance's vector and identity. */
-    void wire()
-    {
+    void wire() {
       static constexpr auto schema = schema_of<Record>();
-      core_.wire(&records, &detail::record_ops<Record>,
-                 TableInfo{version, table_name, schema});
+      core_.wire(&records, &detail::record_ops < Record >, TableInfo{version, table_name, schema});
     }
 
     TableCore core_;

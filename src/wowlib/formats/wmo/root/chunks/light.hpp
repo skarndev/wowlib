@@ -14,15 +14,13 @@
 #include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 
-namespace wowlib::formats::wmo::root::chunks
-{
+namespace wowlib::formats::wmo::root::chunks {
   // --- MOLT / MOLV / MNLD -----------------------------------------------------
 
   enum class [[
-    =welder::weld,
-    =welder::doc("The kind of a WMO light (SMOLight.type).")
-  ]] LightType : std::uint8_t
-  {
+      =welder::weld,
+      =welder::doc("The kind of a WMO light (SMOLight.type).")
+    ]] LightType : std::uint8_t {
     Omni [[=welder::doc("A point light.")]] = 0,
     Spot [[=welder::doc("A spot light.")]] = 1,
     Direct [[=welder::doc("A directional light.")]] = 2,
@@ -30,11 +28,11 @@ namespace wowlib::formats::wmo::root::chunks
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("One MOLT light. Not rendered by classic-era clients, but baked "
-                 "into vertex colors by the exporter.")
-  ]] SMOLight
-  {
+      =welder::weld,
+      =welder::doc(
+        "One MOLT light. Not rendered by classic-era clients, but baked "
+        "into vertex colors by the exporter.")
+    ]] SMOLight {
     [[=welder::doc("The light kind; a LightType value.")]]
     std::uint8_t type = 0;
 
@@ -62,19 +60,20 @@ namespace wowlib::formats::wmo::root::chunks
     [[=welder::doc("Attenuation end distance.")]]
     float atten_end = 0;
   };
+
   static_assert(sizeof(SMOLight) == 0x30);
 
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         One MOLV entry (9.1+): a directional-gradient extension to a MOLT
         light. Multiple entries may extend the same light.)")
-  ]] LightExtension
-  {
-    struct [[=welder::doc("One directional gradient sample: a direction (usually axis-"
-                   "aligned) and its value.")]] Gradient
-    {
-      [[=welder::doc("Gradient direction; usually either xy or z, remainder 0.")]]
+    ]] LightExtension {
+    struct [[=welder::doc(
+        "One directional gradient sample: a direction (usually axis-"
+        "aligned) and its value.")]] Gradient {
+      [[=welder::doc("Gradient direction; usually either xy or z, remainder 0.")
+      ]]
       C3Vector direction{};
 
       [[=welder::doc("Gradient value.")]]
@@ -90,15 +89,15 @@ namespace wowlib::formats::wmo::root::chunks
     [[=welder::doc("The MOLT light this entry extends.")]]
     std::uint8_t light_index = 0;
   };
+
   static_assert(sizeof(LightExtension) == 0x64);
 
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         One MNLD entry (9.0+): a Shadowlands dynamic light - point or spot -
         used for everything from torch fires to window-light projection.)")
-  ]] NewLight
-  {
+    ]] NewLight {
     [[=welder::doc("0 = point light (sphere), 1 = spot light (cone).")]]
     std::int32_t type = 0;
 
@@ -118,7 +117,7 @@ namespace wowlib::formats::wmo::root::chunks
     C3Vector position{};
 
     [[=welder::doc("Euler rotation in radians; rotates the light (spot) or its "
-                   "cookie (point).")]]
+      "cookie (point).")]]
     C3Vector rotation{};
 
     [[=welder::doc("Attenuation start distance.")]]
@@ -133,10 +132,12 @@ namespace wowlib::formats::wmo::root::chunks
     [[=welder::doc("Outer color; used with flag 0x1.")]]
     CImVector outer_color{};
 
-    [[=welder::doc("Gradient start distance for inner/outer blending (flag 0x1).")]]
+    [[=welder::doc(
+      "Gradient start distance for inner/outer blending (flag 0x1).")]]
     float blend_start = 0;
 
-    [[=welder::doc("Gradient end distance for inner/outer blending (flag 0x1).")]]
+    [[=welder::doc("Gradient end distance for inner/outer blending (flag 0x1).")
+    ]]
     float blend_end = 0;
 
     /** Empty gap in the client layout. */
@@ -148,7 +149,8 @@ namespace wowlib::formats::wmo::root::chunks
     [[=welder::doc("Flickering speed.")]]
     float flicker_speed = 0;
 
-    [[=welder::doc("0 = off, 1 = sine curve, 2 = noise curve, 3 = noise step.")]]
+    [[=welder::doc("0 = off, 1 = sine curve, 2 = noise curve, 3 = noise step.")]
+    ]
     std::int32_t flicker_mode = 0;
 
     [[=welder::doc("Unknown; only zeros observed.")]]
@@ -158,7 +160,7 @@ namespace wowlib::formats::wmo::root::chunks
     [[=welder::mark::exclude]] std::array<std::uint8_t, 4> gap_2{};
 
     [[=welder::doc("FileDataID of the light cookie texture (a cube map for "
-                   "point lights).")]]
+      "point lights).")]]
     std::uint32_t light_cookie_fdid = 0;
 
     /** Empty gap in the client layout. */
@@ -177,12 +179,12 @@ namespace wowlib::formats::wmo::root::chunks
     std::uint16_t scale_half = 0;
 
     [[=welder::doc("Intensity multiplier, as raw IEEE half-float bits; 0 is "
-                   "corrected to 1 by the client.")]]
+      "corrected to 1 by the client.")]]
     std::uint16_t intensity_multiplier_half = 0;
 
     /** Trailing fields the client does not read yet; zero in files. */
     [[=welder::mark::exclude]] std::array<std::int32_t, 11> unused{};
   };
-  static_assert(sizeof(NewLight) == 0xB8);
 
+  static_assert(sizeof(NewLight) == 0xB8);
 }

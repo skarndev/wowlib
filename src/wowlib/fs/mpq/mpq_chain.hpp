@@ -13,46 +13,41 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 
-namespace wowlib::fs::detail
-{
+namespace wowlib::fs::detail {
   /** How one base-tier row produces its archive path. Patches are NOT table
       rows: the client wildcard-loads them, so we discover them on disk via a
       PatchScheme (glob + sort) rather than naming each. */
-  enum class ChainEntryKind
-  {
-    Fixed,       /**< One archive in Data/, e.g. "common.MPQ". */
+  enum class ChainEntryKind {
+    Fixed, /**< One archive in Data/, e.g. "common.MPQ". */
     LocaleFixed, /**< One archive in Data/{locale}/, "{locale}" expanded. */
   };
 
   /** One base-tier row. `pattern`'s "{locale}" placeholder expands to the code. */
-  struct ChainEntry
-  {
+  struct ChainEntry {
     ChainEntryKind kind;
     std::string_view pattern;
   };
 
   /** How a version's patch tier is discovered on disk. */
-  enum class PatchScheme
-  {
-    None,            /**< No patch tier. */
+  enum class PatchScheme {
+    None, /**< No patch tier. */
     ClassicWildcard, /**< Pre-Cata wildcard patch tier.
                           `patch.MPQ` + single-char `patch-?.MPQ` in `Data/`, and
                           `patch-{locale}[-?].MPQ` in `Data/{locale}/`, merged and
                           sorted by extension-agnostic filename. */
-    UpdateChain,     /**< Cata/MoP incremental updates: `wow-update-{build}.MPQ` /
-                          `wow-update-base-{build}.MPQ` in `Data/` and
-                          `wow-update-{locale}-{build}.MPQ` in `Data/{locale}/`,
-                          ascending build. These are NOT standalone archives: they
-                          hold PTCH deltas and added files that must attach to the
-                          base archives via StormLib's patch-archive mechanism.
-                          Retail archives store entries under BARE paths, so the
-                          attach passes no prefix (see mpq_storage.cpp). */
+    UpdateChain, /**< Cata/MoP incremental updates: `wow-update-{build}.MPQ` /
+                      `wow-update-base-{build}.MPQ` in `Data/` and
+                      `wow-update-{locale}-{build}.MPQ` in `Data/{locale}/`,
+                      ascending build. These are NOT standalone archives: they
+                      hold PTCH deltas and added files that must attach to the
+                      base archives via StormLib's patch-archive mechanism.
+                      Retail archives store entries under BARE paths, so the
+                      attach passes no prefix (see mpq_storage.cpp). */
   };
 
   /** A client version's archive chain: the fixed base tier plus how its patch
       tier is found. */
-  struct MpqChainSpec
-  {
+  struct MpqChainSpec {
     ClientVersion version;
     std::span<const ChainEntry> base_entries;
     PatchScheme patch_scheme = PatchScheme::None;
@@ -63,12 +58,11 @@ namespace wowlib::fs::detail
       archive's name — the client accepts either — or, for the Cata+ update
       tier, as an INCREMENTAL patch that attaches to the base archives of its
       Data directory instead of opening standalone. */
-  struct ChainMember
-  {
+  struct ChainMember {
     std::filesystem::path path; /**< The archive file or loose-dir root on disk. */
-    bool is_directory = false;  /**< true => loose files, not a StormLib archive. */
-    bool incremental = false;   /**< true => a wow-update patch to attach, not open. */
-    std::string prefix;         /**< Incremental only: which update group the
+    bool is_directory = false; /**< true => loose files, not a StormLib archive. */
+    bool incremental = false; /**< true => a wow-update patch to attach, not open. */
+    std::string prefix; /**< Incremental only: which update group the
                                      member came from ("base" or the locale
                                      code). Informational — the attach lets
                                      StormLib detect the real in-archive prefix
@@ -103,6 +97,5 @@ namespace wowlib::fs::detail
       @param locale   the locale used for "{locale}" expansion.
       @return members in load order. */
   Result<std::vector<ChainMember>>
-  expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir,
-               Locale locale);
+  expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir, Locale locale);
 }

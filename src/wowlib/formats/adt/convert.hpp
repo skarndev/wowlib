@@ -10,8 +10,7 @@
 #include <wowlib/formats/adt/adt.hpp>
 #include <wowlib/formats/convert.hpp>
 
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   /** The ADT's supported-version ladder: every targeted last-minor-of-major
       release, in release order (see adt::adt_versions). */
   template <>

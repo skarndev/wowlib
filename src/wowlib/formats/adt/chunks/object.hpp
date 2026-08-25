@@ -12,17 +12,15 @@
 
 #include <wowlib/formats/common/types.hpp>
 
-namespace wowlib::formats::adt::chunks
-{
+namespace wowlib::formats::adt::chunks {
   /** One sound emitter (MCSE, 28 bytes): the client reads 0x1C bytes per entry
       — a sound-entry id and a position/size pair. */
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         A terrain sound emitter (MCSE, 28 bytes): a SoundEntriesAdvanced foreign
         key and a position/size pair placing an ambient sound in the cell.)")
-  ]] CWSoundEmitter
-  {
+    ]] CWSoundEmitter {
     [[=welder::doc("The sound entry (a SoundEntriesAdvanced foreign key).")]]
     std::uint32_t entry_id = 0;
 
@@ -34,6 +32,7 @@ namespace wowlib::formats::adt::chunks
 
     bool operator==(const CWSoundEmitter&) const = default;
   };
+
   static_assert(sizeof(CWSoundEmitter) == 0x1C);
 
   /** One pre-WotLK sound emitter (MCSE, 52 bytes): the full inline emitter
@@ -43,13 +42,12 @@ namespace wowlib::formats::adt::chunks
       ranges, times are day-minutes, gaps are milliseconds). 2.4.3 ships no
       MCSE at all, so the layout is vanilla-only in practice. */
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         A pre-WotLK terrain sound emitter (MCSE, 52 bytes): a SoundEntries
         foreign key plus the inline distance/time/loop parameters that later
         moved into SoundEntriesAdvanced.)")
-  ]] CWSoundEmitterVanilla
-  {
+    ]] CWSoundEmitterVanilla {
     [[=welder::doc("Sequential emitter id, unique per map.")]]
     std::uint32_t sound_point_id = 0;
 
@@ -103,17 +101,17 @@ namespace wowlib::formats::adt::chunks
 
     bool operator==(const CWSoundEmitterVanilla&) const = default;
   };
+
   static_assert(sizeof(CWSoundEmitterVanilla) == 52);
 
   /** One Shadowlands doodad-set range (MWDR): a [begin, end] span into MWDS. */
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         A doodad-set range (MWDR, Shadowlands+): an inclusive [begin, end] span
         into the MWDS index list, selecting which WMO doodad sets a placement
         loads.)")
-  ]] SMDoodadSetRange
-  {
+    ]] SMDoodadSetRange {
     [[=welder::doc("The first MWDS index (inclusive).")]]
     std::uint32_t begin = 0;
     [[=welder::doc("The last MWDS index (inclusive).")]]
@@ -121,5 +119,6 @@ namespace wowlib::formats::adt::chunks
 
     bool operator==(const SMDoodadSetRange&) const = default;
   };
+
   static_assert(sizeof(SMDoodadSetRange) == 0x8);
 }

@@ -12,8 +12,7 @@
 #include <wowlib/formats/convert.hpp>
 #include <wowlib/formats/wdl/wdl.hpp>
 
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   /** The WDL's supported-version ladder: every targeted last-minor-of-major
       release, in release order (see wdl::wdl_versions). convert<To>() walks
       this one adjacent step at a time. */

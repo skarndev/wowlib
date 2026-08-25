@@ -30,42 +30,38 @@
 #include <wowlib/db/wdc/binary.hpp>
 #include <wowlib/db/wdc/bit_stream.hpp>
 
-namespace wowlib::db::wdc
-{
+namespace wowlib::db::wdc {
   /** How a record's string-reference fields address the string data. */
-  enum class StringRefMode : std::uint8_t
-  {
+  enum class StringRefMode : std::uint8_t {
     BlockRelative, /**< WDC1: offset from the string block's first byte. */
-    FieldRelative  /**< WDC2+: offset from the referencing field's own position. */
+    FieldRelative /**< WDC2+: offset from the referencing field's own position. */
   };
 
   /** A located, structurally-validated section. WDC1 files produce exactly
       one; the spans of blocks a flavor does not have are empty. */
-  struct WdcSection
-  {
-    Wdc3SectionHeader header{};             /**< Synthesized for WDC1. */
-    bool encrypted = false;                 /**< tact_key_hash != 0 AND records zeroed. */
-    std::span<const std::byte> records;     /**< Fixed-stride record region (non-sparse),
-                                                 or the variable sparse record region. */
-    std::span<const std::byte> strings;     /**< Section string block (non-sparse). */
-    std::span<const std::byte> id_list;     /**< uint32 ids, present when flag 0x04. */
-    std::span<const std::byte> copy_table;  /**< {uint32 new_id, uint32 src_id} pairs. */
-    std::span<const std::byte> offset_map;  /**< {uint32 offset, uint16 size} entries (sparse). */
+  struct WdcSection {
+    Wdc3SectionHeader header{}; /**< Synthesized for WDC1. */
+    bool encrypted = false; /**< tact_key_hash != 0 AND records zeroed. */
+    std::span<const std::byte> records; /**< Fixed-stride record region (non-sparse),
+                                             or the variable sparse record region. */
+    std::span<const std::byte> strings; /**< Section string block (non-sparse). */
+    std::span<const std::byte> id_list; /**< uint32 ids, present when flag 0x04. */
+    std::span<const std::byte> copy_table; /**< {uint32 new_id, uint32 src_id} pairs. */
+    std::span<const std::byte> offset_map; /**< {uint32 offset, uint16 size} entries (sparse). */
     std::span<const std::byte> offset_map_ids; /**< uint32 ids paired with offset_map (sparse). */
-    std::span<const std::byte> relationship;/**< Relationship block (map header + pairs). */
+    std::span<const std::byte> relationship; /**< Relationship block (map header + pairs). */
     std::vector<std::uint32_t> encrypted_ids; /**< WDC4+: the encrypted_status id list. */
-    std::uint32_t string_base = 0;          /**< Absolute file offset the section's strings
-                                                 start at. */
+    std::uint32_t string_base = 0; /**< Absolute file offset the section's strings
+                                        start at. */
   };
 
   /** A parsed WDC-family file: the (normalized) header, shared tables, and
       located sections. The raw file span is retained so string references —
       which resolve to absolute file offsets — can be chased. */
-  struct WdcImage
-  {
-    std::uint32_t magic = 0;                /**< The flavor actually parsed. */
-    Wdc3Header header{};                    /**< WDC1 header fields are mapped onto this. */
-    Wdc5HeaderPrefix wdc5{};                /**< Valid when magic == wdc5_magic. */
+  struct WdcImage {
+    std::uint32_t magic = 0; /**< The flavor actually parsed. */
+    Wdc3Header header{}; /**< WDC1 header fields are mapped onto this. */
+    Wdc5HeaderPrefix wdc5{}; /**< Valid when magic == wdc5_magic. */
     StringRefMode string_mode = StringRefMode::FieldRelative;
     std::span<const std::byte> file;
     std::vector<WdcFieldStructure> field_structure;
@@ -86,7 +82,9 @@ namespace wowlib::db::wdc
 
     /** Whether the id comes from the id_list rather than a record field
         (flag 0x04); when false, the id_index'th inline field is the id. */
-    bool id_is_noninline() const { return (header.flags & wdc_flag_noninline_id) != 0; }
+    bool id_is_noninline() const {
+      return (header.flags & wdc_flag_noninline_id) != 0;
+    }
 
     /** Whether this file uses the sparse offset-map layout (flag 0x01). */
     bool is_sparse() const { return (header.flags & wdc_flag_sparse) != 0; }
@@ -110,8 +108,11 @@ namespace wowlib::db::wdc
         @param additional   field_additional_offsets() (pallet/common bases).
         @return the raw field bits, zero-extended; the caller sign-extends
                 signed columns using elem_bit_width(). */
-    std::uint64_t field_raw(std::size_t field, std::uint32_t element, std::uint32_t array_count,
-                            std::span<const std::byte> record_bytes, std::uint32_t id,
+    std::uint64_t field_raw(std::size_t field,
+                            std::uint32_t element,
+                            std::uint32_t array_count,
+                            std::span<const std::byte> record_bytes,
+                            std::uint32_t id,
                             const std::vector<std::uint32_t>& additional) const;
 
     /** The bit width of one element of inline field @a field: for the inline
@@ -126,10 +127,8 @@ namespace wowlib::db::wdc
         WDC1 normalization).
         @param field the field index.
         @return true when decoded values must be sign-extended. */
-    bool field_is_signed(std::size_t field) const
-    {
-      return field < field_storage.size()
-             && field_storage[field].storage_type == WdcCompression::BitpackedSigned;
+    bool field_is_signed(std::size_t field) const {
+      return field < field_storage.size() && field_storage[field].storage_type == WdcCompression::BitpackedSigned;
     }
 
   private:
@@ -147,7 +146,9 @@ namespace wowlib::db::wdc
         @param element    array element (0 for scalar pallet).
         @param array_size elements per slot (pallet-array); 1 for scalar.
         @return the 32-bit pallet value (0 when out of range). */
-    std::uint32_t pallet_value(std::uint32_t base, std::uint32_t index, std::uint32_t element,
+    std::uint32_t pallet_value(std::uint32_t base,
+                               std::uint32_t index,
+                               std::uint32_t element,
                                std::uint32_t array_size) const;
 
     /** A value from common_data: the {uint32 id, uint32 value} block for a
@@ -157,7 +158,6 @@ namespace wowlib::db::wdc
         @param id       the record id to look up.
         @param fallback the field's default value (field_storage val1).
         @return the stored override or the default. */
-    std::uint32_t common_value(std::uint32_t base, std::uint32_t size, std::uint32_t id,
-                               std::uint32_t fallback) const;
+    std::uint32_t common_value(std::uint32_t base, std::uint32_t size, std::uint32_t id, std::uint32_t fallback) const;
   };
 }

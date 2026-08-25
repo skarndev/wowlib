@@ -17,8 +17,7 @@
     ever re-pointed (a second out-of-tree rod claiming slot 0), re-point this
     constant with it, or every `cs` mark silently stops resolving. */
 
-namespace wowlib::lang
-{
+namespace wowlib::lang {
   /** C#/.NET — the welder-csharp rod's identity (user-range slot 0), respelled
       for wowlib's annotation sites (`mark::only`, `mark::exclude`, `weld_as`). */
   inline constexpr welder::lang cs{welder::user_lang<0>};

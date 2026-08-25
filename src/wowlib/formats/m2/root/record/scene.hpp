@@ -13,21 +13,19 @@
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::root::record
-{
+namespace wowlib::formats::m2::root::record {
   /** The version-agnostic base of every M2Attachment<V> (welded as "M2Attachment").
       Bindings-only, like every *Base: it gives the per-version classes a
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Attachment"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Attachment"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One attachment point. Abstract over the client version; construct a concrete
         version with M2Attachment.ForVersion / for_version.)")
-  ]] M2AttachmentBase
-  {
+    ]] M2AttachmentBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2AttachmentBase&) const = default;
   };
@@ -37,14 +35,13 @@ namespace wowlib::formats::m2::root::record
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Event"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Event"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One timed event. Abstract over the client version; construct a concrete
         version with M2Event.ForVersion / for_version.)")
-  ]] M2EventBase
-  {
+    ]] M2EventBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2EventBase&) const = default;
   };
@@ -54,14 +51,13 @@ namespace wowlib::formats::m2::root::record
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Light"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Light"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One placed light. Abstract over the client version; construct a concrete
         version with M2Light.ForVersion / for_version.)")
-  ]] M2LightBase
-  {
+    ]] M2LightBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2LightBase&) const = default;
   };
@@ -71,35 +67,33 @@ namespace wowlib::formats::m2::root::record
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2Camera"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2Camera"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One model camera. Abstract over the client version; construct a concrete
         version with M2Camera.ForVersion / for_version.)")
-  ]] M2CameraBase
-  {
+    ]] M2CameraBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2CameraBase&) const = default;
   };
 
-namespace detail
-  {
+  namespace detail {
     // The annotated era layouts; instantiate through the canonicalizing
     // aliases below, never directly.
-      template <ClientVersion V>
+    template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("An attachment point (weapons, effects, name plates), relative to a "
-                   "bone.")
-    ]] M2Attachment : M2AttachmentBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "An attachment point (weapons, effects, name plates), relative to a "
+          "bone.")
+      ]] M2Attachment : M2AttachmentBase {
       [[=welder::doc("Attachment slot (see wowdev's attachment id table).")]]
       std::uint32_t id = 0;
       [[=welder::doc("The bone the point follows.")]]
       std::uint16_t bone = 0;
       [[=welder::doc("Unknown; almost always 0 (vanilla's BogBeast.m2 carries "
-                     "values here).")]]
+        "values here).")]]
       std::uint16_t unknown = 0;
       [[=welder::doc("Relative to the bone, typically its pivot.")]]
       C3Vector position{};
@@ -111,11 +105,11 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("A timed event ($DTH death thud, footsteps, sounds); every "
-                   "enabled-track key fires.")
-    ]] M2Event : M2EventBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A timed event ($DTH death thud, footsteps, sounds); every "
+          "enabled-track key fires.")
+      ]] M2Event : M2EventBase {
       [[=welder::doc("Usually a '$xxx' four-char tag stored raw.")]]
       std::uint32_t identifier = 0;
       [[=welder::doc("Payload passed on fire (sound entry id, ...).")]]
@@ -132,10 +126,10 @@ namespace detail
 
     template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc("A model light: type 0 directional (login screens only), 1 point.")
-    ]] M2Light : M2LightBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A model light: type 0 directional (login screens only), 1 point.")
+      ]] M2Light : M2LightBase {
       [[=welder::doc("0 directional, 1 point.")]]
       std::uint16_t type = 1;
       [[=welder::doc("Bone to attach to, -1 for none.")]]
@@ -163,14 +157,12 @@ namespace detail
     template <ClientVersion V>
     struct M2Camera;
 
-    template <ClientVersion V>
-      requires (V < m2_multitex_particles)
+    template <ClientVersion V> requires (V < m2_multitex_particles)
     struct [[
-      =welder::weld,
-      =welder::doc("A camera, pre-Cata layout: a static diagonal FOV plus "
-                   "position/target/roll spline tracks.")
-    ]] M2Camera<V> : M2CameraBase
-    {
+        =welder::weld,
+        =welder::doc("A camera, pre-Cata layout: a static diagonal FOV plus "
+          "position/target/roll spline tracks.")
+      ]] M2Camera<V> : M2CameraBase {
       [[=welder::doc("0 portrait, 1 character info, -1 flyby.")]]
       std::uint32_t type = 0;
       [[=welder::doc("Diagonal field of view, radians.")]]
@@ -179,12 +171,13 @@ namespace detail
       float far_clip = 0;
       [[=welder::doc("Near clip distance.")]]
       float near_clip = 0;
-      [[=welder::doc("Spline track moving the camera, one spline per segment.")]]
+      [[=welder::doc("Spline track moving the camera, one spline per segment.")]
+      ]
       record::M2Track<M2SplineKey<C3Vector>, V> positions{};
       [[=welder::doc("Pivot point the position splines are relative to.")]]
       C3Vector position_base{};
       [[=welder::doc("Spline track moving the look-at target, one spline per "
-                     "segment.")]]
+        "segment.")]]
       record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
       [[=welder::doc("Pivot point the target splines are relative to.")]]
       C3Vector target_position_base{};
@@ -197,22 +190,23 @@ namespace detail
     template <ClientVersion V>
       requires (V >= m2_multitex_particles)
     struct [[
-      =welder::weld,
-      =welder::doc("A camera (Cata+): the FOV becomes a spline track at the record tail.")
-    ]] M2Camera<V> : M2CameraBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A camera (Cata+): the FOV becomes a spline track at the record tail.")
+      ]] M2Camera<V> : M2CameraBase {
       [[=welder::doc("0 portrait, 1 character info, -1 flyby.")]]
       std::uint32_t type = 0;
       [[=welder::doc("Far clip distance.")]]
       float far_clip = 0;
       [[=welder::doc("Near clip distance.")]]
       float near_clip = 0;
-      [[=welder::doc("Spline track moving the camera, one spline per segment.")]]
+      [[=welder::doc("Spline track moving the camera, one spline per segment.")]
+      ]
       record::M2Track<M2SplineKey<C3Vector>, V> positions{};
       [[=welder::doc("Pivot point the position splines are relative to.")]]
       C3Vector position_base{};
       [[=welder::doc("Spline track moving the look-at target, one spline per "
-                     "segment.")]]
+        "segment.")]]
       record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
       [[=welder::doc("Pivot point the target splines are relative to.")]]
       C3Vector target_position_base{};
@@ -230,13 +224,14 @@ namespace detail
   // static FoV for a spline track at Cata (m2_camera_pivots).
   template <ClientVersion V>
   using M2Attachment =
-    detail::M2Attachment<canonical_version(V, m2_track_pivots, m2_versions)>;
+  detail::M2Attachment<canonical_version(V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
-  using M2Event = detail::M2Event<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2Event = detail::M2Event<canonical_version(
+    V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
-  using M2Light = detail::M2Light<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2Light = detail::M2Light<canonical_version(
+    V, m2_track_pivots, m2_versions)>;
   template <ClientVersion V>
   using M2Camera =
-    detail::M2Camera<canonical_version(V, m2_camera_pivots, m2_versions)>;
-
+  detail::M2Camera<canonical_version(V, m2_camera_pivots, m2_versions)>;
 }

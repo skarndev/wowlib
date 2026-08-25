@@ -42,12 +42,10 @@
 #include <wowlib/formats/common/string_block.hpp>
 #include <wowlib/formats/common/validation.hpp>
 
-namespace wowlib::formats
-{
+namespace wowlib::formats {
   /** A chunk the entity does not model, preserved verbatim for round-trip. */
-  struct UnknownChunk
-  {
-    std::uint32_t fourcc = 0;     /**< The id as scanned (memcpy'd host u32). */
+  struct UnknownChunk {
+    std::uint32_t fourcc = 0; /**< The id as scanned (memcpy'd host u32). */
     std::vector<std::byte> bytes; /**< The payload, verbatim. */
 
     bool operator==(const UnknownChunk&) const = default;
@@ -55,9 +53,8 @@ namespace wowlib::formats
 
   /** One chunk encounter in file order — the write path replays the journal to
       reproduce the original byte layout exactly. */
-  struct JournalEntry
-  {
-    std::uint32_t fourcc = 0;    /**< The id as scanned. */
+  struct JournalEntry {
+    std::uint32_t fourcc = 0; /**< The id as scanned. */
 
     /** Declaration index of the member the chunk was read into, or -1 for an
         unknown chunk. */
@@ -73,8 +70,7 @@ namespace wowlib::formats
   /** Round-trip bookkeeping common to every chunked entity: the encounter
       journal, unmodeled chunks, and stray trailing bytes. All preserved so a
       read-then-write reproduces the original file byte for byte. */
-  struct ChunkExtras
-  {
+  struct ChunkExtras {
     [[=welder::mark::exclude]] std::vector<JournalEntry> journal;
     [[=welder::mark::exclude]] std::vector<UnknownChunk> unknown;
     [[=welder::mark::exclude]] std::vector<std::byte> trailing;
@@ -91,13 +87,11 @@ namespace wowlib::formats
       serializer engine they drive.
       @tparam Derived the entity itself (the CRTP pattern). */
   template <typename Derived>
-  struct ChunkedFile : ChunkExtras
-  {
+  struct ChunkedFile : ChunkExtras {
     [[=welder::doc("Deserialize file bytes into this entity, replacing its "
-                   "contents. Unmodeled chunks are preserved so an unmodified "
-                   "entity rewrites byte-for-byte.")]]
-    Result<void> read(std::span<const std::byte> data
-                      [[=welder::doc("the file bytes")]]);
+      "contents. Unmodeled chunks are preserved so an unmodified "
+      "entity rewrites byte-for-byte.")]]
+    Result<void> read(std::span<const std::byte> data [[=welder::doc("the file bytes")]]);
 
     [[nodiscard]]
     [[=welder::doc("Serialize this entity."),
@@ -117,7 +111,7 @@ namespace wowlib::formats
 
     [[nodiscard]]
     [[=welder::doc("Validate and raise on the first error instead of returning "
-                   "a report — the assert-style face of validate()."),
+        "a report — the assert-style face of validate()."),
       =welder::returns("nothing; raises when validate() finds any error")]]
     Result<void> ensure_valid() const;
 
@@ -126,20 +120,19 @@ namespace wowlib::formats
   };
 
   struct [[
-    =welder::weld,
-    =welder::doc("An unparsed chunk payload, preserved verbatim for round-trip. "
-                 "Backs chunks wowlib keeps opaque — offset-based (MOTA, MDDL) "
-                 "or undocumented (MPVD, MOMX).")
-  ]] ChunkBlob
-  {
+      =welder::weld,
+      =welder::doc(
+        "An unparsed chunk payload, preserved verbatim for round-trip. "
+        "Backs chunks wowlib keeps opaque — offset-based (MOTA, MDDL) "
+        "or undocumented (MPVD, MOMX).")
+    ]] ChunkBlob {
     [[=welder::mark::exclude]] std::vector<std::byte> bytes;
 
     /** Replace the payload with @a payload (the serializer's read hook).
         @param payload the chunk payload bytes.
         @return nothing; storing raw bytes cannot fail. */
     [[=welder::mark::exclude]]
-    Result<void> read(std::span<const std::byte> payload)
-    {
+    Result<void> read(std::span<const std::byte> payload) {
       bytes.assign(payload.begin(), payload.end());
       return {};
     }
@@ -148,22 +141,19 @@ namespace wowlib::formats
         @param out the destination buffer (appended, not cleared).
         @return nothing; emitting raw bytes cannot fail. */
     [[=welder::mark::exclude]]
-    Result<void> write(FileBuffer& out) const
-    {
+    Result<void> write(FileBuffer& out) const {
       out.insert(out.end(), bytes.begin(), bytes.end());
       return {};
     }
 
     [[nodiscard]]
     [[=welder::getter, =welder::doc("Whether the payload holds any bytes.")]]
-    bool empty() const
-    {
+    bool empty() const {
       return bytes.empty();
     }
 
     [[=welder::getter, =welder::doc("The payload size in bytes.")]]
-    std::size_t size() const
-    {
+    std::size_t size() const {
       return bytes.size();
     }
 
@@ -176,8 +166,7 @@ namespace wowlib::formats
       @tparam N the maximum occurrence count (matches the member's `repeats(N)`
                 annotation). */
   template <typename T, std::size_t N>
-  class Repeated
-  {
+  class Repeated {
   public:
     /** The per-occurrence payload type — spelled like a standard container's
         so the generic walkers (validation) treat slots as a sequence. */
@@ -190,10 +179,8 @@ namespace wowlib::formats
 
     /** Claim the next slot (the serializer's per-encounter hook).
         @return the slot to read into, or nullptr if all N are taken. */
-    T* push()
-    {
-      if (count_ == N)
-        return nullptr;
+    T* push() {
+      if (count_ == N) return nullptr;
       return &slots_[count_++];
     }
 
@@ -226,48 +213,45 @@ namespace wowlib::formats
     [[nodiscard]] const T* end() const { return slots_.data() + count_; }
 
   private:
-    std::array<T, N> slots_{};  /**< The slot storage; the first count_ are live. */
-    std::size_t count_ = 0;     /**< Number of filled slots. */
+    std::array<T, N> slots_{}; /**< The slot storage; the first count_ are live. */
+    std::size_t count_ = 0; /**< Number of filled slots. */
   };
 
   /** A type the chunk serializer can read and write: carries the round-trip
       bookkeeping and knows which client version it is laid out for. */
-  template <typename E>
-  concept ChunkedEntity = std::derived_from<E, ChunkExtras> && requires {
+  template <typename E> concept ChunkedEntity = std::derived_from<E, ChunkExtras> && requires {
     { E::version } -> std::convertible_to<ClientVersion>;
   };
 
   /** A member type that owns its chunk-payload encoding: the serializer hands
       it the raw payload on read and the output buffer on write (StringBlock,
       ChunkBlob). */
-  template <typename T>
-  concept SelfSerializing =
-    requires(T& value, const T& constant, std::span<const std::byte> payload, FileBuffer& out) {
-      { value.read(payload) } -> std::same_as<Result<void>>;
-      { constant.write(out) } -> std::same_as<Result<void>>;
-      { constant.empty() } -> std::convertible_to<bool>;
-    };
+  template <typename T> concept SelfSerializing = requires(T& value,
+                                                           const T& constant,
+                                                           std::span<const std::byte> payload,
+                                                           FileBuffer& out) {
+    { value.read(payload) } -> std::same_as<Result<void>>; { constant.write(out) } -> std::same_as<Result<void>>; {
+      constant.empty()
+    } -> std::convertible_to<bool>;
+  };
 
-  namespace detail
-  {
+  namespace detail {
     /** Trait: is @a T a Repeated<U, N> (a repeats-annotated member)? Exposes
         the element type and capacity when it is. */
     template <typename T>
-    struct repeated_traits
-    {
+    struct repeated_traits {
       static constexpr bool value = false;
     };
+
     template <typename U, std::size_t N>
-    struct repeated_traits<Repeated<U, N>>
-    {
+    struct repeated_traits<Repeated<U, N>> {
       static constexpr bool value = true;
       using element = U;
       static constexpr std::size_t capacity = N;
     };
 
     /** The chunk() fourcc of member @a member, or 0 if it carries none. */
-    consteval std::uint32_t chunk_magic_of(std::meta::info member)
-    {
+    consteval std::uint32_t chunk_magic_of(std::meta::info member) {
       auto anns = std::meta::annotations_of_with_type(member, ^^chunk_spec);
       return anns.empty() ? 0u : std::meta::extract<chunk_spec>(anns[0]).magic;
     }
@@ -280,24 +264,22 @@ namespace wowlib::formats
         declaration/flatten order. A `chunk_order` must list every chunk member
         exactly once (asserted). */
     template <typename E>
-    consteval auto write_order()
-    {
+    consteval auto write_order() {
       constexpr auto members = members_of<E>();
       std::vector<std::size_t> order;
-      if constexpr (requires { E::chunk_order; })
-      {
+      if constexpr (requires { E::chunk_order; }) {
         for (std::uint32_t magic : E::chunk_order)
           for (std::size_t i = 0; i < members.size(); ++i)
-            if (chunk_magic_of(members[i]) == magic) { order.push_back(i); break; }
+            if (chunk_magic_of(members[i]) == magic) {
+              order.push_back(i);
+              break;
+            }
         std::size_t chunk_members = 0;
-        for (std::size_t i = 0; i < members.size(); ++i)
-          chunk_members += (chunk_magic_of(members[i]) != 0);
-        if (order.size() != chunk_members)
-          throw "chunk_order must list every chunk member exactly once";
+        for (std::size_t i = 0; i < members.size(); ++i) chunk_members += (chunk_magic_of(members[i]) != 0);
+        if (order.size() != chunk_members) throw "chunk_order must list every chunk member exactly once";
       }
       else
-        for (std::size_t i = 0; i < members.size(); ++i)
-          order.push_back(i);
+        for (std::size_t i = 0; i < members.size(); ++i) order.push_back(i);
       return std::define_static_array(order);
     }
 
@@ -310,12 +292,13 @@ namespace wowlib::formats
                       their declared layout; unknown-chunk paths default to
                       reversed, the common case).
         @return the error, ready to return from a Result function. */
-    inline std::unexpected<Error> chunk_error(ErrorCode code, std::uint32_t fourcc,
-                                              std::size_t offset, std::string_view what,
-                                              FourCCEndian endian = FourCCEndian::reversed)
-    {
-      return make_error(code, std::format("chunk {} at offset {:#x}: {}",
-                                          fourcc_to_string(fourcc, endian), offset, what));
+    inline std::unexpected<Error> chunk_error(ErrorCode code,
+                                              std::uint32_t fourcc,
+                                              std::size_t offset,
+                                              std::string_view what,
+                                              FourCCEndian endian = FourCCEndian::reversed) {
+      return make_error(code, std::format("chunk {} at offset {:#x}: {}", fourcc_to_string(fourcc, endian), offset,
+                                          what));
     }
 
     /** The id layout to display for chunks the entity has no spec for
@@ -324,12 +307,9 @@ namespace wowlib::formats
         family), else the reversed common case.
         @tparam E the chunked entity. */
     template <typename E>
-    consteval FourCCEndian unknown_fourcc_endian()
-    {
-      if constexpr (requires { E::unknown_fourcc_endian; })
-        return E::unknown_fourcc_endian;
-      else
-        return FourCCEndian::reversed;
+    consteval FourCCEndian unknown_fourcc_endian() {
+      if constexpr (requires { E::unknown_fourcc_endian; }) return E::unknown_fourcc_endian;
+      else return FourCCEndian::reversed;
     }
 
     // --- single-value (chunk payload <-> member) transfer ---------------------
@@ -343,8 +323,11 @@ namespace wowlib::formats
         @param endian  the chunk id's disk layout (for diagnostics).
         @return nothing, or the structural error. */
     template <typename M>
-    Result<void> read_value(M& dst, std::span<const std::byte> payload, std::uint32_t fourcc,
-                            std::size_t offset, FourCCEndian endian);
+    Result<void> read_value(M& dst,
+                            std::span<const std::byte> payload,
+                            std::uint32_t fourcc,
+                            std::size_t offset,
+                            FourCCEndian endian);
 
     /** Append member @a src's chunk payload to @a out (payload only — the
         caller emits the chunk header).
@@ -366,19 +349,14 @@ namespace wowlib::formats
         @param value the member value.
         @return whether the member holds observable data. */
     template <typename M>
-    bool engaged(const M& value)
-    {
-      if constexpr (is_vector_v<M> || repeated_traits<M>::value || SelfSerializing<M>)
-        return !value.empty();
-      else if constexpr (ChunkedEntity<M>)
-        return entity_engaged(value);
-      else
-        return true;
+    bool engaged(const M& value) {
+      if constexpr (is_vector_v<M> || repeated_traits<M>::value || SelfSerializing<M>) return !value.empty();
+      else if constexpr (ChunkedEntity<M>) return entity_engaged(value);
+      else return true;
     }
 
     /** Append-only chunk emission with size backpatching. */
-    class ChunkWriter
-    {
+    class ChunkWriter {
     public:
       /** @param out the buffer every emission appends to. */
       explicit ChunkWriter(FileBuffer& out) : out_{out} {}
@@ -386,8 +364,7 @@ namespace wowlib::formats
       /** Emit a chunk header with a placeholder size.
           @param fourcc the chunk id, in disk layout.
           @return the placeholder's buffer position, for end_chunk(). */
-      std::size_t begin_chunk(std::uint32_t fourcc)
-      {
+      std::size_t begin_chunk(std::uint32_t fourcc) {
         append(&fourcc, sizeof fourcc);
         const std::size_t size_at = out_.size();
         const std::uint32_t placeholder = 0;
@@ -398,8 +375,7 @@ namespace wowlib::formats
       /** Backpatch the size of the chunk opened at @a size_at with the byte
           count appended since.
           @param size_at the value begin_chunk() returned. */
-      void end_chunk(std::size_t size_at)
-      {
+      void end_chunk(std::size_t size_at) {
         const auto size = static_cast<std::uint32_t>(out_.size() - size_at - sizeof(std::uint32_t));
         std::memcpy(out_.data() + size_at, &size, sizeof size);
       }
@@ -407,14 +383,13 @@ namespace wowlib::formats
       /** Append @a n raw bytes from @a bytes.
           @param bytes the source.
           @param n     the byte count. */
-      void append(const void* bytes, std::size_t n)
-      {
+      void append(const void* bytes, std::size_t n) {
         const auto* p = static_cast<const std::byte*>(bytes);
         out_.insert(out_.end(), p, p + n);
       }
 
     private:
-      FileBuffer& out_;  /**< The destination buffer. */
+      FileBuffer& out_; /**< The destination buffer. */
     };
 
     /** Deserialize @a data into @a entity — the engine behind
@@ -424,22 +399,19 @@ namespace wowlib::formats
         @return nothing, or the first structural error (ChunkTruncated,
                 ChunkSizeMismatch, ChunkMissing). */
     template <ChunkedEntity E>
-    Result<void> read_entity(E& entity, std::span<const std::byte> data)
-    {
+    Result<void> read_entity(E& entity, std::span<const std::byte> data) {
       static constexpr auto members = detail::members_of<E>();
       std::size_t pos = 0;
 
       // phase 1: container-header prelude members, in declaration order
-      template for (constexpr auto m : members)
-      {
-        if constexpr (detail::annotation<detail::header_spec, m>().has_value())
-        {
+      template for (constexpr auto m : members) {
+        if constexpr (detail::annotation<detail::header_spec, m>().has_value()) {
           using M = [:std::meta::type_of(m):];
           static_assert(std::is_trivially_copyable_v<M>, "header members are raw binary structs");
           if (data.size() - pos < sizeof(M))
             return make_error(ErrorCode::ChunkTruncated,
-                              std::format("header prelude at offset {:#x}: {} bytes needed, {} left",
-                                          pos, sizeof(M), data.size() - pos));
+                              std::format("header prelude at offset {:#x}: {} bytes needed, {} left", pos, sizeof(M),
+                                          data.size() - pos));
           std::memcpy(&entity.[:m:], data.data() + pos, sizeof(M));
           pos += sizeof(M);
         }
@@ -447,8 +419,7 @@ namespace wowlib::formats
 
       // phase 2: order-independent chunk scan
       std::array<std::uint32_t, members.size()> occurrences{};
-      while (data.size() - pos >= 2 * sizeof(std::uint32_t))
-      {
+      while (data.size() - pos >= 2 * sizeof(std::uint32_t)) {
         std::uint32_t fourcc = 0;
         std::uint32_t size = 0;
         std::memcpy(&fourcc, data.data() + pos, sizeof fourcc);
@@ -461,48 +432,36 @@ namespace wowlib::formats
 
         bool matched = false;
         std::int32_t index = -1;
-        template for (constexpr auto m : members)
-        {
+        template for (constexpr auto m : members) {
           ++index;
-          if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>();
-                        spec.has_value() && detail::version_active<E::version, m>())
-          {
+          if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>(); spec.has_value() &&
+            detail::version_active<E::version, m>()) {
             using M = [:std::meta::type_of(m):];
-            if (!matched && fourcc == spec->magic)
-            {
+            if (!matched && fourcc == spec->magic) {
               const auto member_slot = static_cast<std::size_t>(index);
-              if constexpr (detail::repeated_traits<M>::value)
-              {
+              if constexpr (detail::repeated_traits<M>::value) {
                 static_assert(detail::annotation<detail::repeats_spec, m>().has_value(),
                               "Repeated<> members must carry a repeats() annotation");
-                if (auto* slot = entity.[:m:].push())
-                {
+                if (auto* slot = entity.[:m:].push()) {
                   auto r = detail::read_value(*slot, payload, fourcc, pos, spec->endian);
-                  if (!r)
-                    return std::unexpected{r.error()};
+                  if (!r) return std::unexpected{r.error()};
                   matched = true;
                   entity.journal.push_back({fourcc, index, occurrences[member_slot]++});
                 }
                 // all slots taken: falls through to the unknown route below
               }
-              else if constexpr (detail::annotation<detail::repeating_spec, m>().has_value())
-              {
+              else if constexpr (detail::annotation<detail::repeating_spec, m>().has_value()) {
                 // one element per encounter, unbounded (see the repeating
                 // annotation): the payload reads into a fresh back element
-                static_assert(detail::is_vector_v<M>,
-                              "repeating members must be std::vector<Element>");
-                auto r = detail::read_value(entity.[:m:].emplace_back(), payload, fourcc, pos,
-                                            spec->endian);
-                if (!r)
-                  return std::unexpected{r.error()};
+                static_assert(detail::is_vector_v<M>, "repeating members must be std::vector<Element>");
+                auto r = detail::read_value(entity.[:m:].emplace_back(), payload, fourcc, pos, spec->endian);
+                if (!r) return std::unexpected{r.error()};
                 matched = true;
                 entity.journal.push_back({fourcc, index, occurrences[member_slot]++});
               }
-              else if (occurrences[member_slot] == 0)
-              {
+              else if (occurrences[member_slot] == 0) {
                 auto r = detail::read_value(entity.[:m:], payload, fourcc, pos, spec->endian);
-                if (!r)
-                  return std::unexpected{r.error()};
+                if (!r) return std::unexpected{r.error()};
                 matched = true;
                 entity.journal.push_back({fourcc, index, occurrences[member_slot]++});
               }
@@ -510,10 +469,8 @@ namespace wowlib::formats
             }
           }
         }
-        if (!matched)
-        {
-          entity.journal.push_back(
-            {fourcc, -1, static_cast<std::uint32_t>(entity.unknown.size())});
+        if (!matched) {
+          entity.journal.push_back({fourcc, -1, static_cast<std::uint32_t>(entity.unknown.size())});
           entity.unknown.push_back({fourcc, {payload.begin(), payload.end()}});
         }
         pos += 2 * sizeof(std::uint32_t) + size;
@@ -524,21 +481,18 @@ namespace wowlib::formats
       // phase 3: required-presence check
       std::int32_t index = -1;
       std::optional<Error> missing;
-      template for (constexpr auto m : members)
-      {
+      template for (constexpr auto m : members) {
         ++index;
-        if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>();
-                      spec.has_value() && detail::version_active<E::version, m>()
-                        && !detail::annotation<detail::optional_spec, m>().has_value())
-        {
+        if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>(); spec.has_value() &&
+          detail::version_active<E::version, m>() && !detail::annotation<detail::optional_spec, m>().has_value()) {
           if (!missing && occurrences[static_cast<std::size_t>(index)] == 0)
-            missing = Error{ErrorCode::ChunkMissing,
-                            std::format("required chunk {} is absent",
-                                        fourcc_to_string(spec->magic, spec->endian))};
+            missing = Error{
+              ErrorCode::ChunkMissing,
+              std::format("required chunk {} is absent", fourcc_to_string(spec->magic, spec->endian))
+            };
         }
       }
-      if (missing)
-        return std::unexpected{*missing};
+      if (missing) return std::unexpected{*missing};
       return {};
     }
 
@@ -548,8 +502,7 @@ namespace wowlib::formats
         @param out    the destination buffer (appended, not cleared).
         @return nothing, or the first error. */
     template <ChunkedEntity E>
-    Result<void> write_entity(const E& entity, FileBuffer& out)
-    {
+    Result<void> write_entity(const E& entity, FileBuffer& out) {
       static constexpr auto members = detail::members_of<E>();
       detail::ChunkWriter writer{out};
       const std::size_t image_start = out.size();
@@ -562,53 +515,41 @@ namespace wowlib::formats
       // no longer matches the entity's content.
       std::vector<JournalEntry> resequenced;
       std::span<const JournalEntry> journal{entity.journal};
-      if constexpr (requires { entity.resequenced_journal(); })
-      {
+      if constexpr (requires { entity.resequenced_journal(); }) {
         auto r = entity.resequenced_journal();
-        if (!r)
-          return std::unexpected{r.error()};
-        if (*r)
-        {
+        if (!r) return std::unexpected{r.error()};
+        if (*r) {
           resequenced = std::move(**r);
           journal = resequenced;
         }
       }
 
       // header prelude members first, mirroring read_entity's phase 1
-      template for (constexpr auto m : members)
-      {
-        if constexpr (detail::annotation<detail::header_spec, m>().has_value())
-          writer.append(&entity.[:m:], sizeof(entity.[:m:]));
+      template for (constexpr auto m : members) {
+        if constexpr (detail::annotation<detail::header_spec, m>().has_value()) writer.append(
+          &entity.[:m:], sizeof(entity.[:m:]));
       }
 
       std::array<std::uint32_t, members.size()> written{};
       const auto emit = [&](std::int32_t target, std::uint32_t occurrence) -> Result<void> {
         std::int32_t index = -1;
-        template for (constexpr auto m : members)
-        {
+        template for (constexpr auto m : members) {
           ++index;
-          if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>();
-                        spec.has_value() && detail::version_active<E::version, m>())
-          {
+          if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>(); spec.has_value() &&
+            detail::version_active<E::version, m>()) {
             using M = [:std::meta::type_of(m):];
-            if (index == target)
-            {
+            if (index == target) {
               const std::size_t size_at = writer.begin_chunk(spec->magic);
-              if constexpr (detail::repeated_traits<M>::value
-                            || detail::annotation<detail::repeating_spec, m>().has_value())
-              {
+              if constexpr (detail::repeated_traits<M>::value || detail::annotation<detail::repeating_spec, m>().
+                has_value()) {
                 if (occurrence >= entity.[:m:].size())
                   return make_error(ErrorCode::ChunkSizeMismatch,
-                                    std::format("journal references occurrence {} of chunk {}, "
-                                                "only {} present",
-                                                occurrence,
-                                                fourcc_to_string(spec->magic, spec->endian),
+                                    std::format("journal references occurrence {} of chunk {}, " "only {} present",
+                                                occurrence, fourcc_to_string(spec->magic, spec->endian),
                                                 entity.[:m:].size()));
-                if (auto r = detail::write_value(entity.[:m:][occurrence], out); !r)
-                  return r;
+                if (auto r = detail::write_value(entity.[:m:][occurrence], out); !r) return r;
               }
-              else if (auto r = detail::write_value(entity.[:m:], out); !r)
-                return r;
+              else if (auto r = detail::write_value(entity.[:m:], out); !r) return r;
               writer.end_chunk(size_at);
               // Derived-field stamping: an entity may declare
               //   void patch_chunk(std::uint32_t fourcc, std::span<std::byte>) const
@@ -617,12 +558,12 @@ namespace wowlib::formats
               // vectors). The hook sees the finished payload in place, so
               // write() stays const and entity state is untouched.
               if constexpr (requires {
-                              entity.patch_chunk(std::uint32_t{}, std::span<std::byte>{});
-                            })
-                entity.patch_chunk(
-                  spec->magic,
-                  std::span<std::byte>{out.data() + size_at + sizeof(std::uint32_t),
-                                       out.size() - size_at - sizeof(std::uint32_t)});
+                entity.patch_chunk(std::uint32_t{}, std::span<std::byte>{});
+              })
+                entity.patch_chunk(spec->magic, std::span<std::byte>{
+                                     out.data() + size_at + sizeof(std::uint32_t),
+                                     out.size() - size_at - sizeof(std::uint32_t)
+                                   });
               ++written[static_cast<std::size_t>(index)];
             }
           }
@@ -630,54 +571,44 @@ namespace wowlib::formats
         return {};
       };
 
-      for (const JournalEntry& entry : journal)
-      {
-        if (entry.member < 0)
-        {
+      for (const JournalEntry& entry : journal) {
+        if (entry.member < 0) {
           if (entry.occurrence >= entity.unknown.size())
             return make_error(ErrorCode::ChunkSizeMismatch,
-                              std::format("journal references unknown chunk {}, only {} preserved",
-                                          entry.occurrence, entity.unknown.size()));
+                              std::format("journal references unknown chunk {}, only {} preserved", entry.occurrence,
+                                          entity.unknown.size()));
           const UnknownChunk& u = entity.unknown[entry.occurrence];
           const std::size_t size_at = writer.begin_chunk(u.fourcc);
           writer.append(u.bytes.data(), u.bytes.size());
           writer.end_chunk(size_at);
         }
-        else if (auto r = emit(entry.member, entry.occurrence); !r)
-          return r;
+        else if (auto r = emit(entry.member, entry.occurrence); !r) return r;
       }
 
       // members engaged but not journaled: fresh entities (in canonical chunk
       // order — see write_order) and post-read additions alike
       static constexpr auto order = detail::write_order<E>();
       std::optional<Error> failed;
-      template for (constexpr std::size_t idx : order)
-      {
+      template for (constexpr std::size_t idx : order) {
         constexpr auto m = members[idx];
         constexpr auto index = static_cast<std::int32_t>(idx);
-        if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>();
-                      spec.has_value() && detail::version_active<E::version, m>())
-        {
+        if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>(); spec.has_value() &&
+          detail::version_active<E::version, m>()) {
           using M = [:std::meta::type_of(m):];
-          if constexpr (detail::repeated_traits<M>::value
-                        || detail::annotation<detail::repeating_spec, m>().has_value())
-          {
+          if constexpr (detail::repeated_traits<M>::value || detail::annotation<detail::repeating_spec, m>().
+            has_value()) {
             // journaled occurrences already replayed; append the slots added since
             for (std::uint32_t i = written[idx]; !failed && i < entity.[:m:].size(); ++i)
-              if (auto r = emit(index, i); !r)
-                failed = r.error();
+              if (auto r = emit(index, i); !r) failed = r.error();
           }
-          else if (!failed && written[idx] == 0)
-          {
+          else if (!failed && written[idx] == 0) {
             constexpr bool required = !detail::annotation<detail::optional_spec, m>().has_value();
             if (required || detail::engaged(entity.[:m:]))
-              if (auto r = emit(index, 0); !r)
-                failed = r.error();
+              if (auto r = emit(index, 0); !r) failed = r.error();
           }
         }
       }
-      if (failed)
-        return std::unexpected{*failed};
+      if (failed) return std::unexpected{*failed};
 
       writer.append(entity.trailing.data(), entity.trailing.size());
 
@@ -689,11 +620,9 @@ namespace wowlib::formats
       // ADT header offsets later). The hook sees this entity's complete
       // serialized image in place.
       if constexpr (requires(std::span<std::byte> image) {
-                      { entity.patch_file(image) } -> std::same_as<Result<void>>;
-                    })
-        if (auto r = entity.patch_file(
-              std::span<std::byte>{out.data() + image_start, out.size() - image_start});
-            !r)
+        { entity.patch_file(image) } -> std::same_as<Result<void>>;
+      })
+        if (auto r = entity.patch_file(std::span<std::byte>{out.data() + image_start, out.size() - image_start}); !r)
           return r;
       return {};
     }
@@ -704,12 +633,10 @@ namespace wowlib::formats
         @tparam E     the entity type.
         @param  magic the chunk id (see four_cc()). */
     template <typename E>
-    consteval std::int32_t chunk_member_index(std::uint32_t magic)
-    {
+    consteval std::int32_t chunk_member_index(std::uint32_t magic) {
       constexpr auto members = members_of<E>();
       for (std::size_t i = 0; i < members.size(); ++i)
-        if (chunk_magic_of(members[i]) == magic)
-          return static_cast<std::int32_t>(i);
+        if (chunk_magic_of(members[i]) == magic) return static_cast<std::int32_t>(i);
       return -1;
     }
 
@@ -722,30 +649,23 @@ namespace wowlib::formats
         @param entity the entity to enumerate.
         @return the canonical-order journal. */
     template <ChunkedEntity E>
-    std::vector<JournalEntry> fresh_journal(const E& entity)
-    {
+    std::vector<JournalEntry> fresh_journal(const E& entity) {
       static constexpr auto members = detail::members_of<E>();
       static constexpr auto order = detail::write_order<E>();
       std::vector<JournalEntry> out;
-      template for (constexpr std::size_t idx : order)
-      {
+      template for (constexpr std::size_t idx : order) {
         constexpr auto m = members[idx];
         constexpr auto index = static_cast<std::int32_t>(idx);
-        if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>();
-                      spec.has_value() && detail::version_active<E::version, m>())
-        {
+        if constexpr (constexpr auto spec = detail::annotation<detail::chunk_spec, m>(); spec.has_value() &&
+          detail::version_active<E::version, m>()) {
           using M = [:std::meta::type_of(m):];
-          if constexpr (detail::repeated_traits<M>::value
-                        || detail::annotation<detail::repeating_spec, m>().has_value())
-          {
-            for (std::uint32_t i = 0; i < entity.[:m:].size(); ++i)
-              out.push_back({spec->magic, index, i});
+          if constexpr (detail::repeated_traits<M>::value || detail::annotation<detail::repeating_spec, m>().
+            has_value()) {
+            for (std::uint32_t i = 0; i < entity.[:m:].size(); ++i) out.push_back({spec->magic, index, i});
           }
-          else
-          {
+          else {
             constexpr bool required = !detail::annotation<detail::optional_spec, m>().has_value();
-            if (required || detail::engaged(entity.[:m:]))
-              out.push_back({spec->magic, index, 0});
+            if (required || detail::engaged(entity.[:m:])) out.push_back({spec->magic, index, 0});
           }
         }
       }
@@ -760,79 +680,66 @@ namespace wowlib::formats
         @param entity the nested entity.
         @return whether writing it would emit observable content. */
     template <ChunkedEntity E>
-    bool entity_engaged(const E& entity)
-    {
-      if (!entity.journal.empty() || !entity.unknown.empty() || !entity.trailing.empty())
-        return true;
+    bool entity_engaged(const E& entity) {
+      if (!entity.journal.empty() || !entity.unknown.empty() || !entity.trailing.empty()) return true;
       static constexpr auto members = members_of<E>();
       bool any = false;
-      template for (constexpr auto m : members)
-      {
-        if constexpr (detail::annotation<detail::chunk_spec, m>().has_value()
-                      && detail::version_active<E::version, m>())
-        {
+      template for (constexpr auto m : members) {
+        if constexpr (detail::annotation<detail::chunk_spec, m>().has_value() && detail::version_active<
+          E::version, m>()) {
           using M = [:std::meta::type_of(m):];
-          if constexpr (is_vector_v<M> || repeated_traits<M>::value || SelfSerializing<M>)
-            any = any || !entity.[:m:].empty();
-          else if constexpr (ChunkedEntity<M>)
-            any = any || entity_engaged(entity.[:m:]);
+          if constexpr (is_vector_v<M> || repeated_traits<M>::value || SelfSerializing<M>) any = any || !entity.[:m:].
+            empty();
+          else if constexpr (ChunkedEntity<M>) any = any || entity_engaged(entity.[:m:]);
         }
       }
       return any;
     }
 
     template <typename M>
-    Result<void> read_value(M& dst, std::span<const std::byte> payload, std::uint32_t fourcc,
-                            std::size_t offset, FourCCEndian endian)
-    {
-      if constexpr (ChunkedEntity<M>)
-      {
+    Result<void> read_value(M& dst,
+                            std::span<const std::byte> payload,
+                            std::uint32_t fourcc,
+                            std::size_t offset,
+                            FourCCEndian endian) {
+      if constexpr (ChunkedEntity<M>) {
         // a container chunk: its payload is a chunk stream of its own
         return read_entity(dst, payload);
       }
-      else if constexpr (SelfSerializing<M>)
-      {
+      else if constexpr (SelfSerializing<M>) {
         return dst.read(payload);
       }
-      else if constexpr (is_vector_v<M>)
-      {
+      else if constexpr (is_vector_v<M>) {
         using T = typename M::value_type;
         static_assert(std::is_trivially_copyable_v<T>, "array chunks hold raw binary structs");
         if (payload.size() % sizeof(T) != 0)
           return chunk_error(ErrorCode::ChunkSizeMismatch, fourcc, offset,
-                             std::format("size {} is not a multiple of the {}-byte element",
-                                         payload.size(), sizeof(T)),
+                             std::format("size {} is not a multiple of the {}-byte element", payload.size(), sizeof(T)),
                              endian);
         dst.resize(payload.size() / sizeof(T));
         std::memcpy(dst.data(), payload.data(), payload.size());
         return {};
       }
-      else
-      {
+      else {
         static_assert(std::is_trivially_copyable_v<M>, "data chunks hold raw binary structs");
         if (payload.size() != sizeof(M))
           return chunk_error(ErrorCode::ChunkSizeMismatch, fourcc, offset,
-                             std::format("size {} != expected {}", payload.size(), sizeof(M)),
-                             endian);
+                             std::format("size {} != expected {}", payload.size(), sizeof(M)), endian);
         std::memcpy(&dst, payload.data(), sizeof(M));
         return {};
       }
     }
 
     template <typename M>
-    Result<void> write_value(const M& src, FileBuffer& out)
-    {
-      if constexpr (ChunkedEntity<M>)
-        return write_entity(src, out);  // a container chunk's payload: nested entity
-      else if constexpr (SelfSerializing<M>)
-        return src.write(out);
-      else
-      {
+    Result<void> write_value(const M& src, FileBuffer& out) {
+      if constexpr (ChunkedEntity<M>) return write_entity(src, out);
+        // a container chunk's payload: nested entity
+      else if constexpr (SelfSerializing<M>) return src.write(out);
+      else {
         ChunkWriter writer{out};
         if constexpr (is_vector_v<M>)
           writer.append(src.data(), src.size() * sizeof(typename M::value_type));
-        else
-          writer.append(&src, sizeof(M));
+        else writer.append(&src, sizeof(M));
         return {};
       }
     }
@@ -841,31 +748,26 @@ namespace wowlib::formats
   // --- ChunkedFile method definitions (declared above) -----------------
 
   template <typename Derived>
-  Result<void> ChunkedFile<Derived>::read(std::span<const std::byte> data)
-  {
+  Result<void> ChunkedFile<Derived>::read(std::span<const std::byte> data) {
     return detail::read_entity(static_cast<Derived&>(*this), data);
   }
 
   template <typename Derived>
-  Result<FileBuffer> ChunkedFile<Derived>::write() const
-  {
+  Result<FileBuffer> ChunkedFile<Derived>::write() const {
     FileBuffer out;
-    if (auto r = detail::write_entity(static_cast<const Derived&>(*this), out); !r)
-      return std::unexpected{r.error()};
+    if (auto r = detail::write_entity(static_cast<const Derived&>(*this), out); !r) return std::unexpected{r.error()};
     return out;
   }
 
   template <typename Derived>
-  ValidationReport ChunkedFile<Derived>::validate() const
-  {
+  ValidationReport ChunkedFile<Derived>::validate() const {
     ValidationReport report;
     detail::validate_entity(static_cast<const Derived&>(*this), report);
     return report;
   }
 
   template <typename Derived>
-  Result<void> ChunkedFile<Derived>::ensure_valid() const
-  {
+  Result<void> ChunkedFile<Derived>::ensure_valid() const {
     return validate().to_result();
   }
 }

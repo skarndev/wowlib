@@ -24,8 +24,7 @@
 #include <wowlib/fs/csv_listfile.hpp>
 #include <wowlib/fs/mpq/mpq_storage.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   /** The concrete composition for MPQ-era clients (path-addressed, no listfile). */
   using MpqFileSystem = ClientFileSystem<MpqStorage, NullListfile>;
 
@@ -37,8 +36,8 @@ namespace wowlib::fs
   inline constexpr FileDataID default_custom_fdid_start{1'000'000'000};
 
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         Everything needed to open a client filesystem: where the client is, which
         version it is, and the optional listfile / project directory / locale
         configuration. An immutable value, fully described at construction — a
@@ -46,12 +45,13 @@ namespace wowlib::fs
         C++ it stays an aggregate (designated initializers; const members); the
         scripting languages construct through the synthesized field constructor,
         where everything after the version is optional.)")
-  ]] FileSystemSettings
-  {
-    [[=welder::doc("The client installation root (the directory containing Data/).")]]
+    ]] FileSystemSettings {
+    [[=welder::doc(
+      "The client installation root (the directory containing Data/).")]]
     const std::filesystem::path client_path;
 
-    [[=welder::doc("The client version; selects the storage backend and MPQ chain.")]]
+    [[=welder::doc(
+      "The client version; selects the storage backend and MPQ chain.")]]
     const ClientVersion version;
 
     [[=welder::doc(R"(
@@ -99,23 +99,20 @@ namespace wowlib::fs
             with FileSystem.open(settings) as fs:
                 ...     # formats resolve to the engine the install really is
             ```)"),
-      =welder::returns("the settings, or the error ClientInstall.detect raised")]]
+      =welder::returns("the settings, or the error ClientInstall.detect raised")
+    ]]
     static Result<FileSystemSettings> detect(
-      std::filesystem::path client_path
-      [[=welder::doc("the installation directory holding Data/")]],
+      std::filesystem::path client_path [[=welder::doc("the installation directory holding Data/")]],
       Locale locale [[=welder::doc("client locale")]] = Locale::enUS,
-      std::optional<std::filesystem::path> project_directory
-      [[=welder::doc("the project-directory overlay")]] = {},
-      std::optional<std::filesystem::path> listfile_csv
-      [[=welder::doc("the working listfile CSV")]] = {},
-      FileDataID custom_fdid_start
-      [[=welder::doc("first FileDataID for added files")]] = default_custom_fdid_start);
+      std::optional<std::filesystem::path> project_directory [[=welder::doc("the project-directory overlay")]] = {},
+      std::optional<std::filesystem::path> listfile_csv [[=welder::doc("the working listfile CSV")]] = {},
+      FileDataID custom_fdid_start [[=welder::doc("first FileDataID for added files")]] = default_custom_fdid_start);
   };
 
   class [[
-    =welder::weld,
-    =welder::policy::weld_protected,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::policy::weld_protected,
+      =welder::doc(R"(
         The runtime gateway to one client's files. Picks the storage backend from
         the client version and hides the static composition behind one bindable
         type; C++ code that wants zero dispatch overhead can use
@@ -152,16 +149,14 @@ namespace wowlib::fs
             finally:
                 fs.close()      # storage released now, not at GC time
             ```)")]]
-  FileSystem
-  {
+    FileSystem {
   public:
     [[=welder::doc(R"(
         Initialize a client filesystem: open the storage (the full MPQ chain or
         the CASC storage), load the listfile if given, and attach the
         project-directory overlay.)"),
       =welder::returns("the opened filesystem")]]
-    static Result<FileSystem> open(
-      FileSystemSettings settings [[=welder::doc("what to open and how")]]);
+    static Result<FileSystem> open(FileSystemSettings settings [[=welder::doc("what to open and how")]]);
 
     [[=welder::doc(R"(
         Read a file by FileKey — the generic identity for version-independent
@@ -169,42 +164,37 @@ namespace wowlib::fs
         backend uses what it can address and the listfile fills the gap.)"),
       =welder::returns("the file bytes")]]
     Result<FileBuffer> read_file(
-      const FileKey& key [[=welder::doc("the file identity (path, id, or both)")]]);
+      const FileKey& key [[=welder::doc("the file identity (path, id, or both)")
+      ]]);
 
     [[=welder::doc("Read a file by client-internal path."),
       =welder::returns("the file bytes")]]
-    Result<FileBuffer> read_file(
-      std::string_view path [[=welder::doc("the client-internal file path")]])
-    {
+    Result<FileBuffer> read_file(std::string_view path [[=welder::doc("the client-internal file path")]]) {
       return read_file(FileKey{path});
     }
 
     [[=welder::doc("Read a file by FileDataID."),
       =welder::returns("the file bytes")]]
-    Result<FileBuffer> read_file(
-      FileDataID fdid [[=welder::doc("the numeric file identifier")]])
-    {
+    Result<FileBuffer> read_file(FileDataID fdid [[=welder::doc("the numeric file identifier")]]) {
       return read_file(FileKey{fdid});
     }
 
-    [[=welder::doc("Whether a file is reachable in the overlay or the storage."),
+    [[=welder::doc("Whether a file is reachable in the overlay or the storage.")
+      ,
       =welder::returns("true if a read would find it")]]
     bool exists(
-      const FileKey& key [[=welder::doc("the file identity (path, id, or both)")]]);
+      const FileKey& key [[=welder::doc("the file identity (path, id, or both)")
+      ]]);
 
     [[=welder::doc("Whether a path is reachable."),
       =welder::returns("true if a read would find it")]]
-    bool exists(
-      std::string_view path [[=welder::doc("the client-internal file path")]])
-    {
+    bool exists(std::string_view path [[=welder::doc("the client-internal file path")]]) {
       return exists(FileKey{path});
     }
 
     [[=welder::doc("Whether a FileDataID is reachable."),
       =welder::returns("true if a read would find it")]]
-    bool exists(
-      FileDataID fdid [[=welder::doc("the numeric file identifier")]])
-    {
+    bool exists(FileDataID fdid [[=welder::doc("the numeric file identifier")]]) {
       return exists(FileKey{fdid});
     }
 
@@ -225,15 +215,16 @@ namespace wowlib::fs
         (on MPQ-era clients there is no FileDataID space at all). Lets generic
         tools learn a file's full identity without storage-specific code.)"),
       =welder::returns("the completed key")]]
-    FileKey resolve(
-      const FileKey& key [[=welder::doc("the file identity to complete")]]) const;
+    FileKey resolve(const FileKey& key [[=welder::doc("the file identity to complete")]]) const;
 
     [[=welder::doc(R"(
         Add (or overwrite) a file in the project directory; on CASC-era clients
-        new paths get a custom FileDataID, persisted in the working listfile.)"),
+        new paths get a custom FileDataID, persisted in the working listfile.)")
+      ,
       =welder::returns("the file's FileDataID (0 on MPQ-era clients)")]]
     Result<FileDataID> add_file(
-      std::string_view path [[=welder::doc("the client-internal path of the file")]],
+      std::string_view path [[=welder::doc(
+        "the client-internal path of the file")]],
       std::span<const std::byte> content [[=welder::doc("the file contents")]]);
 
     /** Register TACT encryption keys (CASC clients only) so the storage can
@@ -242,17 +233,14 @@ namespace wowlib::fs
         community "KeyName KeyHex" per-line text format.
         @param key_list the newline-separated key list.
         @return nothing, or NotSupported on an MPQ client, or a backend error. */
-    [[=welder::doc("Register TACT encryption keys (CASC only) from the community "
-                   "'KeyName KeyHex' per-line text, so encrypted .db2 sections "
-                   "decrypt and decode."),
+    [[=welder::doc(
+        "Register TACT encryption keys (CASC only) from the community "
+        "'KeyName KeyHex' per-line text, so encrypted .db2 sections "
+        "decrypt and decode."),
       =welder::returns("nothing; raises on an MPQ client or a malformed list")]]
-    Result<void> import_keys(std::string_view key_list
-                             [[=welder::doc("newline-separated 'KeyName KeyHex' lines")]])
-    {
-      if (auto* casc = std::get_if<CascFileSystem>(&_impl))
-        return casc->backend().import_keys(key_list);
-      return make_error(ErrorCode::NotSupported,
-                        "TACT encryption keys apply only to CASC (WoD+) clients");
+    Result<void> import_keys(std::string_view key_list [[=welder::doc("newline-separated 'KeyName KeyHex' lines")]]) {
+      if (auto* casc = std::get_if<CascFileSystem>(&_impl)) return casc->backend().import_keys(key_list);
+      return make_error(ErrorCode::NotSupported, "TACT encryption keys apply only to CASC (WoD+) clients");
     }
 
     /** Register one TACT encryption key (CASC clients only). C++-only; scripting
@@ -261,25 +249,22 @@ namespace wowlib::fs
         @param key      the 16-byte key.
         @return nothing, or NotSupported on an MPQ client, or a backend error. */
     [[=welder::mark::exclude]]
-    Result<void> add_encryption_key(std::uint64_t key_name,
-                                    std::span<const std::byte, 16> key)
-    {
-      if (auto* casc = std::get_if<CascFileSystem>(&_impl))
-        return casc->backend().add_encryption_key(key_name, key);
-      return make_error(ErrorCode::NotSupported,
-                        "TACT encryption keys apply only to CASC (WoD+) clients");
+    Result<void> add_encryption_key(std::uint64_t key_name, std::span<const std::byte, 16> key) {
+      if (auto* casc = std::get_if<CascFileSystem>(&_impl)) return casc->backend().add_encryption_key(key_name, key);
+      return make_error(ErrorCode::NotSupported, "TACT encryption keys apply only to CASC (WoD+) clients");
     }
 
     [[=welder::getter,
-      =welder::doc("Which storage technology backs this filesystem: Mpq or Casc. "
-                   "A static fact of the opened client; remains valid after close().")]]
+      =welder::doc(
+        "Which storage technology backs this filesystem: Mpq or Casc. "
+        "A static fact of the opened client; remains valid after close().")]]
     StorageKind kind() const { return _kind; }
 
     [[=welder::getter,
       =welder::doc("The client version this filesystem was opened for — the "
-                   "anchor of version-agnostic code (expansion_of, for_version, "
-                   "Table.open). A static fact of the opened client; remains "
-                   "valid after close().")]]
+        "anchor of version-agnostic code (expansion_of, for_version, "
+        "Table.open). A static fact of the opened client; remains "
+        "valid after close().")]]
     ClientVersion version() const { return _version; }
 
     /** The MPQ composition, for C++ callers that want the static types.
@@ -297,22 +282,14 @@ namespace wowlib::fs
         @param version the client version the composition was opened for. */
     [[=welder::mark::exclude]]
     explicit FileSystem(MpqFileSystem impl, ClientVersion version)
-      : _impl(std::move(impl))
-      , _kind(StorageKind::Mpq)
-      , _version(version)
-    {
-    }
+      : _impl(std::move(impl)), _kind(StorageKind::Mpq), _version(version) {}
 
     /** C++-only; target languages construct through open().
         @param impl    the ready CASC composition.
         @param version the client version the composition was opened for. */
     [[=welder::mark::exclude]]
     explicit FileSystem(CascFileSystem impl, ClientVersion version)
-      : _impl(std::move(impl))
-      , _kind(StorageKind::Casc)
-      , _version(version)
-    {
-    }
+      : _impl(std::move(impl)), _kind(StorageKind::Casc), _version(version) {}
 
   protected:
     // Welded through policy::weld_protected, uncallable from C++ (where RAII is
@@ -326,9 +303,12 @@ namespace wowlib::fs
     void close() { _impl = std::monostate{}; }
 
     [[=welder::getter,
-      =welder::doc("Whether the filesystem still holds its storage (false after "
-                   "close()).")]]
-    bool is_open() const { return !std::holds_alternative<std::monostate>(_impl); }
+      =welder::doc(
+        "Whether the filesystem still holds its storage (false after "
+        "close()).")]]
+    bool is_open() const {
+      return !std::holds_alternative<std::monostate>(_impl);
+    }
 
   private:
     // monostate = closed; reachable only through close() above, so C++ callers

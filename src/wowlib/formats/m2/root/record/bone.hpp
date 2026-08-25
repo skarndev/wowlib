@@ -14,31 +14,29 @@
 #include <wowlib/formats/m2/boundaries.hpp>
 #include <wowlib/formats/m2/root/record/track.hpp>
 
-namespace wowlib::formats::m2::root::record
-{
+namespace wowlib::formats::m2::root::record {
   /** The version-agnostic base of every M2CompBone<V> (welded as "M2CompBone").
       Bindings-only, like every *Base: it gives the per-version classes a
       common welded supertype, so the family surface hoists their shared
       members and containers of them carry a base-typed live view. */
   struct [[
-    =welder::weld,
-    =welder::weld_as("M2CompBone"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("M2CompBone"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         One skeleton bone. Abstract over the client version; construct a concrete
         version with M2CompBone.ForVersion / for_version.)")
-  ]] M2CompBoneBase
-  {
+    ]] M2CompBoneBase {
     // The concretes default operator== — the base must be comparable too.
     bool operator==(const M2CompBoneBase&) const = default;
   };
 
   enum class [[
-    =welder::weld,
-    =welder::doc("M2CompBone flags: parent-transform exemptions, billboarding "
-                 "and physics participation.")
-  ]] BoneFlags : std::uint32_t
-  {
+      =welder::weld,
+      =welder::doc(
+        "M2CompBone flags: parent-transform exemptions, billboarding "
+        "and physics participation.")
+    ]] BoneFlags : std::uint32_t {
     IgnoreParentTranslate [[=welder::doc("Do not inherit parent translation.")]] = 0x1,
     IgnoreParentScale [[=welder::doc("Do not inherit parent scale.")]] = 0x2,
     IgnoreParentRotation [[=welder::doc("Do not inherit parent rotation.")]] = 0x4,
@@ -48,12 +46,13 @@ namespace wowlib::formats::m2::root::record
     CylindricalBillboardLockZ [[=welder::doc("Billboard around the Z axis.")]] = 0x40,
     Transformed [[=welder::doc("Has an animated transform.")]] = 0x200,
     KinematicBone [[=welder::doc("MoP+: physics may drive this bone.")]] = 0x400,
-    HelmetAnimScaled [[=welder::doc("Scale by the helmet-anim-scaling record.")]] = 0x1000,
-    SequenceId [[=welder::doc("BfA+: parent_bone/submesh_id form a sequence id.")]] = 0x2000
+    HelmetAnimScaled [[=welder::doc("Scale by the helmet-anim-scaling record.")]
+    ] = 0x1000,
+    SequenceId [[=welder::doc(
+      "BfA+: parent_bone/submesh_id form a sequence id.")]] = 0x2000
   };
 
-  namespace detail
-  {
+  namespace detail {
     // The annotated era layouts; instantiate through the canonicalizing
     // aliases below, never directly.
     template <ClientVersion V>
@@ -62,10 +61,10 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V < m2_compressed_bones)
     struct [[
-      =welder::weld,
-      =welder::doc("A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
-    ]] M2CompBone<V> : M2CompBoneBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
+      ]] M2CompBone<V> : M2CompBoneBase {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
       std::int32_t key_bone_id = -1;
       [[=welder::doc("See BoneFlags.")]]
@@ -89,11 +88,11 @@ namespace wowlib::formats::m2::root::record
     template <ClientVersion V>
       requires (V >= m2_compressed_bones)
     struct [[
-      =welder::weld,
-      =welder::doc("A bone (TBC+): compressed-quaternion rotations plus the debug name "
-                   "CRC; the track era inside follows the entity version.")
-    ]] M2CompBone<V> : M2CompBoneBase
-    {
+        =welder::weld,
+        =welder::doc(
+          "A bone (TBC+): compressed-quaternion rotations plus the debug name "
+          "CRC; the track era inside follows the entity version.")
+      ]] M2CompBone<V> : M2CompBoneBase {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
       std::int32_t key_bone_id = -1;
       [[=welder::doc("See BoneFlags.")]]
@@ -122,5 +121,5 @@ namespace wowlib::formats::m2::root::record
       compressed quaternions + name CRC, WotLK's per-sequence timelines). */
   template <ClientVersion V>
   using M2CompBone =
-    detail::M2CompBone<canonical_version(V, m2_bone_pivots, m2_versions)>;
+  detail::M2CompBone<canonical_version(V, m2_bone_pivots, m2_versions)>;
 }

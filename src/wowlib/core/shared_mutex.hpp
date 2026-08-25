@@ -11,14 +11,12 @@
 
 #include <shared_mutex>
 
-namespace wowlib
-{
+namespace wowlib {
 #if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
   /** SRWLOCK-backed shared mutex satisfying SharedLockable, drop-in for
       std::shared_mutex with std::unique_lock / std::shared_lock /
       std::scoped_lock. */
-  class SharedMutex
-  {
+  class SharedMutex {
   public:
     SharedMutex() noexcept = default;
     SharedMutex(const SharedMutex&) = delete;

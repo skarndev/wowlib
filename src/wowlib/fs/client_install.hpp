@@ -12,11 +12,10 @@
 #include <wowlib/core/client_version.hpp>
 #include <wowlib/core/error.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   struct [[
-    =welder::weld,
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::doc(R"(
         What a client installation says about itself: the exact version, the
         flavor that follows from its product code, and the TACT product code
         itself.
@@ -40,18 +39,17 @@ namespace wowlib::fs
             with FileSystem.open(settings) as fs:
                 ...
             ```)")
-  ]] ClientInstall
-  {
+    ]] ClientInstall {
     [[=welder::doc("The installation directory that was inspected — the one "
-                   "holding Data/, ready to hand to FileSystemSettings.")]]
+      "holding Data/, ready to hand to FileSystemSettings.")]]
     std::filesystem::path path;
 
     [[=welder::doc("The exact installed version, flavor included.")]]
     ClientVersion version;
 
     [[=welder::doc("The exact TACT product code the installation records "
-                   "('wow', 'wow_classic_era', 'wow_classic_ptr', ...) — which "
-                   "can be more specific than the flavor's default.")]]
+      "('wow', 'wow_classic_era', 'wow_classic_ptr', ...) — which "
+      "can be more specific than the flavor's default.")]]
     std::string casc_product;
 
     [[=welder::doc(R"(
@@ -65,9 +63,8 @@ namespace wowlib::fs
         their ClientVersion directly, which is unambiguous anyway since those
         versions are not shared with any Classic product.)"),
       =welder::returns("the detected installation, or NotSupported when the "
-                       "directory carries no CASC build information")]]
+        "directory carries no CASC build information")]]
     static Result<ClientInstall> detect(
-      std::filesystem::path client_path
-      [[=welder::doc("the installation directory holding Data/")]]);
+      std::filesystem::path client_path [[=welder::doc("the installation directory holding Data/")]]);
   };
 }

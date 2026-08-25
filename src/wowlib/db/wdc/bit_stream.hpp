@@ -11,11 +11,9 @@
 #include <cstdint>
 #include <cstring>
 
-namespace wowlib::db::wdc
-{
+namespace wowlib::db::wdc {
   /** A bounds-guarded little-endian bit reader over a record's byte span. */
-  class BitReader
-  {
+  class BitReader {
   public:
     /** @param base  the record's first byte.
         @param limit bytes available from @a base (bounds guard). */
@@ -29,29 +27,23 @@ namespace wowlib::db::wdc
         @param bit_offset the starting bit position within the record.
         @param bits       the field width in bits.
         @return the zero-extended value (0 when the read would overrun). */
-    std::uint64_t read(std::size_t bit_offset, std::size_t bits) const
-    {
-      if (bits == 0 || bits > 64)
-        return 0;
+    std::uint64_t read(std::size_t bit_offset, std::size_t bits) const {
+      if (bits == 0 || bits > 64) return 0;
       const std::size_t byte = bit_offset / 8;
       const std::size_t shift = bit_offset % 8;
       const std::size_t span_bytes = (shift + bits + 7) / 8;
-      if (byte + span_bytes > limit_)
-        return 0;
+      if (byte + span_bytes > limit_) return 0;
       // Load the touched bytes as two little-endian halves: `lo` holds the
       // first eight, `hi` the ninth when the value straddles that far.
       std::uint64_t lo = 0, hi = 0;
       const std::size_t lo_bytes = span_bytes > 8 ? 8 : span_bytes;
       std::memcpy(&lo, base_ + byte, lo_bytes);
-      if (span_bytes > 8)
-        std::memcpy(&hi, base_ + byte + 8, span_bytes - 8);
+      if (span_bytes > 8) std::memcpy(&hi, base_ + byte + 8, span_bytes - 8);
       // Drop the leading bits that belong to the previous field, then splice
       // the high half's contribution in above them.
       std::uint64_t raw = lo >> shift;
-      if (shift != 0 && span_bytes > 8)
-        raw |= hi << (64 - shift);
-      if (bits < 64)
-        raw &= (std::uint64_t{1} << bits) - 1;
+      if (shift != 0 && span_bytes > 8) raw |= hi << (64 - shift);
+      if (bits < 64) raw &= (std::uint64_t{1} << bits) - 1;
       return raw;
     }
 
@@ -64,8 +56,7 @@ namespace wowlib::db::wdc
       of BitReader. write() OVERWRITES (sets and clears each bit), so it works
       on a zeroed buffer (canonical encode) and for patching an existing record
       in place alike. */
-  class BitWriter
-  {
+  class BitWriter {
   public:
     /** @param base  the record's first byte.
         @param limit bytes available from @a base (bounds guard). */
@@ -77,18 +68,13 @@ namespace wowlib::db::wdc
         @param bit_offset the starting bit position within the record.
         @param bits       the field width in bits (<= 64).
         @param value      the value whose low @a bits are written. */
-    void write(std::size_t bit_offset, std::size_t bits, std::uint64_t value)
-    {
-      for (std::size_t i = 0; i < bits; ++i)
-      {
+    void write(std::size_t bit_offset, std::size_t bits, std::uint64_t value) {
+      for (std::size_t i = 0; i < bits; ++i) {
         const std::size_t bo = bit_offset + i;
-        if (bo / 8 >= limit_)
-          return;
+        if (bo / 8 >= limit_) return;
         const std::byte mask{static_cast<unsigned char>(1u << (bo % 8))};
-        if ((value >> i) & 1)
-          base_[bo / 8] |= mask;
-        else
-          base_[bo / 8] &= ~mask;
+        if ((value >> i) & 1) base_[bo / 8] |= mask;
+        else base_[bo / 8] &= ~mask;
       }
     }
 

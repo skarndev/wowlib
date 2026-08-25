@@ -28,28 +28,20 @@
     else — integer width and signedness, arrays, strings, localized strings —
     the schema reflection reads off the member type itself (schema.hpp). */
 
-namespace wowlib::db
-{
-  namespace detail
-  {
+namespace wowlib::db {
+  namespace detail {
     /** Stored form of `id`: the member is the table's primary key ($id$). */
-    struct id_spec
-    {
-    };
+    struct id_spec {};
 
     /** Stored form of `noninline`: the member holds no bytes inside the record
         image — its values come from a satellite block (the WDC id list for ids,
         the relationship block for relations). Never present in WDBC/WDB2-era
         records ($noninline$). */
-    struct noninline_spec
-    {
-    };
+    struct noninline_spec {};
 
     /** Stored form of `relation`: the member is a relationship key referencing
         the parent table's id ($relation$). */
-    struct relation_spec
-    {
-    };
+    struct relation_spec {};
   }
 
   /** Mark the table's primary-key column ($id$ in WoWDBDefs). Exactly one

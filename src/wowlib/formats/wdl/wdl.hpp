@@ -42,8 +42,7 @@
 #include <wowlib/formats/wdl/chunks/tiles.hpp>
 #include <wowlib/fs/filesystem.hpp>
 
-namespace wowlib::formats::wdl
-{
+namespace wowlib::formats::wdl {
   using namespace wowlib::formats::wdl::chunks;
 
   /** The version-agnostic base of every WDL<V> (welded as "WDL").
@@ -56,34 +55,31 @@ namespace wowlib::formats::wdl
 
       @see https://wowdev.wiki/WDL */
   struct [[
-    =welder::weld,
-    =welder::weld_as("WDL"),
-    WOWLIB_CS_FAMILY_SURFACE
-    =welder::doc(R"(
+      =welder::weld,
+      =welder::weld_as("WDL"),
+  WOWLIB_CS_FAMILY_SURFACE
+      =welder::doc(R"(
         A map's low-resolution heightmap file, abstract over the client
         version — the background mountain silhouettes. Construct the concrete
         version with WDL.for_version(expansion), then read()/write(); the
         per-version WDL* classes are subclasses. See
         https://wowdev.wiki/WDL.)")
-  ]] WDLBase : FileEntityBase
-  {
-  };
+    ]] WDLBase : FileEntityBase {};
 
-  namespace detail
-  {
+  namespace detail {
     // --- version-range trait bases (unwelded) ---------------------------------
     // One struct per availability range; members keep their chunk/since/until/
     // doc/marks (read off the declaring class, so flattening preserves them).
 
     /** The pre-Legion per-tile occlusion mesh. */
-    struct WdlPreLegion
-    {
+    struct WdlPreLegion {
       [[
         =chunk("MAOC"),
         =until(builds::Legion),
         =formats::optional,
         =formats::repeating,
-        =welder::doc(R"(Per-tile occlusion mesh vertices (MAOC, pre-Legion; optional
+        =welder::doc(
+          R"(Per-tile occlusion mesh vertices (MAOC, pre-Legion; optional
                         and absent from every surveyed file), one record per
                         occurrence, kept opaque. Follows its tile's heightmap in the
                         stream.)")]]
@@ -91,15 +87,15 @@ namespace wowlib::formats::wdl
     };
 
     /** The TBC+ per-tile hole masks. */
-    struct WdlTbc
-    {
+    struct WdlTbc {
       [[
         =chunk("MAHO"),
         =since(builds::TBC),
         =formats::optional,
         =formats::repeating,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Per-tile hole masks (MAHO, TBC+): the i-th mask belongs to
+        =welder::doc(
+          R"(Per-tile hole masks (MAHO, TBC+): the i-th mask belongs to
                         the i-th heightmap. Blizzard writes one per tile even when
                         all zero; hole masks are all-or-nothing — leave the list
                         empty or give every heightmap its mask. (wowdev.wiki dates
@@ -109,14 +105,14 @@ namespace wowlib::formats::wdl
     };
 
     /** The Legion object swap (low-resolution placements) and ocean masks. */
-    struct WdlLegion
-    {
+    struct WdlLegion {
       [[
         =chunk("MLDD"),
         =since(builds::Legion),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Low-resolution M2 placements (MLDD, Legion+), drawn instead
+        =welder::doc(
+          R"(Low-resolution M2 placements (MLDD, Legion+), drawn instead
                         of the far-away real models; name_id is always a
                         FileDataID here.)")]]
       std::vector<SMDoodadDef> lod_doodads;
@@ -126,7 +122,8 @@ namespace wowlib::formats::wdl
         =since(builds::Legion),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Visibility extents for the M2 placements (MLDX, Legion+);
+        =welder::doc(
+          R"(Visibility extents for the M2 placements (MLDX, Legion+);
                         same count and order as lod_doodads.)")]]
       std::vector<LodExtent> lod_doodad_extents;
 
@@ -136,7 +133,8 @@ namespace wowlib::formats::wdl
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Low-resolution WMO placements (MLMD, Legion+); sorted by
-                        their extent radius, largest first, in shipped files.)")]]
+                        their extent radius, largest first, in shipped files.)")
+      ]]
       std::vector<LodMapObjDef> lod_map_objects;
 
       [[
@@ -144,7 +142,8 @@ namespace wowlib::formats::wdl
         =since(builds::Legion),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Visibility extents for the WMO placements (MLMX, Legion+);
+        =welder::doc(
+          R"(Visibility extents for the WMO placements (MLMX, Legion+);
                         same count and order as lod_map_objects.)")]]
       std::vector<LodExtent> lod_map_object_extents;
 
@@ -154,7 +153,8 @@ namespace wowlib::formats::wdl
         =formats::optional,
         =formats::repeating,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Sparse per-tile ocean masks (MAOE, Legion+), emitted between
+        =welder::doc(
+          R"(Sparse per-tile ocean masks (MAOE, Legion+), emitted between
                         a tile's heightmap and its hole mask — only SOME tiles have
                         one, so use ocean_mask_tiles() for the mask -> heightmap
                         pairing.)")]]
@@ -162,8 +162,7 @@ namespace wowlib::formats::wdl
     };
 
     /** The BfA fade distances and WMO-map byte. */
-    struct WdlBfA
-    {
+    struct WdlBfA {
       [[
         =chunk("MLDF"),
         =since(builds::BfA),
@@ -194,14 +193,14 @@ namespace wowlib::formats::wdl
     };
 
     /** The Shadowlands sky scenes and undocumented blobs. */
-    struct WdlSL
-    {
+    struct WdlSL {
       [[
         =chunk("MLDL"),
         =since(builds::SL),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(MLDL (9.x+): per-lod_doodads values, engaged by placement
+        =welder::doc(
+          R"(MLDL (9.x+): per-lod_doodads values, engaged by placement
                         flag 0x8 (as the ADT chunk of the same name).)")]]
       std::vector<std::uint32_t> mldl;
 
@@ -226,7 +225,7 @@ namespace wowlib::formats::wdl
         =formats::optional,
         =welder::mark::no_reassign,
         =welder::doc("Sky-scene conditions (MSSC, Shadowlands+), ranged by the "
-                     "scenes' condition_index/count.")]]
+          "scenes' condition_index/count.")]]
       std::vector<SkySceneCondition> sky_scene_conditions;
 
       [[
@@ -234,8 +233,9 @@ namespace wowlib::formats::wdl
         =since(builds::SL),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc("Sky-scene objects (MSSO, Shadowlands+), ranged by the scenes' "
-                     "object_index/count.")]]
+        =welder::doc(
+          "Sky-scene objects (MSSO, Shadowlands+), ranged by the scenes' "
+          "object_index/count.")]]
       std::vector<SkySceneObject> sky_scene_objects;
 
       [[
@@ -243,15 +243,15 @@ namespace wowlib::formats::wdl
         =since(builds::SL),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc(R"(Sky-scene object params (MSSF; wowdev dates it Dragonflight+
+        =welder::doc(
+          R"(Sky-scene object params (MSSF; wowdev dates it Dragonflight+
                         but 9.2.7 files carry it), referenced by the objects'
                         params_index.)")]]
       std::vector<SkySceneObjectParams> sky_scene_object_params;
     };
 
     /** The War Within scene-living schedule. */
-    struct WdlTww
-    {
+    struct WdlTww {
       [[
         =chunk("MSLD"),
         =since(builds::TWW),
@@ -265,14 +265,14 @@ namespace wowlib::formats::wdl
         =since(builds::TWW),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc("Scene-living indices (MSLI, The War Within+): one MSLD index "
-                     "per sky-scene object.")]]
+        =welder::doc(
+          "Scene-living indices (MSLI, The War Within+): one MSLD index "
+          "per sky-scene object.")]]
       std::vector<std::int32_t> scene_living_indices;
     };
   }
 
-  namespace detail
-  {
+  namespace detail {
     /** A WDL low-resolution heightmap file for one client version.
         Instantiate through the canonicalizing wdl::WDL alias, never directly.
 
@@ -287,8 +287,8 @@ namespace wowlib::formats::wdl
         @see https://wowdev.wiki/WDL */
     template <ClientVersion V>
     struct [[
-      =welder::weld,
-      =welder::doc(R"(
+        =welder::weld,
+        =welder::doc(R"(
           A map's low-resolution heightmap file for one client version: the
           64x64 tile offset table, one 17x17+16x16 int16 heightmap (and hole
           mask) per present tile, the low-resolution object placements of the
@@ -298,15 +298,15 @@ namespace wowlib::formats::wdl
           so only the nonzero pattern is authored data. An instance read from
           a client file rewrites byte-for-byte until modified. See
           https://wowdev.wiki/WDL.)")
-    ]] WDL
-      : ChunkedFile<WDL<V>>, WDLBase,
+      ]] WDL
+      : ChunkedFile<WDL<V>>,
+        WDLBase,
         slot<V, ClientVersion{0, 0, 0, 0}, WdlPreLegion, builds::Legion>,
         slot<V, builds::TBC, WdlTbc>,
         slot<V, builds::Legion, WdlLegion>,
         slot<V, builds::BfA, WdlBfA>,
         slot<V, builds::SL, WdlSL>,
-        slot<V, builds::TWW, WdlTww>
-    {
+        slot<V, builds::TWW, WdlTww> {
       static constexpr ClientVersion version = V;
 
       [[
@@ -317,7 +317,8 @@ namespace wowlib::formats::wdl
       [[
         =chunk("MWMO"),
         =formats::optional,
-        =welder::doc(R"(WMO silhouette filenames (MWMO): zero-terminated strings,
+        =welder::doc(
+          R"(WMO silhouette filenames (MWMO): zero-terminated strings,
                         referenced by offset. Every pre-Legion file carries the
                         chunk (often empty); Legion+ terrain maps replace the
                         object set with the MLDD/MLMD placements, but WMO-only
@@ -335,18 +336,21 @@ namespace wowlib::formats::wdl
         =chunk("MODF"),
         =formats::optional,
         =welder::mark::no_reassign,
-        =welder::doc("WMO silhouette placements (MODF), one per MWMO name; the same "
-                     "64-byte record the WDT and ADT use.")]]
+        =welder::doc(
+          "WMO silhouette placements (MODF), one per MWMO name; the same "
+          "64-byte record the WDT and ADT use.")]]
       std::vector<SMMapObjDef> wmo_placements;
 
       [[
         =chunk("MAOF"),
         =welder::mark::no_reassign,
-        =welder::doc(R"(The tile offset table (MAOF): 64 x 64 absolute file offsets
+        =welder::doc(
+          R"(The tile offset table (MAOF): 64 x 64 absolute file offsets
                         in row-major order (y outer, x inner), 0 for absent tiles.
                         The offset VALUES are derived — every write restamps them
                         from the finished layout — so only the nonzero pattern is
-                        authored: the i-th nonzero slot owns the i-th heightmap.)")]]
+                        authored: the i-th nonzero slot owns the i-th heightmap.)")
+      ]]
       std::vector<std::uint32_t> tile_offsets;
 
       [[
@@ -354,7 +358,8 @@ namespace wowlib::formats::wdl
         =formats::optional,
         =formats::repeating,
         =welder::mark::no_reassign,
-        =welder::doc(R"(The per-tile heightmaps (MARE), one per nonzero tile_offsets
+        =welder::doc(
+          R"(The per-tile heightmaps (MARE), one per nonzero tile_offsets
                         slot, in row-major slot order.)")]]
       std::vector<TileHeights> heightmaps;
 
@@ -363,19 +368,37 @@ namespace wowlib::formats::wdl
           resequenced_journal(), not this table. Lists every chunk member
           exactly once. */
       static constexpr std::array chunk_order = {
-        four_cc("MVER"), four_cc("MWMO"), four_cc("MWID"), four_cc("MODF"),
-        four_cc("MLDD"), four_cc("MLDX"), four_cc("MLDF"), four_cc("MLDL"),
-        four_cc("MLDB"), four_cc("MLMD"), four_cc("MLMX"), four_cc("MLMB"),
-        four_cc("MSSN"), four_cc("MSSC"), four_cc("MSSO"), four_cc("MSSF"),
-        four_cc("MSLD"), four_cc("MSLI"), four_cc("MAOF"), four_cc("MARE"),
-        four_cc("MAOC"), four_cc("MAOE"), four_cc("MAHO"),
+        four_cc("MVER"),
+        four_cc("MWMO"),
+        four_cc("MWID"),
+        four_cc("MODF"),
+        four_cc("MLDD"),
+        four_cc("MLDX"),
+        four_cc("MLDF"),
+        four_cc("MLDL"),
+        four_cc("MLDB"),
+        four_cc("MLMD"),
+        four_cc("MLMX"),
+        four_cc("MLMB"),
+        four_cc("MSSN"),
+        four_cc("MSSC"),
+        four_cc("MSSO"),
+        four_cc("MSSF"),
+        four_cc("MSLD"),
+        four_cc("MSLI"),
+        four_cc("MAOF"),
+        four_cc("MARE"),
+        four_cc("MAOC"),
+        four_cc("MAOE"),
+        four_cc("MAHO"),
       };
 
       /** The heightmap ordinal each ocean mask belongs to (parallel to
           ocean_masks): derived from the stored journal's interleave, or the
           identity pairing for fresh entities. Empty for versions without
           MAOE. */
-      [[=welder::doc(R"(The heightmap ordinal each ocean mask belongs to (parallel
+      [[=welder::doc(
+          R"(The heightmap ordinal each ocean mask belongs to (parallel
                         to ocean_masks), derived from the read file's chunk
                         interleave. Empty when there are no ocean masks.)"),
         =welder::returns("one heightmap ordinal per ocean mask")]]
@@ -400,7 +423,8 @@ namespace wowlib::formats::wdl
           @return nullopt to replay the stored journal, the rebuilt journal
                   otherwise, or the validation error. */
       [[=welder::mark::exclude]]
-      Result<std::optional<std::vector<JournalEntry>>> resequenced_journal() const;
+      Result<std::optional<std::vector<JournalEntry>>>
+      resequenced_journal() const;
 
       /** Serializer hook (see write_entity): stamp the MAOF table in the
           finished image — the i-th nonzero slot receives the i-th MARE
@@ -412,17 +436,16 @@ namespace wowlib::formats::wdl
 
       [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
         =welder::doc("Load the WDL from a client filesystem, replacing this "
-                     "entity's contents.")]]
+          "entity's contents.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
-                        const FileKey& key
-                        [[=welder::doc("the file identity (path and/or FileDataID)")]]);
+                        const FileKey& key [[=welder::doc("the file identity (path and/or FileDataID)")]]);
 
       [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
-        =welder::doc("Serialize and store the WDL through the filesystem's project "
-                     "overlay.")]]
+        =welder::doc(
+          "Serialize and store the WDL through the filesystem's project "
+          "overlay.")]]
       Result<void> write(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
-                         const FileKey& key
-                         [[=welder::doc("the file identity; must resolve to a path")]]) const;
+                         const FileKey& key [[=welder::doc("the file identity; must resolve to a path")]]) const;
 
       // the inherited ChunkedFile read(span)/write() stay available for
       // buffer-level access
@@ -443,82 +466,69 @@ namespace wowlib::formats::wdl
 // Inline in this header: the entity is a template, so the definitions must be
 // visible for implicit instantiation — the library ships NO explicit
 // instantiations; the bindings expand the full matrix in their own TUs.
-namespace wowlib::formats::wdl
-{
+namespace wowlib::formats::wdl {
   template <ClientVersion V>
-  std::vector<std::uint32_t> detail::WDL<V>::ocean_mask_tiles() const
-  {
+  std::vector<std::uint32_t> detail::WDL<V>::ocean_mask_tiles() const {
     std::vector<std::uint32_t> out;
-    if constexpr (requires { this->ocean_masks; })
-    {
+    if constexpr (requires { this->ocean_masks; }) {
       constexpr auto mare_idx = formats::detail::chunk_member_index<WDL>(four_cc("MARE"));
       constexpr auto maoe_idx = formats::detail::chunk_member_index<WDL>(four_cc("MAOE"));
       const std::size_t n = this->ocean_masks.size();
-      if (n == 0)
-        return out;
+      if (n == 0) return out;
       out.reserve(n);
       std::size_t mares_seen = 0;
-      for (const JournalEntry& entry : this->journal)
-      {
-        if (entry.member == mare_idx)
-          ++mares_seen;
+      for (const JournalEntry& entry : this->journal) {
+        if (entry.member == mare_idx) ++mares_seen;
         else if (entry.member == maoe_idx && out.size() < n)
           out.push_back(mares_seen == 0 ? 0 : static_cast<std::uint32_t>(mares_seen - 1));
       }
-      if (out.size() != n)
-      {
+      if (out.size() != n) {
         // fresh entity (or masks added since the read): the identity pairing
         out.clear();
-        const std::size_t last =
-          heightmaps.empty() ? 0 : heightmaps.size() - 1;
-        for (std::size_t i = 0; i < n; ++i)
-          out.push_back(static_cast<std::uint32_t>(std::min(i, last)));
+        const std::size_t last = heightmaps.empty() ? 0 : heightmaps.size() - 1;
+        for (std::size_t i = 0; i < n; ++i) out.push_back(static_cast<std::uint32_t>(std::min(i, last)));
       }
     }
     return out;
   }
 
   template <ClientVersion V>
-  void detail::WDL<V>::validate_extra(ValidationReport& report) const
-  {
+  void detail::WDL<V>::validate_extra(ValidationReport& report) const {
     const std::size_t n_tiles = heightmaps.size();
     std::size_t engaged_slots = 0;
-    for (const std::uint32_t offset : tile_offsets)
-      engaged_slots += (offset != 0);
+    for (const std::uint32_t offset : tile_offsets) engaged_slots += (offset != 0);
 
     // MAOF is a fixed 64x64 slot table; a zero slot means "no tile here"
     if ((n_tiles != 0 || engaged_slots != 0) && tile_offsets.size() != wdl_tile_slots)
       report.add_error("tile_offsets",
-                       std::format("the MAOF table holds {} offsets, not 64*64 — resize "
-                                   "tile_offsets to {} (0 = tile absent)",
-                                   tile_offsets.size(), wdl_tile_slots));
+                       std::format(
+                         "the MAOF table holds {} offsets, not 64*64 — resize " "tile_offsets to {} (0 = tile absent)",
+                         tile_offsets.size(), wdl_tile_slots));
     if (engaged_slots != n_tiles)
       report.add_error("heightmaps",
-                       std::format("{} nonzero tile_offsets slots but {} heightmaps — the "
-                                   "i-th nonzero slot owns the i-th heightmap, so the "
-                                   "counts must match",
-                                   engaged_slots, n_tiles));
+                       std::format(
+                         "{} nonzero tile_offsets slots but {} heightmaps — the "
+                         "i-th nonzero slot owns the i-th heightmap, so the " "counts must match", engaged_slots,
+                         n_tiles));
 
     if constexpr (requires { this->holes; })
       if (!this->holes.empty() && this->holes.size() != n_tiles)
-        report.add_error("holes",
-                         std::format("{} hole masks but {} heightmaps — hole masks are "
-                                     "all-or-nothing (empty, or one per heightmap)",
-                                     this->holes.size(), n_tiles));
+        report.add_error("holes", std::format(
+                           "{} hole masks but {} heightmaps — hole masks are "
+                           "all-or-nothing (empty, or one per heightmap)", this->holes.size(), n_tiles));
     if constexpr (requires { this->ocean_masks; })
       if (this->ocean_masks.size() > n_tiles)
-        report.add_error("ocean_masks", std::format("{} ocean masks but only {} heightmaps",
-                                                    this->ocean_masks.size(), n_tiles));
+        report.add_error("ocean_masks", std::format(
+                           "{} ocean masks but only {} heightmaps", this->ocean_masks.size(), n_tiles));
     if constexpr (requires { this->occlusion_meshes; })
       if (this->occlusion_meshes.size() > n_tiles)
         report.add_error("occlusion_meshes",
-                         std::format("{} occlusion meshes but only {} heightmaps",
-                                     this->occlusion_meshes.size(), n_tiles));
+                         std::format("{} occlusion meshes but only {} heightmaps", this->occlusion_meshes.size(),
+                                     n_tiles));
   }
 
   template <ClientVersion V>
-  Result<std::optional<std::vector<JournalEntry>>> detail::WDL<V>::resequenced_journal() const
-  {
+  Result<std::optional<std::vector<JournalEntry>>> detail::WDL<V>::resequenced_journal() const {
     constexpr auto mare_idx = formats::detail::chunk_member_index<WDL>(four_cc("MARE"));
     constexpr auto maho_idx = formats::detail::chunk_member_index<WDL>(four_cc("MAHO"));
     constexpr auto maoe_idx = formats::detail::chunk_member_index<WDL>(four_cc("MAOE"));
@@ -526,11 +536,9 @@ namespace wowlib::formats::wdl
     constexpr auto maof_idx = formats::detail::chunk_member_index<WDL>(four_cc("MAOF"));
 
     const auto journal_count = [&](std::int32_t index) -> std::size_t {
-      if (index < 0)
-        return 0;
+      if (index < 0) return 0;
       std::size_t n = 0;
-      for (const JournalEntry& entry : this->journal)
-        n += (entry.member == index);
+      for (const JournalEntry& entry : this->journal) n += (entry.member == index);
       return n;
     };
 
@@ -538,26 +546,21 @@ namespace wowlib::formats::wdl
     std::size_t n_holes = 0;
     std::size_t n_ocean = 0;
     std::size_t n_occlusion = 0;
-    if constexpr (requires { this->holes; })
-      n_holes = this->holes.size();
-    if constexpr (requires { this->ocean_masks; })
-      n_ocean = this->ocean_masks.size();
-    if constexpr (requires { this->occlusion_meshes; })
-      n_occlusion = this->occlusion_meshes.size();
+    if constexpr (requires { this->holes; }) n_holes = this->holes.size();
+    if constexpr (requires { this->ocean_masks; }) n_ocean = this->ocean_masks.size();
+    if constexpr (requires { this->occlusion_meshes; }) n_occlusion = this->occlusion_meshes.size();
 
     // the stored journal still matches the tile data: replay it as-is
-    if (!this->journal.empty() && journal_count(mare_idx) == n_tiles
-        && journal_count(maho_idx) == n_holes && journal_count(maoe_idx) == n_ocean
-        && journal_count(maoc_idx) == n_occlusion)
-      return std::optional<std::vector<JournalEntry>>{};
+    if (!this->journal.empty() && journal_count(mare_idx) == n_tiles && journal_count(maho_idx) == n_holes &&
+      journal_count(maoe_idx) == n_ocean && journal_count(maoc_idx) == n_occlusion) return std::optional<std::vector<
+      JournalEntry>>{};
 
     // rebuild path: the layout below only makes sense once the tile-table
     // pairing holds, so require it through the same hook validate() uses
     {
       ValidationReport report;
       validate_extra(report);
-      if (auto r = report.to_result(); !r)
-        return std::unexpected{r.error()};
+      if (auto r = report.to_result(); !r) return std::unexpected{r.error()};
     }
 
     // Per-tile attachment of the sparse chunks (MAOE/MAOC): pair through the
@@ -565,32 +568,24 @@ namespace wowlib::formats::wdl
     // identity pairing (i-th mask -> i-th tile).
     const auto attach = [&](std::int32_t index, std::size_t count) {
       std::vector<std::vector<std::uint32_t>> per(n_tiles);
-      if (n_tiles == 0 || count == 0)
-        return per;
-      if (journal_count(index) == count)
-      {
+      if (n_tiles == 0 || count == 0) return per;
+      if (journal_count(index) == count) {
         std::size_t mares_seen = 0;
         bool paired = true;
-        for (const JournalEntry& entry : this->journal)
-        {
-          if (entry.member == mare_idx)
-            ++mares_seen;
-          else if (entry.member == index)
-          {
-            if (mares_seen == 0 || entry.occurrence >= count)
-            {
+        for (const JournalEntry& entry : this->journal) {
+          if (entry.member == mare_idx) ++mares_seen;
+          else if (entry.member == index) {
+            if (mares_seen == 0 || entry.occurrence >= count) {
               paired = false;
               break;
             }
             per[std::min(mares_seen - 1, n_tiles - 1)].push_back(entry.occurrence);
           }
         }
-        if (paired)
-          return per;
+        if (paired) return per;
         per.assign(n_tiles, {});
       }
-      for (std::size_t i = 0; i < count; ++i)
-        per[std::min(i, n_tiles - 1)].push_back(static_cast<std::uint32_t>(i));
+      for (std::size_t i = 0; i < count; ++i) per[std::min(i, n_tiles - 1)].push_back(static_cast<std::uint32_t>(i));
       return per;
     };
     const auto occlusion_per_tile = attach(maoc_idx, n_occlusion);
@@ -599,27 +594,30 @@ namespace wowlib::formats::wdl
     // every non-tile chunk in canonical order, ...
     auto out = formats::detail::fresh_journal(*this);
     std::erase_if(out, [&](const JournalEntry& entry) {
-      return entry.member == mare_idx || (maho_idx >= 0 && entry.member == maho_idx)
-             || (maoe_idx >= 0 && entry.member == maoe_idx)
-             || (maoc_idx >= 0 && entry.member == maoc_idx);
+      return entry.member == mare_idx || (maho_idx >= 0 && entry.member == maho_idx) || (maoe_idx >= 0 && entry.member
+        == maoe_idx) || (maoc_idx >= 0 && entry.member == maoc_idx);
     });
 
     // ... then the interleaved tile block right after MAOF, ...
     std::size_t insert_at = out.size();
     for (std::size_t i = 0; i < out.size(); ++i)
-      if (out[i].member == maof_idx)
-      {
+      if (out[i].member == maof_idx) {
         insert_at = i + 1;
         break;
       }
     std::vector<JournalEntry> block;
-    for (std::size_t tile = 0; tile < n_tiles; ++tile)
-    {
+    for (std::size_t tile = 0; tile < n_tiles; ++tile) {
       block.push_back({four_cc("MARE"), mare_idx, static_cast<std::uint32_t>(tile)});
-      for (const std::uint32_t occurrence : occlusion_per_tile[tile])
-        block.push_back({four_cc("MAOC"), maoc_idx, occurrence});
-      for (const std::uint32_t occurrence : ocean_per_tile[tile])
-        block.push_back({four_cc("MAOE"), maoe_idx, occurrence});
+      for (const std::uint32_t occurrence : occlusion_per_tile[tile]) block.push_back({
+        four_cc("MAOC"),
+        maoc_idx,
+        occurrence
+      });
+      for (const std::uint32_t occurrence : ocean_per_tile[tile]) block.push_back({
+        four_cc("MAOE"),
+        maoe_idx,
+        occurrence
+      });
       if (tile < n_holes)
         block.push_back({four_cc("MAHO"), maho_idx, static_cast<std::uint32_t>(tile)});
     }
@@ -627,14 +625,12 @@ namespace wowlib::formats::wdl
 
     // ... and the preserved unknown chunks last, in their stored order
     for (const JournalEntry& entry : this->journal)
-      if (entry.member < 0)
-        out.push_back(entry);
+      if (entry.member < 0) out.push_back(entry);
     return std::optional{std::move(out)};
   }
 
   template <ClientVersion V>
-  Result<void> detail::WDL<V>::patch_file(std::span<std::byte> image) const
-  {
+  Result<void> detail::WDL<V>::patch_file(std::span<std::byte> image) const {
     constexpr std::uint32_t maof_cc = four_cc("MAOF");
     constexpr std::uint32_t mare_cc = four_cc("MARE");
 
@@ -642,67 +638,54 @@ namespace wowlib::formats::wdl
     std::uint32_t maof_size = 0;
     std::vector<std::uint32_t> mare_offsets;
     std::size_t pos = 0;
-    while (image.size() - pos >= 2 * sizeof(std::uint32_t))
-    {
+    while (image.size() - pos >= 2 * sizeof(std::uint32_t)) {
       std::uint32_t fourcc = 0;
       std::uint32_t size = 0;
       std::memcpy(&fourcc, image.data() + pos, sizeof fourcc);
       std::memcpy(&size, image.data() + pos + sizeof fourcc, sizeof size);
-      if (size > image.size() - pos - 2 * sizeof(std::uint32_t))
-        break;  // the preserved trailing-bytes region
-      if (fourcc == maof_cc && maof_payload == image.size())
-      {
+      if (size > image.size() - pos - 2 * sizeof(std::uint32_t)) break; // the preserved trailing-bytes region
+      if (fourcc == maof_cc && maof_payload == image.size()) {
         maof_payload = pos + 2 * sizeof(std::uint32_t);
         maof_size = size;
       }
-      else if (fourcc == mare_cc)
-        mare_offsets.push_back(static_cast<std::uint32_t>(pos));
+      else if (fourcc == mare_cc) mare_offsets.push_back(static_cast<std::uint32_t>(pos));
       pos += 2 * sizeof(std::uint32_t) + size;
     }
 
-    if (mare_offsets.empty() && maof_size == 0)
-      return {};  // no tiles and no table: nothing to stamp
+    if (mare_offsets.empty() && maof_size == 0) return {}; // no tiles and no table: nothing to stamp
     if (maof_payload == image.size())
-      return make_error(ErrorCode::InvalidEntityState,
-                        "heightmap chunks without a MAOF table to point at them");
+      return make_error(ErrorCode::InvalidEntityState, "heightmap chunks without a MAOF table to point at them");
     if (maof_size != wdl_tile_slots * sizeof(std::uint32_t))
       return make_error(ErrorCode::InvalidEntityState,
-                        std::format("the written MAOF table holds {} bytes, not 64*64 "
-                                    "offsets — resize tile_offsets to {}",
-                                    maof_size, wdl_tile_slots));
+                        std::format(
+                          "the written MAOF table holds {} bytes, not 64*64 " "offsets — resize tile_offsets to {}",
+                          maof_size, wdl_tile_slots));
 
     std::size_t next = 0;
-    for (std::size_t slot = 0; slot < wdl_tile_slots; ++slot)
-    {
+    for (std::size_t slot = 0; slot < wdl_tile_slots; ++slot) {
       std::uint32_t value = 0;
       std::byte* at = image.data() + maof_payload + slot * sizeof value;
       std::memcpy(&value, at, sizeof value);
-      if (value == 0)
-        continue;
+      if (value == 0) continue;
       if (next >= mare_offsets.size())
         return make_error(ErrorCode::InvalidEntityState,
-                          std::format("more nonzero tile_offsets slots than the {} written "
-                                      "heightmaps",
+                          std::format("more nonzero tile_offsets slots than the {} written " "heightmaps",
                                       mare_offsets.size()));
       std::memcpy(at, &mare_offsets[next++], sizeof value);
     }
     if (next != mare_offsets.size())
       return make_error(ErrorCode::InvalidEntityState,
-                        std::format("{} written heightmaps but only {} nonzero tile_offsets "
-                                    "slots",
+                        std::format("{} written heightmaps but only {} nonzero tile_offsets " "slots",
                                     mare_offsets.size(), next));
     return {};
   }
 
   template <ClientVersion V>
-  Result<void> detail::WDL<V>::read(fs::FileSystem& fs, const FileKey& key)
-  {
+  Result<void> detail::WDL<V>::read(fs::FileSystem& fs, const FileKey& key) {
     const auto data = fs.read_file(key);
-    if (!data)
-      return std::unexpected{data.error()};
+    if (!data) return std::unexpected{data.error()};
     *this = WDL{};
-    if (auto r = ChunkedFile<WDL>::read(*data); !r)
-      return std::unexpected{r.error()};
+    if (auto r = ChunkedFile<WDL>::read(*data); !r) return std::unexpected{r.error()};
     if (mver != wdl_version_18)
       return make_error(ErrorCode::FormatVersionMismatch,
                         std::format("WDL MVER is {}, expected {}", mver, wdl_version_18));
@@ -710,17 +693,13 @@ namespace wowlib::formats::wdl
   }
 
   template <ClientVersion V>
-  Result<void> detail::WDL<V>::write(fs::FileSystem& fs, const FileKey& key) const
-  {
+  Result<void> detail::WDL<V>::write(fs::FileSystem& fs, const FileKey& key) const {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
-      return make_error(ErrorCode::PathNotResolvable,
-                        "saving a WDL needs a path for the file key");
+      return make_error(ErrorCode::PathNotResolvable, "saving a WDL needs a path for the file key");
     const auto data = ChunkedFile<WDL>::write();
-    if (!data)
-      return std::unexpected{data.error()};
-    if (auto r = fs.add_file(*resolved.path, *data); !r)
-      return std::unexpected{r.error()};
+    if (!data) return std::unexpected{data.error()};
+    if (auto r = fs.add_file(*resolved.path, *data); !r) return std::unexpected{r.error()};
     return {};
   }
 }

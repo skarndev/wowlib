@@ -7,8 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace wowlib
-{
+namespace wowlib {
   /** Canonicalize a client-internal file path.
 
       Canonical form is lowercase ASCII with backslash separators — the MPQ hashing

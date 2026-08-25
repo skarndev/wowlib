@@ -16,15 +16,13 @@
 #include <wowlib/core/error.hpp>
 #include <wowlib/core/shared_mutex.hpp>
 
-namespace wowlib::fs
-{
+namespace wowlib::fs {
   /** A local directory acting as the ultimate patch: files here override every
       client archive, and new files are added here. Lookups go through an
       in-memory index keyed by canonical path, so they are case-insensitive
       regardless of the disk's filesystem and O(1). Not welded — target languages
       reach it through the FileSystem facade. */
-  class ProjectDirectory
-  {
+  class ProjectDirectory {
   public:
     ProjectDirectory() = default;
 
@@ -77,6 +75,7 @@ namespace wowlib::fs
 
     std::filesystem::path _root;
     mutable SharedMutex _mtx;
-    std::unordered_map<std::string, std::filesystem::path> _index;   // canonical -> on-disk
+    std::unordered_map<std::string, std::filesystem::path> _index;
+    // canonical -> on-disk
   };
 }
