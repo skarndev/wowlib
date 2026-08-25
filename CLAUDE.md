@@ -53,6 +53,7 @@ These are presented roughly in order:
 | CASC storage specifics (repack shim, error codes, test FDIDs) | .claude/context/casc-notes.md |
 | Listfile & custom FileDataID policy | .claude/context/listfile-notes.md |
 | Dependencies, pins & build quirks | .claude/context/deps-build-notes.md |
+| CLion Nova formatter (codeStyles scheme, clang-format ban, annotation/doc-comment pitfalls, re-flow procedure) | .claude/context/clion-formatter-notes.md |
 | CI server, self-hosted runner & client installs layout | .claude/context/ci-server-notes.md |
 | Releasing (tag-driven PyPI wheels + multi-RID NuGet, version from git tag) | .claude/context/release-process.md |
 | Python/Lua bindings (welder rods, casters, naming) | .claude/context/bindings-notes.md |

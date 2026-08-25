@@ -1,6 +1,9 @@
 cmake-build-*/
 build/
-.idea/
+# .idea is local except the shared C++ code style scheme (CLion Nova reads it
+# from codeStyles/; editor.xml is a per-user mirror and stays untracked).
+.idea/*
+!.idea/codeStyles/
 .cache/
 .DS_Store
 _deps/
