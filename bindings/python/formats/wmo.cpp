@@ -46,11 +46,11 @@ namespace wowlib_py::formats::wmo
       "every Expansion enumerator needs a wmo_versions instantiation for its facade");
 
     /** @brief Run @p fn against @p self cast to its concrete @c WMO<x>, if it is one.
-        @return true if @p self was a @c WMO<x> and @p fn ran. */
-    template <wowlib::Expansion x, typename Fn>
+        @return true if @p self was a @c WMO<X> and @p fn ran. */
+    template <wowlib::Expansion X, typename Fn>
     bool wmoTry(nb::handle self, Fn&& fn)
     {
-      using W = wowlib::formats::wmo::WMO<wowlib::toClientVersion(x)>;
+      using W = wowlib::formats::wmo::WMO<wowlib::toClientVersion(X)>;
       if (!nb::isinstance<W>(self))
         return false;
       fn(nb::cast<W&>(self));
@@ -77,8 +77,8 @@ namespace wowlib_py::formats::wmo
         @c NotImplemented Result (identity always works; writing the C++ steps lights
         the pair up here with no glue change).
         @throws nanobind::type_error if @p source is not a WMO instance. */
-    template <wowlib::Expansion to>
-    wowlib::Result<typename ConcreteOf<wowlib::formats::wmo::WMO, to>::Type>
+    template <wowlib::Expansion To>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::wmo::WMO, To>::Type>
     convertWmoFromAny(nb::handle source)
     {
       template for (constexpr auto e : ExpansionEnumerators)
@@ -89,33 +89,33 @@ namespace wowlib_py::formats::wmo
         {
           if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::wmo::WMO,
                                                           wowlib::toClientVersion(from),
-                                                          wowlib::toClientVersion(to)>())
-            return wowlib::formats::convert<wowlib::toClientVersion(to)>(nb::cast<const S&>(source));
+                                                          wowlib::toClientVersion(To)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(To)>(nb::cast<const S&>(source));
           else
             return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("WMO conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enumName(from), wowlib::enumName(to)));
+                          wowlib::enumName(from), wowlib::enumName(To)));
         }
       }
       throw nb::type_error("convert() expects a WMO instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
-    template <wowlib::Expansion to>
+    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
+    template <wowlib::Expansion To>
     void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != to)
+          if (target != To)
             throw nb::next_overload();
-          return nb::cast(convertWmoFromAny<to>(self));
+          return nb::cast(convertWmoFromAny<To>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enumName(to)} + "]) -> "
-                        + concreteName("WMO", to, wowlib::formats::wmo::WmoAssemblyPivots,
+                        + std::string{wowlib::enumName(To)} + "]) -> "
+                        + concreteName("WMO", To, wowlib::formats::wmo::WmoAssemblyPivots,
                                         wowlib::formats::wmo::WmoVersions))));
     }
 

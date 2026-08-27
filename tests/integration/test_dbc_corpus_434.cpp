@@ -28,10 +28,10 @@ TEST_CASE("4.3.4: the full DBC/DB2 corpus decodes and round-trips byte-perfectly
   REQUIRE(opened.has_value());
 
   tests::CorpusStats stats;
-#define x(Name) \
+#define X(Name) \
   tests::sweepTableMixed<db::tables::Name<versions::Cata>>(*opened, #Name, stats);
-  WOWLIB_DB_TABLES_CATA(x)
-#undef x
+  WOWLIB_DB_TABLES_CATA(X)
+#undef X
 
   INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());

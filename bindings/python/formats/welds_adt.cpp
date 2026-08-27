@@ -55,12 +55,12 @@ namespace wowlib_py::formats
                                wowlib_py::WowlibPythonNaming>;
     ::nanobind::module_ m0 = submodule(submodule(root, "formats"), "adt");
 
-#define x(S, v) W::weld_type<::wowlib::formats::adt::ADT##S>(m0, "ADT" #S);
-    WOWLIB_ADT_RANGES_ASSEMBLY(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::adt::ADT##S>(m0, "ADT" #S);
+    WOWLIB_ADT_RANGES_ASSEMBLY(X)
+#undef X
 
-#define x(S, v) W::weld_type<::wowlib::formats::adt::MapChunk##S>(m0, "MapChunk" #S);
-    WOWLIB_ADT_RANGES_MAPCHUNK(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::adt::MapChunk##S>(m0, "MapChunk" #S);
+    WOWLIB_ADT_RANGES_MAPCHUNK(X)
+#undef X
   }
 }

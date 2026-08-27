@@ -19,10 +19,10 @@ TEST_CASE("2.4.3: the full DBC corpus decodes and round-trips byte-perfectly",
   REQUIRE(opened.has_value());
 
   tests::CorpusStats stats;
-#define x(Name) \
+#define X(Name) \
   tests::sweepTable<db::tables::Name<versions::Tbc>>(*opened, #Name, stats);
-  WOWLIB_DB_TABLES_TBC(x)
-#undef x
+  WOWLIB_DB_TABLES_TBC(X)
+#undef X
 
   INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());

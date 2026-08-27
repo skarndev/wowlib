@@ -47,11 +47,11 @@ namespace wowlib_py::formats::m2
       "every Expansion enumerator needs an m2_versions instantiation for its facade");
 
     /** @brief Run @p fn against @p self cast to its concrete @c F<x>, if it is one.
-        @return true if @p self was an @c F<x> and @p fn ran. */
-    template <template <wowlib::ClientVersion> class F, wowlib::Expansion x, typename Fn>
+        @return true if @p self was an @c F<X> and @p fn ran. */
+    template <template <wowlib::ClientVersion> class F, wowlib::Expansion X, typename Fn>
     bool familyTry(nb::handle self, Fn&& fn)
     {
-      using C = F<wowlib::toClientVersion(x)>;
+      using C = F<wowlib::toClientVersion(X)>;
       if (!nb::isinstance<C>(self))
         return false;
       fn(nb::cast<C&>(self));
@@ -79,8 +79,8 @@ namespace wowlib_py::formats::m2
         convert ladder; a pair with no complete @c convert_step ladder degrades
         to a @c NotImplemented Result.
         @throws nanobind::type_error if @p source is not an M2 instance. */
-    template <wowlib::Expansion to>
-    wowlib::Result<typename ConcreteOf<wowlib::formats::m2::M2, to>::Type>
+    template <wowlib::Expansion To>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::m2::M2, To>::Type>
     convertM2FromAny(nb::handle source)
     {
       template for (constexpr auto e : ExpansionEnumerators)
@@ -91,34 +91,34 @@ namespace wowlib_py::formats::m2
         {
           if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::m2::M2,
                                                           wowlib::toClientVersion(from),
-                                                          wowlib::toClientVersion(to)>())
-            return wowlib::formats::convert<wowlib::toClientVersion(to)>(
+                                                          wowlib::toClientVersion(To)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(To)>(
               nb::cast<const S&>(source));
           else
             return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("M2 conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enumName(from), wowlib::enumName(to)));
+                          wowlib::enumName(from), wowlib::enumName(To)));
         }
       }
       throw nb::type_error("convert() expects an M2 instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
-    template <wowlib::Expansion to>
+    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
+    template <wowlib::Expansion To>
     void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != to)
+          if (target != To)
             throw nb::next_overload();
-          return nb::cast(convertM2FromAny<to>(self));
+          return nb::cast(convertM2FromAny<To>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enumName(to)} + "]) -> "
-                        + concreteName("M2", to, wowlib::formats::m2::M2AssemblyPivots,
+                        + std::string{wowlib::enumName(To)} + "]) -> "
+                        + concreteName("M2", To, wowlib::formats::m2::M2AssemblyPivots,
                                         wowlib::formats::m2::M2Versions))));
     }
 
@@ -212,10 +212,10 @@ namespace wowlib_py::formats::m2
 
     /** @brief Merge the (FileSystem, FileKey) read/write overloads into ONE
         concrete Skeleton class's welded verb chain. */
-    template <wowlib::Expansion x>
+    template <wowlib::Expansion X>
     void defSkeletonFsVerbsOn()
     {
-      using C = wowlib::formats::m2::Skeleton<wowlib::toClientVersion(x)>;
+      using C = wowlib::formats::m2::Skeleton<wowlib::toClientVersion(X)>;
       const nb::handle concrete = nb::type<C>();
       nb::cpp_function(
         [](C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)

@@ -777,8 +777,7 @@ wheels = [
 ]
 
 [[package]]
-name = "wowlib"
-version = "0.0.1"
+name = "wowlib-py"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },

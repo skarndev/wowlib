@@ -52,10 +52,10 @@ TEST_CASE("5.4.8: the full DBC/DB2 corpus decodes and round-trips byte-perfectly
          "112 bytes, the pre-5.1 layout) — dbdgen targets 5.4.8.18414");
 
   tests::CorpusStats stats;
-#define x(Name) \
+#define X(Name) \
   tests::sweepTableMixed<db::tables::Name<versions::Mop>>(*opened, #Name, stats);
-  WOWLIB_DB_TABLES_MOP(x)
-#undef x
+  WOWLIB_DB_TABLES_MOP(X)
+#undef X
 
   INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());

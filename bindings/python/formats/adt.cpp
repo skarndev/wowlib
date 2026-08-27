@@ -43,10 +43,10 @@ namespace wowlib_py::formats::adt
       "every Expansion enumerator needs an adt_versions instantiation for its facade");
 
     /** @brief Run @p fn against @p self cast to its concrete @c ADT<x>, if it is one. */
-    template <wowlib::Expansion x, typename Fn>
+    template <wowlib::Expansion X, typename Fn>
     bool adtTry(nb::handle self, Fn&& fn)
     {
-      using C = wowlib::formats::adt::ADT<wowlib::toClientVersion(x)>;
+      using C = wowlib::formats::adt::ADT<wowlib::toClientVersion(X)>;
       if (!nb::isinstance<C>(self))
         return false;
       fn(nb::cast<C&>(self));
@@ -66,9 +66,9 @@ namespace wowlib_py::formats::adt
         throw nb::type_error(what);
     }
 
-    /** @brief Convert @p source (any @c ADT<from>) to target expansion @p to. */
-    template <wowlib::Expansion to>
-    wowlib::Result<typename ConcreteOf<wowlib::formats::adt::ADT, to>::Type>
+    /** @brief Convert @p source (any @c ADT<from>) to target expansion @p To. */
+    template <wowlib::Expansion To>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::adt::ADT, To>::Type>
     convertAdtFromAny(nb::handle source)
     {
       template for (constexpr auto e : ExpansionEnumerators)
@@ -79,34 +79,34 @@ namespace wowlib_py::formats::adt
         {
           if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::adt::ADT,
                                                           wowlib::toClientVersion(from),
-                                                          wowlib::toClientVersion(to)>())
-            return wowlib::formats::convert<wowlib::toClientVersion(to)>(
+                                                          wowlib::toClientVersion(To)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(To)>(
               nb::cast<const S&>(source));
           else
             return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("ADT conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enumName(from), wowlib::enumName(to)));
+                          wowlib::enumName(from), wowlib::enumName(To)));
         }
       }
       throw nb::type_error("convert() expects an ADT instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
-    template <wowlib::Expansion to>
+    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
+    template <wowlib::Expansion To>
     void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != to)
+          if (target != To)
             throw nb::next_overload();
-          return nb::cast(convertAdtFromAny<to>(self));
+          return nb::cast(convertAdtFromAny<To>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enumName(to)} + "]) -> "
-                        + concreteName("ADT", to, wowlib::formats::adt::AdtPivots,
+                        + std::string{wowlib::enumName(To)} + "]) -> "
+                        + concreteName("ADT", To, wowlib::formats::adt::AdtPivots,
                                         wowlib::formats::adt::AdtVersions))));
     }
 

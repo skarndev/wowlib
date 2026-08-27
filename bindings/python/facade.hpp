@@ -86,8 +86,8 @@ namespace wowlib_py
       requires-expression is a substitution failure, not an error. Every
       facade walk guards on this so subset families skip the missing
       expansions instead of tripping their constraints. */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
-  concept FamilyHas = requires { typename F<wowlib::toClientVersion(x)>; };
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
+  concept FamilyHas = requires { typename F<wowlib::toClientVersion(X)>; };
 
   /** @brief The concrete (canonical) instantiation family @p F maps expansion
       @p x to, as a nested typedef. Function templates that need it in their
@@ -95,20 +95,20 @@ namespace wowlib_py
       alias there directly trips gcc 16's "sorry, unimplemented: mangling
       view_convert_expr" (the span-converting canonicalVersion call cannot be
       mangled as a dependent expression). */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
   struct ConcreteOf
   {
-    using Type = F<wowlib::toClientVersion(x)>;
+    using Type = F<wowlib::toClientVersion(X)>;
   };
 
   /** @brief A bare, default-constructed @c F instance for expansion @p x.
 
       Hoisted out of the @c for_version loop bodies: gcc 16 refuses to instantiate
       @c F<...> from inside a lambda expanded within a @c template @c for. */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
   nb::object makeOne()
   {
-    return nb::cast(F<wowlib::toClientVersion(x)>{});
+    return nb::cast(F<wowlib::toClientVersion(X)>{});
   }
 
   /** @brief One family's (expansion → registered class) rows — the runtime
@@ -217,14 +217,14 @@ namespace wowlib_py
 
   /** @brief Attach one @c for_version Literal overload (@p x → its range's
       concrete class; several Literals may share one class). */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
   void defForVersionOverload(nb::handle base, std::string_view baseName,
                                 std::span<const wowlib::ClientVersion> pivots,
                                 std::span<const wowlib::ClientVersion> grid)
   {
     defForVersionOverloadErased(
-      base, x, nb::type<typename ConcreteOf<F, x>::Type>(),
-      forVersionSig(baseName, x, pivots, grid));
+      base, X, nb::type<typename ConcreteOf<F, X>::Type>(),
+      forVersionSig(baseName, X, pivots, grid));
   }
 
   /** @brief Attach @c for_version to a family @p base.
@@ -261,13 +261,13 @@ namespace wowlib_py
   }
 
   /** @brief Run @p fn against @p self cast to concrete @c F<x>, if it is one.
-      @return true when @p self was an @c F<x> and @p fn ran. */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x, typename Fn>
+      @return true when @p self was an @c F<X> and @p fn ran. */
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X, typename Fn>
   bool familyTry(nb::handle self, Fn&& fn)
   {
-    if constexpr (FamilyHas<F, x>)
+    if constexpr (FamilyHas<F, X>)
     {
-      using Concrete = typename ConcreteOf<F, x>::Type;
+      using Concrete = typename ConcreteOf<F, X>::Type;
       if (nb::isinstance<Concrete>(self))
       {
         fn(nb::cast<Concrete&>(self));

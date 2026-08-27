@@ -45,11 +45,11 @@ namespace wowlib_py::formats::wdt
       "every Expansion enumerator needs a wdt_versions instantiation for its facade");
 
     /** @brief Run @p fn against @p self cast to its concrete @c F<x>, if it is one.
-        @return true if @p self was an @c F<x> and @p fn ran. */
-    template <template <wowlib::ClientVersion> class F, wowlib::Expansion x, typename Fn>
+        @return true if @p self was an @c F<X> and @p fn ran. */
+    template <template <wowlib::ClientVersion> class F, wowlib::Expansion X, typename Fn>
     bool familyTry(nb::handle self, Fn&& fn)
     {
-      using C = F<wowlib::toClientVersion(x)>;
+      using C = F<wowlib::toClientVersion(X)>;
       if (!nb::isinstance<C>(self))
         return false;
       fn(nb::cast<C&>(self));
@@ -76,8 +76,8 @@ namespace wowlib_py::formats::wdt
         convert ladder; a pair with no complete @c convert_step ladder degrades
         to a @c NotImplemented Result.
         @throws nanobind::type_error if @p source is not a WDT instance. */
-    template <wowlib::Expansion to>
-    wowlib::Result<typename ConcreteOf<wowlib::formats::wdt::WDT, to>::Type>
+    template <wowlib::Expansion To>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::wdt::WDT, To>::Type>
     convertWdtFromAny(nb::handle source)
     {
       template for (constexpr auto e : ExpansionEnumerators)
@@ -88,34 +88,34 @@ namespace wowlib_py::formats::wdt
         {
           if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::wdt::WDT,
                                                           wowlib::toClientVersion(from),
-                                                          wowlib::toClientVersion(to)>())
-            return wowlib::formats::convert<wowlib::toClientVersion(to)>(
+                                                          wowlib::toClientVersion(To)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(To)>(
               nb::cast<const S&>(source));
           else
             return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("WDT conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enumName(from), wowlib::enumName(to)));
+                          wowlib::enumName(from), wowlib::enumName(To)));
         }
       }
       throw nb::type_error("convert() expects a WDT instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
-    template <wowlib::Expansion to>
+    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
+    template <wowlib::Expansion To>
     void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != to)
+          if (target != To)
             throw nb::next_overload();
-          return nb::cast(convertWdtFromAny<to>(self));
+          return nb::cast(convertWdtFromAny<To>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enumName(to)} + "]) -> "
-                        + concreteName("WDT", to, wowlib::formats::wdt::WdtAssemblyPivots,
+                        + std::string{wowlib::enumName(To)} + "]) -> "
+                        + concreteName("WDT", To, wowlib::formats::wdt::WdtAssemblyPivots,
                                         wowlib::formats::wdt::WdtVersions))));
     }
 

@@ -43,10 +43,10 @@ namespace wowlib_py::formats::wdl
       }(),
       "every Expansion enumerator needs a wdl_versions instantiation for its facade");
 
-    /** @brief Convert @p source (any @c WDL<from>) to target expansion @p to.
+    /** @brief Convert @p source (any @c WDL<from>) to target expansion @p To.
         @throws nanobind::type_error if @p source is not a WDL instance. */
-    template <wowlib::Expansion to>
-    wowlib::Result<typename ConcreteOf<wowlib::formats::wdl::WDL, to>::Type>
+    template <wowlib::Expansion To>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::wdl::WDL, To>::Type>
     convertWdlFromAny(nb::handle source)
     {
       template for (constexpr auto e : ExpansionEnumerators)
@@ -57,34 +57,34 @@ namespace wowlib_py::formats::wdl
         {
           if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::wdl::WDL,
                                                           wowlib::toClientVersion(from),
-                                                          wowlib::toClientVersion(to)>())
-            return wowlib::formats::convert<wowlib::toClientVersion(to)>(
+                                                          wowlib::toClientVersion(To)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(To)>(
               nb::cast<const S&>(source));
           else
             return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("WDL conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enumName(from), wowlib::enumName(to)));
+                          wowlib::enumName(from), wowlib::enumName(To)));
         }
       }
       throw nb::type_error("convert() expects a WDL instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
-    template <wowlib::Expansion to>
+    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
+    template <wowlib::Expansion To>
     void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != to)
+          if (target != To)
             throw nb::next_overload();
-          return nb::cast(convertWdlFromAny<to>(self));
+          return nb::cast(convertWdlFromAny<To>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enumName(to)} + "]) -> "
-                        + concreteName("WDL", to, wowlib::formats::wdl::WdlPivots,
+                        + std::string{wowlib::enumName(To)} + "]) -> "
+                        + concreteName("WDL", To, wowlib::formats::wdl::WdlPivots,
                                         wowlib::formats::wdl::WdlVersions))));
     }
 
@@ -126,10 +126,10 @@ namespace wowlib_py::formats::wdl
 
     /** @brief Merge the (FileSystem, FileKey) read/write overloads into ONE
         concrete class's welded verb chain (nanobind merges by name+scope). */
-    template <wowlib::Expansion x>
+    template <wowlib::Expansion X>
     void defWdlFsVerbsOn()
     {
-      using C = wowlib::formats::wdl::WDL<wowlib::toClientVersion(x)>;
+      using C = wowlib::formats::wdl::WDL<wowlib::toClientVersion(X)>;
       const nb::handle concrete = nb::type<C>();
       nb::cpp_function(
         [](C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)

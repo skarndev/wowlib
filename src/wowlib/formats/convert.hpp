@@ -58,9 +58,9 @@ namespace wowlib::formats {
       return N; // not found
     }
 
-    template <template <ClientVersion> class E, ClientVersion from, ClientVersion to> concept HasConvertStep = requires(
-      const E<from>& src) {
-        { convert_step(src, VersionTag<to>{}) } -> std::same_as<Result<E<to>>>;
+    template <template <ClientVersion> class E, ClientVersion From, ClientVersion To> concept HasConvertStep = requires(
+      const E<From>& src) {
+        { convert_step(src, VersionTag<To>{}) } -> std::same_as<Result<E<To>>>;
       };
 
     /** The next CANONICAL version on @a E's ladder walking from @a from
@@ -89,20 +89,20 @@ namespace wowlib::formats {
       degrade a missing ladder to a runtime error instead of tripping
       convert()'s static_assert.
       @tparam E    the format template (alias or detail spelling).
-      @tparam from the source client version (a SupportedVersions entry).
-      @tparam to   the target client version (a SupportedVersions entry). */
-  template <template <ClientVersion> class E, ClientVersion from, ClientVersion to>
+      @tparam From the source client version (a SupportedVersions entry).
+      @tparam To   the target client version (a SupportedVersions entry). */
+  template <template <ClientVersion> class E, ClientVersion From, ClientVersion To>
   consteval bool hasConvertPath() {
     constexpr auto& versions = SupportedVersions<E>;
     constexpr auto& pivots = VersionPivots<E>;
-    static_assert(detail::indexOf(versions, from) < versions.size(), "From is not a supported version of this format");
-    static_assert(detail::indexOf(versions, to) < versions.size(), "To is not a supported version of this format");
-    constexpr ClientVersion fromC = canonicalVersion(from, pivots, versions);
-    constexpr ClientVersion toC = canonicalVersion(to, pivots, versions);
+    static_assert(detail::indexOf(versions, From) < versions.size(), "From is not a supported version of this format");
+    static_assert(detail::indexOf(versions, To) < versions.size(), "To is not a supported version of this format");
+    constexpr ClientVersion fromC = canonicalVersion(From, pivots, versions);
+    constexpr ClientVersion toC = canonicalVersion(To, pivots, versions);
     if constexpr (fromC == toC) return true;
     else {
       constexpr ClientVersion next = detail::nextCanonical<E>(fromC, toC);
-      if constexpr (detail::HasConvertStep<E, fromC, next>) return hasConvertPath<E, next, to>();
+      if constexpr (detail::HasConvertStep<E, fromC, next>) return hasConvertPath<E, next, To>();
       else return false;
     }
   }
@@ -115,25 +115,25 @@ namespace wowlib::formats {
       @param src the source entity (a canonical instantiation — every entity
                  built through the public aliases is one).
       @return the converted entity, or the first failing step's error. */
-  template <ClientVersion to, template <ClientVersion> class E, ClientVersion from> requires(!std::is_same_v<
+  template <ClientVersion To, template <ClientVersion> class E, ClientVersion From> requires(!std::is_same_v<
     decltype(SupportedVersions<E>), const std::nullptr_t>)
-  auto convert(const E<from>& src) -> Result<E<canonicalVersion(to, VersionPivots<E>, SupportedVersions<E>)>> {
+  auto convert(const E<From>& src) -> Result<E<canonicalVersion(To, VersionPivots<E>, SupportedVersions<E>)>> {
     constexpr auto& versions = SupportedVersions<E>;
     constexpr auto& pivots = VersionPivots<E>;
-    static_assert(detail::indexOf(versions, to) < versions.size(), "To is not a supported version of this format");
-    static_assert(from == canonicalVersion(from, pivots, versions),
+    static_assert(detail::indexOf(versions, To) < versions.size(), "To is not a supported version of this format");
+    static_assert(From == canonicalVersion(From, pivots, versions),
                   "convert() takes a canonical instantiation — construct entities " "through the public aliases");
-    constexpr ClientVersion toC = canonicalVersion(to, pivots, versions);
+    constexpr ClientVersion toC = canonicalVersion(To, pivots, versions);
 
-    if constexpr (from == toC) return src;
+    if constexpr (From == toC) return src;
     else {
-      constexpr ClientVersion next = detail::nextCanonical<E>(from, toC);
-      static_assert(detail::HasConvertStep<E, from, next>,
+      constexpr ClientVersion next = detail::nextCanonical<E>(From, toC);
+      static_assert(detail::HasConvertStep<E, From, next>,
                     "no convert_step overload for this canonical version pair — declare "
                     "Result<E<next>> convert_step(const E<From>&, version_tag<next>)") ;
       auto stepped = convert_step(src, VersionTag<next>{});
       if (!stepped) return std::unexpected{stepped.error()};
-      return convert<to>(*stepped);
+      return convert<To>(*stepped);
     }
   }
 }

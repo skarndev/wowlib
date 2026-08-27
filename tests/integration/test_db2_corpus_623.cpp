@@ -20,11 +20,11 @@ TEST_CASE("6.2.3: the full DB2 corpus decodes and round-trips byte-perfectly (WD
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
-#define x(Name)                                                          \
+#define X(Name)                                                          \
   tests::sweepTableCasc<db::tables::Name<versions::Wod>>(        \
     *storage, *listfile, #Name, stats, /*bytePerfect=*/true);
-  WOWLIB_DB_TABLES_WOD(x)
-#undef x
+  WOWLIB_DB_TABLES_WOD(X)
+#undef X
 
   INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());

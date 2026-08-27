@@ -34,7 +34,7 @@ namespace wowlib::formats::adt::detail {
   /** The texel count of a decoded map (64 * 64 = 4096). */
   inline constexpr std::size_t AlphaTexels = AlphaDim * AlphaDim;
   /** The on-disk size of a 4-bit alpha map (4096 / 2 = 2048 bytes). */
-  inline constexpr std::size_t Alpha4bitBytes = AlphaTexels / 2;
+  inline constexpr std::size_t Alpha4BitBytes = AlphaTexels / 2;
   /** The on-disk size of a 1-bit shadow bitmap (4096 / 8 = 512 bytes). */
   inline constexpr std::size_t ShadowBytes = AlphaTexels / 8;
 
@@ -96,7 +96,7 @@ namespace wowlib::formats::adt::detail {
         @param out the decoded surface, resized to 4096. */
     void decode_4bit(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
       out.resize(AlphaTexels);
-      for (std::size_t i = 0; i < Alpha4bitBytes && i < src.size(); ++i) {
+      for (std::size_t i = 0; i < Alpha4BitBytes && i < src.size(); ++i) {
         const auto b = std::to_integer<std::uint8_t>(src[i]);
         out[2 * i] = static_cast<std::uint8_t>((b & 0x0F) * 0x11);
         out[2 * i + 1] = static_cast<std::uint8_t>((b >> 4) * 0x11);
@@ -141,7 +141,7 @@ namespace wowlib::formats::adt::detail {
         @param map the 4096-texel surface.
         @param out the destination buffer, appended to. */
     void encode_4bit(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
-      for (std::size_t i = 0; i < Alpha4bitBytes; ++i) {
+      for (std::size_t i = 0; i < Alpha4BitBytes; ++i) {
         const auto lo = static_cast<std::uint8_t>(map[2 * i] >> 4);
         const auto hi = static_cast<std::uint8_t>(map[2 * i + 1] >> 4);
         out.push_back(static_cast<std::byte>(lo | (hi << 4)));

@@ -77,7 +77,7 @@ namespace wowlib::formats::m2::root {
   struct [[
       =welder::weld,
       =welder::weld_as("M2Root"),
-  WOWLIB_CS_FAMILY_SURFACE
+      WOWLIB_CS_FAMILY_SURFACE
       =welder::doc(R"(
         An MD20 model body, abstract over the client version. Construct a
         concrete version with M2Root.for_version(expansion); the per-version
@@ -360,14 +360,14 @@ namespace wowlib::formats::m2::root {
           continue;
         if (static_cast<std::size_t>(parent) >= bones.size())
           report.addError(std::format("bones[{}]", i),
-                           std::format("parent_bone {} out of range: {} bones",
-                                       parent,
-                                       bones.size()));
+                          std::format("parent_bone {} out of range: {} bones",
+                                      parent,
+                                      bones.size()));
         else if (static_cast<std::size_t>(parent) >= i)
           report.addError(std::format("bones[{}]", i),
-                           std::format(
-                             "parent_bone {} does not precede the child",
-                             parent));
+                          std::format(
+                            "parent_bone {} does not precede the child",
+                            parent));
       }
 
       // alias sequences own no track data: the client follows aliasNext until
@@ -381,14 +381,14 @@ namespace wowlib::formats::m2::root {
           const std::size_t next = sequences[at].aliasNext;
           if (next >= sequences.size()) {
             report.addError(std::format("sequences[{}]", at),
-                             std::format(
-                               "alias_next {} out of range: {} sequences", next,
-                               sequences.size()));
+                            std::format(
+                              "alias_next {} out of range: {} sequences", next,
+                              sequences.size()));
             break;
           }
           if (next == at) {
             report.addError(std::format("sequences[{}]", at),
-                             "alias_next points at itself");
+                            "alias_next points at itself");
             break;
           }
           at = next;
@@ -397,7 +397,7 @@ namespace wowlib::formats::m2::root {
         }
         if (steps > sequences.size())
           report.addError(std::format("sequences[{}]", i),
-                           "alias chain does not reach a non-alias sequence (cycle)");
+                          "alias chain does not reach a non-alias sequence (cycle)");
       }
     }
 

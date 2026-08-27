@@ -55,8 +55,8 @@ namespace wowlib_py::formats
                                wowlib_py::WowlibPythonNaming>;
     ::nanobind::module_ m0 = submodule(submodule(root, "formats"), "wdl");
 
-#define x(S, v) W::weld_type<::wowlib::formats::wdl::WDL##S>(m0, "WDL" #S);
-    WOWLIB_WDL_RANGES(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::wdl::WDL##S>(m0, "WDL" #S);
+    WOWLIB_WDL_RANGES(X)
+#undef X
   }
 }

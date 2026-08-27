@@ -58,24 +58,24 @@ namespace wowlib_py::formats
     ::nanobind::module_ m2 = submodule(submodule(submodule(submodule(root, "formats"), "wmo"), "group"), "chunks");
     ::nanobind::module_ m3 = submodule(submodule(root, "formats"), "wmo");
 
-#define x(S, v) W::weld_type<::wowlib::formats::wmo::root::WMORoot##S>(m0, "WMORoot" #S);
-    WOWLIB_WMO_RANGES_ROOT(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::wmo::root::WMORoot##S>(m0, "WMORoot" #S);
+    WOWLIB_WMO_RANGES_ROOT(X)
+#undef X
 
-#define x(S, v) W::weld_type<::wowlib::formats::wmo::group::WMOGroupBody##S>(m1, "WMOGroupBody" #S); W::weld_type<::wowlib::formats::wmo::group::WMOGroup##S>(m1, "WMOGroup" #S);
-    WOWLIB_WMO_RANGES_GROUP(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::wmo::group::WMOGroupBody##S>(m1, "WMOGroupBody" #S); W::weld_type<::wowlib::formats::wmo::group::WMOGroup##S>(m1, "WMOGroup" #S);
+    WOWLIB_WMO_RANGES_GROUP(X)
+#undef X
 
-#define x(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOGroupHeader##S>(m2, "WMOGroupHeader" #S);
-    WOWLIB_WMO_RANGES_GROUP_HEADER(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOGroupHeader##S>(m2, "WMOGroupHeader" #S);
+    WOWLIB_WMO_RANGES_GROUP_HEADER(X)
+#undef X
 
-#define x(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOBatch##S>(m2, "WMOBatch" #S);
-    WOWLIB_WMO_RANGES_BATCH(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOBatch##S>(m2, "WMOBatch" #S);
+    WOWLIB_WMO_RANGES_BATCH(X)
+#undef X
 
-#define x(S, v) W::weld_type<::wowlib::formats::wmo::WMO##S>(m3, "WMO" #S);
-    WOWLIB_WMO_RANGES_ASSEMBLY(x)
-#undef x
+#define X(S, v) W::weld_type<::wowlib::formats::wmo::WMO##S>(m3, "WMO" #S);
+    WOWLIB_WMO_RANGES_ASSEMBLY(X)
+#undef X
   }
 }
