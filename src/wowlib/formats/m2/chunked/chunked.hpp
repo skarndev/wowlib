@@ -58,7 +58,7 @@ namespace wowlib::formats::m2::chunked {
       directly.
       @tparam V the client version this shell targets.
       @see https://wowdev.wiki/M2#Chunks */
-  template <ClientVersion V> requires (V >= m2_chunked_container)
+  template <ClientVersion V> requires (V >= M2ChunkedContainer)
   struct [[
       =welder::weld,
       =welder::doc(R"(
@@ -66,11 +66,11 @@ namespace wowlib::formats::m2::chunked {
         blob plus the satellite chunks. An untouched shell rewrites
         byte-for-byte. See https://wowdev.wiki/M2#Chunks.)")
     ]] M2ChunkedFile : ChunkedFile<M2ChunkedFile<V>>, M2ChunkedFileBase {
-    static constexpr ClientVersion version = V;
-    static constexpr FourCCEndian unknown_fourcc_endian = FourCCEndian::forward;
+    static constexpr ClientVersion Version = V;
+    static constexpr FourCCEndian UnknownFourccEndian = FourCCEndian::Forward;
 
     [[
-      =chunk("MD21", FourCCEndian::forward),
+      =chunk("MD21", FourCCEndian::Forward),
       =welder::mark::exclude,
       =welder::doc("The MD20 image TRANSPORT blob; offsets inside are "
         "relative to this payload. Hidden from the bindings: a "
@@ -81,233 +81,233 @@ namespace wowlib::formats::m2::chunked {
     ChunkBlob md21;
 
     [[
-      =chunk("PFID", FourCCEndian::forward),
+      =chunk("PFID", FourCCEndian::Forward),
       =since(builds::Legion_Alpha),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc(".phys FileDataID (PFID); 0 or 1 entries.")]]
-    std::vector<std::uint32_t> phys_fdid;
+    std::vector<std::uint32_t> physFdid;
 
     [[
-      =chunk("SFID", FourCCEndian::forward),
+      =chunk("SFID", FourCCEndian::Forward),
       =since(builds::Legion_Alpha),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc(".skin FileDataIDs (SFID): num_skin_profiles view entries, "
         "then the LOD-band skins.")]]
-    std::vector<std::uint32_t> skin_fdids;
+    std::vector<std::uint32_t> skinFdids;
 
     [[
-      =chunk("AFID", FourCCEndian::forward),
+      =chunk("AFID", FourCCEndian::Forward),
       =since(builds::Legion_Alpha),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc(".anim FileDataIDs (AFID), one per external (animation, "
         "variation) pair.")]]
-    std::vector<AnimFileEntry> anim_fdids;
+    std::vector<AnimFileEntry> animFdids;
 
     [[
-      =chunk("BFID", FourCCEndian::forward),
+      =chunk("BFID", FourCCEndian::Forward),
       =since(builds::Legion_Alpha),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc(".bone FileDataIDs (BFID), one per FacePose variant.")]]
-    std::vector<std::uint32_t> bone_fdids;
+    std::vector<std::uint32_t> boneFdids;
 
     [[
-      =chunk("TXAC", FourCCEndian::forward),
+      =chunk("TXAC", FourCCEndian::Forward),
       =since(builds::Legion),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc("Texture transform flags (TXAC), one 2-byte record per "
         "material then per particle emitter.")]]
-    std::vector<std::array<std::uint8_t, 2>> texture_ac;
+    std::vector<std::array<std::uint8_t, 2>> textureAc;
 
     [[
-      =chunk("EXPT", FourCCEndian::forward),
+      =chunk("EXPT", FourCCEndian::Forward),
       =since(builds::Legion),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc("Extended particle parameters (EXPT), one per emitter; "
         "superseded by EXP2 when both exist.")]]
-    std::vector<M2ExtendedParticleSimple> extended_particles;
+    std::vector<M2ExtendedParticleSimple> extendedParticles;
 
     [[
-      =chunk("EXP2", FourCCEndian::forward),
+      =chunk("EXP2", FourCCEndian::Forward),
       =since(builds::Legion_ShadowsOfArgus_24500),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Extended particle parameters with alpha-cutoff ramps "
         "(EXP2), one per emitter.")]]
-    Exp2Data extended_particles2{};
+    Exp2Data extendedParticles2{};
 
     [[
-      =chunk("PABC", FourCCEndian::forward),
+      =chunk("PABC", FourCCEndian::Forward),
       =since(builds::Legion_ShadowsOfArgus_24500),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Parent-model sequence blacklist (PABC).")]]
-    PabcData parent_sequence_blacklist{};
+    PabcData parentSequenceBlacklist{};
 
     [[
-      =chunk("PADC", FourCCEndian::forward),
+      =chunk("PADC", FourCCEndian::Forward),
       =since(builds::Legion_ShadowsOfArgus_24500),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Parent texture weights (PADC); offset-based track "
         "payload kept verbatim.")]]
-    ChunkBlob parent_texture_weights;
+    ChunkBlob parentTextureWeights;
 
     [[
-      =chunk("PSBC", FourCCEndian::forward),
+      =chunk("PSBC", FourCCEndian::Forward),
       =since(builds::Legion_ShadowsOfArgus_24500),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Parent sequence bounds (PSBC).")]]
-    PsbcData parent_sequence_bounds{};
+    PsbcData parentSequenceBounds{};
 
     [[
-      =chunk("PEDC", FourCCEndian::forward),
+      =chunk("PEDC", FourCCEndian::Forward),
       =since(builds::Legion_ShadowsOfArgus_24500),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Parent event data (PEDC); offset-based track payload "
         "kept verbatim.")]]
-    ChunkBlob parent_event_data;
+    ChunkBlob parentEventData;
 
     [[
-      =chunk("SKID", FourCCEndian::forward),
+      =chunk("SKID", FourCCEndian::Forward),
       =since(builds::Legion_ShadowsOfArgus_24500),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc(".skel FileDataID (SKID); 0 or 1 entries.")]]
-    std::vector<std::uint32_t> skeleton_fdid;
+    std::vector<std::uint32_t> skeletonFdid;
 
     [[
-      =chunk("TXID", FourCCEndian::forward),
+      =chunk("TXID", FourCCEndian::Forward),
       =since(builds::BfA_Beta),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc("Texture FileDataIDs (TXID), replacing the in-image "
         "texture filenames, one per texture.")]]
-    std::vector<std::uint32_t> texture_fdids;
+    std::vector<std::uint32_t> textureFdids;
 
     [[
-      =chunk("LDV1", FourCCEndian::forward),
+      =chunk("LDV1", FourCCEndian::Forward),
       =since(builds::BfA_Beta),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("LOD data (LDV1); layout partially known, kept verbatim.")]]
-    ChunkBlob lod_data;
+    ChunkBlob lodData;
 
     [[
-      =chunk("RPID", FourCCEndian::forward),
+      =chunk("RPID", FourCCEndian::Forward),
       =since(builds::BfA_TidesOfVengeance),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc("Recursive (child-emitter) particle model FileDataIDs "
         "(RPID), one per emitter.")]]
-    std::vector<std::uint32_t> recursive_particle_model_fdids;
+    std::vector<std::uint32_t> recursiveParticleModelFdids;
 
     [[
-      =chunk("GPID", FourCCEndian::forward),
+      =chunk("GPID", FourCCEndian::Forward),
       =since(builds::BfA_TidesOfVengeance),
-      =formats::optional,
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc("Geometry particle model FileDataIDs (GPID), one per "
         "emitter.")]]
-    std::vector<std::uint32_t> geometry_particle_model_fdids;
+    std::vector<std::uint32_t> geometryParticleModelFdids;
 
     [[
-      =chunk("WFV1", FourCCEndian::forward),
+      =chunk("WFV1", FourCCEndian::Forward),
       =since(builds::BfA_RiseOfAzshara),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Waterfall render path v1 (WFV1); undocumented, kept "
         "verbatim.")]]
-    ChunkBlob waterfall_v1;
+    ChunkBlob waterfallV1;
 
     [[
-      =chunk("WFV2", FourCCEndian::forward),
+      =chunk("WFV2", FourCCEndian::Forward),
       =since(builds::BfA_RiseOfAzshara),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Waterfall render path v2 (WFV2); undocumented, kept "
         "verbatim.")]]
-    ChunkBlob waterfall_v2;
+    ChunkBlob waterfallV2;
 
     [[
-      =chunk("PGD1", FourCCEndian::forward),
+      =chunk("PGD1", FourCCEndian::Forward),
       =since(builds::BfA_RiseOfAzshara),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Particle geoset data (PGD1), one geoset per emitter "
         "(wowdev dates it to the 1.13.2.30172 classic build — "
         "the 8.2.0 retail era).")]]
-    Pgd1Data particle_geoset_data{};
+    Pgd1Data particleGeosetData{};
 
     [[
-      =chunk("WFV3", FourCCEndian::forward),
+      =chunk("WFV3", FourCCEndian::Forward),
       =since(builds::SL_Alpha_33978),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Waterfall render path v3 (WFV3); shader parameter block, "
         "kept verbatim.")]]
-    ChunkBlob waterfall_v3;
+    ChunkBlob waterfallV3;
 
     [[
-      =chunk("PFDC", FourCCEndian::forward),
+      =chunk("PFDC", FourCCEndian::Forward),
       =since(builds::BfA_VisionsOfNzoth_35662),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Inline physics (PFDC): a whole .phys image plus "
         "alignment padding, kept verbatim (structured PHYS is a "
         "follow-up milestone). wowdev dates it to the 9.0.1 alpha, "
         "but 8.3.7 shipped mid-alpha with the backport — 31 item "
         "M2s in the fleet client carry it.")]]
-    ChunkBlob inline_phys;
+    ChunkBlob inlinePhys;
 
     [[
-      =chunk("EDGF", FourCCEndian::forward),
+      =chunk("EDGF", FourCCEndian::Forward),
       =since(builds::SL_Alpha_33978),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Edge fade data (EDGF), applied to batches with flags2 "
         "0x8; kept verbatim.")]]
-    ChunkBlob edge_fade;
+    ChunkBlob edgeFade;
 
     [[
-      =chunk("NERF", FourCCEndian::forward),
+      =chunk("NERF", FourCCEndian::Forward),
       =since(builds::SL_Alpha_33978),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Distance-based model alpha attenuation coefficients "
         "(NERF); kept verbatim.")]]
-    ChunkBlob alpha_attenuation;
+    ChunkBlob alphaAttenuation;
 
     [[
-      =chunk("DETL", FourCCEndian::forward),
+      =chunk("DETL", FourCCEndian::Forward),
       =since(builds::SL_Alpha_34365),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Per-light detail overrides (DETL), kept verbatim: real "
         "9.x files carry 16-byte records where wowdev documents "
         "12 (see M2LightDetail for the known half).")]]
-    ChunkBlob light_details;
+    ChunkBlob lightDetails;
 
     [[
-      =chunk("DBOC", FourCCEndian::forward),
+      =chunk("DBOC", FourCCEndian::Forward),
       =since(builds::SL_Alpha_33978),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("DBOC; undocumented (16 or 32 bytes seen), kept "
         "verbatim.")]]
     ChunkBlob dboc;
 
     [[
-      =chunk("AFRA", FourCCEndian::forward),
+      =chunk("AFRA", FourCCEndian::Forward),
       =since(builds::DF),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("AFRA (Dragonflight+); not yet observed, kept verbatim.")]]
     ChunkBlob afra;
 
     [[
-      =chunk("PCOL", FourCCEndian::forward),
+      =chunk("PCOL", FourCCEndian::Forward),
       =since(builds::TWW_LegacyOfArathor),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("Player-housing collision mesh (PCOL); offset-based "
         "layout, kept verbatim.")]]
-    ChunkBlob housing_collision;
+    ChunkBlob housingCollision;
 
     [[
-      =chunk("DPIV", FourCCEndian::forward),
+      =chunk("DPIV", FourCCEndian::Forward),
       =since(builds::TWW_LegacyOfArathor),
-      =formats::optional,
+      =formats::Optional,
       =welder::doc("DPIV; undocumented, kept verbatim.")]]
     ChunkBlob dpiv;
 
@@ -318,9 +318,9 @@ namespace wowlib::formats::m2::chunked {
 namespace wowlib::formats::m2 {
   /** The chunked .m2 stream — the canonicalizing face of chunked::M2ChunkedFile:
       every Legion+ version maps to its range's first grid version
-      (m2_file_pivots — the active chunk set is constant within a range).
+      (M2FilePivots — the active chunk set is constant within a range).
       Pre-Legion versions stay a substitution failure, so the facade's era
       subsetting is unchanged. */
-  template <ClientVersion V> requires (V >= m2_chunked_container)
-  using M2ChunkedFile = chunked::M2ChunkedFile<canonical_version(V, m2_file_pivots, m2_chunked_versions)>;
+  template <ClientVersion V> requires (V >= M2ChunkedContainer)
+  using M2ChunkedFile = chunked::M2ChunkedFile<canonicalVersion(V, M2FilePivots, M2ChunkedVersions)>;
 }

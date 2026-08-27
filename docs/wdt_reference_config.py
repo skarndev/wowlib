@@ -80,7 +80,7 @@ def _fields(side_key: str):
             text = fr.slice_text(_SIDE_HPP[side_key].read_text(encoding="utf-8"),
                                  "namespace detail", None)
             fields = {f["name"]: f for f in fr.parse_members(text, consts=_consts())}
-            fields.pop("version", None)   # the struct-head parse artifact
+            fields.pop("Version", None)   # the struct-head parse artifact
             _FIELDS_CACHE[side_key] = fields
         return _FIELDS_CACHE[side_key]
     return parse
@@ -94,8 +94,8 @@ def _chunk_order(side_key: str) -> list[str]:
     chunk_order` table when present, else header declaration order)."""
     if side_key not in _ORDER_CACHE:
         txt = _SIDE_HPP[side_key].read_text(encoding="utf-8")
-        m = re.search(r"chunk_order\s*=\s*\{(.*?)\}", txt, re.DOTALL)
-        _ORDER_CACHE[side_key] = re.findall(r'four_cc\("([^"]+)"\)', m.group(1)) if m else []
+        m = re.search(r"ChunkOrder\s*=\s*\{(.*?)\}", txt, re.DOTALL)
+        _ORDER_CACHE[side_key] = re.findall(r'fourCc\("([^"]+)"\)', m.group(1)) if m else []
     return _ORDER_CACHE[side_key]
 
 

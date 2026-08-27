@@ -10,7 +10,7 @@
     to suppress its own re-instantiation. The matrix rows live in
     m2_matrix.inl, expanded here as declarations and in the .cpp as
     definitions from the SAME spelling, driven by the same
-    WOWLIB_M2_FOR_EACH_*VERSION X-macros the welded aliases use — neither
+    WOWLIB_M2_FOR_EACH_*VERSION x-macros the welded aliases use — neither
     the two sides nor the version list can drift. */
 
 #include <wowlib/formats/m2/m2.hpp>

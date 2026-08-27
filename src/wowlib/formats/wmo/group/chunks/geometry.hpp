@@ -22,18 +22,18 @@ namespace wowlib::formats::wmo::group::chunks {
       =welder::weld,
       =welder::doc("Per-triangle flag bits (MOPY and MPY2).")
     ]] PolyFlags : std::uint8_t {
-    transition [[=
+    Transition [[=
       welder::doc("A transition face, blending exterior and interior lighting.")
     ]] = 0x1,
-    no_cam_collide [[=welder::doc("The camera does not collide with this face.")
+    NoCamCollide [[=welder::doc("The camera does not collide with this face.")
     ]] = 0x2,
-    detail [[=welder::doc("A detail face.")]] = 0x4,
-    collision [[=welder::doc("Collision-only (also turns off water ripples).")]] = 0x8,
-    hint [[=welder::doc("A hint face.")]] = 0x10,
-    render [[=welder::doc("A rendered face.")]] = 0x20,
-    cull_objects [[=
+    Detail [[=welder::doc("A detail face.")]] = 0x4,
+    Collision [[=welder::doc("Collision-only (also turns off water ripples).")]] = 0x8,
+    Hint [[=welder::doc("A hint face.")]] = 0x10,
+    Render [[=welder::doc("A rendered face.")]] = 0x20,
+    CullObjects [[=
       welder::doc("Enables game-object culling against this face.")]] = 0x40,
-    collide_hit [[=welder::doc("Collides with projectiles/hit tests.")]] = 0x80
+    CollideHit [[=welder::doc("Collides with projectiles/hit tests.")]] = 0x80
   };
 
   struct [[
@@ -44,7 +44,7 @@ namespace wowlib::formats::wmo::group::chunks {
     std::uint8_t flags = 0;
 
     [[=welder::doc("Index into MOMT; 0xFF for collision-only faces.")]]
-    std::uint8_t material_id = 0;
+    std::uint8_t materialId = 0;
   };
 
   static_assert(sizeof(SMOPoly) == 0x2);
@@ -60,7 +60,7 @@ namespace wowlib::formats::wmo::group::chunks {
     std::uint16_t flags = 0;
 
     [[=welder::doc("Index into MOMT.")]]
-    std::uint16_t material_id = 0;
+    std::uint16_t materialId = 0;
   };
 
   static_assert(sizeof(Poly2) == 0x4);
@@ -91,7 +91,7 @@ namespace wowlib::formats::wmo::group::chunks {
     template <ClientVersion V>
     struct SMOBatch;
 
-    template <ClientVersion V> requires(V < wmo_batch_large_material)
+    template <ClientVersion V> requires(V < WmoBatchLargeMaterial)
     struct [[
       =welder::weld,
       =welder::doc(
@@ -99,34 +99,34 @@ namespace wowlib::formats::wmo::group::chunks {
         "with its low-resolution culling box.")
     ]] WOWLIB_EMPTY_BASES SMOBatch<V> : WMOBatchBase{
       [[=welder::doc("Culling box minimum corner (rounded vertex bounds).")]]
-      std::array<std::int16_t, 3> box_min{};
+      std::array<std::int16_t, 3> boxMin{};
 
       [[=welder::doc("Culling box maximum corner.")]]
-      std::array<std::int16_t, 3> box_max{};
+      std::array<std::int16_t, 3> boxMax{};
 
       [[=welder::doc("First face index in MOVI.")]]
-      std::uint32_t start_index = 0;
+      std::uint32_t startIndex = 0;
 
       [[=welder::doc("Number of MOVI indices.")]]
       std::uint16_t count = 0;
 
       [[=welder::doc("First vertex used in MOVT.")]]
-      std::uint16_t min_index = 0;
+      std::uint16_t minIndex = 0;
 
       [[=welder::doc("Last vertex used, inclusive.")]]
-      std::uint16_t max_index = 0;
+      std::uint16_t maxIndex = 0;
 
       [[=welder::doc("Batch flags.")]]
       std::uint8_t flags = 0;
 
       [[=welder::doc("Index into MOMT.")]]
-      std::uint8_t material_id = 0;
+      std::uint8_t materialId = 0;
 
 
 
     };
 
-    template <ClientVersion V> requires(V >= wmo_batch_large_material)
+    template <ClientVersion V> requires(V >= WmoBatchLargeMaterial)
     struct [[
       =welder::weld,
       =welder::doc(
@@ -137,25 +137,25 @@ namespace wowlib::formats::wmo::group::chunks {
       [[=welder::mark::exclude]]std::array<std::uint8_t, 10> unknown{};
 
       [[=welder::doc("16-bit material id; used when flags has 0x2.")]]
-      std::uint16_t material_id_large = 0;
+      std::uint16_t materialIdLarge = 0;
 
       [[=welder::doc("First face index in MOVI.")]]
-      std::uint32_t start_index = 0;
+      std::uint32_t startIndex = 0;
 
       [[=welder::doc("Number of MOVI indices.")]]
       std::uint16_t count = 0;
 
       [[=welder::doc("First vertex used in MOVT.")]]
-      std::uint16_t min_index = 0;
+      std::uint16_t minIndex = 0;
 
       [[=welder::doc("Last vertex used, inclusive.")]]
-      std::uint16_t max_index = 0;
+      std::uint16_t maxIndex = 0;
 
       [[=welder::doc("Batch flags; 0x2: use material_id_large.")]]
       std::uint8_t flags = 0;
 
       [[=welder::doc("Index into MOMT (when it fits 8 bits).")]]
-      std::uint8_t material_id = 0;
+      std::uint8_t materialId = 0;
 
 
 
@@ -163,14 +163,14 @@ namespace wowlib::formats::wmo::group::chunks {
   }
 
   /** A MOBA render batch — the canonicalizing face of detail::SMOBatch
-      (wmo_batch_pivots: the culling box gives way to the large material id
+      (WmoBatchPivots: the culling box gives way to the large material id
       at Legion), so two instantiations cover all eleven releases. */
   template <ClientVersion V>
-  using SMOBatch = detail::SMOBatch<canonical_version(V, wmo_batch_pivots, wmo_versions)>;
+  using SMOBatch = detail::SMOBatch<canonicalVersion(V, WmoBatchPivots, WmoVersions)>;
 
 
-  static_assert(sizeof(SMOBatch<versions::wotlk>) == 0x18);
-  static_assert(sizeof(SMOBatch<versions::shadowlands>) == 0x18);
+  static_assert(sizeof(SMOBatch<versions::Wotlk>) == 0x18);
+  static_assert(sizeof(SMOBatch<versions::Shadowlands>) == 0x18);
 
   struct [[
       =welder::weld,
@@ -180,10 +180,10 @@ namespace wowlib::formats::wmo::group::chunks {
         renders strips.)")
     ]] RenderBatchOverride {
     [[=welder::doc("Replacement first-index into the MORI strips.")]]
-    std::uint32_t start_index = 0;
+    std::uint32_t startIndex = 0;
 
     [[=welder::doc("Replacement index count.")]]
-    std::uint16_t index_count = 0;
+    std::uint16_t indexCount = 0;
 
     [[=welder::doc("Alignment padding; zero in client files.")]]
     std::uint16_t padding = 0;
@@ -201,7 +201,7 @@ namespace wowlib::formats::wmo::group::chunks {
     [[=welder::mark::exclude]] std::array<std::uint8_t, 10> unknown{};
 
     [[=welder::doc("16-bit material id; used when flags has 0x2.")]]
-    std::uint16_t material_id_large = 0;
+    std::uint16_t materialIdLarge = 0;
 
     [[=welder::doc("Start value; divided by 3 on use (a face index).")]]
     std::int32_t start = 0;
@@ -210,13 +210,13 @@ namespace wowlib::formats::wmo::group::chunks {
     std::int16_t count = 0;
 
     /** Undeciphered middle fields. */
-    [[=welder::mark::exclude]] std::array<std::uint8_t, 4> unknown_2{};
+    [[=welder::mark::exclude]] std::array<std::uint8_t, 4> unknown2{};
 
     [[=welder::doc("Batch flags; 0x2: use material_id_large.")]]
     std::uint8_t flags = 0;
 
     [[=welder::doc("Index into MOMT (when it fits 8 bits).")]]
-    std::uint8_t material_id = 0;
+    std::uint8_t materialId = 0;
   };
 
   static_assert(sizeof(ShadowBatch) == 0x18);
@@ -230,19 +230,19 @@ namespace wowlib::formats::wmo::group::chunks {
     std::uint16_t flags = 0;
 
     [[=welder::doc("Negative-side child node, -1 for none.")]]
-    std::int16_t neg_child = -1;
+    std::int16_t negChild = -1;
 
     [[=welder::doc("Positive-side child node, -1 for none.")]]
-    std::int16_t pos_child = -1;
+    std::int16_t posChild = -1;
 
     [[=welder::doc("Face count in MOBR (leaves).")]]
-    std::uint16_t n_faces = 0;
+    std::uint16_t nFaces = 0;
 
     [[=welder::doc("First face index in MOBR.")]]
-    std::uint32_t face_start = 0;
+    std::uint32_t faceStart = 0;
 
     [[=welder::doc("Split plane distance from the model origin.")]]
-    float plane_dist = 0;
+    float planeDist = 0;
   };
 
   static_assert(sizeof(CAaBspNode) == 0x10);

@@ -11,26 +11,26 @@ using namespace wowlib::fs;
 
 TEST_CASE("the 2.4.3 client opens and serves known files", "[integration][mpq]")
 {
-  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::tbc_client()),
-                                  .version = versions::tbc,
-                                  .locale = tests::tbc_locale()});
+  auto opened = MpqStorage::open({.dataDir = tests::dataDir(tests::tbcClient()),
+                                  .version = versions::Tbc,
+                                  .locale = tests::tbcLocale()});
   REQUIRE(opened.has_value());
   MpqStorage& storage = *opened;
-  CHECK(storage.locale() == tests::tbc_locale());
+  CHECK(storage.locale() == tests::tbcLocale());
   // common + expansion + the four enGB locale archives + the patch tier.
   CHECK(storage.archives().size() >= 6);
 
   SECTION("a locale archive file reads")
   {
     const auto lua =
-      storage.read_file(FileKey{"Interface/GlueXML/GlueStrings.lua"});
+      storage.readFile(FileKey{"Interface/GlueXML/GlueStrings.lua"});
     REQUIRE(lua.has_value());
     CHECK_FALSE(lua->empty());
   }
 
   SECTION("a DBC reads with its magic intact")
   {
-    const auto dbc = storage.read_file(FileKey{"DBFilesClient/Map.dbc"});
+    const auto dbc = storage.readFile(FileKey{"DBFilesClient/Map.dbc"});
     REQUIRE(dbc.has_value());
     REQUIRE(dbc->size() >= 4);
     CHECK(std::memcmp(dbc->data(), "WDBC", 4) == 0);
@@ -48,15 +48,15 @@ TEST_CASE("the 2.4.3 client opens and serves known files", "[integration][mpq]")
 
   SECTION("misses are FileNotFound")
   {
-    const auto missing = storage.read_file(FileKey{"no/such/file.blp"});
+    const auto missing = storage.readFile(FileKey{"no/such/file.blp"});
     REQUIRE_FALSE(missing.has_value());
     CHECK(missing.error().code == ErrorCode::FileNotFound);
   }
 
   SECTION("id-only requests are rejected on a path-addressed storage")
   {
-    const auto by_id = storage.read_file(FileKey{FileDataID{1349477}});
-    REQUIRE_FALSE(by_id.has_value());
-    CHECK(by_id.error().code == ErrorCode::FdidNotResolvable);
+    const auto byId = storage.readFile(FileKey{FileDataID{1349477}});
+    REQUIRE_FALSE(byId.has_value());
+    CHECK(byId.error().code == ErrorCode::FdidNotResolvable);
   }
 }

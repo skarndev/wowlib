@@ -48,7 +48,7 @@ def test_findings_carry_severity_path_and_message():
     assert report.size == len(list(report.issues))
 
     issues = list(report.issues)
-    assert all(i.severity == ValidationSeverity.error for i in issues)
+    assert all(i.severity == ValidationSeverity.Error for i in issues)
     assert {i.path for i in issues} == {"width", "mips[0]"}
     assert all(i.message for i in issues)
 
@@ -134,7 +134,7 @@ def test_client_wmo_validates_clean(wotlk_fs):
     )
     report = wmo.validate()
     assert report.error_count == 0, [
-        f"{i.path}: {i.message}" for i in report.issues if i.severity == ValidationSeverity.error
+        f"{i.path}: {i.message}" for i in report.issues if i.severity == ValidationSeverity.Error
     ]
     assert wmo.ensure_valid() is None
 
@@ -151,6 +151,6 @@ def test_a_broken_reference_is_reported_with_its_path(wotlk_fs):
 
     report = wmo.validate()
     assert not report.ok
-    assert any(i.path == "root.group_infos" for i in report.issues)
+    assert any(i.path == "root.groupInfos" for i in report.issues)
     with pytest.raises(wowlib.InvalidEntityState):
         wmo.ensure_valid()

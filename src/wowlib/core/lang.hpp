@@ -20,7 +20,7 @@
 namespace wowlib::lang {
   /** C#/.NET — the welder-csharp rod's identity (user-range slot 0), respelled
       for wowlib's annotation sites (`mark::only`, `mark::exclude`, `weld_as`). */
-  inline constexpr welder::lang cs{welder::user_lang<0>};
+  inline constexpr welder::lang Cs{welder::user_lang<0>};
 }
 
 /** @def WOWLIB_CS_FAMILY_SURFACE

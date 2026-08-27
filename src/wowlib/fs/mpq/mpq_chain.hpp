@@ -35,7 +35,7 @@ namespace wowlib::fs::detail {
                           `patch.MPQ` + single-char `patch-?.MPQ` in `Data/`, and
                           `patch-{locale}[-?].MPQ` in `Data/{locale}/`, merged and
                           sorted by extension-agnostic filename. */
-    UpdateChain, /**< Cata/MoP incremental updates: `wow-update-{build}.MPQ` /
+    UpdateChain, /**< cata/MoP incremental updates: `wow-update-{build}.MPQ` /
                       `wow-update-base-{build}.MPQ` in `Data/` and
                       `wow-update-{locale}-{build}.MPQ` in `Data/{locale}/`,
                       ascending build. These are NOT standalone archives: they
@@ -49,8 +49,8 @@ namespace wowlib::fs::detail {
       tier is found. */
   struct MpqChainSpec {
     ClientVersion version;
-    std::span<const ChainEntry> base_entries;
-    PatchScheme patch_scheme = PatchScheme::None;
+    std::span<const ChainEntry> baseEntries;
+    PatchScheme patchScheme = PatchScheme::None;
   };
 
   /** One resolved member of a chain, in load order. A member is served either by
@@ -60,7 +60,7 @@ namespace wowlib::fs::detail {
       Data directory instead of opening standalone. */
   struct ChainMember {
     std::filesystem::path path; /**< The archive file or loose-dir root on disk. */
-    bool is_directory = false; /**< true => loose files, not a StormLib archive. */
+    bool isDirectory = false; /**< true => loose files, not a StormLib archive. */
     bool incremental = false; /**< true => a wow-update patch to attach, not open. */
     std::string prefix; /**< Incremental only: which update group the
                                      member came from ("base" or the locale
@@ -73,7 +73,7 @@ namespace wowlib::fs::detail {
       major.minor.patch.
       @param version the client version to look up.
       @return the spec, or nullptr for versions without a table yet. */
-  const MpqChainSpec* find_chain_spec(const ClientVersion& version);
+  const MpqChainSpec* findChainSpec(const ClientVersion& version);
 
   /** Expand a chain spec against a Data directory into concrete members in load
       order (lowest -> highest priority): the base tier in table order, then the
@@ -93,9 +93,9 @@ namespace wowlib::fs::detail {
       its directory rather than opening it standalone.
 
       @param spec     the version's chain table.
-      @param data_dir the client's Data/ directory.
+      @param dataDir the client's Data/ directory.
       @param locale   the locale used for "{locale}" expansion.
       @return members in load order. */
   Result<std::vector<ChainMember>>
-  expand_chain(const MpqChainSpec& spec, const std::filesystem::path& data_dir, Locale locale);
+  expandChain(const MpqChainSpec& spec, const std::filesystem::path& dataDir, Locale locale);
 }

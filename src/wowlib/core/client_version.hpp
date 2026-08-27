@@ -88,14 +88,14 @@ namespace wowlib {
     [[=welder::getter,
       =welder::doc("Whether this is a Classic-family client: a modern engine "
         "wearing a legacy version number.")]]
-    constexpr bool is_classic() const { return flavor != ClientFlavor::Retail; }
+    constexpr bool isClassic() const { return flavor != ClientFlavor::Retail; }
 
     [[=welder::getter,
       =welder::doc("Which storage technology this client uses: Mpq for pre-WoD "
         "(< 6.0) retail clients, Casc for everything else — every "
         "Classic client is CASC no matter what its version says.")]]
-    constexpr StorageKind storage_kind() const {
-      return !is_classic() && major < 6 ? StorageKind::Mpq : StorageKind::Casc;
+    constexpr StorageKind storageKind() const {
+      return !isClassic() && major < 6 ? StorageKind::Mpq : StorageKind::Casc;
     }
 
     [[=welder::getter,
@@ -109,7 +109,7 @@ namespace wowlib {
           current retail engine, so Cataclysm Classic 4.4.2 (build 60895) lays
           its files out like The War Within, not like Cataclysm. Builds newer
           than the newest release wowlib models clamp to it.)")]]
-    constexpr ClientVersion format_lineage() const;
+    constexpr ClientVersion formatLineage() const;
 
     [[=welder::getter,
       =welder::doc(
@@ -117,7 +117,7 @@ namespace wowlib {
         "('wow', 'wow_classic', 'wow_classic_era', "
         "'wow_anniversary'). PTR, beta and one-off products carry "
         "their own code — pass it to the filesystem explicitly.")]]
-    constexpr std::string_view default_casc_product() const {
+    constexpr std::string_view defaultCascProduct() const {
       switch (flavor) {
       case ClientFlavor::Retail: return "wow";
       case ClientFlavor::Classic: return "wow_classic";
@@ -145,58 +145,58 @@ namespace wowlib {
   versions {
     [[=welder::weld,
       =welder::doc("Vanilla 1.12.1 (build 5875).")]]
-    inline constexpr ClientVersion vanilla{1, 12, 1, 5875};
+    inline constexpr ClientVersion Vanilla{1, 12, 1, 5875};
 
     [[=welder::weld,
       =welder::doc("The Burning Crusade 2.4.3 (build 8606).")]]
-    inline constexpr ClientVersion tbc{2, 4, 3, 8606};
+    inline constexpr ClientVersion Tbc{2, 4, 3, 8606};
 
     [[=welder::weld,
       =welder::doc("Wrath of the Lich King 3.3.5a (build 12340).")]]
-    inline constexpr ClientVersion wotlk{3, 3, 5, 12340};
+    inline constexpr ClientVersion Wotlk{3, 3, 5, 12340};
 
     [[=welder::weld,
       =welder::doc("Cataclysm 4.3.4 (build 15595).")]]
-    inline constexpr ClientVersion cata{4, 3, 4, 15595};
+    inline constexpr ClientVersion Cata{4, 3, 4, 15595};
 
     [[=welder::weld,
       =welder::doc("Mists of Pandaria 5.4.8 (build 18414).")]]
-    inline constexpr ClientVersion mop{5, 4, 8, 18414};
+    inline constexpr ClientVersion Mop{5, 4, 8, 18414};
 
     [[=welder::weld,
       =welder::doc("Warlords of Draenor 6.2.4 (build 21742).")]]
-    inline constexpr ClientVersion wod{6, 2, 4, 21742};
+    inline constexpr ClientVersion Wod{6, 2, 4, 21742};
 
     [[=welder::weld,
       =welder::doc("Legion 7.3.5 (build 26972).")]]
-    inline constexpr ClientVersion legion{7, 3, 5, 26972};
+    inline constexpr ClientVersion Legion{7, 3, 5, 26972};
 
     [[=welder::weld,
       =welder::doc("Battle for Azeroth 8.3.7 (build 35662).")]]
-    inline constexpr ClientVersion bfa{8, 3, 7, 35662};
+    inline constexpr ClientVersion Bfa{8, 3, 7, 35662};
 
     [[=welder::weld,
       =welder::doc("Shadowlands 9.2.7 (build 45745).")]]
-    inline constexpr ClientVersion shadowlands{9, 2, 7, 45745};
+    inline constexpr ClientVersion Shadowlands{9, 2, 7, 45745};
 
     [[=welder::weld,
       =welder::doc("Dragonflight 10.2.7 (build 55664).")]]
-    inline constexpr ClientVersion dragonflight{10, 2, 7, 55664};
+    inline constexpr ClientVersion Dragonflight{10, 2, 7, 55664};
 
     [[=welder::weld,
       =welder::doc("The War Within 11.2.7 (build 65299).")]]
-    inline constexpr ClientVersion tww{11, 2, 7, 65299};
+    inline constexpr ClientVersion Tww{11, 2, 7, 65299};
 
     // --- Classic: legacy version numbers on modern engines -------------------
     //
     // Each is the newest build of its product line as of 2026-08-18. The
-    // format_lineage each maps onto is noted; it follows the build, so bumping
+    // formatLineage each maps onto is noted; it follows the build, so bumping
     // a constant can legitimately move it to a newer engine.
 
     [[=welder::weld,
       =welder::doc("Classic Era 1.15.9 (build 69109) — a Midnight-era client "
         "('wow_classic_era').")]]
-    inline constexpr ClientVersion classic_era{
+    inline constexpr ClientVersion ClassicEra{
       1,
       15,
       9,
@@ -207,7 +207,7 @@ namespace wowlib {
     [[=welder::weld,
       =welder::doc("Burning Crusade Classic 2.5.4 (build 44833) — a "
         "Shadowlands-era client ('wow_classic').")]]
-    inline constexpr ClientVersion classic_bcc{
+    inline constexpr ClientVersion ClassicBcc{
       2,
       5,
       4,
@@ -218,7 +218,7 @@ namespace wowlib {
     [[=welder::weld,
       =welder::doc("Wrath of the Lich King Classic 3.4.5 (build 63697) — a War "
         "Within-era client ('wow_classic').")]]
-    inline constexpr ClientVersion classic_wotlk{
+    inline constexpr ClientVersion ClassicWotlk{
       3,
       4,
       5,
@@ -229,7 +229,7 @@ namespace wowlib {
     [[=welder::weld,
       =welder::doc("Cataclysm Classic 4.4.2 (build 60895) — a War Within-era "
         "client ('wow_classic').")]]
-    inline constexpr ClientVersion classic_cata{
+    inline constexpr ClientVersion ClassicCata{
       4,
       4,
       2,
@@ -240,7 +240,7 @@ namespace wowlib {
     [[=welder::weld,
       =welder::doc("Mists of Pandaria Classic 5.5.4 (build 69155) — a "
         "Midnight-era client ('wow_classic').")]]
-    inline constexpr ClientVersion classic_mop{
+    inline constexpr ClientVersion ClassicMop{
       5,
       5,
       4,
@@ -252,7 +252,7 @@ namespace wowlib {
       =welder::doc(
         "The Anniversary realms 2.5.6 (build 69110) — a Midnight-era "
         "client ('wow_anniversary').")]]
-    inline constexpr ClientVersion anniversary{
+    inline constexpr ClientVersion Anniversary{
       2,
       5,
       6,
@@ -267,7 +267,7 @@ namespace wowlib {
         concurrently built Classic clients fork off it — and the release wowlib
         models the generation with. Ascending by build. */
     struct EngineGeneration {
-      std::uint32_t first_build; /**< First live/PTR build of the retail major. */
+      std::uint32_t firstBuild; /**< First live/PTR build of the retail major. */
       ClientVersion release; /**< The versions constant modelling it. */
     };
 
@@ -279,34 +279,34 @@ namespace wowlib {
         from build 65390) has no format support yet, so 12.x-era Classic builds
         clamp onto The War Within. Adding a Midnight row here and to the format
         grids fixes retail and Classic in one move. */
-    inline constexpr std::array engine_timeline{
-      EngineGeneration{19034, versions::wod},
+    inline constexpr std::array EngineTimeline{
+      EngineGeneration{19034, versions::Wod},
       // 6.0.2 prepatch
-      EngineGeneration{22248, versions::legion},
+      EngineGeneration{22248, versions::Legion},
       // 7.0.3 prepatch
-      EngineGeneration{26926, versions::bfa},
+      EngineGeneration{26926, versions::Bfa},
       // 8.0.1
-      EngineGeneration{35917, versions::shadowlands},
+      EngineGeneration{35917, versions::Shadowlands},
       // 9.0.1
-      EngineGeneration{46181, versions::dragonflight},
+      EngineGeneration{46181, versions::Dragonflight},
       // 10.0.0 prepatch
-      EngineGeneration{55666, versions::tww},
+      EngineGeneration{55666, versions::Tww},
       // 11.0.0 prepatch
     };
   }
 
-  constexpr ClientVersion ClientVersion::format_lineage() const {
-    if (!is_classic())
+  constexpr ClientVersion ClientVersion::formatLineage() const {
+    if (!isClassic())
       return *this;
 
-    ClientVersion out = detail::engine_timeline.front().release;
-    for (const detail::EngineGeneration& generation : detail::engine_timeline)
-      if (generation.first_build <= build)
+    ClientVersion out = detail::EngineTimeline.front().release;
+    for (const detail::EngineGeneration& generation : detail::EngineTimeline)
+      if (generation.firstBuild <= build)
         out = generation.release;
     return out;
   }
 
-  /** Render @a version as "major.minor.patch.build", with the flavor appended
+  /** render @a version as "major.minor.patch.build", with the flavor appended
       when it is not Retail ("1.15.9.69109 (ClassicEra)") — a Classic version is
       unreadable without it, since the tuple alone says nothing about the client.
       Welded as __str__ / __tostring.
@@ -339,16 +339,16 @@ namespace wowlib {
       directory and archive names.
       @param locale the locale.
       @return a static string, never dangling. */
-  std::string_view locale_code(Locale locale);
+  std::string_view localeCode(Locale locale);
 
   /** Parse a four-letter locale code.
       @param code e.g. "enUS" (case-sensitive, client spelling).
       @return the locale, or nullopt if the code is unknown. */
-  std::optional<Locale> locale_from_code(std::string_view code);
+  std::optional<Locale> localeFromCode(std::string_view code);
 
   /** The CASC_LOCALE_* bit of @a locale for CascOpenStorage/CascOpenFile locale
       masks. Values mirror CascLib's CascPort.h so public headers stay CascLib-free.
       @param locale the locale.
       @return a single-bit mask value. */
-  std::uint32_t casc_locale_flag(Locale locale);
+  std::uint32_t cascLocaleFlag(Locale locale);
 }

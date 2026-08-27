@@ -17,24 +17,24 @@ using namespace wowlib::formats;
 
 TEST_CASE("retail versions are their own format lineage", "[version][flavor]")
 {
-  STATIC_CHECK(versions::wotlk.format_lineage() == versions::wotlk);
-  STATIC_CHECK(versions::tww.format_lineage() == versions::tww);
-  STATIC_CHECK_FALSE(versions::wotlk.is_classic());
+  STATIC_CHECK(versions::Wotlk.formatLineage() == versions::Wotlk);
+  STATIC_CHECK(versions::Tww.formatLineage() == versions::Tww);
+  STATIC_CHECK_FALSE(versions::Wotlk.isClassic());
 }
 
 TEST_CASE("classic builds map onto the retail engine that produced them",
           "[version][flavor]")
 {
   // BCC 2.5.4 (build 44833, July 2022) was built on the Shadowlands engine.
-  STATIC_CHECK(versions::classic_bcc.format_lineage() == versions::shadowlands);
+  STATIC_CHECK(versions::ClassicBcc.formatLineage() == versions::Shadowlands);
   // WotLK Classic 3.4.5 and Cata Classic 4.4.2 are War Within-era clients.
-  STATIC_CHECK(versions::classic_wotlk.format_lineage() == versions::tww);
-  STATIC_CHECK(versions::classic_cata.format_lineage() == versions::tww);
+  STATIC_CHECK(versions::ClassicWotlk.formatLineage() == versions::Tww);
+  STATIC_CHECK(versions::ClassicCata.formatLineage() == versions::Tww);
   // Classic Era 1.15.9, MoP Classic 5.5.4 and the Anniversary realms are on the
   // Midnight engine, which wowlib does not model yet — they clamp to TWW.
-  STATIC_CHECK(versions::classic_era.format_lineage() == versions::tww);
-  STATIC_CHECK(versions::classic_mop.format_lineage() == versions::tww);
-  STATIC_CHECK(versions::anniversary.format_lineage() == versions::tww);
+  STATIC_CHECK(versions::ClassicEra.formatLineage() == versions::Tww);
+  STATIC_CHECK(versions::ClassicMop.formatLineage() == versions::Tww);
+  STATIC_CHECK(versions::Anniversary.formatLineage() == versions::Tww);
 }
 
 TEST_CASE("one classic version number can straddle two engines", "[version][flavor]")
@@ -44,10 +44,10 @@ TEST_CASE("one classic version number can straddle two engines", "[version][flav
   // live and the branch had moved with it. Identical version number, different
   // file layouts — which is exactly why the build is the key and the tuple is
   // not.
-  constexpr ClientVersion cata_classic_first{4, 4, 0, 54481, ClientFlavor::Classic};
-  constexpr ClientVersion cata_classic_last{4, 4, 0, 57244, ClientFlavor::Classic};
-  STATIC_CHECK(cata_classic_first.format_lineage() == versions::dragonflight);
-  STATIC_CHECK(cata_classic_last.format_lineage() == versions::tww);
+  constexpr ClientVersion cataClassicFirst{4, 4, 0, 54481, ClientFlavor::Classic};
+  constexpr ClientVersion cataClassicLast{4, 4, 0, 57244, ClientFlavor::Classic};
+  STATIC_CHECK(cataClassicFirst.formatLineage() == versions::Dragonflight);
+  STATIC_CHECK(cataClassicLast.formatLineage() == versions::Tww);
 }
 
 TEST_CASE("a version tuple no expansion ever had still resolves", "[version][flavor]")
@@ -55,38 +55,38 @@ TEST_CASE("a version tuple no expansion ever had still resolves", "[version][fla
   // 'wow_classic_titan' calls itself 3.80.x. Nothing can be read off that
   // tuple; the build places it on the TWW engine all the same.
   constexpr ClientVersion titan{3, 80, 2, 69137, ClientFlavor::Classic};
-  STATIC_CHECK(titan.format_lineage() == versions::tww);
+  STATIC_CHECK(titan.formatLineage() == versions::Tww);
 }
 
 TEST_CASE("every classic client is CASC whatever its version says",
           "[version][flavor]")
 {
-  STATIC_CHECK(versions::classic_era.storage_kind() == StorageKind::Casc);
-  STATIC_CHECK(versions::classic_bcc.storage_kind() == StorageKind::Casc);
-  STATIC_CHECK(versions::classic_wotlk.storage_kind() == StorageKind::Casc);
-  STATIC_CHECK(versions::classic_cata.storage_kind() == StorageKind::Casc);
-  STATIC_CHECK(versions::classic_mop.storage_kind() == StorageKind::Casc);
-  STATIC_CHECK(versions::anniversary.storage_kind() == StorageKind::Casc);
+  STATIC_CHECK(versions::ClassicEra.storageKind() == StorageKind::Casc);
+  STATIC_CHECK(versions::ClassicBcc.storageKind() == StorageKind::Casc);
+  STATIC_CHECK(versions::ClassicWotlk.storageKind() == StorageKind::Casc);
+  STATIC_CHECK(versions::ClassicCata.storageKind() == StorageKind::Casc);
+  STATIC_CHECK(versions::ClassicMop.storageKind() == StorageKind::Casc);
+  STATIC_CHECK(versions::Anniversary.storageKind() == StorageKind::Casc);
   // The retail split is untouched.
-  STATIC_CHECK(versions::mop.storage_kind() == StorageKind::Mpq);
+  STATIC_CHECK(versions::Mop.storageKind() == StorageKind::Mpq);
 }
 
 TEST_CASE("flavors name their default TACT product", "[version][flavor]")
 {
-  STATIC_CHECK(versions::wotlk.default_casc_product() == "wow");
-  STATIC_CHECK(versions::classic_era.default_casc_product() == "wow_classic_era");
-  STATIC_CHECK(versions::classic_cata.default_casc_product() == "wow_classic");
-  STATIC_CHECK(versions::anniversary.default_casc_product() == "wow_anniversary");
+  STATIC_CHECK(versions::Wotlk.defaultCascProduct() == "wow");
+  STATIC_CHECK(versions::ClassicEra.defaultCascProduct() == "wow_classic_era");
+  STATIC_CHECK(versions::ClassicCata.defaultCascProduct() == "wow_classic");
+  STATIC_CHECK(versions::Anniversary.defaultCascProduct() == "wow_anniversary");
 }
 
 TEST_CASE("expansion_of stays the content axis", "[version][flavor][expansion]")
 {
   // Cata Classic IS Cataclysm, content-wise — and writes War Within files.
-  STATIC_CHECK(expansion_of(versions::classic_cata) == Expansion::Cata);
-  STATIC_CHECK(to_expansion(versions::classic_cata.format_lineage())
+  STATIC_CHECK(expansionOf(versions::ClassicCata) == Expansion::Cata);
+  STATIC_CHECK(toExpansion(versions::ClassicCata.formatLineage())
                == Expansion::TheWarWithin);
   // A Classic constant is not an expansion release, so nothing matches it.
-  STATIC_CHECK_FALSE(to_expansion(versions::classic_cata).has_value());
+  STATIC_CHECK_FALSE(toExpansion(versions::ClassicCata).has_value());
 }
 
 TEST_CASE("classic versions canonicalize onto existing retail instantiations",
@@ -94,21 +94,21 @@ TEST_CASE("classic versions canonicalize onto existing retail instantiations",
 {
   // The payoff: every Classic version collapses to a grid version that already
   // exists, so support costs no new template instantiation or welded class.
-  STATIC_CHECK(canonical_version(versions::classic_cata, wmo::wmo_assembly_pivots,
-                                 wmo::wmo_versions)
-               == versions::tww);
-  STATIC_CHECK(canonical_version(versions::classic_bcc, wmo::wmo_assembly_pivots,
-                                 wmo::wmo_versions)
-               == versions::shadowlands);
-  STATIC_CHECK(canonical_version(versions::classic_era, adt::adt_pivots,
-                                 adt::adt_versions)
-               == canonical_version(versions::tww, adt::adt_pivots,
-                                    adt::adt_versions));
+  STATIC_CHECK(canonicalVersion(versions::ClassicCata, wmo::WmoAssemblyPivots,
+                                 wmo::WmoVersions)
+               == versions::Tww);
+  STATIC_CHECK(canonicalVersion(versions::ClassicBcc, wmo::WmoAssemblyPivots,
+                                 wmo::WmoVersions)
+               == versions::Shadowlands);
+  STATIC_CHECK(canonicalVersion(versions::ClassicEra, adt::AdtPivots,
+                                 adt::AdtVersions)
+               == canonicalVersion(versions::Tww, adt::AdtPivots,
+                                    adt::AdtVersions));
   // Same type, not merely the same version value.
-  STATIC_CHECK(std::is_same_v<wmo::WMO<versions::classic_cata>,
-                              wmo::WMO<versions::tww>>);
-  STATIC_CHECK(std::is_same_v<wmo::WMO<versions::classic_bcc>,
-                              wmo::WMO<versions::shadowlands>>);
+  STATIC_CHECK(std::is_same_v<wmo::WMO<versions::ClassicCata>,
+                              wmo::WMO<versions::Tww>>);
+  STATIC_CHECK(std::is_same_v<wmo::WMO<versions::ClassicBcc>,
+                              wmo::WMO<versions::Shadowlands>>);
 }
 
 TEST_CASE("a classic entity gets its engine's chunk set, not its era's",
@@ -116,8 +116,8 @@ TEST_CASE("a classic entity gets its engine's chunk set, not its era's",
 {
   // WMOGroupBody<cata_classic> must be the modern group body: if the 4.4 tuple
   // leaked into the version math it would land on the Cataclysm layout.
-  STATIC_CHECK_FALSE(std::is_same_v<wmo::group::WMOGroupBody<versions::classic_cata>,
-                                    wmo::group::WMOGroupBody<versions::cata>>);
-  STATIC_CHECK(std::is_same_v<wmo::group::WMOGroupBody<versions::classic_cata>,
-                              wmo::group::WMOGroupBody<versions::tww>>);
+  STATIC_CHECK_FALSE(std::is_same_v<wmo::group::WMOGroupBody<versions::ClassicCata>,
+                                    wmo::group::WMOGroupBody<versions::Cata>>);
+  STATIC_CHECK(std::is_same_v<wmo::group::WMOGroupBody<versions::ClassicCata>,
+                              wmo::group::WMOGroupBody<versions::Tww>>);
 }

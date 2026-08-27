@@ -27,10 +27,10 @@ namespace wowlib::formats::wmo::root::chunks {
     std::uint32_t flags = 0;
 
     [[=welder::doc("Group bounding box.")]]
-    CAaBox bounding_box{};
+    CAaBox boundingBox{};
 
     [[=welder::doc("Byte offset of the group name in MOGN, -1 for no name.")]]
-    std::int32_t name_offset = -1;
+    std::int32_t nameOffset = -1;
   };
 
   static_assert(sizeof(SMOGroupInfo) == 0x20);
@@ -45,7 +45,7 @@ namespace wowlib::formats::wmo::root::chunks {
     std::uint32_t flags2 = 0;
 
     [[=welder::doc("Which LOD level this group belongs to.")]]
-    std::uint32_t lod_index = 0;
+    std::uint32_t lodIndex = 0;
   };
 
   static_assert(sizeof(GroupInfo2) == 0x8);
@@ -57,7 +57,7 @@ namespace wowlib::formats::wmo::root::chunks {
       =welder::doc("One MOPT portal: a polygon plane separating two groups.")
     ]] SMOPortal {
     [[=welder::doc("First vertex in MOPV.")]]
-    std::uint16_t start_vertex = 0;
+    std::uint16_t startVertex = 0;
 
     [[=welder::doc("Vertex count.")]]
     std::uint16_t count = 0;
@@ -75,10 +75,10 @@ namespace wowlib::formats::wmo::root::chunks {
         "on the other side.")
     ]] SMOPortalRef {
     [[=welder::doc("Index into MOPT.")]]
-    std::uint16_t portal_index = 0;
+    std::uint16_t portalIndex = 0;
 
     [[=welder::doc("The group on the other side of the portal.")]]
-    std::uint16_t group_index = 0;
+    std::uint16_t groupIndex = 0;
 
     [[=welder::doc("Which side of the portal plane this reference looks from.")]
     ]
@@ -96,16 +96,16 @@ namespace wowlib::formats::wmo::root::chunks {
         "One MOPE entry (11.1+): portal extra data; largely undeciphered.")
     ]] PortalExtra {
     [[=welder::doc("Index into MOPT; seems to match MOPR values.")]]
-    std::uint32_t portal_index = 0;
+    std::uint32_t portalIndex = 0;
 
     [[=welder::doc("Unknown; preserved for round-trip.")]]
-    std::uint32_t unknown_1 = 0;
+    std::uint32_t unknown1 = 0;
 
     [[=welder::doc("Unknown; preserved for round-trip.")]]
-    std::uint32_t unknown_2 = 0;
+    std::uint32_t unknown2 = 0;
 
     [[=welder::doc("Unknown; preserved for round-trip.")]]
-    std::uint32_t unknown_3 = 0;
+    std::uint32_t unknown3 = 0;
   };
 
   static_assert(sizeof(PortalExtra) == 0x10);
@@ -115,7 +115,7 @@ namespace wowlib::formats::wmo::root::chunks {
       =welder::doc("One MOVB visible block: a vertex range in MOVV.")
     ]] SMOVisibleBlock {
     [[=welder::doc("First vertex in MOVV.")]]
-    std::uint16_t first_vertex = 0;
+    std::uint16_t firstVertex = 0;
 
     [[=welder::doc("Vertex count.")]]
     std::uint16_t count = 0;

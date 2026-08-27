@@ -22,7 +22,7 @@ namespace wowlib::formats::wmo::group::chunks {
       =welder::doc("One MOLP point light (Legion+).")
     ]] PointLight {
     [[=welder::doc("Unknown; preserved for round-trip.")]]
-    std::uint32_t unknown_1 = 0;
+    std::uint32_t unknown1 = 0;
 
     [[=welder::doc("Light color.")]]
     CImVector color{};
@@ -34,19 +34,19 @@ namespace wowlib::formats::wmo::group::chunks {
     float intensity = 0;
 
     [[=welder::doc("Attenuation start distance.")]]
-    float atten_start = 0;
+    float attenStart = 0;
 
     [[=welder::doc("Attenuation end distance.")]]
-    float atten_end = 0;
+    float attenEnd = 0;
 
     [[=welder::doc("Unknown; only zeros observed.")]]
-    float unknown_2 = 0;
+    float unknown2 = 0;
 
     [[=welder::doc("Unknown; preserved for round-trip.")]]
-    std::uint32_t unknown_3 = 0;
+    std::uint32_t unknown3 = 0;
 
     [[=welder::doc("Unknown; possibly a color.")]]
-    std::uint32_t unknown_4 = 0;
+    std::uint32_t unknown4 = 0;
   };
 
   static_assert(sizeof(PointLight) == 0x2C);
@@ -74,7 +74,7 @@ namespace wowlib::formats::wmo::group::chunks {
         "and light-cookie texture data.")
     ]] PointLightAnim {
     [[=welder::doc("Index of the light this animation belongs to.")]]
-    std::uint32_t light_index = 0;
+    std::uint32_t lightIndex = 0;
 
     [[=welder::doc("Light color.")]]
     CImVector color{};
@@ -83,10 +83,10 @@ namespace wowlib::formats::wmo::group::chunks {
     C3Vector position{};
 
     [[=welder::doc("Attenuation start distance.")]]
-    float atten_start = 0;
+    float attenStart = 0;
 
     [[=welder::doc("Attenuation end distance.")]]
-    float atten_end = 0;
+    float attenEnd = 0;
 
     [[=welder::doc("Intensity.")]]
     float intensity = 0;
@@ -95,23 +95,23 @@ namespace wowlib::formats::wmo::group::chunks {
     C3Vector rotation{};
 
     [[=welder::doc("Flickering intensity.")]]
-    float flicker_intensity = 0;
+    float flickerIntensity = 0;
 
     [[=welder::doc("Flickering speed.")]]
-    float flicker_speed = 0;
+    float flickerSpeed = 0;
 
     [[=welder::doc("0 = off, 1 = sine curve, 2 = noise curve, 3 = noise step.")]
     ]
-    std::int32_t flicker_mode = 0;
+    std::int32_t flickerMode = 0;
 
     /** Undeciphered leading fields of the trailing record. */
     [[=welder::mark::exclude]] std::array<std::int32_t, 4> unknown{};
 
     [[=welder::doc("FileDataID of the light cookie texture.")]]
-    std::uint32_t light_texture_fdid = 0;
+    std::uint32_t lightTextureFdid = 0;
 
     /** Undeciphered trailing fields; only the texture id is read. */
-    [[=welder::mark::exclude]] std::array<std::int32_t, 5> unknown_2{};
+    [[=welder::mark::exclude]] std::array<std::int32_t, 5> unknown2{};
   };
 
   static_assert(sizeof(PointLightAnim) == 0x60);

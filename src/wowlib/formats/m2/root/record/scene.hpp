@@ -98,7 +98,7 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Relative to the bone, typically its pivot.")]]
       C3Vector position{};
       [[=welder::doc("Bool track: animate the attached model.")]]
-      record::M2Track<std::uint8_t, V> animate_attached{};
+      record::M2Track<std::uint8_t, V> animateAttached{};
 
       bool operator==(const M2Attachment&) const = default;
     };
@@ -137,17 +137,17 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Relative to the bone, if any.")]]
       C3Vector position{};
       [[=welder::doc("RGB ambient color (no alpha).")]]
-      record::M2Track<C3Vector, V> ambient_color{};
+      record::M2Track<C3Vector, V> ambientColor{};
       [[=welder::doc("Multiplies the ambient color; defaults to 1.0.")]]
-      record::M2Track<float, V> ambient_intensity{};
+      record::M2Track<float, V> ambientIntensity{};
       [[=welder::doc("RGB diffuse color (no alpha).")]]
-      record::M2Track<C3Vector, V> diffuse_color{};
+      record::M2Track<C3Vector, V> diffuseColor{};
       [[=welder::doc("Multiplies the diffuse color; defaults to 1.0.")]]
-      record::M2Track<float, V> diffuse_intensity{};
+      record::M2Track<float, V> diffuseIntensity{};
       [[=welder::doc("Distance where attenuation begins.")]]
-      record::M2Track<float, V> attenuation_start{};
+      record::M2Track<float, V> attenuationStart{};
       [[=welder::doc("Distance where the light fades out entirely.")]]
-      record::M2Track<float, V> attenuation_end{};
+      record::M2Track<float, V> attenuationEnd{};
       [[=welder::doc("Bool track: the light is enabled.")]]
       record::M2Track<std::uint8_t, V> visibility{};
 
@@ -157,7 +157,7 @@ namespace wowlib::formats::m2::root::record {
     template <ClientVersion V>
     struct M2Camera;
 
-    template <ClientVersion V> requires (V < m2_multitex_particles)
+    template <ClientVersion V> requires (V < M2MultitexParticles)
     struct [[
         =welder::weld,
         =welder::doc("A camera, pre-Cata layout: a static diagonal FOV plus "
@@ -168,19 +168,19 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Diagonal field of view, radians.")]]
       float fov = 0;
       [[=welder::doc("Far clip distance.")]]
-      float far_clip = 0;
+      float farClip = 0;
       [[=welder::doc("Near clip distance.")]]
-      float near_clip = 0;
+      float nearClip = 0;
       [[=welder::doc("Spline track moving the camera, one spline per segment.")]
       ]
       record::M2Track<M2SplineKey<C3Vector>, V> positions{};
       [[=welder::doc("Pivot point the position splines are relative to.")]]
-      C3Vector position_base{};
+      C3Vector positionBase{};
       [[=welder::doc("Spline track moving the look-at target, one spline per "
         "segment.")]]
-      record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
+      record::M2Track<M2SplineKey<C3Vector>, V> targetPosition{};
       [[=welder::doc("Pivot point the target splines are relative to.")]]
-      C3Vector target_position_base{};
+      C3Vector targetPositionBase{};
       [[=welder::doc("0 .. 2*pi.")]]
       record::M2Track<M2SplineKey<float>, V> roll{};
 
@@ -188,7 +188,7 @@ namespace wowlib::formats::m2::root::record {
     };
 
     template <ClientVersion V>
-      requires (V >= m2_multitex_particles)
+      requires (V >= M2MultitexParticles)
     struct [[
         =welder::weld,
         =welder::doc(
@@ -197,19 +197,19 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("0 portrait, 1 character info, -1 flyby.")]]
       std::uint32_t type = 0;
       [[=welder::doc("Far clip distance.")]]
-      float far_clip = 0;
+      float farClip = 0;
       [[=welder::doc("Near clip distance.")]]
-      float near_clip = 0;
+      float nearClip = 0;
       [[=welder::doc("Spline track moving the camera, one spline per segment.")]
       ]
       record::M2Track<M2SplineKey<C3Vector>, V> positions{};
       [[=welder::doc("Pivot point the position splines are relative to.")]]
-      C3Vector position_base{};
+      C3Vector positionBase{};
       [[=welder::doc("Spline track moving the look-at target, one spline per "
         "segment.")]]
-      record::M2Track<M2SplineKey<C3Vector>, V> target_position{};
+      record::M2Track<M2SplineKey<C3Vector>, V> targetPosition{};
       [[=welder::doc("Pivot point the target splines are relative to.")]]
-      C3Vector target_position_base{};
+      C3Vector targetPositionBase{};
       [[=welder::doc("0 .. 2*pi.")]]
       record::M2Track<M2SplineKey<float>, V> roll{};
       [[=welder::doc("Diagonal field of view, radians.")]]
@@ -220,18 +220,18 @@ namespace wowlib::formats::m2::root::record {
   }
 
   // The canonicalizing faces. Attachments, events and lights vary only with
-  // the embedded track era (m2_track_pivots); the camera also trades its
-  // static FoV for a spline track at Cata (m2_camera_pivots).
+  // the embedded track era (M2TrackPivots); the camera also trades its
+  // static FoV for a spline track at Cata (M2CameraPivots).
   template <ClientVersion V>
   using M2Attachment =
-  detail::M2Attachment<canonical_version(V, m2_track_pivots, m2_versions)>;
+  detail::M2Attachment<canonicalVersion(V, M2TrackPivots, M2Versions)>;
   template <ClientVersion V>
-  using M2Event = detail::M2Event<canonical_version(
-    V, m2_track_pivots, m2_versions)>;
+  using M2Event = detail::M2Event<canonicalVersion(
+    V, M2TrackPivots, M2Versions)>;
   template <ClientVersion V>
-  using M2Light = detail::M2Light<canonical_version(
-    V, m2_track_pivots, m2_versions)>;
+  using M2Light = detail::M2Light<canonicalVersion(
+    V, M2TrackPivots, M2Versions)>;
   template <ClientVersion V>
   using M2Camera =
-  detail::M2Camera<canonical_version(V, m2_camera_pivots, m2_versions)>;
+  detail::M2Camera<canonicalVersion(V, M2CameraPivots, M2Versions)>;
 }

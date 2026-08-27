@@ -13,13 +13,13 @@
     accumulating into the same MapChunk across files; a pre-Cata tile is one
     monolithic file carrying every sub-chunk.
 
-    Its sub-chunk members still carry the same `chunk()` + `in_file()` annotations
+    Its sub-chunk members still carry the same `chunk()` + `inFile()` annotations
     the tile-level ADT chunks do, so read_from/write_to are REFLECTION-DRIVEN: a
     `template for` over the members matches the fourcc and routes by physical file.
     The UNIFORM sub-chunks (plain vectors / the SelfSerializing MCLQ) transfer
-    through the chunk engine's read_value/write_value; the ones that break the
+    through the chunk engine's readValue/writeValue; the ones that break the
     member mapping (MCNR padding, MCLY, MCAL codec, MCSH codec) carry a
-    `serialized_by<Codec>()` annotation naming a MapChunk-context codec. MCRF (one
+    `serializedBy<Codec>()` annotation naming a MapChunk-context codec. MCRF (one
     chunk, two members) and the derived 128-byte header are the only hand-written
     cases — the MCNK analogue of ADT's MCNK/MHDR.
 
@@ -77,41 +77,41 @@ namespace wowlib::formats::adt {
         `tex0` / `obj0` / `obj1` / `lod` split files. wowlib presents one unified
         ADT regardless; this only surfaces in the low-level split-file API.)")
     ]] FileKind : std::uint8_t {
-    monolithic [[=welder::doc("The single pre-Cataclysm .adt (every chunk).")]] = 0,
-    root [[=welder::doc(
+    Monolithic [[=welder::doc("The single pre-Cataclysm .adt (every chunk).")]] = 0,
+    Root [[=welder::doc(
       "The Cata+ root .adt (terrain heights/normals/colors, liquid, "
       "sounds).")]] = 1,
-    tex0 [[=welder::doc(
+    Tex0 [[=welder::doc(
       "The Cata+ _tex0.adt (texture layers, alpha/shadow maps, "
       "materials).")]] = 2,
-    obj0 [[=welder::doc("The Cata+ _obj0.adt (doodad/object references and "
+    Obj0 [[=welder::doc("The Cata+ _obj0.adt (doodad/object references and "
       "placements).")]] = 3,
-    obj1 [[=
+    Obj1 [[=
       welder::doc("The Cata+ _obj1.adt (level-of-detail object placements).")]]
     = 4,
-    lod [[=welder::doc(
+    Lod [[=welder::doc(
       "The Legion+ _lod.adt (low-detail geometry and liquids).")]] = 5
   };
 
   /** The physical-file group a binary chunk (tile-level or MCNK sub-chunk) is routed
       to on write; the monolithic file carries every group. Used by both ADT tile
-      chunks and MapChunk sub-chunks via the `in_file()` annotation. */
+      chunks and MapChunk sub-chunks via the `inFile()` annotation. */
   enum class InFile : std::uint8_t {
-    root, /**< The root .adt (header, terrain, water, sounds, flying bounds). */
-    tex, /**< The _tex0.adt (textures, layers, alpha/shadow maps, materials). */
-    obj /**< The _obj0.adt (model/WMO names, placements, references). */
+    Root, /**< The root .adt (header, terrain, water, sounds, flying bounds). */
+    Tex, /**< The _tex0.adt (textures, layers, alpha/shadow maps, materials). */
+    Obj /**< The _obj0.adt (model/WMO names, placements, references). */
   };
 
   namespace detail {
-    /** Stored form of an `in_file` annotation: a binary chunk's physical-file group. */
-    struct in_file_spec {
+    /** Stored form of an `inFile` annotation: a binary chunk's physical-file group. */
+    struct InFileSpec {
       InFile file;
     };
 
-    /** Stored form of a `serialized_by` annotation: the reflection of a codec type
-        handling a sub-chunk that a plain read_value/write_value cannot (external
+    /** Stored form of a `serializedBy` annotation: the reflection of a codec type
+        handling a sub-chunk that a plain readValue/writeValue cannot (external
         length, a transform, or a companion member). */
-    struct serializer_spec {
+    struct SerializerSpec {
       std::meta::info codec;
     };
   }
@@ -120,14 +120,14 @@ namespace wowlib::formats::adt {
       (the monolithic file carries every group).
       @param file the physical-file group.
       @return the annotation payload. */
-  consteval detail::in_file_spec in_file(InFile file) { return {file}; }
+  consteval detail::InFileSpec inFile(InFile file) { return {file}; }
 
   /** Annotate a sub-chunk member with a MapChunk-context codec (a struct with
       static `read(self, span, ReadCtx)` / `write(self, out, WriteCtx)` /
       `engaged(self, WriteCtx)` templates) instead of the default uniform transfer.
       @param codec the reflection of the codec type, e.g. `^^AlphaCodec`.
       @return the annotation payload. */
-  consteval detail::serializer_spec serialized_by(std::meta::info codec) {
+  consteval detail::SerializerSpec serializedBy(std::meta::info codec) {
     return {codec};
   }
 
@@ -136,12 +136,12 @@ namespace wowlib::formats::adt {
       @param file the member's routing group.
       @param kind the physical file being read/written.
       @return whether the member participates. */
-  constexpr bool routes_to(InFile file, FileKind kind) {
+  constexpr bool routesTo(InFile file, FileKind kind) {
     switch (kind) {
-    case FileKind::monolithic: return true;
-    case FileKind::root: return file == InFile::root;
-    case FileKind::tex0: return file == InFile::tex;
-    case FileKind::obj0: return file == InFile::obj;
+    case FileKind::Monolithic: return true;
+    case FileKind::Root: return file == InFile::Root;
+    case FileKind::Tex0: return file == InFile::Tex;
+    case FileKind::Obj0: return file == InFile::Obj;
     default: return false;
     }
   }
@@ -150,8 +150,8 @@ namespace wowlib::formats::adt {
       the pre-Cata monolithic file).
       @param kind the physical file.
       @return true for the monolithic and root files. */
-  constexpr bool file_has_header(FileKind kind) {
-    return kind == FileKind::monolithic || kind == FileKind::root;
+  constexpr bool fileHasHeader(FileKind kind) {
+    return kind == FileKind::Monolithic || kind == FileKind::Root;
   }
 
   /** The version-agnostic base of every MapChunk<V> (welded as "MapChunk"): the
@@ -160,7 +160,7 @@ namespace wowlib::formats::adt {
   struct [[
       =welder::weld,
       =welder::weld_as("MapChunk"),
-  WOWLIB_CS_FAMILY_SURFACE
+      WOWLIB_CS_FAMILY_SURFACE
       =welder::doc(R"(
         A terrain chunk (MCNK), abstract over the client version. Usually obtained
         from ADT.chunks rather than constructed; the per-version MapChunk* classes
@@ -170,7 +170,7 @@ namespace wowlib::formats::adt {
 
   namespace detail {
     /** The 9x9 + 8x8 = 145 vertices of the MCVT height / MCNR normal grid. */
-    inline constexpr std::size_t mcvt_count = 145;
+    inline constexpr std::size_t McvtCount = 145;
 
     /** Context a sub-chunk codec needs to read one MCNK sub-chunk: the (already
         parsed) header, the sibling texture layers (MCAL indexes them), the tile
@@ -184,16 +184,16 @@ namespace wowlib::formats::adt {
     };
 
     /** Context a sub-chunk codec needs to write one MCNK sub-chunk. The alpha
-        layout is pre-built once (MCLY must emit each layer's offset_in_mcal, which
+        layout is pre-built once (MCLY must emit each layer's offsetInMcal, which
         MCAL computes) into these two fields; the layer/alpha codecs read them. */
     struct MapChunkWriteCtx {
-      const std::vector<SMLayer>& stamped_layers;
-      // layers with offset_in_mcal set
-      std::span<const std::byte> alpha_blob; // the pre-encoded MCAL blob
+      const std::vector<SMLayer>& stampedLayers;
+      // layers with offsetInMcal set
+      std::span<const std::byte> alphaBlob; // the pre-encoded MCAL blob
     };
 
     /** Append @a n raw bytes at @a p to @a out (a byte-copy primitive). */
-    inline void append_bytes(FileBuffer& out, const void* p, std::size_t n) {
+    inline void appendBytes(FileBuffer& out, const void* p, std::size_t n) {
       const auto* b = static_cast<const std::byte*>(p);
       out.insert(out.end(), b, b + n);
     }
@@ -203,17 +203,17 @@ namespace wowlib::formats::adt {
     struct NormalCodec {
       template <typename Chunk>
       static Result<void> read(Chunk& self, std::span<const std::byte> sub, const MapChunkReadCtx&) {
-        self.normals.resize(mcvt_count);
-        std::memcpy(self.normals.data(), sub.data(), std::min(sub.size(), mcvt_count * 3));
-        if (sub.size() >= mcvt_count * 3 + 13)
-          std::memcpy(self.mcnr_padding.data(), sub.data() + mcvt_count * 3, 13);
+        self.normals.resize(McvtCount);
+        std::memcpy(self.normals.data(), sub.data(), std::min(sub.size(), McvtCount * 3));
+        if (sub.size() >= McvtCount * 3 + 13)
+          std::memcpy(self.mcnrPadding.data(), sub.data() + McvtCount * 3, 13);
         return {};
       }
 
       template <typename Chunk>
       static void write(const Chunk& self, FileBuffer& out, const MapChunkWriteCtx&) {
-        append_bytes(out, self.normals.data(), self.normals.size() * 3);
-        append_bytes(out, self.mcnr_padding.data(), 13);
+        appendBytes(out, self.normals.data(), self.normals.size() * 3);
+        appendBytes(out, self.mcnrPadding.data(), 13);
       }
 
       template <typename Chunk>
@@ -222,21 +222,21 @@ namespace wowlib::formats::adt {
       }
     };
 
-    /** MCLY codec: the texture layers, plus sizing alpha_maps to the layer count
-        (MCAL may be absent on Cata+ when empty, so alpha_maps must be sized here
+    /** MCLY codec: the texture layers, plus sizing alphaMaps to the layer count
+        (MCAL may be absent on Cata+ when empty, so alphaMaps must be sized here
         to keep it aligned with layers). */
     struct LayerCodec {
       template <typename Chunk>
       static Result<void> read(Chunk& self, std::span<const std::byte> sub, const MapChunkReadCtx&) {
         self.layers.resize(sub.size() / 16);
         std::memcpy(self.layers.data(), sub.data(), self.layers.size() * 16);
-        self.alpha_maps.assign(self.layers.size(), {});
+        self.alphaMaps.assign(self.layers.size(), {});
         return {};
       }
 
       template <typename Chunk>
       static void write(const Chunk&, FileBuffer& out, const MapChunkWriteCtx& ctx) {
-        append_bytes(out, ctx.stamped_layers.data(), ctx.stamped_layers.size() * 16);
+        appendBytes(out, ctx.stampedLayers.data(), ctx.stampedLayers.size() * 16);
       }
 
       template <typename Chunk>
@@ -246,27 +246,27 @@ namespace wowlib::formats::adt {
     };
 
     /** MCAL codec: decode/encode the per-layer 64x64 alpha maps through
-        AlphaMapCodec, indexing the sibling layers' flags + offset_in_mcal. */
+        AlphaMapCodec, indexing the sibling layers' flags + offsetInMcal. */
     struct AlphaCodec {
       template <typename Chunk>
       static Result<void> read(Chunk& self, std::span<const std::byte> sub, const MapChunkReadCtx& ctx) {
-        if (self.alpha_maps.size() != self.layers.size()) self.alpha_maps.resize(self.layers.size());
+        if (self.alphaMaps.size() != self.layers.size()) self.alphaMaps.resize(self.layers.size());
         const AlphaMapCodec codec{ctx.af};
-        for (auto&& [layer, out_map] : std::views::zip(self.layers, self.alpha_maps)) {
-          if (!has_flag(layer.flags, LayerFlags::use_alpha_map)) continue;
-          if (layer.offset_in_mcal > sub.size()) continue;
-          const bool compressed = has_flag(layer.flags, LayerFlags::alpha_map_compressed);
-          out_map = codec.decode(sub.subspan(layer.offset_in_mcal), compressed, ctx.fix);
+        for (auto&& [layer, out_map] : std::views::zip(self.layers, self.alphaMaps)) {
+          if (!hasFlag(layer.flags, LayerFlags::UseAlphaMap)) continue;
+          if (layer.offsetInMcal > sub.size()) continue;
+          const bool compressed = hasFlag(layer.flags, LayerFlags::AlphaMapCompressed);
+          out_map = codec.decode(sub.subspan(layer.offsetInMcal), compressed, ctx.fix);
         }
         return {};
       }
 
       /** Build the MCAL blob and the layers copy carrying each layer's derived
-          offset_in_mcal (MCLY emits that copy). Called once before the write walk.
+          offsetInMcal (MCLY emits that copy). Called once before the write walk.
           @param self    the chunk.
           @param af      the tile alpha bit depth.
           @param blob    receives the encoded MCAL bytes.
-          @param stamped receives the layers with offset_in_mcal stamped. */
+          @param stamped receives the layers with offsetInMcal stamped. */
       template <typename Chunk>
       static void prepare(const Chunk& self,
                           AlphaFormat af,
@@ -275,24 +275,24 @@ namespace wowlib::formats::adt {
         stamped = self.layers;
         const AlphaMapCodec codec{af};
         for (std::size_t i = 0; i < stamped.size(); ++i) {
-          const bool has = i < self.alpha_maps.size() && !self.alpha_maps[i].empty() && has_flag(
-            stamped[i].flags, LayerFlags::use_alpha_map);
-          stamped[i].offset_in_mcal = static_cast<std::uint32_t>(blob.size());
+          const bool has = i < self.alphaMaps.size() && !self.alphaMaps[i].empty() && hasFlag(
+            stamped[i].flags, LayerFlags::UseAlphaMap);
+          stamped[i].offsetInMcal = static_cast<std::uint32_t>(blob.size());
           if (!has) continue;
-          codec.encode(self.alpha_maps[i], has_flag(stamped[i].flags, LayerFlags::alpha_map_compressed), blob);
+          codec.encode(self.alphaMaps[i], hasFlag(stamped[i].flags, LayerFlags::AlphaMapCompressed), blob);
         }
       }
 
       template <typename Chunk>
       static void write(const Chunk&, FileBuffer& out, const MapChunkWriteCtx& ctx) {
-        append_bytes(out, ctx.alpha_blob.data(), ctx.alpha_blob.size());
+        appendBytes(out, ctx.alphaBlob.data(), ctx.alphaBlob.size());
       }
 
       template <typename Chunk>
       static bool engaged(const Chunk&, const MapChunkWriteCtx& ctx) {
         // MCAL is omitted when no layer carries a map (most chunks): emitting an
-        // empty one would round-trip a no-MCAL chunk to a 1-entry alpha_maps.
-        return !ctx.alpha_blob.empty();
+        // empty one would round-trip a no-MCAL chunk to a 1-entry alphaMaps.
+        return !ctx.alphaBlob.empty();
       }
     };
 
@@ -300,65 +300,65 @@ namespace wowlib::formats::adt {
     struct ShadowCodec {
       template <typename Chunk>
       static Result<void> read(Chunk& self, std::span<const std::byte> sub, const MapChunkReadCtx& ctx) {
-        self.shadow_map = ShadowMapCodec{}.decode(sub, ctx.fix);
+        self.shadowMap = ShadowMapCodec{}.decode(sub, ctx.fix);
         return {};
       }
 
       template <typename Chunk>
       static void write(const Chunk& self, FileBuffer& out, const MapChunkWriteCtx&) {
         std::vector<std::byte> packed;
-        ShadowMapCodec{}.encode(self.shadow_map, packed);
-        append_bytes(out, packed.data(), packed.size());
+        ShadowMapCodec{}.encode(self.shadowMap, packed);
+        appendBytes(out, packed.data(), packed.size());
       }
 
       template <typename Chunk>
       static bool engaged(const Chunk& self, const MapChunkWriteCtx&) {
-        return !self.shadow_map.empty();
+        return !self.shadowMap.empty();
       }
     };
 
     /** MCSE codec: typed emitter records — the era picks the entry
         (pre-WotLK 52-byte CWSoundEmitterVanilla, 28-byte CWSoundEmitter
         after; the member's value_type carries the choice). A payload that is
-        not a whole number of entries is preserved verbatim in mcse_raw. */
+        not a whole number of entries is preserved verbatim in mcseRaw. */
     struct SoundEmitterCodec {
       template <typename Chunk>
       static Result<void> read(Chunk& self, std::span<const std::byte> sub, const MapChunkReadCtx&) {
-        using Entry = std::remove_cvref_t<decltype(self.sound_emitters )>::value_type;
+        using Entry = std::remove_cvref_t<decltype(self.soundEmitters )>::value_type;
         if (sub.size() % sizeof(Entry) == 0) {
-          self.sound_emitters.resize(sub.size() / sizeof(Entry));
-          std::memcpy(self.sound_emitters.data(), sub.data(), sub.size());
+          self.soundEmitters.resize(sub.size() / sizeof(Entry));
+          std::memcpy(self.soundEmitters.data(), sub.data(), sub.size());
           return {};
         }
-        return self.mcse_raw.read(sub);
+        return self.mcseRaw.read(sub);
       }
 
       template <typename Chunk>
       static void write(const Chunk& self, FileBuffer& out, const MapChunkWriteCtx&) {
-        using Entry = std::remove_cvref_t<decltype(self.sound_emitters )>::value_type;
-        if (!self.mcse_raw.empty()) {
-          (void)self.mcse_raw.write(out);
+        using Entry = std::remove_cvref_t<decltype(self.soundEmitters )>::value_type;
+        if (!self.mcseRaw.empty()) {
+          (void)self.mcseRaw.write(out);
           return;
         }
-        append_bytes(out, self.sound_emitters.data(), self.sound_emitters.size() * sizeof(Entry));
+        appendBytes(out, self.soundEmitters.data(), self.soundEmitters.size() * sizeof(Entry));
       }
 
       template <typename Chunk>
       static bool engaged(const Chunk& self, const MapChunkWriteCtx&) {
-        return !self.sound_emitters.empty() || !self.mcse_raw.empty();
+        return !self.soundEmitters.empty() || !self.mcseRaw.empty();
       }
     };
 
     /** Vertex colors (MCCV), WotLK+. */
     struct MapChunkColor {
       [[=chunk("MCCV"),
-        =in_file(InFile::root),
-        =formats::count_exactly(mcvt_count),
+        =inFile(InFile::Root),
+        =formats::countExactly(McvtCount),
         =welder::doc(
           "Per-vertex colors (MCCV, WotLK+): 145 BGRA entries blended onto the "
           "terrain (0x7F = neutral)."),
         =welder::mark::no_reassign]]
-      std::vector<CImVector> vertex_colors;
+      std::vector<CImVector> vertexColors;
 
       [[=welder::mark::exclude]]
 
@@ -368,19 +368,19 @@ namespace wowlib::formats::adt {
     /** Vertex lighting (MCLV) and terrain materials (MCMT), Cata+. */
     struct MapChunkCata {
       [[=chunk("MCLV"),
-        =in_file(InFile::root),
-        =formats::count_exactly(mcvt_count),
+        =inFile(InFile::Root),
+        =formats::countExactly(McvtCount),
         =welder::doc(
           "Per-vertex baked lighting (MCLV, Cata+): 145 ARGB entries from "
           "level-designer omni lights."),
         =welder::mark::no_reassign]]
-      std::vector<CArgb> vertex_lighting;
+      std::vector<CArgb> vertexLighting;
 
       [[=chunk("MCMT"),
-        =in_file(InFile::tex),
+        =inFile(InFile::Tex),
         =welder::doc("Per-layer terrain material ids (MCMT, Cata+)."),
         =welder::mark::no_reassign]]
-      std::vector<SMTerrainMaterial> material_ids;
+      std::vector<SMTerrainMaterial> materialIds;
 
       [[=welder::mark::exclude]]
 
@@ -391,10 +391,10 @@ namespace wowlib::formats::adt {
         supersedes it, but Outland tiles keep shipping MCLQ in WotLK clients). */
     struct MapChunkLegacyLiquid {
       [[=chunk("MCLQ"),
-        =in_file(InFile::root),
+        =inFile(InFile::Root),
         =welder::doc(
           "The legacy per-chunk liquid (MCLQ, up to and including WotLK).")]]
-      MCLQData legacy_liquid{};
+      MCLQData legacyLiquid{};
 
       [[=welder::mark::exclude]]
 
@@ -418,25 +418,25 @@ namespace wowlib::formats::adt {
           byte-identical. See https://wowdev.wiki/ADT/v18#MCNK_chunk.)")
       ]] MapChunk
       : MapChunkBase,
-        slot<V, builds::WotLK, MapChunkColor>,
-        slot<V, builds::Cata, MapChunkCata>,
-        slot<V, ClientVersion{0, 0, 0, 0}, MapChunkLegacyLiquid, builds::Cata> {
-      static constexpr ClientVersion version = V;
+        Slot<V, builds::WotLK, MapChunkColor>,
+        Slot<V, builds::Cata, MapChunkCata>,
+        Slot<V, ClientVersion{0, 0, 0, 0}, MapChunkLegacyLiquid, builds::Cata> {
+      static constexpr ClientVersion Version = V;
 
       /** The canonical sub-chunk write order (excluding the references, which are
           the MCRF-vs-MCRD/MCRW special case, emitted last). Each physical file
           emits the subset routed to it, in this order — see write_to. */
-      static constexpr std::array sub_chunk_order{
-        four_cc("MCVT"),
-        four_cc("MCCV"),
-        four_cc("MCLV"),
-        four_cc("MCNR"),
-        four_cc("MCLQ"),
-        four_cc("MCSE"),
-        four_cc("MCLY"),
-        four_cc("MCSH"),
-        four_cc("MCAL"),
-        four_cc("MCMT")
+      static constexpr std::array SubChunkOrder{
+        fourCc("MCVT"),
+        fourCc("MCCV"),
+        fourCc("MCLV"),
+        fourCc("MCNR"),
+        fourCc("MCLQ"),
+        fourCc("MCSE"),
+        fourCc("MCLY"),
+        fourCc("MCSH"),
+        fourCc("MCAL"),
+        fourCc("MCMT")
       };
 
       [[=welder::doc(
@@ -444,8 +444,8 @@ namespace wowlib::formats::adt {
       SMChunk header{};
 
       [[=chunk("MCVT"),
-        =in_file(InFile::root),
-        =formats::count_exactly(detail::mcvt_count),
+        =inFile(InFile::Root),
+        =formats::countExactly(detail::McvtCount),
         =welder::doc(
           "The 9x9 + 8x8 = 145 terrain heights (MCVT), relative to the chunk "
           "origin, in the interleaved outer/inner row order."),
@@ -453,16 +453,16 @@ namespace wowlib::formats::adt {
       std::vector<float> heights;
 
       [[=chunk("MCNR"),
-        =in_file(InFile::root),
-        =serialized_by(^^detail::NormalCodec),
-        =formats::count_exactly(detail::mcvt_count),
+        =inFile(InFile::Root),
+        =serializedBy(^^detail::NormalCodec),
+        =formats::countExactly(detail::McvtCount),
         =welder::doc("The 145 terrain normals (MCNR), X Z Y signed bytes."),
         =welder::mark::no_reassign]]
       std::vector<MCNREntry> normals;
 
       [[=chunk("MCLY"),
-        =in_file(InFile::tex),
-        =serialized_by(^^detail::LayerCodec),
+        =inFile(InFile::Tex),
+        =serializedBy(^^detail::LayerCodec),
         =welder::doc(
           "The texture layers (MCLY); layer 0 is opaque, later layers blend "
           "through their alpha map."),
@@ -470,66 +470,66 @@ namespace wowlib::formats::adt {
       std::vector<SMLayer> layers;
 
       [[=chunk("MCAL"),
-        =in_file(InFile::tex),
-        =serialized_by(^^detail::AlphaCodec),
-        =formats::count_matches("layers"),
+        =inFile(InFile::Tex),
+        =serializedBy(^^detail::AlphaCodec),
+        =formats::countMatches("layers"),
         =welder::doc(
           "One decoded 64x64 (4096-byte) alpha map per layer, aligned with "
           "layers (layer 0's is empty); 0 = base texture, 255 = this layer."),
         =welder::mark::no_reassign]]
-      std::vector<std::vector<std::uint8_t>> alpha_maps;
+      std::vector<std::vector<std::uint8_t>> alphaMaps;
 
       [[=chunk("MCSH"),
-        =in_file(InFile::tex),
-        =serialized_by(^^detail::ShadowCodec),
-        =formats::count_exactly(detail::alpha_texels),
+        =inFile(InFile::Tex),
+        =serializedBy(^^detail::ShadowCodec),
+        =formats::countExactly(detail::AlphaTexels),
         =welder::doc(
           "The decoded 64x64 (4096-byte) shadow map (MCSH), 0/1 per texel; "
           "empty when the chunk casts no baked shadow."),
         =welder::mark::no_reassign]]
-      std::vector<std::uint8_t> shadow_map;
+      std::vector<std::uint8_t> shadowMap;
 
       [[=chunk("MCRD"),
-        =in_file(InFile::obj),
-        =formats::indexes_in_root("doodad_placements"),
+        =inFile(InFile::Obj),
+        =formats::indexesInRoot("doodadPlacements"),
         =welder::doc(
           "Doodad references (MCRF doodad part pre-Cata, MCRD Cata+): indices "
           "into the tile's MDDF placements drawn in this chunk."),
         =welder::mark::no_reassign]]
-      std::vector<std::uint32_t> doodad_refs;
+      std::vector<std::uint32_t> doodadRefs;
 
       [[=chunk("MCRW"),
-        =in_file(InFile::obj),
-        =formats::indexes_in_root("wmo_placements"),
+        =inFile(InFile::Obj),
+        =formats::indexesInRoot("wmoPlacements"),
         =welder::doc(
           "Object references (MCRF object part pre-Cata, MCRW Cata+): indices "
           "into the tile's MODF placements drawn in this chunk."),
         =welder::mark::no_reassign]]
-      std::vector<std::uint32_t> object_refs;
+      std::vector<std::uint32_t> objectRefs;
 
       [[=chunk("MCSE"),
-        =in_file(InFile::root),
-        =serialized_by(^^detail::SoundEmitterCodec),
+        =inFile(InFile::Root),
+        =serializedBy(^^detail::SoundEmitterCodec),
         =welder::doc("Sound emitters placed in this chunk (MCSE): pre-WotLK "
           "versions carry the full 52-byte inline emitter "
           "(CWSoundEmitterVanilla), WotLK+ the 28-byte "
           "SoundEntriesAdvanced reference (CWSoundEmitter)."),
         =welder::mark::no_reassign]]
-      std::vector<std::conditional_t<(V < builds::WotLK), CWSoundEmitterVanilla, CWSoundEmitter>> sound_emitters;
+      std::vector<std::conditional_t<(V < builds::WotLK), CWSoundEmitterVanilla, CWSoundEmitter>> soundEmitters;
 
       /** A malformed MCSE payload (not a whole number of entries), preserved
           verbatim — see detail::SoundEmitterCodec; empty whenever
-          sound_emitters parsed. */
+          soundEmitters parsed. */
       [[=welder::mark::exclude]]
-      ChunkBlob mcse_raw;
+      ChunkBlob mcseRaw;
 
       /** The 13 undeclared trailing bytes after the MCNR normals (a near-constant
           client pattern, not derived from the normals); preserved for the
           semantic round-trip. Read/written as part of MCNR by NormalCodec. */
       [[=welder::mark::exclude]]
-      std::array<std::uint8_t, 13> mcnr_padding{};
+      std::array<std::uint8_t, 13> mcnrPadding{};
 
-      /** Validation hook (see formats::detail::validate_value): the terrain
+      /** Validation hook (see formats::detail::validateValue): the terrain
           chunk's contracts the annotations cannot express — the decoded alpha
           surfaces' fixed size and the layer/alpha relationship. Contracts
           reaching into the TILE (layer texture ids, doodad and object
@@ -537,17 +537,17 @@ namespace wowlib::formats::adt {
           texture and placement tables live.
           @param report the report findings land in. */
       [[=welder::mark::exclude]]
-      void validate_extra(ValidationReport& report) const {
+      void validateExtra(ValidationReport& report) const {
         // wowlib always holds alpha maps decoded to the full 64x64 edit
         // surface, whatever encoding they had on disk; layer 0 is opaque and
         // carries none
-        for (std::size_t i = 0; i < alpha_maps.size(); ++i)
-          if (!alpha_maps[i].empty() && alpha_maps[i].size() != detail::alpha_texels)
-            report.add_error(std::format("alpha_maps[{}]", i),
-                             std::format("decoded alpha map holds {} texels, not {}", alpha_maps[i].size(),
-                                         detail::alpha_texels));
-        if (!alpha_maps.empty() && !alpha_maps[0].empty())
-          report.add_warning("alpha_maps[0]", "layer 0 is the opaque base layer; its alpha map is ignored");
+        for (std::size_t i = 0; i < alphaMaps.size(); ++i)
+          if (!alphaMaps[i].empty() && alphaMaps[i].size() != detail::AlphaTexels)
+            report.addError(std::format("alphaMaps[{}]", i),
+                             std::format("decoded alpha map holds {} texels, not {}", alphaMaps[i].size(),
+                                         detail::AlphaTexels));
+        if (!alphaMaps.empty() && !alphaMaps[0].empty())
+          report.addWarning("alphaMaps[0]", "layer 0 is the opaque base layer; its alpha map is ignored");
       }
 
       // --- physical-file serialization (definitions below) -------------------
@@ -593,14 +593,14 @@ namespace wowlib::formats::adt {
           @param body  writes the sub-chunk payload into @a out.
           @return the sub-chunk's offset relative to the MCNK chunk start. */
       template <typename Body>
-      static std::uint32_t _emit_subchunk(FileBuffer& out, std::size_t base, std::uint32_t magic, Body&& body) {
+      static std::uint32_t _emitSubchunk(FileBuffer& out, std::size_t base, std::uint32_t magic, Body&& body) {
         const auto ofs = static_cast<std::uint32_t>(out.size() - base) + 8;
-        append_bytes(out, &magic, 4);
-        const std::size_t size_at = out.size();
+        appendBytes(out, &magic, 4);
+        const std::size_t sizeAt = out.size();
         out.insert(out.end(), 4, std::byte{0});
         body();
-        const auto size = static_cast<std::uint32_t>(out.size() - size_at - 4);
-        std::memcpy(out.data() + size_at, &size, 4);
+        const auto size = static_cast<std::uint32_t>(out.size() - sizeAt - 4);
+        std::memcpy(out.data() + sizeAt, &size, 4);
         return ofs;
       }
 
@@ -619,38 +619,38 @@ namespace wowlib::formats::adt {
                        std::size_t& n) const {
         const auto emit = [&](std::uint32_t magic, auto&& body) {
           const std::size_t before = out.size();
-          const std::uint32_t ofs = _emit_subchunk(out, base, magic, body);
+          const std::uint32_t ofs = _emitSubchunk(out, base, magic, body);
           emitted[n++] = {magic, ofs, static_cast<std::uint32_t>(out.size() - before)};
         };
-        if (kind != FileKind::monolithic) {
-          if (!doodad_refs.empty())
-            emit(four_cc("MCRD"), [&] {
-              append_bytes(out, doodad_refs.data(), doodad_refs.size() * 4);
+        if (kind != FileKind::Monolithic) {
+          if (!doodadRefs.empty())
+            emit(fourCc("MCRD"), [&] {
+              appendBytes(out, doodadRefs.data(), doodadRefs.size() * 4);
             });
-          if (!object_refs.empty())
-            emit(four_cc("MCRW"), [&] {
-              append_bytes(out, object_refs.data(), object_refs.size() * 4);
+          if (!objectRefs.empty())
+            emit(fourCc("MCRW"), [&] {
+              appendBytes(out, objectRefs.data(), objectRefs.size() * 4);
             });
         }
-        else if (!doodad_refs.empty() || !object_refs.empty()) {
-          emit(four_cc("MCRF"), [&] {
-            append_bytes(out, doodad_refs.data(), doodad_refs.size() * 4);
-            append_bytes(out, object_refs.data(), object_refs.size() * 4);
+        else if (!doodadRefs.empty() || !objectRefs.empty()) {
+          emit(fourCc("MCRF"), [&] {
+            appendBytes(out, doodadRefs.data(), doodadRefs.size() * 4);
+            appendBytes(out, objectRefs.data(), objectRefs.size() * 4);
           });
         }
       }
 
       /** Split the combined pre-Cata MCRF list into doodad and object refs (the
-          header's n_doodad_refs marks the boundary).
+          header's nDoodadRefs marks the boundary).
           @param sub  the MCRF data (u32 indices).
           @param kind the physical file (the header count is only trusted with one). */
       void _read_combined_refs(std::span<const std::byte> sub, FileKind kind) {
         const std::size_t total = sub.size() / 4;
-        const std::size_t n_dd = std::min<std::size_t>(file_has_header(kind) ? header.n_doodad_refs : 0, total);
-        doodad_refs.resize(n_dd);
-        object_refs.resize(total - n_dd);
-        std::memcpy(doodad_refs.data(), sub.data(), n_dd * 4);
-        std::memcpy(object_refs.data(), sub.data() + n_dd * 4, (total - n_dd) * 4);
+        const std::size_t nDd = std::min<std::size_t>(fileHasHeader(kind) ? header.nDoodadRefs : 0, total);
+        doodadRefs.resize(nDd);
+        objectRefs.resize(total - nDd);
+        std::memcpy(doodadRefs.data(), sub.data(), nDd * 4);
+        std::memcpy(objectRefs.data(), sub.data() + nDd * 4, (total - nDd) * 4);
       }
 
       /** Stamp the derived MCNK header fields from the sub-chunks emitted here;
@@ -663,7 +663,7 @@ namespace wowlib::formats::adt {
       void _stamp_header(FileBuffer& out, std::size_t base, std::span<const Emitted> emitted) const {
         SMChunk h;
         std::memcpy(&h, out.data() + base, sizeof(SMChunk));
-        const bool high_res = has_flag(h.flags, MapChunkFlags::high_res_holes);
+        const bool highRes = hasFlag(h.flags, MapChunkFlags::HighResHoles);
         const auto ofs = [&](std::uint32_t magic) -> std::optional<std::uint32_t> {
           for (const Emitted& e : emitted)
             if (e.magic == magic) return e.offset;
@@ -675,44 +675,44 @@ namespace wowlib::formats::adt {
           return 0;
         };
 
-        if (auto o = ofs(four_cc("MCVT")); o && !high_res) h.ofs_height = *o;
-        if (auto o = ofs(four_cc("MCNR")); o && !high_res) h.ofs_normal = *o;
-        if (auto o = ofs(four_cc("MCCV")); o) h.ofs_mccv = *o;
-        if (auto o = ofs(four_cc("MCLV")); o) h.ofs_mclv = *o;
-        if (auto o = ofs(four_cc("MCLY")); o) {
-          h.ofs_layer = *o;
-          h.n_layers = static_cast<std::uint32_t>(layers.size());
+        if (auto o = ofs(fourCc("MCVT")); o && !highRes) h.ofsHeight = *o;
+        if (auto o = ofs(fourCc("MCNR")); o && !highRes) h.ofsNormal = *o;
+        if (auto o = ofs(fourCc("MCCV")); o) h.ofsMccv = *o;
+        if (auto o = ofs(fourCc("MCLV")); o) h.ofsMclv = *o;
+        if (auto o = ofs(fourCc("MCLY")); o) {
+          h.ofsLayer = *o;
+          h.nLayers = static_cast<std::uint32_t>(layers.size());
         }
-        if (auto o = ofs(four_cc("MCAL")); o) {
-          h.ofs_alpha = *o;
-          h.size_alpha = sz(four_cc("MCAL"));
+        if (auto o = ofs(fourCc("MCAL")); o) {
+          h.ofsAlpha = *o;
+          h.sizeAlpha = sz(fourCc("MCAL"));
         }
-        if (auto o = ofs(four_cc("MCSH")); o) {
-          h.ofs_shadow = *o;
-          h.size_shadow = sz(four_cc("MCSH"));
+        if (auto o = ofs(fourCc("MCSH")); o) {
+          h.ofsShadow = *o;
+          h.sizeShadow = sz(fourCc("MCSH"));
         }
-        if (auto o = ofs(four_cc("MCLQ")); o) {
-          h.ofs_liquid = *o;
-          h.size_liquid = sz(four_cc("MCLQ"));
+        if (auto o = ofs(fourCc("MCLQ")); o) {
+          h.ofsLiquid = *o;
+          h.sizeLiquid = sz(fourCc("MCLQ"));
         }
-        if (auto o = ofs(four_cc("MCRF")); o) h.ofs_refs = *o;
-        if (ofs(four_cc("MCRF")) || ofs(four_cc("MCRD")) || ofs(four_cc("MCRW"))) {
-          h.n_doodad_refs = static_cast<std::uint32_t>(doodad_refs.size());
-          h.n_map_obj_refs = static_cast<std::uint32_t>(object_refs.size());
+        if (auto o = ofs(fourCc("MCRF")); o) h.ofsRefs = *o;
+        if (ofs(fourCc("MCRF")) || ofs(fourCc("MCRD")) || ofs(fourCc("MCRW"))) {
+          h.nDoodadRefs = static_cast<std::uint32_t>(doodadRefs.size());
+          h.nMapObjRefs = static_cast<std::uint32_t>(objectRefs.size());
         }
-        if (auto o = ofs(four_cc("MCSE")); o) {
-          h.ofs_snd_emitters = *o;
-          using Entry = std::remove_cvref_t<decltype(sound_emitters )>::value_type;
-          h.n_snd_emitters = static_cast<std::uint32_t>(mcse_raw.empty()
-                                                          ? sound_emitters.size()
-                                                          : mcse_raw.size() / sizeof(Entry));
+        if (auto o = ofs(fourCc("MCSE")); o) {
+          h.ofsSndEmitters = *o;
+          using Entry = std::remove_cvref_t<decltype(soundEmitters )>::value_type;
+          h.nSndEmitters = static_cast<std::uint32_t>(mcseRaw.empty()
+                                                          ? soundEmitters.size()
+                                                          : mcseRaw.size() / sizeof(Entry));
         }
         std::memcpy(out.data() + base, &h, sizeof(SMChunk));
       }
 
       /** Compute the true length of a sub-chunk, correcting the unreliable
-          declared sizes: MCAL/MCLQ are governed by the MCNK header (size_alpha /
-          size_liquid, which include the 8-byte chunk header), and MCNR carries 13
+          declared sizes: MCAL/MCLQ are governed by the MCNK header (sizeAlpha /
+          sizeLiquid, which include the 8-byte chunk header), and MCNR carries 13
           undeclared trailing bytes pre-Cata. MCSH's own size IS reliable, and on a
           headerless split file every sub-chunk trusts its own size.
           @param magic    the sub-chunk fourcc.
@@ -720,19 +720,21 @@ namespace wowlib::formats::adt {
           @param kind     the physical file (the header is only present with one).
           @return the corrected byte length. */
       std::uint32_t _subchunk_length(std::uint32_t magic, std::uint32_t declared, FileKind kind) const {
-        if (magic == four_cc("MCNR") && declared <= 435) return 448;
-        if (file_has_header(kind)) {
+        if (magic == fourCc("MCNR") && declared <= 435) return 448;
+        if (fileHasHeader(kind)) {
           // The header's size fields are authoritative for MCAL/MCLQ even when
           // they say "empty" (<= 8, header only): the vanilla map tool wrote
           // garbage declared sizes into empty sub-chunk headers (every
           // AhnQiraj MCAL with no alpha data declares -2048 — 243 tiles in
           // the 1.12.1 fleet audit).
-          if (magic == four_cc("MCAL") && header.size_alpha != 0) return header.size_alpha <= 8
-                                                                           ? 0
-                                                                           : header.size_alpha - 8;
-          if (magic == four_cc("MCLQ") && header.size_liquid != 0) return header.size_liquid <= 8
-                                                                            ? 0
-                                                                            : header.size_liquid - 8;
+          if (magic == fourCc("MCAL") && header.sizeAlpha != 0)
+            return header.sizeAlpha <= 8
+                     ? 0
+                     : header.sizeAlpha - 8;
+          if (magic == fourCc("MCLQ") && header.sizeLiquid != 0)
+            return header.sizeLiquid <= 8
+                     ? 0
+                     : header.sizeLiquid - 8;
         }
         return declared;
       }
@@ -740,43 +742,43 @@ namespace wowlib::formats::adt {
       /** Zero the DERIVED binary fields after a portion is read: each layer's MCAL
           offset (re-derived on write) and, on a header-bearing file, the MCNK
           header's offset/size/count fields — keeping them would make the semantic
-          round-trip compare layout artifacts. ofs_height/ofs_normal are the 64-bit
-          hole mask when high_res_holes is set, so they are preserved then.
+          round-trip compare layout artifacts. ofsHeight/ofsNormal are the 64-bit
+          hole mask when HighResHoles is set, so they are preserved then.
           @param kind the physical file just read. */
       void _clear_derived_on_read(FileKind kind) {
-        for (auto& layer : layers) layer.offset_in_mcal = 0;
-        if (!file_has_header(kind)) return;
-        if (!has_flag(header.flags, MapChunkFlags::high_res_holes)) {
-          header.ofs_height = 0;
-          header.ofs_normal = 0;
+        for (auto& layer : layers) layer.offsetInMcal = 0;
+        if (!fileHasHeader(kind)) return;
+        if (!hasFlag(header.flags, MapChunkFlags::HighResHoles)) {
+          header.ofsHeight = 0;
+          header.ofsNormal = 0;
         }
-        header.n_layers = 0;
-        header.n_doodad_refs = 0;
-        header.ofs_layer = header.ofs_refs = header.ofs_alpha = header.size_alpha = 0;
-        header.ofs_shadow = header.size_shadow = 0;
-        header.n_map_obj_refs = 0;
-        header.ofs_snd_emitters = header.n_snd_emitters = 0;
-        header.ofs_liquid = header.size_liquid = 0;
-        header.ofs_mccv = header.ofs_mclv = 0;
+        header.nLayers = 0;
+        header.nDoodadRefs = 0;
+        header.ofsLayer = header.ofsRefs = header.ofsAlpha = header.sizeAlpha = 0;
+        header.ofsShadow = header.sizeShadow = 0;
+        header.nMapObjRefs = 0;
+        header.ofsSndEmitters = header.nSndEmitters = 0;
+        header.ofsLiquid = header.sizeLiquid = 0;
+        header.ofsMccv = header.ofsMclv = 0;
       }
     };
   }
 
   /** A terrain chunk — the canonicalizing face of detail::MapChunk: every client
-      version collapses to its range's first grid version (map_chunk_pivots). */
+      version collapses to its range's first grid version (MapChunkPivots). */
   template <ClientVersion V>
-  using MapChunk = detail::MapChunk<canonical_version(V, map_chunk_pivots, adt_versions)>;
+  using MapChunk = detail::MapChunk<canonicalVersion(V, MapChunkPivots, AdtVersions)>;
 
   namespace detail {
     template <ClientVersion V>
     Result<void> MapChunk<V>::read_from(std::span<const std::byte> payload, FileKind kind, AlphaFormat af) {
       using Self = MapChunk<V>;
-      static constexpr auto members = formats::detail::members_of<Self>();
+      static constexpr auto Members = formats::detail::membersOf<Self>();
 
       std::size_t pos = 0;
-      if (file_has_header(kind)) {
+      if (fileHasHeader(kind)) {
         if (payload.size() < sizeof(SMChunk))
-          return make_error(ErrorCode::ChunkTruncated,
+          return makeError(ErrorCode::ChunkTruncated,
                             std::format("MCNK header needs {} bytes, got {}", sizeof(SMChunk), payload.size()));
         std::memcpy(&header, payload.data(), sizeof(SMChunk));
         pos = sizeof(SMChunk);
@@ -786,7 +788,7 @@ namespace wowlib::formats::adt {
         .header = header,
         .layers = layers,
         .af = af,
-        .fix = !has_flag(header.flags, MapChunkFlags::do_not_fix_alpha_map),
+        .fix = !hasFlag(header.flags, MapChunkFlags::DoNotFixAlphaMap),
         .kind = kind
       };
 
@@ -794,39 +796,39 @@ namespace wowlib::formats::adt {
         std::uint32_t magic = 0, declared = 0;
         std::memcpy(&magic, payload.data() + pos, 4);
         std::memcpy(&declared, payload.data() + pos + 4, 4);
-        const std::size_t data_at = pos + 8;
+        const std::size_t dataAt = pos + 8;
 
         std::uint32_t effective = _subchunk_length(magic, declared, kind);
-        if (data_at + effective > payload.size()) effective = declared; // last resort: trust the declared size
-        if (data_at + effective > payload.size())
-          return make_error(ErrorCode::ChunkTruncated,
-                            std::format("MCNK sub-chunk {} overruns the chunk", fourcc_to_string(magic)));
-        const auto sub = payload.subspan(data_at, effective);
-        pos = data_at + effective;
+        if (dataAt + effective > payload.size()) effective = declared; // last resort: trust the declared size
+        if (dataAt + effective > payload.size())
+          return makeError(ErrorCode::ChunkTruncated,
+                            std::format("MCNK sub-chunk {} overruns the chunk", fourccToString(magic)));
+        const auto sub = payload.subspan(dataAt, effective);
+        pos = dataAt + effective;
 
         // MCRF is the one sub-chunk mapping to two members (doodad + object refs,
         // split by the header count) — the MCNK analogue of ADT's special MCNK.
-        if (magic == four_cc("MCRF")) {
+        if (magic == fourCc("MCRF")) {
           _read_combined_refs(sub, kind);
           continue;
         }
 
         // Every other sub-chunk routes to its `chunk()`-annotated member by
-        // fourcc: uniform members transfer through read_value, the ones that need
+        // fourcc: uniform members transfer through readValue, the ones that need
         // a codec (external length / transform / companion member) go through it.
         Result<void> outcome{};
         bool matched = false;
-        template for (constexpr auto m : members) {
-          if constexpr (constexpr auto spec = formats::detail::annotation<formats::detail::chunk_spec, m>(); spec.
+        template for (constexpr auto m : Members) {
+          if constexpr (constexpr auto spec = formats::detail::annotation<formats::detail::ChunkSpec, m>(); spec.
             has_value()) {
             if (!matched && magic == spec->magic) {
               matched = true;
-              if constexpr (constexpr auto ser = formats::detail::annotation<serializer_spec, m>(); ser.has_value()) {
+              if constexpr (constexpr auto ser = formats::detail::annotation<SerializerSpec, m>(); ser.has_value()) {
                 using Codec = [:ser->codec:];
                 outcome = Codec::read(*this, sub, ctx);
               }
               else
-                outcome = formats::detail::read_value(this->[:m:], sub, magic, pos, spec->endian);
+                outcome = formats::detail::readValue(this->[:m:], sub, magic, pos, spec->endian);
             }
           }
         }
@@ -840,34 +842,34 @@ namespace wowlib::formats::adt {
     template <ClientVersion V>
     Result<void> MapChunk<V>::write_to(FileBuffer& out, FileKind kind, AlphaFormat af) const {
       using Self = MapChunk<V>;
-      static constexpr auto members = formats::detail::members_of<Self>();
+      static constexpr auto Members = formats::detail::membersOf<Self>();
 
       const std::size_t base = out.size();
-      if (file_has_header(kind)) append_bytes(out, &header, sizeof(SMChunk));
+      if (fileHasHeader(kind)) appendBytes(out, &header, sizeof(SMChunk));
 
       // Pre-build the alpha layout once: MCLY must emit each layer's derived
-      // offset_in_mcal, which MCAL computes, yet MCLY precedes MCAL on disk.
-      std::vector<std::byte> alpha_blob;
-      std::vector<SMLayer> stamped_layers;
-      if (routes_to(InFile::tex, kind)) AlphaCodec::prepare(*this, af, alpha_blob, stamped_layers);
-      const MapChunkWriteCtx wctx{.stamped_layers = stamped_layers, .alpha_blob = alpha_blob};
+      // offsetInMcal, which MCAL computes, yet MCLY precedes MCAL on disk.
+      std::vector<std::byte> alphaBlob;
+      std::vector<SMLayer> stampedLayers;
+      if (routesTo(InFile::Tex, kind)) AlphaCodec::prepare(*this, af, alphaBlob, stampedLayers);
+      const MapChunkWriteCtx wctx{.stampedLayers = stampedLayers, .alphaBlob = alphaBlob};
 
-      std::array<Emitted, sub_chunk_order.size() + 2> emitted{};
+      std::array<Emitted, SubChunkOrder.size() + 2> emitted{};
       // +2 for MCRD/MCRW
-      std::size_t n_emitted = 0;
+      std::size_t nEmitted = 0;
 
-      for (const std::uint32_t want : sub_chunk_order) {
-        template for (constexpr auto m : members) {
-          if constexpr (constexpr auto spec = formats::detail::annotation<formats::detail::chunk_spec, m>(); spec.
+      for (const std::uint32_t want : SubChunkOrder) {
+        template for (constexpr auto m : Members) {
+          if constexpr (constexpr auto spec = formats::detail::annotation<formats::detail::ChunkSpec, m>(); spec.
             has_value()) {
-            if constexpr (constexpr auto route = formats::detail::annotation<in_file_spec, m>(); route.has_value()) {
-              if (spec->magic == want && routes_to(route->file, kind)) {
-                if constexpr (constexpr auto ser = formats::detail::annotation<serializer_spec, m>(); ser.has_value()) {
+            if constexpr (constexpr auto route = formats::detail::annotation<InFileSpec, m>(); route.has_value()) {
+              if (spec->magic == want && routesTo(route->file, kind)) {
+                if constexpr (constexpr auto ser = formats::detail::annotation<SerializerSpec, m>(); ser.has_value()) {
                   using Codec = [:ser->codec:];
                   if (Codec::engaged(*this, wctx)) {
                     const std::size_t before = out.size();
-                    const std::uint32_t o = _emit_subchunk(out, base, want, [&] { Codec::write(*this, out, wctx); });
-                    emitted[n_emitted++] = {want, o, static_cast<std::uint32_t>(out.size() - before)};
+                    const std::uint32_t o = _emitSubchunk(out, base, want, [&] { Codec::write(*this, out, wctx); });
+                    emitted[nEmitted++] = {want, o, static_cast<std::uint32_t>(out.size() - before)};
                   }
                 }
                 else {
@@ -876,10 +878,10 @@ namespace wowlib::formats::adt {
                   const auto& member = this->[:m:];
                   if (!member.empty()) {
                     const std::size_t before = out.size();
-                    const std::uint32_t o = _emit_subchunk(out, base, want, [&] {
-                      std::ignore = formats::detail::write_value(member, out);
+                    const std::uint32_t o = _emitSubchunk(out, base, want, [&] {
+                      std::ignore = formats::detail::writeValue(member, out);
                     });
-                    emitted[n_emitted++] = {want, o, static_cast<std::uint32_t>(out.size() - before)};
+                    emitted[nEmitted++] = {want, o, static_cast<std::uint32_t>(out.size() - before)};
                   }
                 }
               }
@@ -889,10 +891,10 @@ namespace wowlib::formats::adt {
       }
 
       // References are the era-shifting special (MCRF vs MCRD/MCRW), emitted last.
-      if (routes_to(InFile::obj, kind)) _write_refs(out, base, kind, emitted, n_emitted);
+      if (routesTo(InFile::Obj, kind)) _write_refs(out, base, kind, emitted, nEmitted);
 
-      if (file_has_header(kind))
-        _stamp_header(out, base, std::span<const Emitted>{emitted.data(), n_emitted});
+      if (fileHasHeader(kind))
+        _stamp_header(out, base, std::span<const Emitted>{emitted.data(), nEmitted});
       return {};
     }
   }

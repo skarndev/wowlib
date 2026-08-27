@@ -21,7 +21,7 @@
 namespace wowlib::db::wdc {
   /** Decode a WDC-family image onto the schema: every unencrypted section's
       records (inline fields via their compression kind, the id from the
-      id_list / an inline column / the sparse offset map, strings via the
+      idList / an inline column / the sparse offset map, strings via the
       flavor's reference convention), relationship-map values onto the
       non-inline relation column, and copy-table rows as id-cloned records.
       Encrypted sections are reported (state.encrypted) but not decoded, and
@@ -31,7 +31,7 @@ namespace wowlib::db::wdc {
       @param sink  the decode target.
       @param state the preserved-state store.
       @return nothing, or why the image does not decode. */
-  Result<void> read_wdc(const TableInfo& info, std::span<const std::byte> data, RecordSink& sink, TableState& state);
+  Result<void> readWdc(const TableInfo& info, std::span<const std::byte> data, RecordSink& sink, TableState& state);
 
   /** Encode a canonical image of flavor @a magic: one unencrypted section,
       integers bitpacked to their minimum width, floats/string references
@@ -48,7 +48,7 @@ namespace wowlib::db::wdc {
       @param state  the preserved-state store.
       @param policy keyless-section handling.
       @return the file bytes, or why encoding failed. */
-  Result<FileBuffer> write_wdc(std::uint32_t magic,
+  Result<FileBuffer> writeWdc(std::uint32_t magic,
                                const TableInfo& info,
                                const RecordSource& source,
                                const TableState& state,

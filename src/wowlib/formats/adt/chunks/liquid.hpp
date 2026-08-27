@@ -23,16 +23,16 @@ namespace wowlib::formats::adt::chunks {
         liquid instance stores — heights, depths, texture coordinates — and thus
         how wowlib decodes and re-lays its vertex data.)")
     ]] LiquidVertexFormat : std::uint16_t {
-    height_depth [[=welder::doc(
+    HeightDepth [[=welder::doc(
       "Case 0: a float height map and a byte depth map "
       "(the pre-WoD go-to).")]] = 0,
-    height_uv [[=welder::doc(
+    HeightUv [[=welder::doc(
       "Case 1: a float height map and a UV texture-coordinate "
       "map.")]] = 1,
-    depth_only [[=welder::doc(
+    DepthOnly [[=welder::doc(
       "Case 2: a byte depth map only; the surface is flat at "
       "0.0 (ocean).")]] = 2,
-    height_uv_depth [[=welder::doc(
+    HeightUvDepth [[=welder::doc(
       "Case 3: a float height map, a UV map and a byte depth "
       "map.")]] = 3
   };
@@ -57,7 +57,7 @@ namespace wowlib::formats::adt::chunks {
   // --- legacy MCLQ (pre-WotLK) ------------------------------------------------
 
   /** The magma/slime reading of an MCLQ vertex (8 bytes): two u16 texcoords and
-      the shared height. Obtain one with SLVert.as_magma(). */
+      the shared height. Obtain one with SLVert.asMagma(). */
   struct [[
       =welder::weld,
       =welder::doc(
@@ -104,11 +104,11 @@ namespace wowlib::formats::adt::chunks {
     [[=welder::doc(
       "Reinterpret this vertex under the magma/slime reading (u16 s, t). A "
       "pure byte reinterpretation; use it only for magma/slime cells.")]]
-    SMVert as_magma() const { return std::bit_cast<SMVert>(*this); }
+    SMVert asMagma() const { return std::bit_cast<SMVert>(*this); }
 
     [[=welder::doc("Overwrite this vertex's bytes from a magma/slime reading.")]
     ]
-    void set_magma(const SMVert& magma) {
+    void setMagma(const SMVert& magma) {
       *this = std::bit_cast<SLVert>(magma);
     }
 

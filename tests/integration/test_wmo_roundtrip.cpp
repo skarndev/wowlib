@@ -23,7 +23,7 @@ namespace
 {
   /** Fail with the first divergence offset and the enclosing chunk — the
       byte-perfect guarantee's debugging lens. */
-  void require_identical(const FileBuffer& original, const FileBuffer& rewritten,
+  void requireIdentical(const FileBuffer& original, const FileBuffer& rewritten,
                          const std::string& label)
   {
     if (original == rewritten)
@@ -44,7 +44,7 @@ namespace
       std::memcpy(&size, original.data() + pos + 4, 4);
       if (at < pos + 8 + size)
       {
-        inside = fourcc_to_string(fourcc);
+        inside = fourccToString(fourcc);
         break;
       }
       pos += 8 + size;
@@ -53,96 +53,96 @@ namespace
                      at, inside, original.size(), rewritten.size()));
   }
 
-  std::map<std::string, int> unknown_histogram;
+  std::map<std::string, int> gUnknownHistogram;
 
-  void tally_unknown(const ChunkExtras& extras)
+  void tallyUnknown(const ChunkExtras& extras)
   {
     for (const UnknownChunk& u : extras.unknown)
-      ++unknown_histogram[fourcc_to_string(u.fourcc)];
+      ++gUnknownHistogram[fourccToString(u.fourcc)];
   }
 
   /** Round-trip one WMO: root and every group file, byte-for-byte. Returns the
       group count actually verified. */
   template <ClientVersion V>
-  void roundtrip_wmo(fs::FileSystem& fs, const FileKey& root_key, const std::string& label)
+  void roundtripWmo(fs::FileSystem& fs, const FileKey& rootKey, const std::string& label)
   {
-    const auto root_data = fs.read_file(root_key);
-    REQUIRE(root_data.has_value());
+    const auto rootData = fs.readFile(rootKey);
+    REQUIRE(rootData.has_value());
 
     WMORoot<V> root;
-    REQUIRE(root.read(*root_data).has_value());
-    CHECK(root.mver == wmo_version_v17);
-    tally_unknown(root);
+    REQUIRE(root.read(*rootData).has_value());
+    CHECK(root.mver == WmoVersionV17);
+    tallyUnknown(root);
 
-    const auto rewritten_root = root.write();
-    REQUIRE(rewritten_root.has_value());
-    require_identical(*root_data, *rewritten_root, label + " (root)");
+    const auto rewrittenRoot = root.write();
+    REQUIRE(rewrittenRoot.has_value());
+    requireIdentical(*rootData, *rewrittenRoot, label + " (root)");
 
     // group identity: GFID when present (Legion+), name derivation otherwise. The
     // GFID member only exists on versions that have it, so guard the access.
-    const std::size_t n_groups = root.header.n_groups;
-    bool by_fdid = false;
-    if constexpr (requires { root.group_fdids; })
-      by_fdid = root.group_fdids.size() >= n_groups;
-    std::string root_path;
-    if (!by_fdid)
+    const std::size_t nGroups = root.header.nGroups;
+    bool byFdid = false;
+    if constexpr (requires { root.groupFdids; })
+      byFdid = root.groupFdids.size() >= nGroups;
+    std::string rootPath;
+    if (!byFdid)
     {
-      const FileKey resolved = fs.resolve(root_key);
+      const FileKey resolved = fs.resolve(rootKey);
       REQUIRE(resolved.path.has_value());
-      root_path = *resolved.path;
-      REQUIRE(root_path.ends_with(".wmo"));
+      rootPath = *resolved.path;
+      REQUIRE(rootPath.ends_with(".wmo"));
     }
 
-    for (std::size_t i = 0; i < n_groups; ++i)
+    for (std::size_t i = 0; i < nGroups; ++i)
     {
-      const FileKey group_key = [&]() -> FileKey {
-        if constexpr (requires { root.group_fdids; })
-          if (by_fdid)
-            return FileKey{FileDataID{root.group_fdids[i]}};
+      const FileKey groupKey = [&]() -> FileKey {
+        if constexpr (requires { root.groupFdids; })
+          if (byFdid)
+            return FileKey{FileDataID{root.groupFdids[i]}};
         return FileKey{std::format("{}_{:03}.wmo",
-                                   root_path.substr(0, root_path.size() - 4), i)};
+                                   rootPath.substr(0, rootPath.size() - 4), i)};
       }();
-      const auto group_data = fs.read_file(group_key);
-      REQUIRE(group_data.has_value());
+      const auto groupData = fs.readFile(groupKey);
+      REQUIRE(groupData.has_value());
 
       WMOGroup<V> group;
-      REQUIRE(group.read(*group_data).has_value());
-      tally_unknown(group);
-      tally_unknown(group.body);
+      REQUIRE(group.read(*groupData).has_value());
+      tallyUnknown(group);
+      tallyUnknown(group.body);
 
       const auto rewritten = group.write();
       REQUIRE(rewritten.has_value());
-      require_identical(*group_data, *rewritten, std::format("{} (group {})", label, i));
+      requireIdentical(*groupData, *rewritten, std::format("{} (group {})", label, i));
     }
 
     // the assembled-entity path agrees
     WMO<V> wmo;
-    REQUIRE(wmo.read(fs, root_key).has_value());
-    CHECK(wmo.groups.size() == n_groups);
+    REQUIRE(wmo.read(fs, rootKey).has_value());
+    CHECK(wmo.groups.size() == nGroups);
 
     // a freshly read, unmodified client file passes validation with zero
     // errors (warnings are allowed - they mark states real files ship)
-    if (const auto valid = wmo.ensure_valid(); !valid)
+    if (const auto valid = wmo.ensureValid(); !valid)
       FAIL(std::format("{}: {}", label, valid.error().message));
   }
 
-  void dump_histogram(const char* which)
+  void dumpHistogram(const char* which)
   {
-    if (unknown_histogram.empty())
+    if (gUnknownHistogram.empty())
       return;
     std::string lines;
-    for (const auto& [fourcc, count] : unknown_histogram)
+    for (const auto& [fourcc, count] : gUnknownHistogram)
       lines += std::format("  {} x{}\n", fourcc, count);
     WARN(std::format("{}: unmodeled chunks encountered (still round-tripped verbatim):\n{}",
                      which, lines));
-    unknown_histogram.clear();
+    gUnknownHistogram.clear();
   }
 }
 
 TEST_CASE("3.3.5a WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
-                                  .version = versions::wotlk});
+  auto fs = fs::FileSystem::open({.clientPath = tests::mpqClient(),
+                                  .version = versions::Wotlk});
   REQUIRE(fs.has_value());
 
   // curated spread: tiny to huge, dungeons to capitals; entries missing from
@@ -168,18 +168,18 @@ TEST_CASE("3.3.5a WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
       WARN("not in client, skipped: " + path);
       continue;
     }
-    roundtrip_wmo<versions::wotlk>(*fs, FileKey{path}, path);
+    roundtripWmo<versions::Wotlk>(*fs, FileKey{path}, path);
     ++verified;
   }
-  dump_histogram("3.3.5a");
+  dumpHistogram("3.3.5a");
   CHECK(verified >= 5);  // enough coverage even if some curated paths drift
 }
 
 TEST_CASE("1.12.2 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  auto fs = fs::FileSystem::open({.client_path = tests::vanilla_client(),
-                                  .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale()});
+  auto fs = fs::FileSystem::open({.clientPath = tests::vanillaClient(),
+                                  .version = versions::Vanilla,
+                                  .locale = tests::vanillaLocale()});
   REQUIRE(fs.has_value());
 
   // vanilla-era spread: capitals, inns, farms, a dungeon; entries missing from
@@ -203,18 +203,18 @@ TEST_CASE("1.12.2 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
       WARN("not in client, skipped: " + path);
       continue;
     }
-    roundtrip_wmo<versions::vanilla>(*fs, FileKey{path}, path);
+    roundtripWmo<versions::Vanilla>(*fs, FileKey{path}, path);
     ++verified;
   }
-  dump_histogram("1.12.2");
+  dumpHistogram("1.12.2");
   CHECK(verified >= 4);
 }
 
 TEST_CASE("2.4.3 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  auto fs = fs::FileSystem::open({.client_path = tests::tbc_client(),
-                                  .version = versions::tbc,
-                                  .locale = tests::tbc_locale()});
+  auto fs = fs::FileSystem::open({.clientPath = tests::tbcClient(),
+                                  .version = versions::Tbc,
+                                  .locale = tests::tbcLocale()});
   REQUIRE(fs.has_value());
 
   // vanilla capitals/dungeons plus TBC's Outland structures; entries missing
@@ -238,20 +238,20 @@ TEST_CASE("2.4.3 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
       WARN("not in client, skipped: " + path);
       continue;
     }
-    roundtrip_wmo<versions::tbc>(*fs, FileKey{path}, path);
+    roundtripWmo<versions::Tbc>(*fs, FileKey{path}, path);
     ++verified;
   }
-  dump_histogram("2.4.3");
+  dumpHistogram("2.4.3");
   CHECK(verified >= 4);
 }
 
 TEST_CASE("9.2.7 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
 {
-  const auto listfile = tests::require_listfile();
+  const auto listfile = tests::requireListfile();
 
-  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
-                                  .version = versions::shadowlands,
-                                  .listfile_csv = listfile});
+  auto fs = fs::FileSystem::open({.clientPath = tests::cascClient(),
+                                  .version = versions::Shadowlands,
+                                  .listfileCsv = listfile});
   REQUIRE(fs.has_value());
 
   // sample root WMOs from the community listfile: *.wmo that are neither
@@ -271,10 +271,10 @@ TEST_CASE("9.2.7 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
       std::string path = line.substr(sep + 1);
       if (!path.ends_with(".wmo"))
         continue;
-      const auto stem_end = path.size() - 4;
+      const auto stemEnd = path.size() - 4;
       // "_123.wmo" group file?
-      if (stem_end >= 4 && path[stem_end - 4] == '_' && isdigit(path[stem_end - 3])
-          && isdigit(path[stem_end - 2]) && isdigit(path[stem_end - 1]))
+      if (stemEnd >= 4 && path[stemEnd - 4] == '_' && isdigit(path[stemEnd - 3])
+          && isdigit(path[stemEnd - 2]) && isdigit(path[stemEnd - 1]))
         continue;
       if (path.find("_lod") != std::string::npos)
         continue;
@@ -294,16 +294,16 @@ TEST_CASE("9.2.7 WMOs rewrite byte-for-byte", "[integration][formats][wmo]")
     if (verified >= 25)
       break;
     const FileKey key{path, FileDataID{fdid}};
-    const auto probe = fs->read_file(key);
+    const auto probe = fs->readFile(key);
     if (!probe)
     {
       ++skipped;  // encrypted or absent from this install
       continue;
     }
-    roundtrip_wmo<versions::shadowlands>(*fs, key, path);
+    roundtripWmo<versions::Shadowlands>(*fs, key, path);
     ++verified;
   }
-  dump_histogram("9.2.7");
+  dumpHistogram("9.2.7");
   WARN(std::format("9.2.7 sample: {} verified, {} unreadable/skipped", verified, skipped));
   CHECK(verified >= 15);
 }

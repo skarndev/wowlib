@@ -2,35 +2,35 @@
 
 #include <wowlib/core/path.hpp>
 
-using wowlib::normalize_path;
-using wowlib::to_native_relative;
+using wowlib::normalizePath;
+using wowlib::toNativeRelative;
 
 TEST_CASE("normalize_path canonicalizes case and separators", "[path]")
 {
-  CHECK(normalize_path("World/Maps/Azeroth/Azeroth.wdt") ==
+  CHECK(normalizePath("World/Maps/Azeroth/Azeroth.wdt") ==
         "world\\maps\\azeroth\\azeroth.wdt");
-  CHECK(normalize_path("Interface\\GlueXML\\GlueStrings.lua") ==
+  CHECK(normalizePath("Interface\\GlueXML\\GlueStrings.lua") ==
         "interface\\gluexml\\gluestrings.lua");
-  CHECK(normalize_path("MIXED/Style\\Path.BLP") == "mixed\\style\\path.blp");
+  CHECK(normalizePath("MIXED/Style\\Path.BLP") == "mixed\\style\\path.blp");
 }
 
 TEST_CASE("normalize_path collapses and trims separators", "[path]")
 {
-  CHECK(normalize_path("//leading/slash") == "leading\\slash");
-  CHECK(normalize_path("double//inner\\\\seps") == "double\\inner\\seps");
-  CHECK(normalize_path("trailing/slash/") == "trailing\\slash");
-  CHECK(normalize_path("") == "");
+  CHECK(normalizePath("//leading/slash") == "leading\\slash");
+  CHECK(normalizePath("double//inner\\\\seps") == "double\\inner\\seps");
+  CHECK(normalizePath("trailing/slash/") == "trailing\\slash");
+  CHECK(normalizePath("") == "");
 }
 
 TEST_CASE("normalization is idempotent", "[path]")
 {
-  const auto once = normalize_path("World/Maps/Azeroth/Azeroth.wdt");
-  CHECK(normalize_path(once) == once);
+  const auto once = normalizePath("World/Maps/Azeroth/Azeroth.wdt");
+  CHECK(normalizePath(once) == once);
 }
 
 TEST_CASE("to_native_relative round-trips canonical form", "[path]")
 {
-  const auto canonical = normalize_path("World/Maps/Azeroth/Azeroth.wdt");
-  CHECK(to_native_relative(canonical) == "world/maps/azeroth/azeroth.wdt");
-  CHECK(normalize_path(to_native_relative(canonical)) == canonical);
+  const auto canonical = normalizePath("World/Maps/Azeroth/Azeroth.wdt");
+  CHECK(toNativeRelative(canonical) == "world/maps/azeroth/azeroth.wdt");
+  CHECK(normalizePath(toNativeRelative(canonical)) == canonical);
 }

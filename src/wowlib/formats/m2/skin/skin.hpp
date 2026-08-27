@@ -19,7 +19,7 @@
 
 namespace wowlib::formats::m2::skin {
   /** The .skin leading magic, as memcpy'd from disk. */
-  inline constexpr std::uint32_t skin_magic = 0x4E494B53; // "SKIN"
+  inline constexpr std::uint32_t SkinMagic = 0x4E494B53; // "SKIN"
 
   /** The version-agnostic base of every Skin<V> (welded as "Skin").
 
@@ -44,12 +44,12 @@ namespace wowlib::formats::m2::skin {
 
   /** One external LOD view of a model ("{model}0N.skin", or SFID FileDataIDs
       in Legion+). Only exists WotLK+ — earlier clients embed the profiles in
-      the MD20 header (M2Root.skin_profiles), with the identical layout minus
+      the MD20 header (M2Root.skinProfiles), with the identical layout minus
       the magic.
       @tparam V the client version this skin targets.
       @see https://wowdev.wiki/M2/.skin */
   namespace detail {
-    template <ClientVersion V> requires (V >= m2_per_sequence_timelines)
+    template <ClientVersion V> requires (V >= M2PerSequenceTimelines)
     struct [[
         =welder::weld,
         =welder::doc(R"(
@@ -57,12 +57,12 @@ namespace wowlib::formats::m2::skin {
         profile tables (local lookups, submeshes, render batches). See
         https://wowdev.wiki/M2/.skin.)")
       ]] Skin : M2OffsetBlock<Skin<V>>, SkinBase {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[=welder::mark::exclude,
         =welder::doc("The leading magic, 'SKIN' — constant on every view file; "
           "hidden from the bindings.")]]
-      std::uint32_t magic = skin_magic;
+      std::uint32_t magic = SkinMagic;
 
       [[=welder::doc("The LOD view's tables (local lookups, submeshes, "
         "batches).")]]
@@ -73,9 +73,9 @@ namespace wowlib::formats::m2::skin {
   }
 
   /** An external LOD view — the canonicalizing face of detail::Skin: every
-      WotLK+ version maps to its range's first grid version (m2_skin_pivots:
+      WotLK+ version maps to its range's first grid version (M2SkinPivots:
       only Cata's shadow batches split the era, so two instantiations cover
       all nine releases). Pre-WotLK versions stay a substitution failure. */
-  template <ClientVersion V> requires (V >= m2_per_sequence_timelines)
-  using Skin = detail::Skin<canonical_version(V, m2_skin_pivots, m2_skin_versions)>;
+  template <ClientVersion V> requires (V >= M2PerSequenceTimelines)
+  using Skin = detail::Skin<canonicalVersion(V, M2SkinPivots, M2SkinVersions)>;
 }

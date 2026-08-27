@@ -50,7 +50,7 @@ namespace wowlib::fs {
     [[=welder::doc("The exact TACT product code the installation records "
       "('wow', 'wow_classic_era', 'wow_classic_ptr', ...) — which "
       "can be more specific than the flavor's default.")]]
-    std::string casc_product;
+    std::string cascProduct;
 
     [[=welder::doc(R"(
         Read a client installation's identity from the files its installer
@@ -65,6 +65,6 @@ namespace wowlib::fs {
       =welder::returns("the detected installation, or NotSupported when the "
         "directory carries no CASC build information")]]
     static Result<ClientInstall> detect(
-      std::filesystem::path client_path [[=welder::doc("the installation directory holding Data/")]]);
+      std::filesystem::path clientPath [[=welder::doc("the installation directory holding Data/")]]);
   };
 }

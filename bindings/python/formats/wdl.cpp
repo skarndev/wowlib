@@ -25,16 +25,16 @@ namespace wowlib_py::formats::wdl
 {
   namespace
   {
-    /** Every expansion must have a @c wdl_versions instantiation, or its facade
+    /** Every expansion must have a @c WdlVersions instantiation, or its facade
         overloads would name an unregistered class. Caught at compile time. */
     static_assert(
       []() consteval
       {
         for (auto e : std::meta::enumerators_of(^^wowlib::Expansion))
         {
-          const auto version = wowlib::to_client_version(std::meta::extract<wowlib::Expansion>(e));
+          const auto version = wowlib::toClientVersion(std::meta::extract<wowlib::Expansion>(e));
           bool ok = false;
-          for (const auto& s : wowlib::formats::wdl::wdl_versions)
+          for (const auto& s : wowlib::formats::wdl::WdlVersions)
             ok = ok || s == version;
           if (!ok)
             return false;
@@ -43,68 +43,68 @@ namespace wowlib_py::formats::wdl
       }(),
       "every Expansion enumerator needs a wdl_versions instantiation for its facade");
 
-    /** @brief Convert @p source (any @c WDL<From>) to target expansion @p To.
+    /** @brief Convert @p source (any @c WDL<from>) to target expansion @p to.
         @throws nanobind::type_error if @p source is not a WDL instance. */
-    template <wowlib::Expansion To>
-    wowlib::Result<typename concrete_of<wowlib::formats::wdl::WDL, To>::type>
-    convert_wdl_from_any(nb::handle source)
+    template <wowlib::Expansion to>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::wdl::WDL, to>::Type>
+    convertWdlFromAny(nb::handle source)
     {
-      template for (constexpr auto e : expansion_enumerators)
+      template for (constexpr auto e : ExpansionEnumerators)
       {
-        constexpr wowlib::Expansion From = [:e:];
-        using S = wowlib::formats::wdl::WDL<wowlib::to_client_version(From)>;
+        constexpr wowlib::Expansion from = [:e:];
+        using S = wowlib::formats::wdl::WDL<wowlib::toClientVersion(from)>;
         if (nb::isinstance<S>(source))
         {
-          if constexpr (wowlib::formats::has_convert_path<wowlib::formats::wdl::WDL,
-                                                          wowlib::to_client_version(From),
-                                                          wowlib::to_client_version(To)>())
-            return wowlib::formats::convert<wowlib::to_client_version(To)>(
+          if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::wdl::WDL,
+                                                          wowlib::toClientVersion(from),
+                                                          wowlib::toClientVersion(to)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(to)>(
               nb::cast<const S&>(source));
           else
-            return wowlib::make_error(
+            return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("WDL conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enum_name(From), wowlib::enum_name(To)));
+                          wowlib::enumName(from), wowlib::enumName(to)));
         }
       }
       throw nb::type_error("convert() expects a WDL instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
-    template <wowlib::Expansion To>
-    void def_convert_overload(nb::handle base)
+    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
+    template <wowlib::Expansion to>
+    void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != To)
+          if (target != to)
             throw nb::next_overload();
-          return nb::cast(convert_wdl_from_any<To>(self));
+          return nb::cast(convertWdlFromAny<to>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enum_name(To)} + "]) -> "
-                        + concrete_name("WDL", To, wowlib::formats::wdl::wdl_pivots,
-                                        wowlib::formats::wdl::wdl_versions))));
+                        + std::string{wowlib::enumName(to)} + "]) -> "
+                        + concreteName("WDL", to, wowlib::formats::wdl::WdlPivots,
+                                        wowlib::formats::wdl::WdlVersions))));
     }
 
     /** @brief Attach @c convert to @c WDLBase (the concretes weld no convert,
         so the base method is inherited unshadowed). */
-    void def_wdl_convert(nb::handle base)
+    void defWdlConvert(nb::handle base)
     {
-      template for (constexpr auto e : expansion_enumerators)
-        def_convert_overload<([:e:])>(base);
+      template for (constexpr auto e : ExpansionEnumerators)
+        defConvertOverload<([:e:])>(base);
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target)
         {
           nb::object result;
           bool found = false;
-          template for (constexpr auto e : expansion_enumerators)
+          template for (constexpr auto e : ExpansionEnumerators)
           {
-            constexpr wowlib::Expansion To = [:e:];
-            if (!found && target == To)
+            constexpr wowlib::Expansion to = [:e:];
+            if (!found && target == to)
             {
-              result = nb::cast(convert_wdl_from_any<To>(self));
+              result = nb::cast(convertWdlFromAny<to>(self));
               found = true;
             }
           }
@@ -126,16 +126,16 @@ namespace wowlib_py::formats::wdl
 
     /** @brief Merge the (FileSystem, FileKey) read/write overloads into ONE
         concrete class's welded verb chain (nanobind merges by name+scope). */
-    template <wowlib::Expansion X>
-    void def_wdl_fs_verbs_on()
+    template <wowlib::Expansion x>
+    void defWdlFsVerbsOn()
     {
-      using C = wowlib::formats::wdl::WDL<wowlib::to_client_version(X)>;
+      using C = wowlib::formats::wdl::WDL<wowlib::toClientVersion(x)>;
       const nb::handle concrete = nb::type<C>();
       nb::cpp_function(
         [](C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
           if (auto r = self.read(fs, key); !r)
-            throw wowlib::result_error(r.error());
+            throw wowlib::ResultError(r.error());
         },
         nb::name("read"), nb::scope(concrete), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
@@ -151,7 +151,7 @@ namespace wowlib_py::formats::wdl
         [](const C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
           if (auto r = self.write(fs, key); !r)
-            throw wowlib::result_error(r.error());
+            throw wowlib::ResultError(r.error());
         },
         nb::name("write"), nb::scope(concrete), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
@@ -166,33 +166,33 @@ namespace wowlib_py::formats::wdl
 
     /** @brief Attach the filesystem verbs to every concrete class, once per
         RANGE (several expansions share one concrete). */
-    void def_wdl_fs_verbs()
+    void defWdlFsVerbs()
     {
-      template for (constexpr auto e : expansion_enumerators)
+      template for (constexpr auto e : ExpansionEnumerators)
       {
-        constexpr wowlib::Expansion X = [:e:];
+        constexpr wowlib::Expansion x = [:e:];
         // only the range representative (its own canonical) attaches, so a
         // shared concrete class is not given duplicate overloads
-        if constexpr (wowlib::formats::canonical_version(wowlib::to_client_version(X),
-                                                         wowlib::formats::wdl::wdl_pivots,
-                                                         wowlib::formats::wdl::wdl_versions)
-                      == wowlib::to_client_version(X))
-          def_wdl_fs_verbs_on<X>();
+        if constexpr (wowlib::formats::canonicalVersion(wowlib::toClientVersion(x),
+                                                         wowlib::formats::wdl::WdlPivots,
+                                                         wowlib::formats::wdl::WdlVersions)
+                      == wowlib::toClientVersion(x))
+          defWdlFsVerbsOn<x>();
       }
     }
   }
 
-  void register_facade(nb::module_& module)
+  void registerFacade(nb::module_& module)
   {
     nb::module_ formats = nb::cast<nb::module_>(module.attr("formats"));
     nb::module_ wdl = nb::cast<nb::module_>(formats.attr("wdl"));
 
     namespace fwdl = wowlib::formats::wdl;
-    def_for_version<fwdl::WDL>(wdl.attr("WDL"), "WDL", fwdl::wdl_pivots, fwdl::wdl_versions);
-    def_wdl_convert(wdl.attr("WDL"));
-    def_wdl_fs_verbs();
-    def_validation_verbs<fwdl::WDL>(wdl.attr("WDL"), "WDL");
+    defForVersion<fwdl::WDL>(wdl.attr("WDL"), "WDL", fwdl::WdlPivots, fwdl::WdlVersions);
+    defWdlConvert(wdl.attr("WDL"));
+    defWdlFsVerbs();
+    defValidationVerbs<fwdl::WDL>(wdl.attr("WDL"), "WDL");
 
-    def_any_alias<fwdl::WDL>(wdl, "WDL", fwdl::wdl_pivots, fwdl::wdl_versions);
+    defAnyAlias<fwdl::WDL>(wdl, "WDL", fwdl::WdlPivots, fwdl::WdlVersions);
   }
 }

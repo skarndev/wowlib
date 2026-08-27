@@ -30,17 +30,17 @@ using namespace wowlib::fs;
 TEST_CASE("8.3.7: every shipped DB2 parses structurally (WDC3)",
           "[integration][db]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::bfa_client(),
-                                    .build = versions::bfa.build});
+  auto storage = CascStorage::open({.clientRoot = tests::bfaClient(),
+                                    .build = versions::Bfa.build});
   REQUIRE(storage.has_value());
 
   tests::ImageStats stats;
-  tests::sweep_db2_images(*storage, *listfile, csv, stats);
+  tests::sweepDb2Images(*storage, *listfile, csv, stats);
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.parsed == stats.present);
   CHECK(stats.present >= 400);
@@ -49,29 +49,29 @@ TEST_CASE("8.3.7: every shipped DB2 parses structurally (WDC3)",
 TEST_CASE("8.3.7: representative tables decode and round-trip (WDC3)",
           "[integration][db]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::bfa_client(),
-                                    .build = versions::bfa.build});
+  auto storage = CascStorage::open({.clientRoot = tests::bfaClient(),
+                                    .build = versions::Bfa.build});
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
   const auto sweep = [&]<typename Tbl>(std::string_view name) {
-    tests::sweep_table_casc<Tbl>(*storage, *listfile, name, stats,
-                                 /*byte_perfect=*/false);
+    tests::sweepTableCasc<Tbl>(*storage, *listfile, name, stats,
+                                 /*bytePerfect=*/false);
   };
-  sweep.template operator()<db::tables::Map<versions::bfa>>("Map");
-  sweep.template operator()<db::tables::ChrRaces<versions::bfa>>("ChrRaces");
-  sweep.template operator()<db::tables::CreatureModelData<versions::bfa>>(
+  sweep.template operator()<db::tables::Map<versions::Bfa>>("Map");
+  sweep.template operator()<db::tables::ChrRaces<versions::Bfa>>("ChrRaces");
+  sweep.template operator()<db::tables::CreatureModelData<versions::Bfa>>(
     "CreatureModelData");
-  sweep.template operator()<db::tables::CreatureDisplayInfoExtra<versions::bfa>>(
+  sweep.template operator()<db::tables::CreatureDisplayInfoExtra<versions::Bfa>>(
     "CreatureDisplayInfoExtra");
-  sweep.template operator()<db::tables::SoundKit<versions::bfa>>("SoundKit");
-  sweep.template operator()<db::tables::ManifestInterfaceData<versions::bfa>>(
+  sweep.template operator()<db::tables::SoundKit<versions::Bfa>>("SoundKit");
+  sweep.template operator()<db::tables::ManifestInterfaceData<versions::Bfa>>(
     "ManifestInterfaceData");
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 4);
 }
@@ -80,21 +80,21 @@ TEST_CASE("8.3.7: representative tables decode and round-trip (WDC3)",
 TEST_CASE("8.3.7: the FULL DB2 corpus decodes and round-trips (WDC3)",
           "[integration][db][full-corpus]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::bfa_client(),
-                                    .build = versions::bfa.build});
+  auto storage = CascStorage::open({.clientRoot = tests::bfaClient(),
+                                    .build = versions::Bfa.build});
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
-#  define X(Name)                                                        \
-  tests::sweep_table_casc<db::tables::Name<versions::bfa>>(        \
-    *storage, *listfile, #Name, stats, /*byte_perfect=*/false);
-  WOWLIB_DB_TABLES_BFA(X)
-#  undef X
+#  define x(Name)                                                        \
+  tests::sweepTableCasc<db::tables::Name<versions::Bfa>>(        \
+    *storage, *listfile, #Name, stats, /*bytePerfect=*/false);
+  WOWLIB_DB_TABLES_BFA(x)
+#  undef x
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 400);
 }

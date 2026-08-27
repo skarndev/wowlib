@@ -64,18 +64,18 @@ namespace wowlib::formats::wmo::root {
     // One struct per availability range; members keep their chunk/since/until/doc/
     // marks (read off the declaring class, so flattening preserves them). Member
     // order within a trait is for readability; the serialization order is the
-    // entity's chunk_order table, not the flatten order.
+    // entity's ChunkOrder table, not the flatten order.
 
-    /** Legion+ (7.0.1) root chunks. */
+    /** legion+ (7.0.1) root chunks. */
     struct RootLegion {
       [[
         =chunk("GFID"),
         =since(builds::Legion_Alpha),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Group file FileDataIDs (GFID, Legion+), in group order;
                         repeated per LOD level for LOD WMOs.)")]]
-      std::vector<std::uint32_t> group_fdids;
+      std::vector<std::uint32_t> groupFdids;
     };
 
     /** 7.3+ root chunks. */
@@ -83,13 +83,13 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MOUV"),
         =since(builds::Legion_ShadowsOfArgus_24473),
-        =formats::optional,
-        =formats::count_matches("materials"),
+        =formats::Optional,
+        =formats::countMatches("materials"),
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Texture-coordinate translation animations (MOUV, 7.3+), one
                         per material.)")]]
-      std::vector<UVAnimation> uv_animations;
+      std::vector<UVAnimation> uvAnimations;
     };
 
     /** Pre-8.3 root chunks: the by-name file-reference blocks. Since 8.3 the client
@@ -101,7 +101,7 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MOTX"),
         =until(builds::BfA_VisionsOfNzoth_32044),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(
           R"(Texture filenames (MOTX); the material texture fields index
                         into this block. Pre-8.1 it is the primary reference; in
@@ -113,13 +113,13 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MODN"),
         =until(builds::BfA_VisionsOfNzoth_32044),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(
           R"(Doodad (M2) filenames (MODN); MODD entries index into this
                         block. Pre-8.1 primary, 8.1/8.2 fallback (see textures).
                         Removed at 8.3 alongside MOTX; MODI (doodad FileDataIDs)
                         replaces it.)")]]
-      StringBlock doodad_names;
+      StringBlock doodadNames;
     };
 
     /** 8.1+ root chunks (the FileDataID chunks that replace name lookups). */
@@ -127,19 +127,19 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MOSI"),
         =since(builds::BfA_TidesOfVengeance),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Skybox FileDataID (MOSI, 8.1+).")]]
-      std::vector<std::uint32_t> skybox_fdid;
+      std::vector<std::uint32_t> skyboxFdid;
 
       [[
         =chunk("MODI"),
         =since(builds::BfA_TidesOfVengeance),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           "Doodad FileDataIDs (MODI, 8.1+; replaces doodad_names).")]]
-      std::vector<std::uint32_t> doodad_fdids;
+      std::vector<std::uint32_t> doodadFdids;
     };
 
     /** 8.3+ root chunks (per-doodad colour + the volume family). */
@@ -147,52 +147,52 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MDDI"),
         =since(builds::BfA_VisionsOfNzoth_32044),
-        =formats::optional,
-        =formats::count_matches("doodad_defs"),
+        =formats::Optional,
+        =formats::countMatches("doodadDefs"),
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Per-doodad color multipliers (MDDI, 8.3+), applied to the
                         MODD color.)")]]
-      std::vector<float> doodad_color_mults;
+      std::vector<float> doodadColorMults;
 
       [[
         =chunk("MPVD"),
         =since(builds::BfA_VisionsOfNzoth_32044),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(
           R"(Particulate volume data (MPVD, 8.3+); undocumented layout,
                         kept opaque.)")]]
-      ChunkBlob particulate_volumes;
+      ChunkBlob particulateVolumes;
 
       [[
         =chunk("MAVG"),
         =since(builds::BfA_VisionsOfNzoth_32044),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Global ambient volumes (MAVG, 8.3+); position and radii are
                         zero, selected by doodad set.)")]]
-      std::vector<AmbientVolume> global_ambient_volumes;
+      std::vector<AmbientVolume> globalAmbientVolumes;
 
       [[
         =chunk("MAVD"),
         =since(builds::BfA_VisionsOfNzoth_32044),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Ambient volumes (MAVD, 8.3+), overriding the header ambient
                         color inside their radius.)")]]
-      std::vector<AmbientVolume> ambient_volumes;
+      std::vector<AmbientVolume> ambientVolumes;
 
       [[
         =chunk("MBVD"),
         =since(builds::BfA_VisionsOfNzoth_32044),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Box ambient volumes (MBVD, 8.3+); read only when MAVG/MAVD is
                         present.)")]]
-      std::vector<AmbientBoxVolume> ambient_box_volumes;
+      std::vector<AmbientBoxVolume> ambientBoxVolumes;
     };
 
     /** 9.0+ root chunks (fog/group v2, dynamic lights, detail doodads). */
@@ -200,39 +200,39 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MFED"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
-        =formats::count_matches("fogs"),
+        =formats::Optional,
+        =formats::countMatches("fogs"),
         =welder::mark::no_reassign,
         =welder::doc("Fog extra data (MFED, 9.0+); same count as MFOG.")]]
-      std::vector<FogExtra> fog_extras;
+      std::vector<FogExtra> fogExtras;
 
       [[
         =chunk("MGI2"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
-        =formats::count_matches("group_infos"),
+        =formats::Optional,
+        =formats::countMatches("groupInfos"),
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Group info v2 (MGI2, 9.0+); same count as MOGI, overrides LOD
                         selection.)")]]
-      std::vector<GroupInfo2> group_infos2;
+      std::vector<GroupInfo2> groupInfos2;
 
       [[
         =chunk("MNLD"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Dynamic lights (MNLD, 9.0+): torch fires, window light
                         projection and the like.)")]]
-      std::vector<NewLight> new_lights;
+      std::vector<NewLight> newLights;
 
       [[
         =chunk("MDDL"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(R"(Detail (ground-effect) doodad layers (MDDL, 9.0+);
                         variable-length RLE layout, kept opaque.)")]]
-      ChunkBlob detail_doodads;
+      ChunkBlob detailDoodads;
     };
 
     /** 9.1+ root chunks. */
@@ -240,12 +240,12 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MOLV"),
         =since(builds::SL_ChainsOfDomination),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Directional-gradient light extensions (MOLV, 9.1+); entries
                         reference lights by index.)")]]
-      std::vector<LightExtension> light_extensions;
+      std::vector<LightExtension> lightExtensions;
     };
 
     /** 11.0+ root chunks. */
@@ -253,11 +253,11 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MOM3"),
         =since(builds::TWW_Alpha),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(
           R"(M3 materials (MOM3, 11.0+); when present, MOMT is ignored. An
                         m3SI blob, kept opaque.)")]]
-      ChunkBlob materials_m3;
+      ChunkBlob materialsM3;
     };
 
     /** 11.1+ root chunks. */
@@ -265,10 +265,10 @@ namespace wowlib::formats::wmo::root {
       [[
         =chunk("MOPE"),
         =since(builds::TWW_Undermined),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Portal extra data (MOPE, 11.1+).")]]
-      std::vector<PortalExtra> portal_extras;
+      std::vector<PortalExtra> portalExtras;
     };
   }
 
@@ -301,22 +301,22 @@ namespace wowlib::formats::wmo::root {
       ]] WMORoot
       : ChunkedFile<WMORoot<V>>,
         WMORootBase,
-        slot<V, builds::Legion_Alpha, RootLegion>,
-        slot<V, builds::Legion_ShadowsOfArgus_24473, Root73>,
-        slot<V, ClientVersion{0, 0, 0, 0}, RootPre83, builds::BfA_VisionsOfNzoth_32044>,
-        slot<V, builds::BfA_TidesOfVengeance, Root81>,
-        slot<V, builds::BfA_VisionsOfNzoth_32044, Root83>,
-        slot<V, builds::SL_Alpha_33978, Root90>,
-        slot<V, builds::SL_ChainsOfDomination, Root91>,
-        slot<V, builds::TWW_Alpha, Root110>,
-        slot<V, builds::TWW_Undermined, Root111> {
-      static constexpr ClientVersion version = V;
+        Slot<V, builds::Legion_Alpha, RootLegion>,
+        Slot<V, builds::Legion_ShadowsOfArgus_24473, Root73>,
+        Slot<V, ClientVersion{0, 0, 0, 0}, RootPre83, builds::BfA_VisionsOfNzoth_32044>,
+        Slot<V, builds::BfA_TidesOfVengeance, Root81>,
+        Slot<V, builds::BfA_VisionsOfNzoth_32044, Root83>,
+        Slot<V, builds::SL_Alpha_33978, Root90>,
+        Slot<V, builds::SL_ChainsOfDomination, Root91>,
+        Slot<V, builds::TWW_Alpha, Root110>,
+        Slot<V, builds::TWW_Undermined, Root111> {
+      static constexpr ClientVersion Version = V;
 
       [[
         =chunk("MVER"),
-        =formats::expected_value(wmo_version_v17),
+        =formats::expectedValue(WmoVersionV17),
         =welder::doc("The WMO format version; 17 for every supported client.")]]
-      std::uint32_t mver = wmo_version_v17;
+      std::uint32_t mver = WmoVersionV17;
 
       [[
         =chunk("MOHD"),
@@ -325,27 +325,27 @@ namespace wowlib::formats::wmo::root {
 
       [[
         =chunk("MOMT"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Materials (MOMT).")]]
       std::vector<SMOMaterial> materials;
 
       [[
         =chunk("MOGN"),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc("Group names (MOGN), referenced by byte offset.")]]
-      StringBlock group_names;
+      StringBlock groupNames;
 
       [[
         =chunk("MOGI"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Per-group info (MOGI).")]]
-      std::vector<SMOGroupInfo> group_infos;
+      std::vector<SMOGroupInfo> groupInfos;
 
       [[
         =chunk("MOSB"),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(
           R"(Skybox filename (MOSB); raw bytes — files pad it to 4-byte
                         alignment. skybox_fdid (MOSI, 8.1+) functionally replaces
@@ -354,254 +354,254 @@ namespace wowlib::formats::wmo::root {
                         always empty, never alongside MOSI — so it stays on every
                         version as the no-skybox marker exporters still emit.)")
       ]]
-      ChunkBlob skybox_name;
+      ChunkBlob skyboxName;
 
       [[
         =chunk("MOPV"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Portal vertices (MOPV).")]]
-      std::vector<C3Vector> portal_vertices;
+      std::vector<C3Vector> portalVertices;
 
       [[
         =chunk("MOPT"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Portals (MOPT).")]]
       std::vector<SMOPortal> portals;
 
       [[
         =chunk("MOPR"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Portal references from groups (MOPR).")]]
-      std::vector<SMOPortalRef> portal_refs;
+      std::vector<SMOPortalRef> portalRefs;
 
       [[
         =chunk("MOVV"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Visible block vertices (MOVV).")]]
-      std::vector<C3Vector> visible_block_vertices;
+      std::vector<C3Vector> visibleBlockVertices;
 
       [[
         =chunk("MOVB"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Visible blocks (MOVB).")]]
-      std::vector<SMOVisibleBlock> visible_blocks;
+      std::vector<SMOVisibleBlock> visibleBlocks;
 
       [[
         =chunk("MOLT"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Lights (MOLT).")]]
       std::vector<SMOLight> lights;
 
       [[
         =chunk("MODS"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Doodad sets (MODS).")]]
-      std::vector<SMODoodadSet> doodad_sets;
+      std::vector<SMODoodadSet> doodadSets;
 
       [[
         =chunk("MODD"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Doodad placements (MODD).")]]
-      std::vector<SMODoodadDef> doodad_defs;
+      std::vector<SMODoodadDef> doodadDefs;
 
       [[
         =chunk("MFOG"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Fog volumes (MFOG).")]]
       std::vector<SMOFog> fogs;
 
       [[
         =chunk("MCVP"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Convex volume planes (MCVP); transports mostly.")]]
-      std::vector<C4Plane> convex_volume_planes;
+      std::vector<C4Plane> convexVolumePlanes;
 
       [[
         =chunk("MOMX"),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc("MOMX (11.x, undocumented purpose); preserved opaque.")]]
       ChunkBlob momx;
 
       /** The canonical chunk-stream order the serializer emits a fresh entity in —
           decoupled from the by-trait flatten order of the version bases. Lists every
-          chunk member exactly once (checked at compile time by write_order).
+          chunk member exactly once (checked at compile time by writeOrder).
 
           MFOB (12.1+, Midnight) postdates the supported client range; it and any
           other unmodeled root chunk round-trip through ChunkExtras::unknown. */
-      static constexpr std::array chunk_order = {
-        four_cc("MVER"),
-        four_cc("MOHD"),
-        four_cc("MOTX"),
-        four_cc("MOMT"),
-        four_cc("MOM3"),
-        four_cc("MOUV"),
-        four_cc("MOGN"),
-        four_cc("MOGI"),
-        four_cc("MOSB"),
-        four_cc("MOSI"),
-        four_cc("MOPV"),
-        four_cc("MOPT"),
-        four_cc("MOPR"),
-        four_cc("MOPE"),
-        four_cc("MOVV"),
-        four_cc("MOVB"),
-        four_cc("MOLT"),
-        four_cc("MOLV"),
-        four_cc("MODS"),
-        four_cc("MODN"),
-        four_cc("MODI"),
-        four_cc("MODD"),
-        four_cc("MFOG"),
-        four_cc("MCVP"),
-        four_cc("GFID"),
-        four_cc("MDDI"),
-        four_cc("MPVD"),
-        four_cc("MAVG"),
-        four_cc("MAVD"),
-        four_cc("MBVD"),
-        four_cc("MFED"),
-        four_cc("MGI2"),
-        four_cc("MNLD"),
-        four_cc("MDDL"),
-        four_cc("MOMX"),
+      static constexpr std::array ChunkOrder = {
+        fourCc("MVER"),
+        fourCc("MOHD"),
+        fourCc("MOTX"),
+        fourCc("MOMT"),
+        fourCc("MOM3"),
+        fourCc("MOUV"),
+        fourCc("MOGN"),
+        fourCc("MOGI"),
+        fourCc("MOSB"),
+        fourCc("MOSI"),
+        fourCc("MOPV"),
+        fourCc("MOPT"),
+        fourCc("MOPR"),
+        fourCc("MOPE"),
+        fourCc("MOVV"),
+        fourCc("MOVB"),
+        fourCc("MOLT"),
+        fourCc("MOLV"),
+        fourCc("MODS"),
+        fourCc("MODN"),
+        fourCc("MODI"),
+        fourCc("MODD"),
+        fourCc("MFOG"),
+        fourCc("MCVP"),
+        fourCc("GFID"),
+        fourCc("MDDI"),
+        fourCc("MPVD"),
+        fourCc("MAVG"),
+        fourCc("MAVD"),
+        fourCc("MBVD"),
+        fourCc("MFED"),
+        fourCc("MGI2"),
+        fourCc("MNLD"),
+        fourCc("MDDL"),
+        fourCc("MOMX"),
       };
 
-      /** Serializer hook (see write_entity): stamp the derived MOHD counts into
-          the just-written header payload — n_groups from the MOGI table,
-          n_portals and n_doodad_sets from their vectors. The counts real client
-          files disagree with their containers on (n_textures, n_lights,
-          n_doodad_defs, n_doodad_names) stay stored fields; see SMOHeader.
+      /** Serializer hook (see writeEntity): stamp the derived MOHD counts into
+          the just-written header payload — nGroups from the MOGI table,
+          nPortals and nDoodadSets from their vectors. The counts real client
+          files disagree with their containers on (nTextures, nLights,
+          nDoodadDefs, nDoodadNames) stay stored fields; see SMOHeader.
           @param fourcc  the emitted chunk's id, in disk layout.
           @param payload the finished chunk payload, patched in place. */
       [[=welder::mark::exclude]]
       void patch_chunk(std::uint32_t fourcc, std::span<std::byte> payload) const {
-        if (fourcc != four_cc("MOHD") || payload.size() < sizeof(SMOHeader)) return;
+        if (fourcc != fourCc("MOHD") || payload.size() < sizeof(SMOHeader)) return;
         SMOHeader h;
         std::memcpy(&h, payload.data(), sizeof h);
-        h.n_groups = static_cast<std::uint32_t>(group_infos.size());
-        h.n_portals = static_cast<std::uint32_t>(portals.size());
-        h.n_doodad_sets = static_cast<std::uint32_t>(doodad_sets.size());
+        h.nGroups = static_cast<std::uint32_t>(groupInfos.size());
+        h.nPortals = static_cast<std::uint32_t>(portals.size());
+        h.nDoodadSets = static_cast<std::uint32_t>(doodadSets.size());
         std::memcpy(payload.data(), &h, sizeof h);
       }
 
-      /** Validation hook (see detail::validate_entity): the root contracts the
+      /** Validation hook (see detail::validateEntity): the root contracts the
           annotations cannot express — doodad-set/portal/visible-block ranges,
           string-block references and the doodad name/FileDataID resolution.
-          The MOHD counts patch_chunk derives (n_groups, n_portals,
-          n_doodad_sets) need no check — every write restamps them — and the
-          counts real files ship stale (n_textures, n_lights, n_doodad_defs,
-          n_doodad_names; see SMOHeader) are deliberately not validated.
+          The MOHD counts patch_chunk derives (nGroups, nPortals,
+          nDoodadSets) need no check — every write restamps them — and the
+          counts real files ship stale (nTextures, nLights, nDoodadDefs,
+          nDoodadNames; see SMOHeader) are deliberately not validated.
           Cross-entity contracts (MOGI vs the group files, group references
           into this root) are the assembly's validate().
           @param report the report findings land in. */
       [[=welder::mark::exclude]]
-      void validate_extra(ValidationReport& report) const {
-        // MODS: (start_index, count) ranges into MODD
-        for (std::size_t i = 0; i < doodad_sets.size(); ++i)
-          if (doodad_sets[i].start_index + doodad_sets[i].count > doodad_defs.size())
-            report.add_error(std::format("doodad_sets[{}]", i),
-                             std::format("range [{}, {}) overruns the {} doodad placements", doodad_sets[i].start_index,
-                                         doodad_sets[i].start_index + doodad_sets[i].count, doodad_defs.size()));
+      void validateExtra(ValidationReport& report) const {
+        // MODS: (startIndex, count) ranges into MODD
+        for (std::size_t i = 0; i < doodadSets.size(); ++i)
+          if (doodadSets[i].startIndex + doodadSets[i].count > doodadDefs.size())
+            report.addError(std::format("doodad_sets[{}]", i),
+                             std::format("range [{}, {}) overruns the {} doodad placements", doodadSets[i].startIndex,
+                                         doodadSets[i].startIndex + doodadSets[i].count, doodadDefs.size()));
 
         // MODD name references: MODN byte offsets pre-8.3, MODI indices once
         // the names block is gone (8.1/8.2 carry both - an engaged MODN marks
         // the by-name fallback mode, so it stays authoritative)
-        constexpr std::size_t max_reported = 8;
-        std::size_t bad_names = 0;
-        for (std::size_t i = 0; i < doodad_defs.size(); ++i) {
-          const std::uint32_t name = doodad_defs[i].name_index();
+        constexpr std::size_t maxReported = 8;
+        std::size_t badNames = 0;
+        for (std::size_t i = 0; i < doodadDefs.size(); ++i) {
+          const std::uint32_t name = doodadDefs[i].nameIndex();
           bool resolvable = false;
           std::string_view space;
           std::size_t bound = 0;
-          if constexpr (requires { this->doodad_names; })
-            if (!this->doodad_names.empty()) {
-              resolvable = name < this->doodad_names.size();
+          if constexpr (requires { this->doodadNames; })
+            if (!this->doodadNames.empty()) {
+              resolvable = name < this->doodadNames.size();
               space = "doodad_names blob byte";
-              bound = this->doodad_names.size();
+              bound = this->doodadNames.size();
             }
-          if constexpr (requires { this->doodad_fdids; })
+          if constexpr (requires { this->doodadFdids; })
             if (space.empty()) {
-              resolvable = name < this->doodad_fdids.size();
+              resolvable = name < this->doodadFdids.size();
               space = "doodad FileDataID";
-              bound = this->doodad_fdids.size();
+              bound = this->doodadFdids.size();
             }
           if (space.empty()) {
             resolvable = false;
             space = "doodad name source (none engaged)";
           }
-          if (!resolvable && ++bad_names <= max_reported)
-            report.add_error(std::format("doodad_defs[{}]", i),
+          if (!resolvable && ++badNames <= maxReported)
+            report.addError(std::format("doodadDefs[{}]", i),
                              std::format("name reference {} does not resolve: {} count {}", name, space, bound));
         }
-        if (bad_names > max_reported)
-          report.add_error("doodad_defs", std::format(
-                             "... and {} more unresolvable name " "references", bad_names - max_reported));
+        if (badNames > maxReported)
+          report.addError("doodadDefs", std::format(
+                             "... and {} more unresolvable name " "references", badNames - maxReported));
 
         // MOPT: vertex ranges into MOPV
         for (std::size_t i = 0; i < portals.size(); ++i)
-          if (portals[i].start_vertex + portals[i].count > portal_vertices.size())
-            report.add_error(std::format("portals[{}]", i),
+          if (portals[i].startVertex + portals[i].count > portalVertices.size())
+            report.addError(std::format("portals[{}]", i),
                              std::format("vertex range [{}, {}) overruns the {} portal vertices",
-                                         portals[i].start_vertex, portals[i].start_vertex + portals[i].count,
-                                         portal_vertices.size()));
+                                         portals[i].startVertex, portals[i].startVertex + portals[i].count,
+                                         portalVertices.size()));
 
         // MOPR: indices into MOPT and MOGI
-        for (std::size_t i = 0; i < portal_refs.size(); ++i) {
-          if (portal_refs[i].portal_index >= portals.size())
-            report.add_error(std::format("portal_refs[{}]", i),
-                             std::format("portal_index {} out of range: {} portals", portal_refs[i].portal_index,
+        for (std::size_t i = 0; i < portalRefs.size(); ++i) {
+          if (portalRefs[i].portalIndex >= portals.size())
+            report.addError(std::format("portal_refs[{}]", i),
+                             std::format("portal_index {} out of range: {} portals", portalRefs[i].portalIndex,
                                          portals.size()));
-          if (portal_refs[i].group_index >= group_infos.size())
-            report.add_error(std::format("portal_refs[{}]", i),
-                             std::format("group_index {} out of range: {} groups", portal_refs[i].group_index,
-                                         group_infos.size()));
+          if (portalRefs[i].groupIndex >= groupInfos.size())
+            report.addError(std::format("portal_refs[{}]", i),
+                             std::format("group_index {} out of range: {} groups", portalRefs[i].groupIndex,
+                                         groupInfos.size()));
         }
 
         // MOVB: vertex ranges into MOVV
-        for (std::size_t i = 0; i < visible_blocks.size(); ++i)
-          if (visible_blocks[i].first_vertex + visible_blocks[i].count > visible_block_vertices.size())
-            report.add_error(std::format("visible_blocks[{}]", i), std::format(
+        for (std::size_t i = 0; i < visibleBlocks.size(); ++i)
+          if (visibleBlocks[i].firstVertex + visibleBlocks[i].count > visibleBlockVertices.size())
+            report.addError(std::format("visible_blocks[{}]", i), std::format(
                                "vertex range [{}, {}) overruns the {} visible block " "vertices",
-                               visible_blocks[i].first_vertex, visible_blocks[i].first_vertex + visible_blocks[i].count,
-                               visible_block_vertices.size()));
+                               visibleBlocks[i].firstVertex, visibleBlocks[i].firstVertex + visibleBlocks[i].count,
+                               visibleBlockVertices.size()));
 
         // MOGI: group-name offsets into MOGN (-1 marks the unnamed group)
-        for (std::size_t i = 0; i < group_infos.size(); ++i)
-          if (group_infos[i].name_offset >= 0 && static_cast<std::size_t>(group_infos[i].name_offset) >= group_names.
+        for (std::size_t i = 0; i < groupInfos.size(); ++i)
+          if (groupInfos[i].nameOffset >= 0 && static_cast<std::size_t>(groupInfos[i].nameOffset) >= groupNames.
             size())
-            report.add_error(std::format("group_infos[{}]", i),
-                             std::format("name offset {} out of range: {} blob bytes", group_infos[i].name_offset,
-                                         group_names.size()));
+            report.addError(std::format("groupInfos[{}]", i),
+                             std::format("name offset {} out of range: {} blob bytes", groupInfos[i].nameOffset,
+                                         groupNames.size()));
 
         // MOMT texture references are MOTX byte offsets while the names block
-        // is engaged (pre-8.1 always; 8.1/8.2 fallback mode). Only texture_1
+        // is engaged (pre-8.1 always; 8.1/8.2 fallback mode). Only texture1
         // is validated: real vanilla/TBC-era files ship raw float garbage in
-        // the texture_2/texture_3 slots (corpus: Stormwind.wmo, Subway.wmo),
+        // the texture2/texture3 slots (corpus: Stormwind.wmo, Subway.wmo),
         // which the client evidently never dereferences.
         if constexpr (requires { this->textures; })
           if (!this->textures.empty())
             for (std::size_t i = 0; i < materials.size(); ++i)
-              if (materials[i].texture_1 >= this->textures.size())
-                report.add_error(std::format("materials[{}]", i),
-                                 std::format("texture_1 offset {} out of range: {} blob bytes", materials[i].texture_1,
+              if (materials[i].texture1 >= this->textures.size())
+                report.addError(std::format("materials[{}]", i),
+                                 std::format("texture_1 offset {} out of range: {} blob bytes", materials[i].texture1,
                                              this->textures.size()));
 
         // MOLV (9.1+): entries reference lights by index
-        if constexpr (requires { this->light_extensions; })
-          for (std::size_t i = 0; i < this->light_extensions.size(); ++i)
-            if (const auto index = this->light_extensions[i].light_index; index < 0 || static_cast<std::size_t>(index)
+        if constexpr (requires { this->lightExtensions; })
+          for (std::size_t i = 0; i < this->lightExtensions.size(); ++i)
+            if (const auto index = this->lightExtensions[i].lightIndex; index < 0 || static_cast<std::size_t>(index)
               >= lights.size())
-              report.add_error(std::format("light_extensions[{}]", i),
+              report.addError(std::format("light_extensions[{}]", i),
                                std::format("light_index {} out of range: {} lights", index, lights.size()));
       }
     };
@@ -609,8 +609,8 @@ namespace wowlib::formats::wmo::root {
 
   /** A WMO root file — the canonicalizing face of detail::WMORoot: every
       client version maps to its range's first grid version
-      (wmo_root_pivots), so e.g. one instantiation serves Vanilla through
+      (WmoRootPivots), so e.g. one instantiation serves Vanilla through
       WoD. */
   template <ClientVersion V>
-  using WMORoot = detail::WMORoot<canonical_version(V, wmo_root_pivots, wmo_versions)>;
+  using WMORoot = detail::WMORoot<canonicalVersion(V, WmoRootPivots, WmoVersions)>;
 }

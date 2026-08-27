@@ -22,7 +22,7 @@ namespace wowlib::formats::adt::chunks {
         key and a position/size pair placing an ambient sound in the cell.)")
     ]] CWSoundEmitter {
     [[=welder::doc("The sound entry (a SoundEntriesAdvanced foreign key).")]]
-    std::uint32_t entry_id = 0;
+    std::uint32_t entryId = 0;
 
     [[=welder::doc("The emitter position.")]]
     C3Vector position{};
@@ -49,55 +49,55 @@ namespace wowlib::formats::adt::chunks {
         moved into SoundEntriesAdvanced.)")
     ]] CWSoundEmitterVanilla {
     [[=welder::doc("Sequential emitter id, unique per map.")]]
-    std::uint32_t sound_point_id = 0;
+    std::uint32_t soundPointId = 0;
 
     [[=welder::doc("The sound (a SoundEntries foreign key).")]]
-    std::uint32_t sound_name_id = 0;
+    std::uint32_t soundNameId = 0;
 
     [[=welder::doc("The emitter position, in world coordinates.")]]
     C3Vector position{};
 
     [[=welder::doc("Full-volume distance.")]]
-    float min_distance = 0;
+    float minDistance = 0;
 
     [[=welder::doc("Audible-range distance.")]]
-    float max_distance = 0;
+    float maxDistance = 0;
 
     [[=welder::doc("Cutoff distance.")]]
-    float cutoff_distance = 0;
+    float cutoffDistance = 0;
 
     [[=welder::doc("Daily start time, minutes.")]]
-    std::uint16_t start_time = 0;
+    std::uint16_t startTime = 0;
 
     [[=welder::doc("Daily end time, minutes.")]]
-    std::uint16_t end_time = 0;
+    std::uint16_t endTime = 0;
 
     [[=welder::doc("Emitter mode.")]]
     std::uint16_t mode = 0;
 
     [[=welder::doc("Minimum loop count.")]]
-    std::uint8_t loop_count_min = 0;
+    std::uint8_t loopCountMin = 0;
 
     [[=welder::doc("Maximum loop count.")]]
-    std::uint8_t loop_count_max = 0;
+    std::uint8_t loopCountMax = 0;
 
     [[=welder::doc("Minimum group silence, milliseconds.")]]
-    std::uint16_t group_silence_min = 0;
+    std::uint16_t groupSilenceMin = 0;
 
     [[=welder::doc("Maximum group silence, milliseconds.")]]
-    std::uint16_t group_silence_max = 0;
+    std::uint16_t groupSilenceMax = 0;
 
     [[=welder::doc("Minimum concurrent play instances.")]]
-    std::uint16_t play_instances_min = 0;
+    std::uint16_t playInstancesMin = 0;
 
     [[=welder::doc("Maximum concurrent play instances.")]]
-    std::uint16_t play_instances_max = 0;
+    std::uint16_t playInstancesMax = 0;
 
     [[=welder::doc("Minimum gap between sounds, milliseconds.")]]
-    std::uint16_t inter_sound_gap_min = 0;
+    std::uint16_t interSoundGapMin = 0;
 
     [[=welder::doc("Maximum gap between sounds, milliseconds.")]]
-    std::uint16_t inter_sound_gap_max = 0;
+    std::uint16_t interSoundGapMax = 0;
 
     bool operator==(const CWSoundEmitterVanilla&) const = default;
   };

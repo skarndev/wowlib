@@ -11,7 +11,7 @@
     chunk), SKPD parent link, AFID/BFID satellite ids. SKB1/SKA1 reference
     external per-sequence track data in the .anim files' AFSB/AFSA chunks, so
     they travel as verbatim blobs at chunk level and decode into the typed
-    bone_block/attachment_block once the .anim resolution is in hand
+    boneBlock/attachmentBlock once the .anim resolution is in hand
     (read(fs, key) does both).
 
     The SK*1 chunk payload records live here beside the entity: each is a
@@ -48,7 +48,7 @@
 
 namespace wowlib::formats::m2 {
   // --- .skel chunk payload records ------------------------------------------
-  // Stable across the whole chunked era (m2_chunk_payload_pivots is empty): each
+  // Stable across the whole chunked era (M2ChunkPayloadPivots is empty): each
   // family canonicalizes to a single Legion instantiation.
 
   namespace detail {
@@ -57,7 +57,7 @@ namespace wowlib::formats::m2 {
         =welder::weld,
         =welder::doc("The SKL1 payload: the skeleton's identity.")
       ]] SkelHeader : M2OffsetBlock<SkelHeader<V>> {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[=welder::doc("Flags; 0x100 in every file observed so far.")]]
       std::uint32_t flags = 0x100;
@@ -77,11 +77,11 @@ namespace wowlib::formats::m2 {
         =welder::doc("The SKS1 payload: the sequence set that moved out of the "
           "model.")
       ]] SkelSequences : M2OffsetBlock<SkelSequences<V>> {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[=welder::mark::no_reassign,
         =welder::doc("Global-sequence loop lengths.")]]
-      std::vector<root::record::M2Loop> global_loops;
+      std::vector<root::record::M2Loop> globalLoops;
 
       [[=welder::mark::no_reassign,
         =welder::doc("The animation sequences.")]]
@@ -89,7 +89,7 @@ namespace wowlib::formats::m2 {
 
       [[=welder::mark::no_reassign,
         =welder::doc("Animation-id hash table (see M2Root.sequence_lookups).")]]
-      std::vector<std::int16_t> sequence_lookups;
+      std::vector<std::int16_t> sequenceLookups;
 
       [[=welder::doc("Unknown trailing bytes; always zero so far.")]]
       std::array<std::uint8_t, 8> padding{};
@@ -97,7 +97,7 @@ namespace wowlib::formats::m2 {
       /** Chunk engagement: emitted only when any table holds data. */
       [[=welder::mark::exclude]]
       bool empty() const {
-        return global_loops.empty() && sequences.empty() && sequence_lookups.empty();
+        return globalLoops.empty() && sequences.empty() && sequenceLookups.empty();
       }
 
       bool operator==(const SkelSequences&) const = default;
@@ -110,7 +110,7 @@ namespace wowlib::formats::m2 {
           "(external sequences' track data lives in the .anim AFSB "
           "chunks).")
       ]] SkelBones : M2OffsetBlock<SkelBones<V>> {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[=welder::mark::no_reassign,
         =welder::doc("The bones.")]]
@@ -119,11 +119,11 @@ namespace wowlib::formats::m2 {
       [[=welder::mark::no_reassign,
         =welder::doc(
           "Key-bone lookup: key bone slot -> bone index, -1 if none.")]]
-      std::vector<std::int16_t> key_bone_lookup;
+      std::vector<std::int16_t> keyBoneLookup;
 
       [[=welder::mark::exclude]]
       bool empty() const {
-        return bones.empty() && key_bone_lookup.empty();
+        return bones.empty() && keyBoneLookup.empty();
       }
 
       bool operator==(const SkelBones&) const = default;
@@ -136,7 +136,7 @@ namespace wowlib::formats::m2 {
           "model (external sequences' track data lives in the .anim "
           "AFSA chunks).")
       ]] SkelAttachments : M2OffsetBlock<SkelAttachments<V>> {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[=welder::mark::no_reassign,
         =welder::doc("The attachment points.")]]
@@ -144,11 +144,11 @@ namespace wowlib::formats::m2 {
 
       [[=welder::mark::no_reassign,
         =welder::doc("Attachment lookup: attachment id -> index.")]]
-      std::vector<std::uint16_t> attachment_lookup_table;
+      std::vector<std::uint16_t> attachmentLookupTable;
 
       [[=welder::mark::exclude]]
       bool empty() const {
-        return attachments.empty() && attachment_lookup_table.empty();
+        return attachments.empty() && attachmentLookupTable.empty();
       }
 
       bool operator==(const SkelAttachments&) const = default;
@@ -157,16 +157,16 @@ namespace wowlib::formats::m2 {
 
   /** The SKL1 payload — canonicalizing face of detail::SkelHeader. */
   template <ClientVersion V>
-  using SkelHeader = detail::SkelHeader<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+  using SkelHeader = detail::SkelHeader<canonicalVersion(V, M2ChunkPayloadPivots, M2ChunkedVersions)>;
   /** The SKS1 payload — canonicalizing face of detail::SkelSequences. */
   template <ClientVersion V>
-  using SkelSequences = detail::SkelSequences<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+  using SkelSequences = detail::SkelSequences<canonicalVersion(V, M2ChunkPayloadPivots, M2ChunkedVersions)>;
   /** The SKB1 payload — canonicalizing face of detail::SkelBones. */
   template <ClientVersion V>
-  using SkelBones = detail::SkelBones<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+  using SkelBones = detail::SkelBones<canonicalVersion(V, M2ChunkPayloadPivots, M2ChunkedVersions)>;
   /** The SKA1 payload — canonicalizing face of detail::SkelAttachments. */
   template <ClientVersion V>
-  using SkelAttachments = detail::SkelAttachments<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+  using SkelAttachments = detail::SkelAttachments<canonicalVersion(V, M2ChunkPayloadPivots, M2ChunkedVersions)>;
 
   /** The SKPD payload: the parent-skeleton link used for de-duplication
       (e.g. lightforgeddraeneimale -> draeneimale_hd; the child shares the
@@ -179,7 +179,7 @@ namespace wowlib::formats::m2 {
     [[=welder::doc("Unknown leading bytes; always zero so far.")]]
     std::array<std::uint8_t, 8> padding0{};
     [[=welder::doc("The parent .skel FileDataID.")]]
-    std::uint32_t parent_skel_file_id = 0;
+    std::uint32_t parentSkelFileId = 0;
     [[=welder::doc("Unknown trailing bytes; always zero so far.")]]
     std::array<std::uint8_t, 4> padding1{};
 
@@ -221,7 +221,7 @@ namespace wowlib::formats::m2 {
       @tparam V the client version this skeleton targets.
       @see https://wowdev.wiki/M2/.skel */
   namespace detail {
-    template <ClientVersion V> requires (V >= m2_chunked_container)
+    template <ClientVersion V> requires (V >= M2ChunkedContainer)
     struct [[
         =welder::weld,
         =welder::doc(R"(
@@ -229,103 +229,103 @@ namespace wowlib::formats::m2 {
         sequences for skel-based models, shareable between models via the
         parent link. See https://wowdev.wiki/M2/.skel.)")
       ]] Skeleton : ChunkedFile<Skeleton<V>>, SkeletonBase {
-      static constexpr ClientVersion version = V;
-      static constexpr FourCCEndian unknown_fourcc_endian = FourCCEndian::forward;
+      static constexpr ClientVersion Version = V;
+      static constexpr FourCCEndian UnknownFourccEndian = FourCCEndian::Forward;
 
       [[
-        =chunk("SKL1", FourCCEndian::forward),
+        =chunk("SKL1", FourCCEndian::Forward),
         =welder::doc("The skeleton identity (SKL1).")]]
-      SkelHeader<V> header_block{};
+      SkelHeader<V> headerBlock{};
 
       [[
-        =chunk("SKA1", FourCCEndian::forward),
-        =formats::optional,
+        =chunk("SKA1", FourCCEndian::Forward),
+        =formats::Optional,
         =welder::mark::exclude,
         =welder::doc("SKA1 transport blob; decoded into attachment_block by "
           "read(fs, key), re-encoded on write.")]]
       ChunkBlob ska1;
 
       [[
-        =chunk("SKB1", FourCCEndian::forward),
-        =formats::optional,
+        =chunk("SKB1", FourCCEndian::Forward),
+        =formats::Optional,
         =welder::mark::exclude,
         =welder::doc("SKB1 transport blob; decoded into bone_block by "
           "read(fs, key), re-encoded on write.")]]
       ChunkBlob skb1;
 
       [[
-        =chunk("SKS1", FourCCEndian::forward),
-        =formats::optional,
+        =chunk("SKS1", FourCCEndian::Forward),
+        =formats::Optional,
         =welder::doc("The sequence tables (SKS1).")]]
-      SkelSequences<V> sequence_block{};
+      SkelSequences<V> sequenceBlock{};
 
       [[
-        =chunk("SKPD", FourCCEndian::forward),
-        =formats::optional,
+        =chunk("SKPD", FourCCEndian::Forward),
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("The parent-skeleton link (SKPD); 0 or 1 entries.")]]
-      std::vector<SkelParentData> parent_link;
+      std::vector<SkelParentData> parentLink;
 
       [[
-        =chunk("AFID", FourCCEndian::forward),
-        =formats::optional,
+        =chunk("AFID", FourCCEndian::Forward),
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(".anim FileDataIDs (AFID); absent on child skeletons, "
           "which share the parent's (see parent_anim_fdids).")]]
-      std::vector<chunked::record::AnimFileEntry> anim_fdids;
+      std::vector<chunked::record::AnimFileEntry> animFdids;
 
       [[
-        =chunk("BFID", FourCCEndian::forward),
-        =formats::optional,
+        =chunk("BFID", FourCCEndian::Forward),
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(".bone FileDataIDs (BFID); absent on child skeletons, "
           "which share the parent's (see parent_bone_fdids).")]]
-      std::vector<std::uint32_t> bone_fdids;
+      std::vector<std::uint32_t> boneFdids;
 
       // --- decoded views (no chunk of their own; SKB1/SKA1 re-encode from
       // --- these on write) ------------------------------------------------
 
       [[=welder::doc("The bones (decoded SKB1).")]]
-      SkelBones<V> bone_block{};
+      SkelBones<V> boneBlock{};
 
       [[=welder::doc("The attachments (decoded SKA1).")]]
-      SkelAttachments<V> attachment_block{};
+      SkelAttachments<V> attachmentBlock{};
 
       [[
         =welder::mark::no_reassign,
         =welder::doc("The parent's AFID entries when this skeleton is a child "
           "(filled by read(fs, key); not part of this file).")]]
-      std::vector<chunked::record::AnimFileEntry> parent_anim_fdids;
+      std::vector<chunked::record::AnimFileEntry> parentAnimFdids;
 
       [[
         =welder::mark::no_reassign,
         =welder::doc("The parent's BFID entries when this skeleton is a child "
           "(filled by read(fs, key); not part of this file).")]]
-      std::vector<std::uint32_t> parent_bone_fdids;
+      std::vector<std::uint32_t> parentBoneFdids;
 
       /** The AFID set to resolve .anim files with: this file's, or the
           parent's when this skeleton is a child without its own. */
       [[=welder::doc("The effective AFID entries: own when present, else the "
         "parent's.")]]
       const std::vector<chunked::record::AnimFileEntry>&
-      effective_anim_fdids() const {
-        return anim_fdids.empty() ? parent_anim_fdids : anim_fdids;
+      effectiveAnimFdids() const {
+        return animFdids.empty() ? parentAnimFdids : animFdids;
       }
 
       /** The BFID set to resolve .bone files with (own, else parent's). */
       [[=welder::doc("The effective BFID entries: own when present, else the "
         "parent's.")]]
-      const std::vector<std::uint32_t>& effective_bone_fdids() const {
-        return bone_fdids.empty() ? parent_bone_fdids : bone_fdids;
+      const std::vector<std::uint32_t>& effectiveBoneFdids() const {
+        return boneFdids.empty() ? parentBoneFdids : boneFdids;
       }
 
-      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc("Load the skeleton: chunks, the parent's shared AFID/BFID "
           "and the .anim-resolved bone/attachment data.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                         const FileKey& key [[=welder::doc("the .skel identity (path and/or FileDataID)")]]);
 
-      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc("Serialize the skeleton and its .anim files (AFSA/AFSB "
           "sections) through the project overlay. A paired model's "
           "AFM2 section is restored by the owning M2's write.")]]
@@ -342,19 +342,19 @@ namespace wowlib::formats::m2 {
   }
 
   /** A shared model skeleton — the canonicalizing face of detail::Skeleton:
-      the whole chunked era is one range (m2_chunk_payload_pivots is empty), so a
+      the whole chunked era is one range (M2ChunkPayloadPivots is empty), so a
       SINGLE instantiation serves Legion through the latest release.
       Pre-Legion versions stay a substitution failure. */
-  template <ClientVersion V> requires (V >= m2_chunked_container)
-  using Skeleton = detail::Skeleton<canonical_version(V, m2_chunk_payload_pivots, m2_chunked_versions)>;
+  template <ClientVersion V> requires (V >= M2ChunkedContainer)
+  using Skeleton = detail::Skeleton<canonicalVersion(V, M2ChunkPayloadPivots, M2ChunkedVersions)>;
 }
 
 // --- fs-level read/write definitions (inline for the same implicit-
 // instantiation reason as m2.hpp's) -------------------------------------------
 namespace wowlib::formats::m2 {
-  template <ClientVersion V> requires (V >= m2_chunked_container)
+  template <ClientVersion V> requires (V >= M2ChunkedContainer)
   Result<void> detail::Skeleton<V>::read(fs::FileSystem& fs, const FileKey& key) {
-    const auto bytes = fs.read_file(key);
+    const auto bytes = fs.readFile(key);
     if (!bytes) return std::unexpected{bytes.error()};
 
     *this = Skeleton{};
@@ -363,12 +363,12 @@ namespace wowlib::formats::m2 {
     // A child skeleton shares the parent's satellite ids (only the *FID
     // chunks are shared — the child keeps its own SK*1 data). One hop, per
     // every known example; a missing parent degrades to inline-only decode.
-    if (!parent_link.empty() && parent_link.front().parent_skel_file_id != 0)
-      if (auto pbytes = fs.read_file(FileKey{FileDataID{parent_link.front().parent_skel_file_id}})) {
+    if (!parentLink.empty() && parentLink.front().parentSkelFileId != 0)
+      if (auto pbytes = fs.readFile(FileKey{FileDataID{parentLink.front().parentSkelFileId}})) {
         Skeleton<V> parent;
         if (parent.ChunkedFile<Skeleton<V>>::read(std::span<const std::byte>{*pbytes})) {
-          parent_anim_fdids = parent.anim_fdids;
-          parent_bone_fdids = parent.bone_fdids;
+          parentAnimFdids = parent.animFdids;
+          parentBoneFdids = parent.boneFdids;
         }
       }
 
@@ -378,28 +378,28 @@ namespace wowlib::formats::m2 {
 
     AnimCache cache{
       [&, paths](SequenceKey seq) -> Result<FileBuffer> {
-        const std::uint32_t fdid = AnimCache::afid_lookup(effective_anim_fdids(), seq);
-        if (fdid != 0) return fs.read_file(FileKey{FileDataID{fdid}});
-        if (paths) return fs.read_file(FileKey{paths->anim(seq)});
-        return make_error(ErrorCode::FileNotFound, "no AFID entry and no path");
+        const std::uint32_t fdid = AnimCache::afidLookup(effectiveAnimFdids(), seq);
+        if (fdid != 0) return fs.readFile(FileKey{FileDataID{fdid}});
+        if (paths) return fs.readFile(FileKey{paths->anim(seq)});
+        return makeError(ErrorCode::FileNotFound, "no AFID entry and no path");
       }
     };
 
-    const auto make_ctx = [&](std::span<const std::byte> inline_base, std::uint32_t target) {
+    const auto makeCtx = [&](std::span<const std::byte> inlineBase, std::uint32_t target) {
       OffsetReadContext ctx;
-      ctx.sequence_base = cache.sequence_base(sequence_block.sequences, inline_base, target);
+      ctx.sequenceBase = cache.sequenceBase(sequenceBlock.sequences, inlineBase, target);
       return ctx;
     };
 
     if (!skb1.bytes.empty()) {
       const std::span<const std::byte> base{skb1.bytes};
-      if (auto r = bone_block.read(base, make_ctx(base, AnimCache::afsb_magic)); !r)
-        return make_error(r.error().code, std::format("SKB1: {}", r.error().message), r.error().native_error);
+      if (auto r = boneBlock.read(base, makeCtx(base, AnimCache::AfsbMagic)); !r)
+        return makeError(r.error().code, std::format("SKB1: {}", r.error().message), r.error().nativeError);
     }
     if (!ska1.bytes.empty()) {
       const std::span<const std::byte> base{ska1.bytes};
-      if (auto r = attachment_block.read(base, make_ctx(base, AnimCache::afsa_magic)); !r)
-        return make_error(r.error().code, std::format("SKA1: {}", r.error().message), r.error().native_error);
+      if (auto r = attachmentBlock.read(base, makeCtx(base, AnimCache::AfsaMagic)); !r)
+        return makeError(r.error().code, std::format("SKA1: {}", r.error().message), r.error().nativeError);
     }
     // the blobs stay as read: an untouched skeleton written at chunk level
     // remains byte-perfect; the fs write path re-encodes them from the
@@ -407,24 +407,24 @@ namespace wowlib::formats::m2 {
     return {};
   }
 
-  template <ClientVersion V> requires (V >= m2_chunked_container)
+  template <ClientVersion V> requires (V >= M2ChunkedContainer)
   Result<void> detail::Skeleton<V>::write(fs::FileSystem& fs, const FileKey& key) const {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
-      return make_error(ErrorCode::PathNotResolvable, "saving a skeleton needs a path for the key");
+      return makeError(ErrorCode::PathNotResolvable, "saving a skeleton needs a path for the key");
     const SatellitePaths paths{*resolved.path};
 
     Skeleton<V> copy = *this;
 
     // re-encode the bone/attachment blocks, splitting external sequences
     // into per-sequence AFSB/AFSA buffers
-    AnimBuffers afsa_bufs;
-    AnimBuffers afsb_bufs;
+    AnimBuffers afsaBufs;
+    AnimBuffers afsbBufs;
     {
-      auto encoded = bone_block.write(afsb_bufs.sink(sequence_block.sequences));
+      auto encoded = boneBlock.write(afsbBufs.sink(sequenceBlock.sequences));
       if (!encoded) return std::unexpected{encoded.error()};
       copy.skb1.bytes = std::move(*encoded);
-      auto attachments = attachment_block.write(afsa_bufs.sink(sequence_block.sequences));
+      auto attachments = attachmentBlock.write(afsaBufs.sink(sequenceBlock.sequences));
       if (!attachments) return std::unexpected{attachments.error()};
       copy.ska1.bytes = std::move(*attachments);
     }
@@ -432,21 +432,21 @@ namespace wowlib::formats::m2 {
     // the skeleton's .anim files: AFSA + AFSB sections. NOTE: a paired
     // model's AFM2 (event) section is not represented here — the owning
     // M2's write is the full-fidelity save path.
-    copy.anim_fdids.clear();
-    for (const SequenceKey seq : AnimBuffers::merged_keys({&afsa_bufs, &afsb_bufs})) {
+    copy.animFdids.clear();
+    for (const SequenceKey seq : AnimBuffers::mergedKeys({&afsaBufs, &afsbBufs})) {
       FileBuffer file;
-      afsa_bufs.append_chunk_to(file, AnimCache::afsa_magic, seq);
-      afsb_bufs.append_chunk_to(file, AnimCache::afsb_magic, seq);
-      const auto r = fs.add_file(paths.anim(seq), file);
+      afsaBufs.appendChunkTo(file, AnimCache::AfsaMagic, seq);
+      afsbBufs.appendChunkTo(file, AnimCache::AfsbMagic, seq);
+      const auto r = fs.addFile(paths.anim(seq), file);
       if (!r)
-        return make_error(r.error().code, std::format("anim {:04}-{:02}: {}", seq.id, seq.variation, r.error().message),
-                          r.error().native_error);
-      copy.anim_fdids.push_back({seq.id, seq.variation, r->value});
+        return makeError(r.error().code, std::format("anim {:04}-{:02}: {}", seq.id, seq.variation, r.error().message),
+                          r.error().nativeError);
+      copy.animFdids.push_back({seq.id, seq.variation, r->value});
     }
 
     const auto bytes = copy.ChunkedFile<Skeleton<V>>::write();
     if (!bytes) return std::unexpected{bytes.error()};
-    if (auto r = fs.add_file(*resolved.path, *bytes); !r) return std::unexpected{r.error()};
+    if (auto r = fs.addFile(*resolved.path, *bytes); !r) return std::unexpected{r.error()};
     return {};
   }
 }

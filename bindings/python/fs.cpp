@@ -5,20 +5,20 @@
 
 namespace wowlib_py::fs
 {
-  void register_filesystem_protocol(nb::module_& module)
+  void registerFilesystemProtocol(nb::module_& module)
   {
-    nb::object fs_class = module.attr("fs").attr("FileSystem");
+    nb::object fsClass = module.attr("fs").attr("FileSystem");
     // nb::sig: the lambdas are typed on nb::object, which stubgen would render
     // as an untyped `-> object`; spell the context-manager protocol out so the
     // stubs (and mkdocstrings) show the real types.
-    fs_class.attr("__enter__") = nb::cpp_function(
+    fsClass.attr("__enter__") = nb::cpp_function(
       [](nb::object self) { return self; }, nb::name("__enter__"), nb::is_method(),
       nb::sig("def __enter__(self) -> FileSystem"),
       "Enter a with-block: returns the filesystem itself, unchanged (open() "
       "already opened the storage).");
     // __exit__ must take nb::args: nb::handle parameters reject the None that
     // Python passes for (exc_type, exc, tb) on a clean exit.
-    fs_class.attr("__exit__") = nb::cpp_function(
+    fsClass.attr("__exit__") = nb::cpp_function(
       [](nb::object self, nb::args)
       {
         self.attr("close")();

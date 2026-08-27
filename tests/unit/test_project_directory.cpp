@@ -19,7 +19,7 @@ namespace
     return out;
   }
 
-  fsys::path fresh_root(std::string_view name)
+  fsys::path freshRoot(std::string_view name)
   {
     const auto root = fsys::temp_directory_path() / "wowlib-tests" / name;
     fsys::remove_all(root);
@@ -29,7 +29,7 @@ namespace
 
 TEST_CASE("write/read round-trip with case-insensitive lookups", "[project-dir]")
 {
-  auto project = ProjectDirectory::open(fresh_root("proj-roundtrip"));
+  auto project = ProjectDirectory::open(freshRoot("proj-roundtrip"));
   REQUIRE(project.has_value());
 
   const auto content = bytes("MVER content");
@@ -46,7 +46,7 @@ TEST_CASE("write/read round-trip with case-insensitive lookups", "[project-dir]"
 
 TEST_CASE("opening an existing tree indexes it", "[project-dir]")
 {
-  const auto root = fresh_root("proj-index");
+  const auto root = freshRoot("proj-index");
   fsys::create_directories(root / "Interface/GlueXML");
   std::ofstream{root / "Interface/GlueXML/GlueStrings.lua"} << "-- override";
 
@@ -58,7 +58,7 @@ TEST_CASE("opening an existing tree indexes it", "[project-dir]")
 
 TEST_CASE("rescan picks up files created behind wowlib's back", "[project-dir]")
 {
-  const auto root = fresh_root("proj-rescan");
+  const auto root = freshRoot("proj-rescan");
   auto project = ProjectDirectory::open(root);
   REQUIRE(project.has_value());
   CHECK(project->size() == 0);

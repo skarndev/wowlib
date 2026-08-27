@@ -47,12 +47,12 @@ namespace wowlib::formats::wdt::occlusion {
           tile's 545 int16 values inside the packed heights block. See
           https://wowdev.wiki/WDT.)")
       ]] WDTOcclusion : ChunkedFile<WDTOcclusion<V>>, WDTOcclusionBase {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[
         =chunk("MVER"),
         =welder::doc("The file format version; 18 like the main WDT.")]]
-      std::uint32_t mver = wdt_version_18;
+      std::uint32_t mver = WdtVersion18;
 
       [[
         =chunk("MAOI"),
@@ -78,5 +78,5 @@ namespace wowlib::formats::wdt::occlusion {
   /** A _occ.wdt satellite — the canonicalizing face of detail::WDTOcclusion:
       stable since WoD, so a single instantiation serves every release. */
   template <ClientVersion V> requires(V >= builds::WoD)
-  using WDTOcclusion = detail::WDTOcclusion<canonical_version(V, wdt_occlusion_pivots, wdt_satellite_versions)>;
+  using WDTOcclusion = detail::WDTOcclusion<canonicalVersion(V, WdtOcclusionPivots, WdtSatelliteVersions)>;
 }

@@ -23,5 +23,5 @@ namespace wowlib_py::formats::adt
       @c read/@c write/@c convert surface onto @c ADT. Call from the module
       body, after welder's walk has registered the welded classes.
       @param module the extension module being initialized. */
-  void register_facade(nb::module_& module);
+  void registerFacade(nb::module_& module);
 }

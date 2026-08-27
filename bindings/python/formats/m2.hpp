@@ -18,5 +18,5 @@ namespace wowlib_py::formats::m2
 
   /** @brief Attach the M2 facade to the welded classes on @p module.
       @param module the root wowlib module (owns formats.m2 and its records). */
-  void register_facade(nb::module_& module);
+  void registerFacade(nb::module_& module);
 }

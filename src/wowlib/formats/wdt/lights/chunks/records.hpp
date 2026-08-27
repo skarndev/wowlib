@@ -24,10 +24,10 @@ namespace wowlib::formats::wdt::lights::chunks {
     std::uint32_t id = 0;
 
     [[=welder::doc("The ADT tile x coordinate.")]]
-    std::uint16_t tile_x = 0;
+    std::uint16_t tileX = 0;
 
     [[=welder::doc("The ADT tile y coordinate.")]]
-    std::uint16_t tile_y = 0;
+    std::uint16_t tileY = 0;
 
     [[=welder::doc("Light color.")]]
     CArgb color{};
@@ -57,10 +57,10 @@ namespace wowlib::formats::wdt::lights::chunks {
     C3Vector position{};
 
     [[=welder::doc("Where the light's spread starts; usually 0.")]]
-    float attenuation_start = 0;
+    float attenuationStart = 0;
 
     [[=welder::doc("How far the light spreads.")]]
-    float attenuation_end = 0;
+    float attenuationEnd = 0;
 
     [[=welder::doc("Light intensity.")]]
     float intensity = 0;
@@ -69,16 +69,16 @@ namespace wowlib::formats::wdt::lights::chunks {
     C3Vector rotation{};
 
     [[=welder::doc("The ADT tile x coordinate.")]]
-    std::uint16_t tile_x = 0;
+    std::uint16_t tileX = 0;
 
     [[=welder::doc("The ADT tile y coordinate.")]]
-    std::uint16_t tile_y = 0;
+    std::uint16_t tileY = 0;
 
     [[=welder::doc("Index into MLTA, or -1 when unanimated.")]]
-    std::int16_t mlta_index = -1;
+    std::int16_t mltaIndex = -1;
 
     [[=welder::doc("Index into MTEX, or -1.")]]
-    std::int16_t texture_index = -1;
+    std::int16_t textureIndex = -1;
   };
 
   static_assert(sizeof(MapPointLight) == 0x34);
@@ -98,10 +98,10 @@ namespace wowlib::formats::wdt::lights::chunks {
     C3Vector position{};
 
     [[=welder::doc("Where the light's spread starts.")]]
-    float attenuation_start = 0;
+    float attenuationStart = 0;
 
     [[=welder::doc("How far the light spreads.")]]
-    float attenuation_end = 0;
+    float attenuationEnd = 0;
 
     [[=welder::doc("Light intensity.")]]
     float intensity = 0;
@@ -110,16 +110,16 @@ namespace wowlib::formats::wdt::lights::chunks {
     C3Vector rotation{};
 
     [[=welder::doc("The ADT tile x coordinate.")]]
-    std::uint16_t tile_x = 0;
+    std::uint16_t tileX = 0;
 
     [[=welder::doc("The ADT tile y coordinate.")]]
-    std::uint16_t tile_y = 0;
+    std::uint16_t tileY = 0;
 
     [[=welder::doc("Index into MLTA, or -1 when unanimated.")]]
-    std::int16_t mlta_index = -1;
+    std::int16_t mltaIndex = -1;
 
     [[=welder::doc("Index into MTEX for the light-cookie texture, or -1.")]]
-    std::int16_t texture_index = -1;
+    std::int16_t textureIndex = -1;
 
     [[=welder::doc(
       "Flags; 0x1 casts raytraced shadows (D3D12, shadow RT level 2+).")]]
@@ -128,7 +128,7 @@ namespace wowlib::formats::wdt::lights::chunks {
     [[=welder::doc(
       "Scale as a raw IEEE half-float (0.5 is the default; 10.0 hides "
       "player shadows).")]]
-    std::uint16_t scale_half = 0x3800;
+    std::uint16_t scaleHalf = 0x3800;
   };
 
   static_assert(sizeof(MapPointLight3) == 0x38);
@@ -148,10 +148,10 @@ namespace wowlib::formats::wdt::lights::chunks {
 
     [[=welder::doc(
       "Where the light's spread starts; must be <= attenuation_end.")]]
-    float attenuation_start = 0;
+    float attenuationStart = 0;
 
     [[=welder::doc("How far the light spreads.")]]
-    float attenuation_end = 0;
+    float attenuationEnd = 0;
 
     [[=welder::doc("Light intensity.")]]
     float intensity = 0;
@@ -160,25 +160,25 @@ namespace wowlib::formats::wdt::lights::chunks {
     C3Vector rotation{};
 
     [[=welder::doc("Spotlight cone radius.")]]
-    float spotlight_radius = 0;
+    float spotlightRadius = 0;
 
     [[=welder::doc("Inner cone angle, radians.")]]
-    float inner_angle = 0;
+    float innerAngle = 0;
 
     [[=welder::doc("Outer cone angle, radians.")]]
-    float outer_angle = 0;
+    float outerAngle = 0;
 
     [[=welder::doc("The ADT tile x coordinate.")]]
-    std::uint16_t tile_x = 0;
+    std::uint16_t tileX = 0;
 
     [[=welder::doc("The ADT tile y coordinate.")]]
-    std::uint16_t tile_y = 0;
+    std::uint16_t tileY = 0;
 
     [[=welder::doc("Index into MLTA, or -1 when unanimated.")]]
-    std::int16_t mlta_index = -1;
+    std::int16_t mltaIndex = -1;
 
     [[=welder::doc("Index into MTEX, or -1.")]]
-    std::int16_t texture_index = -1;
+    std::int16_t textureIndex = -1;
   };
 
   static_assert(sizeof(MapSpotLight) == 0x40);

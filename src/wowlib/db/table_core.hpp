@@ -54,10 +54,10 @@ namespace wowlib::db {
   class TableCore {
   public:
     /** Point the core at its owner's records vector and identity. */
-    void wire(void* records_vec, const detail::RecordOps* ops, TableInfo info) {
-      vec_ = records_vec;
-      ops_ = ops;
-      info_ = info;
+    void wire(void* recordsVec, const detail::RecordOps* ops, TableInfo info) {
+      _vec = recordsVec;
+      _ops = ops;
+      _info = info;
     }
 
     /** Point the core at an EXTERNAL sink/source pair instead of a typed
@@ -68,21 +68,21 @@ namespace wowlib::db {
         @param source the encode source (kept alive by the owner).
         @param info   the runtime identity + schema. */
     void wire(RecordSink* sink, const RecordSource* source, TableInfo info) {
-      ext_sink_ = sink;
-      ext_source_ = source;
-      info_ = info;
+      _extSink = sink;
+      _extSource = source;
+      _info = info;
     }
 
     /** Re-point at the owner's vector after the owner was copied/moved (state
         and identity travel with the core; only the pointer goes stale). */
-    void rewire(void* records_vec) { vec_ = records_vec; }
+    void rewire(void* recordsVec) { _vec = recordsVec; }
 
     /** The external-wiring twin of @ref rewire.
         @param sink   the copied owner's sink.
         @param source the copied owner's source. */
     void rewire(RecordSink* sink, const RecordSource* source) {
-      ext_sink_ = sink;
-      ext_source_ = source;
+      _extSink = sink;
+      _extSource = source;
     }
 
     Result<void> read(std::span<const std::byte> data);
@@ -90,36 +90,36 @@ namespace wowlib::db {
     Result<FileBuffer> write(EncryptedPolicy policy) const;
     Result<void> write(fs::FileSystem& fs, const FileKey& key, EncryptedPolicy policy) const;
 
-    const formats::StringBlock& strings() const { return state_.strings; }
+    const formats::StringBlock& strings() const { return _state.strings; }
 
-    const std::vector<EncryptedSection>& encrypted_sections() const {
-      return state_.encrypted;
+    const std::vector<EncryptedSection>& encryptedSections() const {
+      return _state.encrypted;
     }
 
-    bool fully_decoded() const { return state_.encrypted.empty(); }
+    bool fullyDecoded() const { return _state.encrypted.empty(); }
     formats::ValidationReport validate() const;
-    Result<void> ensure_valid() const { return validate().to_result(); }
+    Result<void> ensureValid() const { return validate().toResult(); }
 
     /** The identity the codecs work from (empty-schema when unwired). */
-    const TableInfo& info() const { return info_; }
+    const TableInfo& info() const { return _info; }
 
     /** The owner's records vector + access facts (bindings use these to build
         live record views without re-templating on the record type). */
-    void* records_vec() const { return vec_; }
-    const detail::RecordOps* ops() const { return ops_; }
+    void* recordsVec() const { return _vec; }
+    const detail::RecordOps* ops() const { return _ops; }
 
   private:
-    Result<void> require_wired() const;
-    std::uint32_t db2_magic_for_version() const;
-    Result<std::uint32_t> fresh_magic(std::optional<std::string_view> path) const;
-    Result<FileBuffer> write_as(std::uint32_t magic, EncryptedPolicy policy) const;
+    Result<void> _requireWired() const;
+    std::uint32_t _db2MagicForVersion() const;
+    Result<std::uint32_t> _freshMagic(std::optional<std::string_view> path) const;
+    Result<FileBuffer> _writeAs(std::uint32_t magic, EncryptedPolicy policy) const;
 
-    void* vec_ = nullptr;
-    const detail::RecordOps* ops_ = nullptr;
-    RecordSink* ext_sink_ = nullptr; /**< External wiring (dyn_table). */
-    const RecordSource* ext_source_ = nullptr; /**< External wiring (dyn_table). */
-    TableInfo info_{};
-    TableState state_;
+    void* _vec = nullptr;
+    const detail::RecordOps* _ops = nullptr;
+    RecordSink* _extSink = nullptr; /**< External wiring (dyn_table). */
+    const RecordSource* _extSource = nullptr; /**< External wiring (dyn_table). */
+    TableInfo _info{};
+    TableState _state;
   };
 
   /** The welded supertype of every generated table class: the whole table
@@ -138,14 +138,14 @@ namespace wowlib::db {
       =welder::returns(
         "nothing; raises on malformed input or a schema mismatch")]]
     Result<void> read(std::span<const std::byte> data [[=welder::doc("the whole file content")]]) {
-      return core_.read(data);
+      return _core.read(data);
     }
 
     [[=welder::doc("Load the table from a client filesystem."),
       =welder::returns("nothing; raises when loading fails")]]
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                       const FileKey& key [[=welder::doc("the file to read")]]) {
-      return core_.read(fs, key);
+      return _core.read(fs, key);
     }
 
     [[=welder::doc(
@@ -156,7 +156,7 @@ namespace wowlib::db {
     Result<FileBuffer> write(EncryptedPolicy policy
       [[=welder::doc("keyless-section handling (WDC only)")]]
       = EncryptedPolicy::Preserve) const {
-      return core_.write(policy);
+      return _core.write(policy);
     }
 
     [[=welder::doc("Serialize the table into a client filesystem (project "
@@ -168,7 +168,7 @@ namespace wowlib::db {
                        EncryptedPolicy policy
         [[=welder::doc("keyless-section handling (WDC only)")]]
                          = EncryptedPolicy::Preserve) const {
-      return core_.write(fs, key, policy);
+      return _core.write(fs, key, policy);
     }
 
     [[=welder::getter,
@@ -176,21 +176,21 @@ namespace wowlib::db {
         "The preserved string block the record string fields were decoded "
         "from; offsets never move, write() appends new strings past its "
         "end.")]]
-    const formats::StringBlock& strings() const { return core_.strings(); }
+    const formats::StringBlock& strings() const { return _core.strings(); }
 
     [[=welder::getter,
       =welder::doc(
         "The encrypted sections skipped on read: their records are not "
         "in records, but the file re-writes them verbatim.")]]
-    const std::vector<EncryptedSection>& encrypted_sections() const {
-      return core_.encrypted_sections();
+    const std::vector<EncryptedSection>& encryptedSections() const {
+      return _core.encryptedSections();
     }
 
     [[=welder::getter,
       =welder::doc(
         "Whether the whole table decoded — false when encrypted sections "
         "were skipped.")]]
-    bool fully_decoded() const { return core_.fully_decoded(); }
+    bool fullyDecoded() const { return _core.fullyDecoded(); }
 
     [[nodiscard]]
     [[=welder::doc(R"(
@@ -199,21 +199,21 @@ namespace wowlib::db {
         and no string holds an embedded NUL the string block would truncate.
         write() never runs this.)"),
       =welder::returns("every violated contract, in record order")]]
-    formats::ValidationReport validate() const { return core_.validate(); }
+    formats::ValidationReport validate() const { return _core.validate(); }
 
     [[nodiscard]]
     [[=welder::doc("Validate and raise on the first error instead of returning "
         "a report — the assert-style face of validate()."),
       =welder::returns("nothing; raises when validate() finds any error")]]
-    Result<void> ensure_valid() const { return core_.ensure_valid(); }
+    Result<void> ensureValid() const { return _core.ensureValid(); }
 
     /** The erased engine (bindings build live record views off it).
         Excluded from every binding: TableCore is deliberately not welded —
         the bound face IS this class. */
     [[=welder::mark::exclude]]
-    const TableCore& core() const { return core_; }
+    const TableCore& core() const { return _core; }
 
   protected:
-    TableCore core_;
+    TableCore _core;
   };
 }

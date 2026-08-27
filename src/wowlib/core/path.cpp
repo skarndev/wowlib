@@ -1,7 +1,7 @@
 #include <wowlib/core/path.hpp>
 
 namespace wowlib {
-  std::string normalize_path(std::string_view path) {
+  std::string normalizePath(std::string_view path) {
     std::string result;
     result.reserve(path.size());
 
@@ -20,7 +20,7 @@ namespace wowlib {
     return result;
   }
 
-  std::string to_native_relative(std::string_view canonical) {
+  std::string toNativeRelative(std::string_view canonical) {
     std::string result{canonical};
     for (char& c : result)
       if (c == '\\') c = '/';

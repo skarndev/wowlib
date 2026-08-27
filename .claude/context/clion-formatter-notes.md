@@ -36,6 +36,42 @@ restart CLion.
 
 Keep the two files in sync: patch `codeStyles/Project.xml` *and* `editor.xml`.
 
+## Command line: inspections work, the format check does NOT
+Both CLIs live in `/Applications/CLion.app/Contents/bin/` (use the **stable**
+install — the 2026.2 EAP build is expired and refuses to run headless). They
+launch a headless IDE, which collides with a running CLion unless you point it
+at a private config dir:
+
+```sh
+cat > /tmp/clion-cli.properties <<'EOF'
+idea.config.path=/tmp/clion-cli/config
+idea.system.path=/tmp/clion-cli/system
+idea.log.path=/tmp/clion-cli/log
+idea.plugins.path=/tmp/clion-cli/plugins
+EOF
+export CLION_PROPERTIES=/tmp/clion-cli.properties
+```
+
+**`inspect.sh` works** and does run the ReSharper backend (the output includes
+`RadGlobal.json`), so it reports the `Cpp*` inspections:
+```sh
+/Applications/CLion.app/Contents/bin/inspect.sh "$PWD" -e /tmp/inspect-out \
+    -d src/wowlib/core -format json -v1
+```
+`-e` uses the project profile; `-d` scopes to a directory; `-changes` limits it
+to uncommitted changes. One JSON file per inspection id. On `src/wowlib/core`
+alone it reports 109 `CppInconsistentNaming` hits (e.g. `locale_table` →
+"Suggested name is `LOCALE_TABLE`") — the naming rules in the scheme, as noted
+below.
+
+**`format.sh` is useless for C++ here — do not gate CI on it.** Nova delegates
+C++ formatting to the ReSharper backend, which the headless IntelliJ formatter
+never invokes, so `-d` (dry run) reports *"Formatted well"* unconditionally.
+Verified by mangling a real, tracked, CMake-model file (Allman brace + 8-space
+indent) — still "well formed", exit 0. There is no working CLI formatting check;
+reformat through the IDE (or `mcp__clion__reformat_file`) and use
+`git diff --stat` to see what moved.
+
 ## Re-flowing the whole tree to a new WRAP_LIMIT
 `KEEP_USER_LINEBREAKS` defaults to **true**, so raising `WRAP_LIMIT` only
 affects new code — existing wrapped lines stay wrapped. A real re-flow needs
@@ -171,3 +207,13 @@ formatting parser only. Hits every `Entity<V>` local in `template
 <ClientVersion V>` driver code (audit/*.cpp, converters). After any whole-file
 reformat of such files, check the diff for ` < V > ` and fix manually. Worth
 reporting to JetBrains (youtrack, CPP project).
+
+## Naming rules (updated 2026-08-27, sweep applied)
+The naming rules now flag camelCase methods/params/locals/fields, `_camelCase`
+private members (methods included), Pascal enumerators and constants. The
+`k` constant prefix was removed from the scheme by user decision (WarnAbout-
+PrefixesAndSuffixes=False does NOT disable a configured prefix — an already-
+AaBb name like `Cata` was still flagged for the missing `k`). The whole tree
+was renamed to match — see `.claude/context/naming-convention.md` for the
+convention, the canonical-spelling exemptions that will keep warning forever
+(no abbreviation list exists in ReSharper C++), and the protocol-name traps.

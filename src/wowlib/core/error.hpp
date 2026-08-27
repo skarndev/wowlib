@@ -31,7 +31,7 @@ namespace wowlib {
     EncryptedContent, /**< Content is behind an unknown TACT encryption key. */
     NotSupported, /**< Operation not supported by this backend/provider. */
     NotImplemented, /**< Placeholder during phased implementation. */
-    BackendError, /**< Unclassified StormLib/CascLib failure; see native_error. */
+    BackendError, /**< Unclassified StormLib/CascLib failure; see nativeError. */
 
     ChunkTruncated, /**< A chunk header or payload overruns the file buffer. */
     ChunkSizeMismatch, /**< A chunk's size disagrees with its binary struct layout. */
@@ -52,8 +52,8 @@ namespace wowlib {
   /** The enumerator spelling of @a code, obtained via reflection.
       @param code the error code.
       @return a static string, never dangling. */
-  constexpr std::string_view to_string(ErrorCode code) {
-    return enum_name(code);
+  constexpr std::string_view toString(ErrorCode code) {
+    return enumName(code);
   }
 
   /** A wowlib operation failure: a machine-readable code, a human-readable
@@ -66,7 +66,7 @@ namespace wowlib {
 
     /** Raw GetCascError()/GetLastError() value from the native library, 0 if not
         applicable. */
-    std::uint32_t native_error = 0;
+    std::uint32_t nativeError = 0;
   };
 
   /** The human-readable rendering of @a error: its code spelling, its message,
@@ -76,18 +76,18 @@ namespace wowlib {
       convenience. A rod that maps the error branch of a `Result<T>` onto its
       target language's exception channel — welder's C#/.NET rod does exactly
       that, since .NET has no result type — has to turn an arbitrary `E` into
-      message text, and looks for an ADL `to_string(e)` first. Without this the
+      message text, and looks for an ADL `toString(e)` first. Without this the
       C# bindings fail to build with a diagnostic naming the omission, rather
       than silently throwing exceptions that carry nothing.
       @param error the failure to render.
       @return `"<Code>: <message>"`, plus `" (native <n>)"` when non-zero. */
-  inline std::string to_string(const Error& error) {
-    std::string out{to_string(error.code)};
+  inline std::string toString(const Error& error) {
+    std::string out{toString(error.code)};
     out += ": ";
     out += error.message;
-    if (error.native_error != 0) {
+    if (error.nativeError != 0) {
       out += " (native ";
-      out += std::to_string(error.native_error);
+      out += std::to_string(error.nativeError);
       out += ')';
     }
     return out;
@@ -102,9 +102,9 @@ namespace wowlib {
   /** Shorthand for constructing the error branch of a Result.
       @param code         the failure category.
       @param message      human-readable context.
-      @param native_error raw native library error value, if any.
+      @param nativeError raw native library error value, if any.
       @return an unexpected convertible to any Result<T>. */
-  inline std::unexpected<Error> make_error(ErrorCode code, std::string message, std::uint32_t native_error = 0) {
-    return std::unexpected(Error{code, std::move(message), native_error});
+  inline std::unexpected<Error> makeError(ErrorCode code, std::string message, std::uint32_t nativeError = 0) {
+    return std::unexpected(Error{code, std::move(message), nativeError});
   }
 }

@@ -25,7 +25,7 @@ namespace wowlib::db {
       locales wowlib does not model).
       @param locale the locale.
       @return the slot index, or nullopt for locales without a fixed slot. */
-  constexpr std::optional<std::size_t> locale_column_slot(Locale locale) {
+  constexpr std::optional<std::size_t> localeColumnSlot(Locale locale) {
     switch (locale) {
     case Locale::enUS:
     case Locale::enGB: return 0;
@@ -79,7 +79,7 @@ namespace wowlib::db {
         "slot in this client era."),
       =welder::returns("the slot value, empty when absent")]]
     std::string_view at(Locale locale [[=welder::doc("the locale to look up")]]) const {
-      const auto slot = locale_column_slot(locale);
+      const auto slot = localeColumnSlot(locale);
       if (!slot || *slot >= Langs) return {};
       return values[*slot];
     }
@@ -95,10 +95,10 @@ namespace wowlib::db {
     Result<void> set(Locale locale [[=welder::doc("the locale to write")]],
                      std::string_view value [[=welder::doc(
                        "the string to store")]]) {
-      const auto slot = locale_column_slot(locale);
+      const auto slot = localeColumnSlot(locale);
       if (!slot || *slot >= Langs)
-        return make_error(ErrorCode::NotSupported,
-                          std::string{"locale "} + std::string{locale_code(locale)} +
+        return makeError(ErrorCode::NotSupported,
+                          std::string{"locale "} + std::string{localeCode(locale)} +
                           " has no langstringref slot in this client era");
       values[*slot] = value;
       return {};

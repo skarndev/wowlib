@@ -23,16 +23,16 @@ namespace wowlib::formats::adt::chunks {
         "hold the animation rotation (0x7) and speed (0x38); see "
         "SMLayer.animation_rotation()/animation_speed().")
     ]] LayerFlags : std::uint32_t {
-    animation_enabled [[=welder::doc("Texture-coordinate animation is on.")]] = 0x40,
-    overbright [[=welder::doc("Render much brighter (used for glowing lava).")]] = 0x80,
-    use_alpha_map [[=welder::doc(
+    AnimationEnabled [[=welder::doc("Texture-coordinate animation is on.")]] = 0x40,
+    Overbright [[=welder::doc("Render much brighter (used for glowing lava).")]] = 0x80,
+    UseAlphaMap [[=welder::doc(
       "This layer blends through an MCAL alpha map (set on every "
       "layer after the first).")]] = 0x100,
-    alpha_map_compressed [[=welder::doc(
+    AlphaMapCompressed [[=welder::doc(
       "The layer's MCAL alpha map is RLE-compressed on "
       "disk. wowlib decodes it either way; on write it "
       "re-compresses when this bit is set.")]] = 0x200,
-    use_cube_map_reflection [[=welder::doc(
+    UseCubeMapReflection [[=welder::doc(
       "Treat the ground layer as a skybox reflection "
       "(needs an MTXF entry).")]] = 0x400,
     unknown_0x800 [[=welder::doc(
@@ -49,34 +49,34 @@ namespace wowlib::formats::adt::chunks {
       =welder::doc(R"(
         A terrain texture layer (MCLY, 16 bytes): which tileset texture, the
         blend/animation flags and the ground-effect link. Layers after the first
-        blend through an alpha map (see MapChunk.alpha_maps). The MCAL offset is
+        blend through an alpha map (see MapChunk.alphaMaps). The MCAL offset is
         derived on write and not exposed.)")
     ]] SMLayer {
     [[=welder::doc(
       "The texture: an index into the tile's texture list (MTEX names, or "
       "the MDID FileDataID table since 8.1).")]]
-    std::uint32_t texture_id = 0;
+    std::uint32_t textureId = 0;
 
     [[=welder::doc(
       "Flags; LayerFlags bits (the low 6 bits are animation rotation/speed).")]]
     std::uint32_t flags = 0;
 
-    [[=welder::mark::exclude]] std::uint32_t offset_in_mcal = 0;
+    [[=welder::mark::exclude]] std::uint32_t offsetInMcal = 0;
 
     [[=welder::doc(
       "The ground-effect link (a GroundEffectTexture foreign key), or -1 for "
       "none (in the alpha clients, a u16 + padding).")]]
-    std::int32_t effect_id = -1;
+    std::int32_t effectId = -1;
 
     [[nodiscard]]
     [[=welder::getter, =welder::doc(
       "The animation direction in 45-degree steps (flag bits "
       "0x7).")]]
-    std::uint32_t animation_rotation() const { return flags & 0x7; }
+    std::uint32_t animationRotation() const { return flags & 0x7; }
 
     [[nodiscard]]
     [[=welder::getter, =welder::doc("The animation speed (flag bits 0x38).")]]
-    std::uint32_t animation_speed() const { return (flags >> 3) & 0x7; }
+    std::uint32_t animationSpeed() const { return (flags >> 3) & 0x7; }
 
     bool operator==(const SMLayer&) const = default;
   };
@@ -122,11 +122,11 @@ namespace wowlib::formats::adt::chunks {
     [[=welder::doc(
       "Height scale: _h values map to [0, height_scale) as the blend height "
       "(default 0.0).")]]
-    float height_scale = 0;
+    float heightScale = 0;
 
     [[=welder::doc("Height offset added to the scaled _h value (default 1.0).")]
     ]
-    float height_offset = 1;
+    float heightOffset = 1;
 
     [[=welder::doc("Padding.")]]
     std::uint32_t padding = 0;
@@ -145,7 +145,7 @@ namespace wowlib::formats::adt::chunks {
         "foreign keys, one per MCLY layer.")
     ]] SMTerrainMaterial {
     [[=welder::doc("The four per-layer material ids.")]]
-    std::array<std::uint8_t, 4> material_id{};
+    std::array<std::uint8_t, 4> materialId{};
 
     bool operator==(const SMTerrainMaterial&) const = default;
   };
@@ -164,21 +164,21 @@ namespace wowlib::formats::adt::chunks {
     ]] SMTextureColorGrading {
     [[=welder::doc(
       "Start distance (the record is used when this or _04 is non-zero).")]]
-    std::uint32_t start_distance = 0;
+    std::uint32_t startDistance = 0;
 
     // C# ONLY: a leading underscore survives the PascalCase transform, and that
     // namespace is reserved for welder's generated scaffolding (`_h_*`, `_owner`),
     // so it is diagnosed at generation. The name is the client-struct offset, so
     // spell it out rather than inventing meaning we do not have.
-    [[=welder::weld_as(wowlib::lang::cs, "Unknown04"),
+    [[=welder::weld_as(wowlib::lang::Cs, "Unknown04"),
       =welder::doc("Unknown companion of start_distance.")]]
     std::uint32_t _04 = 0;
 
     [[=welder::doc("The color-grading LUT FileDataID.")]]
-    std::uint32_t color_grading_fdid = 0;
+    std::uint32_t colorGradingFdid = 0;
 
     [[=welder::doc("The color-grading ramp FileDataID.")]]
-    std::uint32_t color_grading_ramp_fdid = 0;
+    std::uint32_t colorGradingRampFdid = 0;
 
     bool operator==(const SMTextureColorGrading&) const = default;
   };
@@ -187,7 +187,7 @@ namespace wowlib::formats::adt::chunks {
 
   // --- terrain grid element types --------------------------------------------
 
-  /** One MCNR normal (3 signed bytes, X Z Y; 127 == 1.0). The 9x9+8x8 grid is
+  /** One MCNR normal (3 signed bytes, x Z Y; 127 == 1.0). The 9x9+8x8 grid is
       stored as a vector of these. */
   struct [[
       =welder::weld,

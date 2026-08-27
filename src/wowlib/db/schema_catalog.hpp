@@ -8,7 +8,7 @@
     A catalog is built from one WDBS blob (schema_blob.hpp): either the copy
     baked into the library (`#embed`, @ref wowlib::db::SchemaCatalog::embedded
     — present unless the build configured `WOWLIB_DB_SCHEMA=runtime`) or one
-    loaded from disk at runtime (@ref wowlib::db::SchemaCatalog::from_blob_file
+    loaded from disk at runtime (@ref wowlib::db::SchemaCatalog::fromBlobFile
     — for tools that track WoWDBDefs faster than they rebuild wowlib). Column
     names point into the catalog's blob bytes, so a schema span is valid for
     the catalog's lifetime; the embedded catalog lives forever.
@@ -41,7 +41,7 @@ namespace wowlib::db {
       hands the engine. Views point into the catalog — keep it alive. */
   struct TableSchema {
     std::string_view name; /**< The identifier name ("ItemSparseLegacy"). */
-    std::string_view disk_name; /**< The on-disk truth ("Item-sparse"). */
+    std::string_view diskName; /**< The on-disk truth ("Item-sparse"). */
     std::span<const Column> columns; /**< The era's column list, WoWDBDefs order. */
   };
 
@@ -59,12 +59,12 @@ namespace wowlib::db {
     /** Build a catalog from blob bytes (takes ownership).
         @param bytes a complete WDBS blob.
         @return the catalog, or SchemaBlobInvalid. */
-    static Result<SchemaCatalog> from_blob(std::vector<unsigned char> bytes);
+    static Result<SchemaCatalog> fromBlob(std::vector<unsigned char> bytes);
 
     /** Build a catalog from a blob file on disk.
         @param path the .wdbs file.
         @return the catalog, or SchemaBlobInvalid / IoError. */
-    static Result<SchemaCatalog> from_blob_file(const std::filesystem::path& path);
+    static Result<SchemaCatalog> fromBlobFile(const std::filesystem::path& path);
 
     /** Build a catalog straight from a WoWDBDefs checkout's `definitions/`
         directory — for tools that track new client builds faster than they
@@ -77,7 +77,7 @@ namespace wowlib::db {
         @param definitions the WoWDBDefs `definitions/` directory.
         @return the catalog; IoError when the directory cannot be read,
                 SchemaBlobInvalid when no definition parses. */
-    static Result<SchemaCatalog> from_dbd_dir(const std::filesystem::path& definitions);
+    static Result<SchemaCatalog> fromDbdDir(const std::filesystem::path& definitions);
 #endif
 
     SchemaCatalog(SchemaCatalog&&) noexcept = default;
@@ -94,48 +94,48 @@ namespace wowlib::db {
     Result<TableSchema> lookup(std::string_view table, ClientVersion version) const;
 
     /** @return the number of tables the catalog knows. */
-    std::size_t table_count() const { return tables_.size(); }
+    std::size_t tableCount() const { return _tables.size(); }
 
     /** The identifier name of table @a i (name-sorted order) — enumeration
         for tooling and the bindings' listing surface.
-        @param i the table index (`< table_count()`).
+        @param i the table index (`< tableCount()`).
         @return the name, valid for the catalog's lifetime. */
-    std::string_view table_name(std::size_t i) const { return tables_[i].name; }
+    std::string_view tableName(std::size_t i) const { return _tables[i].name; }
 
     /** The era table the blob was built against (index = mask bit).
         @return the era versions, ascending. */
-    std::span<const ClientVersion> eras() const { return eras_; }
+    std::span<const ClientVersion> eras() const { return _eras; }
 
   private:
     SchemaCatalog() = default;
 
     /** One range: a column run + the era mask that selects it. */
     struct RangeIndex {
-      std::uint32_t first_column = 0; /**< Index into columns_. */
-      std::uint32_t column_count = 0; /**< Run length. */
-      std::uint16_t era_mask = 0; /**< Bit i = eras_[i] covered. */
+      std::uint32_t firstColumn = 0; /**< Index into _columns. */
+      std::uint32_t columnCount = 0; /**< Run length. */
+      std::uint16_t eraMask = 0; /**< Bit i = _eras[i] covered. */
     };
 
     /** One table: name views + its range run. */
     struct TableIndex {
       std::string_view name; /**< Identifier name (into bytes). */
-      std::string_view disk_name; /**< On-disk name (into bytes). */
-      std::uint32_t first_range = 0; /**< Index into ranges_. */
-      std::uint32_t range_count = 0; /**< Run length. */
+      std::string_view diskName; /**< On-disk name (into bytes). */
+      std::uint32_t firstRange = 0; /**< Index into _ranges. */
+      std::uint32_t rangeCount = 0; /**< Run length. */
     };
 
     /** Materialize the index structures from an already-validated view over
         @a bytes (which @a owned may or may not own — the embedded blob has
         static storage and passes an empty vector). */
-    static SchemaCatalog materialize(std::span<const unsigned char> bytes, std::vector<unsigned char> owned);
+    static SchemaCatalog _materialize(std::span<const unsigned char> bytes, std::vector<unsigned char> owned);
 
     /** The era index @a version snaps to (same major), or an error. */
-    Result<std::size_t> era_index_of(ClientVersion version) const;
+    Result<std::size_t> _eraIndexOf(ClientVersion version) const;
 
-    std::vector<unsigned char> owned_; /**< The blob, when loaded from disk. */
-    std::vector<ClientVersion> eras_; /**< The blob's era table. */
-    std::vector<TableIndex> tables_; /**< Name-sorted directory. */
-    std::vector<RangeIndex> ranges_; /**< All ranges, table-major order. */
-    std::vector<Column> columns_; /**< All columns; names into the blob. */
+    std::vector<unsigned char> _owned; /**< The blob, when loaded from disk. */
+    std::vector<ClientVersion> _eras; /**< The blob's era table. */
+    std::vector<TableIndex> _tables; /**< Name-sorted directory. */
+    std::vector<RangeIndex> _ranges; /**< All ranges, table-major order. */
+    std::vector<Column> _columns; /**< All columns; names into the blob. */
   };
 }

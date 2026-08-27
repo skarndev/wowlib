@@ -3,11 +3,11 @@
 /** @file
     @brief Per-RANGE welded alias tables for the M2 template surface.
 
-    Each family's X-macro lists one row per REAL content permutation —
-    X(Suffix, version) with the range's canonical grid version — and drives
+    Each family's x-macro lists one row per REAL content permutation —
+    x(Suffix, version) with the range's canonical grid version — and drives
     the welded aliases here plus the instantiation matrix in m2_matrix.inl.
     Every table is consteval-checked against the family's pivots
-    (ranges_valid in m2::detail below), so a row set, a suffix or a pivot
+    (rangesValid in m2::detail below), so a row set, a suffix or a pivot
     list cannot drift from the others. Extending the version list means
     revisiting the pivot lists in formats/m2/boundaries.hpp; the checks then
     dictate the rows.
@@ -19,75 +19,75 @@
 
 #include <wowlib/formats/m2/m2.hpp>
 
-#define WOWLIB_M2_RANGES_TRACKS(X)                                                                 \
-  X(VanillaToTbc, vanilla)                                                                         \
-  X(WotlkPlus, wotlk)
+#define WOWLIB_M2_RANGES_TRACKS(x)                                                                 \
+  x(VanillaToTbc, Vanilla)                                                                         \
+  x(WotlkPlus, Wotlk)
 
-#define WOWLIB_M2_RANGES_SEQUENCE(X)                                                               \
-  X(VanillaToTbc, vanilla)                                                                         \
-  X(WotlkToMop, wotlk)                                                                             \
-  X(WodPlus, wod)
+#define WOWLIB_M2_RANGES_SEQUENCE(x)                                                               \
+  x(VanillaToTbc, Vanilla)                                                                         \
+  x(WotlkToMop, Wotlk)                                                                             \
+  x(WodPlus, Wod)
 
-#define WOWLIB_M2_RANGES_BONE(X)                                                                   \
-  X(Vanilla, vanilla)                                                                              \
-  X(Tbc, tbc)                                                                                      \
-  X(WotlkPlus, wotlk)
+#define WOWLIB_M2_RANGES_BONE(x)                                                                   \
+  x(Vanilla, Vanilla)                                                                              \
+  x(Tbc, Tbc)                                                                                      \
+  x(WotlkPlus, Wotlk)
 
-#define WOWLIB_M2_RANGES_CAMERA(X)                                                                 \
-  X(VanillaToTbc, vanilla)                                                                         \
-  X(Wotlk, wotlk)                                                                                  \
-  X(CataPlus, cata)
+#define WOWLIB_M2_RANGES_CAMERA(x)                                                                 \
+  x(VanillaToTbc, Vanilla)                                                                         \
+  x(Wotlk, Wotlk)                                                                                  \
+  x(CataPlus, Cata)
 
-#define WOWLIB_M2_RANGES_PARTICLE(X)                                                               \
-  X(Vanilla, vanilla)                                                                              \
-  X(Tbc, tbc)                                                                                      \
-  X(Wotlk, wotlk)                                                                                  \
-  X(CataPlus, cata)
+#define WOWLIB_M2_RANGES_PARTICLE(x)                                                               \
+  x(Vanilla, Vanilla)                                                                              \
+  x(Tbc, Tbc)                                                                                      \
+  x(Wotlk, Wotlk)                                                                                  \
+  x(CataPlus, Cata)
 
-#define WOWLIB_M2_RANGES_SKIN_SECTION(X)                                                           \
-  X(Vanilla, vanilla)                                                                              \
-  X(TbcPlus, tbc)
+#define WOWLIB_M2_RANGES_SKIN_SECTION(x)                                                           \
+  x(Vanilla, Vanilla)                                                                              \
+  x(TbcPlus, Tbc)
 
-#define WOWLIB_M2_RANGES_SKIN_PROFILE(X)                                                           \
-  X(Vanilla, vanilla)                                                                              \
-  X(TbcToWotlk, tbc)                                                                               \
-  X(CataPlus, cata)
+#define WOWLIB_M2_RANGES_SKIN_PROFILE(x)                                                           \
+  x(Vanilla, Vanilla)                                                                              \
+  x(TbcToWotlk, Tbc)                                                                               \
+  x(CataPlus, Cata)
 
-#define WOWLIB_M2_RANGES_DATA(X)                                                                   \
-  X(Vanilla, vanilla)                                                                              \
-  X(Tbc, tbc)                                                                                      \
-  X(Wotlk, wotlk)                                                                                  \
-  X(CataToMop, cata)                                                                               \
-  X(Wod, wod)                                                                                      \
-  X(LegionPlus, legion)
+#define WOWLIB_M2_RANGES_DATA(x)                                                                   \
+  x(Vanilla, Vanilla)                                                                              \
+  x(Tbc, Tbc)                                                                                      \
+  x(Wotlk, Wotlk)                                                                                  \
+  x(CataToMop, Cata)                                                                               \
+  x(Wod, Wod)                                                                                      \
+  x(LegionPlus, Legion)
 
-#define WOWLIB_M2_RANGES_SKIN(X)                                                                   \
-  X(Wotlk, wotlk)                                                                                  \
-  X(CataPlus, cata)
+#define WOWLIB_M2_RANGES_SKIN(x)                                                                   \
+  x(Wotlk, Wotlk)                                                                                  \
+  x(CataPlus, Cata)
 
-#define WOWLIB_M2_RANGES_FILE(X)                                                                   \
-  X(Legion, legion)                                                                                \
-  X(Bfa, bfa)                                                                                      \
-  X(Shadowlands, shadowlands)                                                                      \
-  X(Dragonflight, dragonflight)                                                                    \
-  X(TheWarWithin, tww)
+#define WOWLIB_M2_RANGES_FILE(x)                                                                   \
+  x(Legion, Legion)                                                                                \
+  x(Bfa, Bfa)                                                                                      \
+  x(Shadowlands, Shadowlands)                                                                      \
+  x(Dragonflight, Dragonflight)                                                                    \
+  x(TheWarWithin, Tww)
 
 /** The chunk payloads (the Skel family, Exp2/Pabc/Psbc/Pgd1) and the Skeleton are
     stable across the whole chunked era: one range. */
-#define WOWLIB_M2_RANGES_CHUNK_PAYLOADS(X)                                                         \
-  X(LegionPlus, legion)
+#define WOWLIB_M2_RANGES_CHUNK_PAYLOADS(x)                                                         \
+  x(LegionPlus, Legion)
 
-#define WOWLIB_M2_RANGES_ASSEMBLY(X)                                                               \
-  X(Vanilla, vanilla)                                                                              \
-  X(Tbc, tbc)                                                                                      \
-  X(Wotlk, wotlk)                                                                                  \
-  X(CataToMop, cata)                                                                               \
-  X(Wod, wod)                                                                                      \
-  X(Legion, legion)                                                                                \
-  X(Bfa, bfa)                                                                                      \
-  X(Shadowlands, shadowlands)                                                                      \
-  X(Dragonflight, dragonflight)                                                                    \
-  X(TheWarWithin, tww)
+#define WOWLIB_M2_RANGES_ASSEMBLY(x)                                                               \
+  x(Vanilla, Vanilla)                                                                              \
+  x(Tbc, Tbc)                                                                                      \
+  x(Wotlk, Wotlk)                                                                                  \
+  x(CataToMop, Cata)                                                                               \
+  x(Wod, Wod)                                                                                      \
+  x(Legion, Legion)                                                                                \
+  x(Bfa, Bfa)                                                                                      \
+  x(Shadowlands, Shadowlands)                                                                      \
+  x(Dragonflight, Dragonflight)                                                                    \
+  x(TheWarWithin, Tww)
 
 // The bindings surface: each family's aliases are declared in its own
 // namespace so the per-range classes surface under the matching submodule
@@ -218,48 +218,48 @@ namespace wowlib::formats::m2
   namespace detail
   {
     // Range-table validation: every family's rows must exactly enumerate the
-    // distinct canonicals of its grid, with the suffix range_suffix derives.
+    // distinct canonicals of its grid, with the suffix rangeSuffix derives.
 #define WOWLIB_M2_RANGE_ROW(Suffix, version_)                                                      \
   ::wowlib::formats::RangeRow{#Suffix, ::wowlib::versions::version_},
 
-    inline constexpr std::array m2_track_rows{WOWLIB_M2_RANGES_TRACKS(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_track_rows, m2_track_pivots, m2_versions),
+    inline constexpr std::array M2TrackRows{WOWLIB_M2_RANGES_TRACKS(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2TrackRows, M2TrackPivots, M2Versions),
                   "WOWLIB_M2_RANGES_TRACKS drifted from m2_track_pivots");
-    inline constexpr std::array m2_sequence_rows{WOWLIB_M2_RANGES_SEQUENCE(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_sequence_rows, m2_sequence_pivots, m2_versions),
+    inline constexpr std::array M2SequenceRows{WOWLIB_M2_RANGES_SEQUENCE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2SequenceRows, M2SequencePivots, M2Versions),
                   "WOWLIB_M2_RANGES_SEQUENCE drifted from m2_sequence_pivots");
-    inline constexpr std::array m2_bone_rows{WOWLIB_M2_RANGES_BONE(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_bone_rows, m2_bone_pivots, m2_versions),
+    inline constexpr std::array M2BoneRows{WOWLIB_M2_RANGES_BONE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2BoneRows, M2BonePivots, M2Versions),
                   "WOWLIB_M2_RANGES_BONE drifted from m2_bone_pivots");
-    inline constexpr std::array m2_camera_rows{WOWLIB_M2_RANGES_CAMERA(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_camera_rows, m2_camera_pivots, m2_versions),
+    inline constexpr std::array M2CameraRows{WOWLIB_M2_RANGES_CAMERA(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2CameraRows, M2CameraPivots, M2Versions),
                   "WOWLIB_M2_RANGES_CAMERA drifted from m2_camera_pivots");
-    inline constexpr std::array m2_particle_rows{WOWLIB_M2_RANGES_PARTICLE(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_particle_rows, m2_particle_pivots, m2_versions),
+    inline constexpr std::array M2ParticleRows{WOWLIB_M2_RANGES_PARTICLE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2ParticleRows, M2ParticlePivots, M2Versions),
                   "WOWLIB_M2_RANGES_PARTICLE drifted from m2_particle_pivots");
-    inline constexpr std::array m2_skin_section_rows{
+    inline constexpr std::array M2SkinSectionRows{
       WOWLIB_M2_RANGES_SKIN_SECTION(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_skin_section_rows, m2_skin_section_pivots, m2_versions),
+    static_assert(rangesValid(M2SkinSectionRows, M2SkinSectionPivots, M2Versions),
                   "WOWLIB_M2_RANGES_SKIN_SECTION drifted from m2_skin_section_pivots");
-    inline constexpr std::array m2_skin_profile_rows{
+    inline constexpr std::array M2SkinProfileRows{
       WOWLIB_M2_RANGES_SKIN_PROFILE(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_skin_profile_rows, m2_skin_profile_pivots, m2_versions),
+    static_assert(rangesValid(M2SkinProfileRows, M2SkinProfilePivots, M2Versions),
                   "WOWLIB_M2_RANGES_SKIN_PROFILE drifted from m2_skin_profile_pivots");
-    inline constexpr std::array m2_data_rows{WOWLIB_M2_RANGES_DATA(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_data_rows, m2_data_pivots, m2_versions),
+    inline constexpr std::array M2DataRows{WOWLIB_M2_RANGES_DATA(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2DataRows, M2DataPivots, M2Versions),
                   "WOWLIB_M2_RANGES_DATA drifted from m2_data_pivots");
-    inline constexpr std::array m2_skin_rows{WOWLIB_M2_RANGES_SKIN(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_skin_rows, m2_skin_pivots, m2_skin_versions),
+    inline constexpr std::array M2SkinRows{WOWLIB_M2_RANGES_SKIN(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2SkinRows, M2SkinPivots, M2SkinVersions),
                   "WOWLIB_M2_RANGES_SKIN drifted from m2_skin_pivots");
-    inline constexpr std::array m2_file_rows{WOWLIB_M2_RANGES_FILE(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_file_rows, m2_file_pivots, m2_chunked_versions),
+    inline constexpr std::array M2FileRows{WOWLIB_M2_RANGES_FILE(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2FileRows, M2FilePivots, M2ChunkedVersions),
                   "WOWLIB_M2_RANGES_FILE drifted from m2_file_pivots");
-    inline constexpr std::array m2_chunk_payload_rows{
+    inline constexpr std::array M2ChunkPayloadRows{
       WOWLIB_M2_RANGES_CHUNK_PAYLOADS(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_chunk_payload_rows, m2_chunk_payload_pivots, m2_chunked_versions),
+    static_assert(rangesValid(M2ChunkPayloadRows, M2ChunkPayloadPivots, M2ChunkedVersions),
                   "WOWLIB_M2_RANGES_CHUNK_PAYLOADS drifted from m2_chunk_payload_pivots");
-    inline constexpr std::array m2_assembly_rows{WOWLIB_M2_RANGES_ASSEMBLY(WOWLIB_M2_RANGE_ROW)};
-    static_assert(ranges_valid(m2_assembly_rows, m2_assembly_pivots, m2_versions),
+    inline constexpr std::array M2AssemblyRows{WOWLIB_M2_RANGES_ASSEMBLY(WOWLIB_M2_RANGE_ROW)};
+    static_assert(rangesValid(M2AssemblyRows, M2AssemblyPivots, M2Versions),
                   "WOWLIB_M2_RANGES_ASSEMBLY drifted from m2_assembly_pivots");
 #undef WOWLIB_M2_RANGE_ROW
   }

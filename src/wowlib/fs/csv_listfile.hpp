@@ -22,7 +22,7 @@ namespace wowlib::fs {
   struct CsvListfileOptions {
     /** First FileDataID handed to newly registered files; keep far above
         Blizzard's ~6-7M so future official content never collides. */
-    FileDataID custom_fdid_start{1'000'000'000};
+    FileDataID customFdidStart{1'000'000'000};
   };
 
   // (namespace-scope rather than nested: gcc late-parses nested-class NSDMIs, so a
@@ -41,7 +41,7 @@ namespace wowlib::fs {
     CsvListfile() = default;
 
     /** Load a listfile CSV; the file becomes the working database that
-        register_path appends to. Later lines override earlier ones, and the
+        registerPath appends to. Later lines override earlier ones, and the
         custom-id allocator resumes after the highest custom id present.
         @param csv     path to the CSV on disk.
         @param options loading options.
@@ -51,19 +51,19 @@ namespace wowlib::fs {
     /** Look up the FileDataID of a path (any spelling; canonicalized here).
         @param path the client-internal file path.
         @return the id, or nothing on a miss. */
-    std::optional<FileDataID> path_to_fdid(std::string_view path) const;
+    std::optional<FileDataID> pathToFdid(std::string_view path) const;
 
     /** Look up the canonical path of a FileDataID.
         @param fdid the numeric file identifier.
         @return the canonical path, or nothing on a miss. */
-    std::optional<std::string> fdid_to_path(FileDataID fdid) const;
+    std::optional<std::string> fdidToPath(FileDataID fdid) const;
 
     /** Allocate a fresh custom FileDataID for a new path, remember the mapping and
         append it to the working file (in-memory only when the database was not
         loaded from a file). Fails with DuplicatePath if the path is already known.
         @param path the client-internal path of the new file.
         @return the newly allocated id. */
-    Result<FileDataID> register_path(std::string_view path);
+    Result<FileDataID> registerPath(std::string_view path);
 
     /** Whether a path is known.
         @param path the client-internal file path.
@@ -88,8 +88,8 @@ namespace wowlib::fs {
   private:
     std::filesystem::path _source;
     mutable SharedMutex _mtx;
-    std::unordered_map<std::string, FileDataID> _path_to_id;
-    std::unordered_map<std::uint32_t, std::string> _id_to_path;
+    std::unordered_map<std::string, FileDataID> _pathToId;
+    std::unordered_map<std::uint32_t, std::string> _idToPath;
     detail::FdidAllocator _allocator;
   };
 

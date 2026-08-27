@@ -71,7 +71,7 @@ namespace wowlib::fs {
   private:
     /** Rebuild _index from the tree under _root; caller holds the exclusive lock
         (or is the only owner). */
-    void index_tree_locked();
+    void _indexTreeLocked();
 
     std::filesystem::path _root;
     mutable SharedMutex _mtx;

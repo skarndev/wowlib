@@ -37,7 +37,7 @@ namespace wowlib::formats::adt {
   using namespace wowlib::formats::adt::chunks;
 
   /** One liquid layer of one terrain cell, fully decoded (an MH2O instance).
-      The vertex arrays are present per the vertex_format; the exists mask (when
+      The vertex arrays are present per the vertexFormat; the exists mask (when
       non-empty) selects which of the width x height tiles render. All binary
       offsets are derived on write. */
   struct [[
@@ -53,28 +53,28 @@ namespace wowlib::formats::adt {
     [[=welder::doc(
       "The liquid type (a LiquidType foreign key: 1 ocean, 2 ocean-flat, "
       "3 slime, 5/6 magma, …).")]]
-    std::uint16_t liquid_type = 0;
+    std::uint16_t liquidType = 0;
 
     [[=welder::doc(
       "The stored liquid_object_or_lvf field: a LiquidObject id (>= 42) or "
       "a raw LiquidVertexFormat; vertex_format holds the resolved layout.")]]
-    std::uint16_t liquid_object_or_lvf = 0;
+    std::uint16_t liquidObjectOrLvf = 0;
 
     [[=welder::doc(
       "The resolved vertex layout wowlib decoded (and will re-lay).")]]
-    LiquidVertexFormat vertex_format = LiquidVertexFormat::height_depth;
+    LiquidVertexFormat vertexFormat = LiquidVertexFormat::HeightDepth;
 
     [[=welder::doc(
       "Minimum surface height (the flat height when no heightmap).")]]
-    float min_height = 0;
+    float minHeight = 0;
 
     [[=welder::doc("Maximum surface height.")]]
-    float max_height = 0;
+    float maxHeight = 0;
 
     [[=welder::doc("The liquid rectangle's x offset within the cell (0-7).")]]
-    std::uint8_t x_offset = 0;
+    std::uint8_t xOffset = 0;
     [[=welder::doc("The liquid rectangle's y offset within the cell (0-7).")]]
-    std::uint8_t y_offset = 0;
+    std::uint8_t yOffset = 0;
     [[=welder::doc("The liquid rectangle width in tiles (1-8).")]]
     std::uint8_t width = 8;
     [[=welder::doc("The liquid rectangle height in tiles (1-8).")]]
@@ -84,7 +84,7 @@ namespace wowlib::formats::adt {
         "The per-tile exists mask, width x height bits row-major (LSB first); "
         "empty means every tile renders."),
       =welder::mark::no_reassign]]
-    std::vector<std::uint8_t> exists_bitmap;
+    std::vector<std::uint8_t> existsBitmap;
 
     [[=welder::doc(
         "Surface heights, (width+1) x (height+1) row-major; present for "
@@ -106,7 +106,7 @@ namespace wowlib::formats::adt {
     bool operator==(const LiquidInstance&) const = default;
 
     /** The vertex count each present array holds. */
-    std::size_t vertex_count() const {
+    std::size_t vertexCount() const {
       return static_cast<std::size_t>(width + 1) * static_cast<std::size_t>(height + 1);
     }
   };
@@ -132,7 +132,7 @@ namespace wowlib::formats::adt {
     [[=welder::doc(
       "Whether this cell wrote an explicit attributes block (so an all-zero "
       "mask round-trips as present rather than omitted).")]]
-    bool has_attributes = false;
+    bool hasAttributes = false;
 
     [[=welder::doc("The stacked liquid layers over this chunk."),
       =welder::mark::no_reassign]]
@@ -197,7 +197,7 @@ namespace wowlib::formats::adt {
         vectors is always written.)")
     ]] MCLQData {
     [[=welder::doc("The surface height range (CRange: min, max).")]]
-    CRange height_range{};
+    CRange heightRange{};
 
     [[=welder::doc("The 9x9 = 81 liquid vertices, row-major."),
       =welder::mark::no_reassign]]
@@ -241,32 +241,32 @@ namespace wowlib::formats::adt {
   namespace detail {
     /** Resolve a liquid instance's vertex layout from its stored field and the
         span of its vertex-data block: the offset-multiplier method (wowdev),
-        robust across every client. total_bytes is the vertex block's size,
+        robust across every client. totalBytes is the vertex block's size,
         n the (width+1)*(height+1) vertex count. */
-    inline LiquidVertexFormat resolve_vertex_format(std::uint16_t stored, std::size_t total_bytes, std::size_t n) {
-      if (n != 0 && total_bytes % n == 0)
-        switch (total_bytes / n) {
-        case 5: return LiquidVertexFormat::height_depth; // float + byte
-        case 8: return LiquidVertexFormat::height_uv; // float + 2 u16
-        case 1: return LiquidVertexFormat::depth_only; // byte
-        case 9: return LiquidVertexFormat::height_uv_depth;
+    inline LiquidVertexFormat resolveVertexFormat(std::uint16_t stored, std::size_t totalBytes, std::size_t n) {
+      if (n != 0 && totalBytes % n == 0)
+        switch (totalBytes / n) {
+        case 5: return LiquidVertexFormat::HeightDepth; // float + byte
+        case 8: return LiquidVertexFormat::HeightUv; // float + 2 u16
+        case 1: return LiquidVertexFormat::DepthOnly; // byte
+        case 9: return LiquidVertexFormat::HeightUvDepth;
         // float + 2 u16 + byte
         default: break;
         }
       // no vertex block (ocean): trust the stored LVF when small, else flat depth
       if (stored <= 3) return static_cast<LiquidVertexFormat>(stored);
-      return LiquidVertexFormat::depth_only;
+      return LiquidVertexFormat::DepthOnly;
     }
   }
 
   inline Result<void> MH2OData::read(std::span<const std::byte> payload) {
-    constexpr std::size_t header_bytes = 256 * 12;
-    if (payload.size() < header_bytes)
-      return make_error(ErrorCode::ChunkTruncated,
-                        std::format("MH2O needs {} header bytes, got {}", header_bytes, payload.size()));
+    constexpr std::size_t headerBytes = 256 * 12;
+    if (payload.size() < headerBytes)
+      return makeError(ErrorCode::ChunkTruncated,
+                        std::format("MH2O needs {} header bytes, got {}", headerBytes, payload.size()));
     cells.assign(256, MapChunkLiquid{});
 
-    const auto u32_at = [&](std::size_t off) {
+    const auto u32At = [&](std::size_t off) {
       std::uint32_t v = 0;
       std::memcpy(&v, payload.data() + off, 4);
       return v;
@@ -276,22 +276,22 @@ namespace wowlib::formats::adt {
     // to the next start (the vertex-format multiplier method needs the size).
     std::vector<std::size_t> starts;
     for (std::size_t c = 0; c < 256; ++c) {
-      const std::uint32_t ofs_inst = u32_at(c * 12 + 0);
-      const std::uint32_t count = u32_at(c * 12 + 4);
-      const std::uint32_t ofs_attr = u32_at(c * 12 + 8);
-      if (ofs_attr) starts.push_back(ofs_attr);
+      const std::uint32_t ofsInst = u32At(c * 12 + 0);
+      const std::uint32_t count = u32At(c * 12 + 4);
+      const std::uint32_t ofsAttr = u32At(c * 12 + 8);
+      if (ofsAttr) starts.push_back(ofsAttr);
       for (std::uint32_t k = 0; k < count; ++k) {
-        const std::size_t base = ofs_inst + 24 * k;
+        const std::size_t base = ofsInst + 24 * k;
         if (base + 24 > payload.size())
-          return make_error(ErrorCode::ChunkTruncated, std::format("MH2O instance of cell {} overruns the chunk", c));
-        const std::uint32_t ofs_exists = u32_at(base + 16);
-        const std::uint32_t ofs_verts = u32_at(base + 20);
-        if (ofs_exists) starts.push_back(ofs_exists);
-        if (ofs_verts) starts.push_back(ofs_verts);
+          return makeError(ErrorCode::ChunkTruncated, std::format("MH2O instance of cell {} overruns the chunk", c));
+        const std::uint32_t ofsExists = u32At(base + 16);
+        const std::uint32_t ofsVerts = u32At(base + 20);
+        if (ofsExists) starts.push_back(ofsExists);
+        if (ofsVerts) starts.push_back(ofsVerts);
       }
     }
     std::ranges::sort(starts);
-    const auto block_end = [&](std::size_t start) -> std::size_t {
+    const auto blockEnd = [&](std::size_t start) -> std::size_t {
       std::size_t end = payload.size();
       for (std::size_t s : starts)
         if (s > start && s < end) end = s;
@@ -299,68 +299,68 @@ namespace wowlib::formats::adt {
     };
 
     for (std::size_t c = 0; c < 256; ++c) {
-      const std::uint32_t ofs_inst = u32_at(c * 12 + 0);
-      const std::uint32_t count = u32_at(c * 12 + 4);
-      const std::uint32_t ofs_attr = u32_at(c * 12 + 8);
+      const std::uint32_t ofsInst = u32At(c * 12 + 0);
+      const std::uint32_t count = u32At(c * 12 + 4);
+      const std::uint32_t ofsAttr = u32At(c * 12 + 8);
       MapChunkLiquid& cell = cells[c];
-      if (ofs_attr) {
-        if (ofs_attr + 16 > payload.size())
-          return make_error(ErrorCode::ChunkTruncated, std::format("MH2O attributes of cell {} overrun", c));
-        std::memcpy(&cell.fishable, payload.data() + ofs_attr, 8);
-        std::memcpy(&cell.deep, payload.data() + ofs_attr + 8, 8);
-        cell.has_attributes = true;
+      if (ofsAttr) {
+        if (ofsAttr + 16 > payload.size())
+          return makeError(ErrorCode::ChunkTruncated, std::format("MH2O attributes of cell {} overrun", c));
+        std::memcpy(&cell.fishable, payload.data() + ofsAttr, 8);
+        std::memcpy(&cell.deep, payload.data() + ofsAttr + 8, 8);
+        cell.hasAttributes = true;
       }
       for (std::uint32_t k = 0; k < count; ++k) {
-        const std::size_t base = ofs_inst + 24 * k;
+        const std::size_t base = ofsInst + 24 * k;
         LiquidInstance inst;
-        std::memcpy(&inst.liquid_type, payload.data() + base + 0, 2);
-        std::memcpy(&inst.liquid_object_or_lvf, payload.data() + base + 2, 2);
-        std::memcpy(&inst.min_height, payload.data() + base + 4, 4);
-        std::memcpy(&inst.max_height, payload.data() + base + 8, 4);
-        inst.x_offset = std::to_integer<std::uint8_t>(payload[base + 12]);
-        inst.y_offset = std::to_integer<std::uint8_t>(payload[base + 13]);
+        std::memcpy(&inst.liquidType, payload.data() + base + 0, 2);
+        std::memcpy(&inst.liquidObjectOrLvf, payload.data() + base + 2, 2);
+        std::memcpy(&inst.minHeight, payload.data() + base + 4, 4);
+        std::memcpy(&inst.maxHeight, payload.data() + base + 8, 4);
+        inst.xOffset = std::to_integer<std::uint8_t>(payload[base + 12]);
+        inst.yOffset = std::to_integer<std::uint8_t>(payload[base + 13]);
         inst.width = std::to_integer<std::uint8_t>(payload[base + 14]);
         inst.height = std::to_integer<std::uint8_t>(payload[base + 15]);
-        const std::uint32_t ofs_exists = u32_at(base + 16);
-        const std::uint32_t ofs_verts = u32_at(base + 20);
-        const std::size_t n = inst.vertex_count();
+        const std::uint32_t ofsExists = u32At(base + 16);
+        const std::uint32_t ofsVerts = u32At(base + 20);
+        const std::size_t n = inst.vertexCount();
 
-        if (ofs_exists) {
+        if (ofsExists) {
           const std::size_t bytes = (static_cast<std::size_t>(inst.width) * inst.height + 7) / 8;
-          if (ofs_exists + bytes > payload.size())
-            return make_error(ErrorCode::ChunkTruncated, std::format("MH2O exists mask of cell {} overruns", c));
-          inst.exists_bitmap.assign(reinterpret_cast<const std::uint8_t*>(payload.data() + ofs_exists),
-                                    reinterpret_cast<const std::uint8_t*>(payload.data() + ofs_exists + bytes));
+          if (ofsExists + bytes > payload.size())
+            return makeError(ErrorCode::ChunkTruncated, std::format("MH2O exists mask of cell {} overruns", c));
+          inst.existsBitmap.assign(reinterpret_cast<const std::uint8_t*>(payload.data() + ofsExists),
+                                    reinterpret_cast<const std::uint8_t*>(payload.data() + ofsExists + bytes));
         }
 
-        if (ofs_verts) {
-          const std::size_t total = block_end(ofs_verts) - ofs_verts;
-          inst.vertex_format = detail::resolve_vertex_format(inst.liquid_object_or_lvf, total, n);
-          std::size_t p = ofs_verts;
-          const auto has_height = inst.vertex_format == LiquidVertexFormat::height_depth || inst.vertex_format ==
-            LiquidVertexFormat::height_uv || inst.vertex_format == LiquidVertexFormat::height_uv_depth;
-          const auto has_uv = inst.vertex_format == LiquidVertexFormat::height_uv || inst.vertex_format ==
-            LiquidVertexFormat::height_uv_depth;
-          const auto has_depth = inst.vertex_format == LiquidVertexFormat::height_depth || inst.vertex_format ==
-            LiquidVertexFormat::depth_only || inst.vertex_format == LiquidVertexFormat::height_uv_depth;
-          if (has_height) {
+        if (ofsVerts) {
+          const std::size_t total = blockEnd(ofsVerts) - ofsVerts;
+          inst.vertexFormat = detail::resolveVertexFormat(inst.liquidObjectOrLvf, total, n);
+          std::size_t p = ofsVerts;
+          const auto hasHeight = inst.vertexFormat == LiquidVertexFormat::HeightDepth || inst.vertexFormat ==
+            LiquidVertexFormat::HeightUv || inst.vertexFormat == LiquidVertexFormat::HeightUvDepth;
+          const auto hasUv = inst.vertexFormat == LiquidVertexFormat::HeightUv || inst.vertexFormat ==
+            LiquidVertexFormat::HeightUvDepth;
+          const auto hasDepth = inst.vertexFormat == LiquidVertexFormat::HeightDepth || inst.vertexFormat ==
+            LiquidVertexFormat::DepthOnly || inst.vertexFormat == LiquidVertexFormat::HeightUvDepth;
+          if (hasHeight) {
             inst.heightmap.resize(n);
             std::memcpy(inst.heightmap.data(), payload.data() + p, n * 4);
             p += n * 4;
           }
-          if (has_uv) {
+          if (hasUv) {
             inst.uvmap.resize(n);
             std::memcpy(inst.uvmap.data(), payload.data() + p, n * 4);
             p += n * 4;
           }
-          if (has_depth) {
+          if (hasDepth) {
             inst.depthmap.assign(reinterpret_cast<const std::uint8_t*>(payload.data() + p),
                                  reinterpret_cast<const std::uint8_t*>(payload.data() + p + n));
             p += n;
           }
         }
         else {
-          inst.vertex_format = detail::resolve_vertex_format(inst.liquid_object_or_lvf, 0, n);
+          inst.vertexFormat = detail::resolveVertexFormat(inst.liquidObjectOrLvf, 0, n);
         }
         cell.instances.push_back(std::move(inst));
       }
@@ -371,14 +371,14 @@ namespace wowlib::formats::adt {
   inline Result<void> MH2OData::write(FileBuffer& out) const {
     // Canonical relayout: [256 headers][instances per cell][per-cell data blocks].
     const std::size_t start = out.size();
-    const std::size_t n_cells = cells.size() == 256 ? 256 : 256;
+    const std::size_t nCells = cells.size() == 256 ? 256 : 256;
     out.resize(out.size() + 256 * 12, std::byte{0});
 
-    const auto put_u32 = [&](std::uint32_t v) {
+    const auto putU32 = [&](std::uint32_t v) {
       const auto* b = reinterpret_cast<const std::byte*>(&v);
       out.insert(out.end(), b, b + 4);
     };
-    const auto set_u32 = [&](std::size_t at, std::uint32_t v) {
+    const auto setU32 = [&](std::size_t at, std::uint32_t v) {
       std::memcpy(out.data() + at, &v, 4);
     };
     const auto rel = [&](std::size_t abs) {
@@ -387,53 +387,53 @@ namespace wowlib::formats::adt {
 
     // instances first (so their offsets are known before data blocks)
     struct InstLoc {
-      std::size_t header_at;
-      std::size_t exists_at;
-      std::size_t verts_at;
+      std::size_t headerAt;
+      std::size_t existsAt;
+      std::size_t vertsAt;
     };
     std::vector<std::vector<InstLoc>> locs(256);
-    for (std::size_t c = 0; c < n_cells; ++c) {
+    for (std::size_t c = 0; c < nCells; ++c) {
       const MapChunkLiquid& cell = c < cells.size() ? cells[c] : MapChunkLiquid{};
       if (cell.instances.empty()) continue;
-      set_u32(start + c * 12 + 0, rel(out.size()));
-      set_u32(start + c * 12 + 4, static_cast<std::uint32_t>(cell.instances.size()));
+      setU32(start + c * 12 + 0, rel(out.size()));
+      setU32(start + c * 12 + 4, static_cast<std::uint32_t>(cell.instances.size()));
       locs[c].resize(cell.instances.size());
       for (std::size_t k = 0; k < cell.instances.size(); ++k) {
         const LiquidInstance& inst = cell.instances[k];
-        locs[c][k].header_at = out.size();
-        put_u32(inst.liquid_type | (std::uint32_t{inst.liquid_object_or_lvf} << 16));
-        put_u32(std::bit_cast<std::uint32_t>(inst.min_height));
-        put_u32(std::bit_cast<std::uint32_t>(inst.max_height));
-        out.push_back(std::byte{inst.x_offset});
-        out.push_back(std::byte{inst.y_offset});
+        locs[c][k].headerAt = out.size();
+        putU32(inst.liquidType | (std::uint32_t{inst.liquidObjectOrLvf} << 16));
+        putU32(std::bit_cast<std::uint32_t>(inst.minHeight));
+        putU32(std::bit_cast<std::uint32_t>(inst.maxHeight));
+        out.push_back(std::byte{inst.xOffset});
+        out.push_back(std::byte{inst.yOffset});
         out.push_back(std::byte{inst.width});
         out.push_back(std::byte{inst.height});
-        put_u32(0); // offset_exists placeholder
-        put_u32(0); // offset_vertex placeholder
+        putU32(0); // offset_exists placeholder
+        putU32(0); // offset_vertex placeholder
       }
     }
 
     // per-cell data: attributes, then each instance's exists mask + vertex data
-    for (std::size_t c = 0; c < n_cells; ++c) {
+    for (std::size_t c = 0; c < nCells; ++c) {
       const MapChunkLiquid& cell = c < cells.size() ? cells[c] : MapChunkLiquid{};
-      if (cell.has_attributes) {
-        set_u32(start + c * 12 + 8, rel(out.size()));
-        put_u32(static_cast<std::uint32_t>(cell.fishable & 0xFFFFFFFF));
-        put_u32(static_cast<std::uint32_t>(cell.fishable >> 32));
-        put_u32(static_cast<std::uint32_t>(cell.deep & 0xFFFFFFFF));
-        put_u32(static_cast<std::uint32_t>(cell.deep >> 32));
+      if (cell.hasAttributes) {
+        setU32(start + c * 12 + 8, rel(out.size()));
+        putU32(static_cast<std::uint32_t>(cell.fishable & 0xFFFFFFFF));
+        putU32(static_cast<std::uint32_t>(cell.fishable >> 32));
+        putU32(static_cast<std::uint32_t>(cell.deep & 0xFFFFFFFF));
+        putU32(static_cast<std::uint32_t>(cell.deep >> 32));
       }
       for (std::size_t k = 0; k < cell.instances.size(); ++k) {
         const LiquidInstance& inst = cell.instances[k];
         const InstLoc& loc = locs[c][k];
-        if (!inst.exists_bitmap.empty()) {
-          set_u32(loc.header_at + 16, rel(out.size()));
-          const auto* b = reinterpret_cast<const std::byte*>(inst.exists_bitmap.data());
-          out.insert(out.end(), b, b + inst.exists_bitmap.size());
+        if (!inst.existsBitmap.empty()) {
+          setU32(loc.headerAt + 16, rel(out.size()));
+          const auto* b = reinterpret_cast<const std::byte*>(inst.existsBitmap.data());
+          out.insert(out.end(), b, b + inst.existsBitmap.size());
         }
         const bool any_verts = !inst.heightmap.empty() || !inst.depthmap.empty() || !inst.uvmap.empty();
         if (any_verts) {
-          set_u32(loc.header_at + 20, rel(out.size()));
+          setU32(loc.headerAt + 20, rel(out.size()));
           if (!inst.heightmap.empty()) {
             const auto* b = reinterpret_cast<const std::byte*>(inst.heightmap.data());
             out.insert(out.end(), b, b + inst.heightmap.size() * 4);
@@ -458,20 +458,20 @@ namespace wowlib::formats::adt {
     // CRange height (8) + 81 verts (8 each = 648) + 64 tile bytes + u32 nFlowvs
     // + 2 flow vectors (40 each). The trailing flow pair is always present.
     constexpr std::size_t fixed = 8 + 81 * 8 + 64 + 4;
-    // An "empty" MCLQ (the MCNK header's size_liquid was <= 8, so the sub-chunk
+    // An "empty" MCLQ (the MCNK header's sizeLiquid was <= 8, so the sub-chunk
     // carries no record) decodes to no liquid — Outland WotLK tiles ship these.
     if (payload.size() < fixed) return {};
-    std::memcpy(&height_range, payload.data(), 8);
+    std::memcpy(&heightRange, payload.data(), 8);
     vertices.resize(81);
     std::memcpy(vertices.data(), payload.data() + 8, 81 * 8);
     tiles.assign(reinterpret_cast<const std::uint8_t*>(payload.data() + 8 + 648),
                  reinterpret_cast<const std::uint8_t*>(payload.data() + 8 + 648 + 64));
-    std::uint32_t n_flows = 0;
-    std::memcpy(&n_flows, payload.data() + 8 + 648 + 64, 4);
+    std::uint32_t nFlows = 0;
+    std::memcpy(&nFlows, payload.data() + 8 + 648 + 64, 4);
     std::size_t p = fixed;
     flows.clear();
     for (std::uint32_t i = 0; i < 2 && p + 40 <= payload.size(); ++i, p += 40) {
-      if (i < n_flows) {
+      if (i < nFlows) {
         SWFlowv f;
         std::memcpy(&f, payload.data() + p, 40);
         flows.push_back(f);
@@ -485,7 +485,7 @@ namespace wowlib::formats::adt {
       const auto* b = static_cast<const std::byte*>(p);
       out.insert(out.end(), b, b + n);
     };
-    put(&height_range, 8);
+    put(&heightRange, 8);
     // exactly 81 verts / 64 tiles are written; pad or truncate to the fixed grid
     std::vector<SLVert> v = vertices;
     v.resize(81);
@@ -493,8 +493,8 @@ namespace wowlib::formats::adt {
     std::vector<std::uint8_t> t = tiles;
     t.resize(64);
     put(t.data(), 64);
-    const std::uint32_t n_flows = static_cast<std::uint32_t>(flows.size());
-    put(&n_flows, 4);
+    const std::uint32_t nFlows = static_cast<std::uint32_t>(flows.size());
+    put(&nFlows, 4);
     SWFlowv pair[2]{};
     for (std::size_t i = 0; i < flows.size() && i < 2; ++i) pair[i] = flows[i];
     put(pair, 80);

@@ -50,49 +50,49 @@ namespace wowlib::formats::m2 {
       companion file of "creature\\x\\x.m2" derives from the same stem. */
   class SatellitePaths {
   public:
-    /** @param model_path the model's resolved client path; a known model
+    /** @param modelPath the model's resolved client path; a known model
         extension (.m2, .mdx/.mdl in old references, .skel for skeletons) is
         stripped, the remainder is the stem. */
-    explicit SatellitePaths(std::string_view model_path)
-      : stem_{model_path} {
+    explicit SatellitePaths(std::string_view modelPath)
+      : _stem{modelPath} {
       for (std::string_view ext : {".m2", ".M2", ".mdx", ".MDX", ".mdl", ".MDL", ".skel", ".SKEL"})
-        if (model_path.ends_with(ext)) {
-          stem_ = std::string{model_path.substr(0, model_path.size() - ext.size())};
+        if (modelPath.ends_with(ext)) {
+          _stem = std::string{modelPath.substr(0, modelPath.size() - ext.size())};
           break;
         }
     }
 
     /** The model path without its extension. */
-    const std::string& stem() const { return stem_; }
+    const std::string& stem() const { return _stem; }
 
     /** "{stem}0N.skin" — the numbered view naming convention. */
     std::string skin(std::uint32_t index) const {
-      return std::format("{}{:02}.skin", stem_, index);
+      return std::format("{}{:02}.skin", _stem, index);
     }
 
     /** "{stem}_lod0N.skin" — LOD bands number from 1. */
-    std::string lod_skin(std::uint32_t band) const {
-      return std::format("{}_lod{:02}.skin", stem_, band);
+    std::string lodSkin(std::uint32_t band) const {
+      return std::format("{}_lod{:02}.skin", _stem, band);
     }
 
     /** "{stem}AAAA-SS.anim" — the external-sequence naming. */
     std::string anim(SequenceKey key) const {
-      return std::format("{}{:04}-{:02}.anim", stem_, key.id, key.variation);
+      return std::format("{}{:04}-{:02}.anim", _stem, key.id, key.variation);
     }
 
     /** "{stem}_NN.bone" — one per FacePose variant. */
     std::string bone(std::uint32_t variant) const {
-      return std::format("{}_{:02}.bone", stem_, variant);
+      return std::format("{}_{:02}.bone", _stem, variant);
     }
 
     /** "{stem}.skel". */
-    std::string skel() const { return stem_ + ".skel"; }
+    std::string skel() const { return _stem + ".skel"; }
 
     /** "{stem}.phys". */
-    std::string phys() const { return stem_ + ".phys"; }
+    std::string phys() const { return _stem + ".phys"; }
 
   private:
-    std::string stem_;
+    std::string _stem;
   };
 
   /** A lazy per-sequence .anim loader handing out resolution windows: for a
@@ -103,34 +103,34 @@ namespace wowlib::formats::m2 {
   class AnimCache {
   public:
     // .anim chunk ids, forward like all M2-family fourccs.
-    static constexpr std::uint32_t afm2_magic = four_cc("AFM2", FourCCEndian::forward);
-    static constexpr std::uint32_t afsa_magic = four_cc("AFSA", FourCCEndian::forward);
-    static constexpr std::uint32_t afsb_magic = four_cc("AFSB", FourCCEndian::forward);
+    static constexpr std::uint32_t Afm2Magic = fourCc("AFM2", FourCCEndian::Forward);
+    static constexpr std::uint32_t AfsaMagic = fourCc("AFSA", FourCCEndian::Forward);
+    static constexpr std::uint32_t AfsbMagic = fourCc("AFSB", FourCCEndian::Forward);
 
     /** The AFID FileDataID for sequence @a key, 0 when unlisted. */
-    static std::uint32_t afid_lookup(std::span<const chunked::record::AnimFileEntry> entries, SequenceKey key) {
+    static std::uint32_t afidLookup(std::span<const chunked::record::AnimFileEntry> entries, SequenceKey key) {
       for (const chunked::record::AnimFileEntry& e : entries)
-        if (e.anim_id == key.id && e.sub_anim_id == key.variation) return e.file_id;
+        if (e.animId == key.id && e.subAnimId == key.variation) return e.fileId;
       return 0;
     }
 
     /** @param loader fetches the .anim bytes for a sequence key. */
     explicit AnimCache(std::function<Result<FileBuffer>(SequenceKey)> loader)
-      : loader_{std::move(loader)} {}
+      : _loader{std::move(loader)} {}
 
     /** The resolution window of sequence @a key's file for chunk @a target
-        (afm2/afsa/afsb_magic); empty when unavailable. */
+        (afm2/afsa/AfsbMagic); empty when unavailable. */
     std::span<const std::byte> window(SequenceKey key, std::uint32_t target) {
-      auto [it, inserted] = files_.try_emplace(key);
+      auto [it, inserted] = _files.try_emplace(key);
       if (inserted)
-        if (auto file = loader_(key)) it->second = std::move(*file);
+        if (auto file = _loader(key)) it->second = std::move(*file);
       if (!it->second) return {};
       const FileBuffer& buf = *it->second;
       std::uint32_t lead = 0;
       if (buf.size() >= 8) std::memcpy(&lead, buf.data(), 4);
-      const bool chunked = lead == afm2_magic;
+      const bool chunked = lead == Afm2Magic;
       if (!chunked)
-        return target == afm2_magic ? std::span<const std::byte>{buf} : std::span<const std::byte>{};
+        return target == Afm2Magic ? std::span<const std::byte>{buf} : std::span<const std::byte>{};
       for (std::size_t pos = 0; pos + 8 <= buf.size();) {
         std::uint32_t fourcc = 0;
         std::uint32_t size = 0;
@@ -144,33 +144,33 @@ namespace wowlib::formats::m2 {
     }
 
     /** The per-sequence base resolver every M2-family read path shares:
-        sequence @a i's inner arrays resolve against @a inline_base when its
+        sequence @a i's inner arrays resolve against @a inlineBase when its
         data is inline, the EMPTY span when it is an alias (stale records are
-        never chased — see M2Sequence::is_alias), or the matching .anim
+        never chased — see M2Sequence::isAlias), or the matching .anim
         window otherwise. The alias-datablock policy lives here ONCE for the
         monolithic, chunked and skeleton decode paths alike.
         @param sequences   the sequence table driving the flags; taken by
                            reference — it may still be mid-decode when the
                            context is built, the resolver reads it lazily.
-        @param inline_base the buffer inline sequence data resolves against.
+        @param inlineBase the buffer inline sequence data resolves against.
         @param target      the .anim chunk the tracks live in (afm2/afsa/afsb).
-        @return the resolver to install as OffsetReadContext::sequence_base. */
+        @return the resolver to install as OffsetReadContext::sequenceBase. */
     template <typename Sequence>
-    auto sequence_base(const std::vector<Sequence>& sequences,
-                       std::span<const std::byte> inline_base,
+    auto sequenceBase(const std::vector<Sequence>& sequences,
+                       std::span<const std::byte> inlineBase,
                        std::uint32_t target) {
-      return [this, &sequences, inline_base, target](std::size_t i) -> std::span<const std::byte> {
-        if (i >= sequences.size()) return inline_base;
+      return [this, &sequences, inlineBase, target](std::size_t i) -> std::span<const std::byte> {
+        if (i >= sequences.size()) return inlineBase;
         const Sequence& s = sequences[i];
-        if (s.is_alias()) return {}; // aliases own no data; their stored records are stale
-        if (!s.owns_anim_file()) return inline_base;
-        return window(SequenceKey{s.id, s.variation_index}, target);
+        if (s.isAlias()) return {}; // aliases own no data; their stored records are stale
+        if (!s.ownsAnimFile()) return inlineBase;
+        return window(SequenceKey{s.id, s.variationIndex}, target);
       };
     }
 
   private:
-    std::function<Result<FileBuffer>(SequenceKey)> loader_;
-    std::map<SequenceKey, std::optional<FileBuffer>> files_;
+    std::function<Result<FileBuffer>(SequenceKey)> _loader;
+    std::map<SequenceKey, std::optional<FileBuffer>> _files;
   };
 
   /** The per-sequence external write buffers every M2-family write path
@@ -183,43 +183,43 @@ namespace wowlib::formats::m2 {
     /** The write context routing external sequences into this buffer set.
         @param sequences the sequence table driving the flags; taken by
                          reference and read lazily, like the read resolver.
-        @return the context with OffsetWriteContext::sequence_sink installed. */
+        @return the context with OffsetWriteContext::sequenceSink installed. */
     template <typename Sequence>
     OffsetWriteContext sink(const std::vector<Sequence>& sequences) {
       OffsetWriteContext ctx;
-      ctx.sequence_sink = [this, &sequences](std::size_t i) -> FileBuffer* {
+      ctx.sequenceSink = [this, &sequences](std::size_t i) -> FileBuffer* {
         if (i >= sequences.size()) return nullptr;
         const Sequence& s = sequences[i];
-        if (!s.owns_anim_file()) return nullptr;
-        return &bufs_[SequenceKey{s.id, s.variation_index}];
+        if (!s.ownsAnimFile()) return nullptr;
+        return &_bufs[SequenceKey{s.id, s.variationIndex}];
       };
       return ctx;
     }
 
     /** The filled buffers, keyed and ordered by sequence key. */
-    const std::map<SequenceKey, FileBuffer>& entries() const { return bufs_; }
+    const std::map<SequenceKey, FileBuffer>& entries() const { return _bufs; }
 
     /** Append this set's buffer for @a key to @a out as one
         fourcc+size+payload chunk (assembling .anim files). A key this set
         never filled still appends an EMPTY section — the client requests
         the file and expects the chunk whenever the flags say so. */
-    void append_chunk_to(FileBuffer& out, std::uint32_t fourcc, SequenceKey key) const {
-      const auto it = bufs_.find(key);
-      append_chunk(out, fourcc,
-                   it == bufs_.end() ? std::span<const std::byte>{} : std::span<const std::byte>{it->second});
+    void appendChunkTo(FileBuffer& out, std::uint32_t fourcc, SequenceKey key) const {
+      const auto it = _bufs.find(key);
+      _appendChunk(out, fourcc,
+                   it == _bufs.end() ? std::span<const std::byte>{} : std::span<const std::byte>{it->second});
     }
 
     /** The union of every set's keys — one .anim file exists per key across
         all sections (AFM2 + AFSA + AFSB). */
-    static std::set<SequenceKey> merged_keys(std::initializer_list<const AnimBuffers*> sets) {
+    static std::set<SequenceKey> mergedKeys(std::initializer_list<const AnimBuffers*> sets) {
       std::set<SequenceKey> keys;
       for (const AnimBuffers* set : sets)
-        for (const auto& [key, buf] : set->bufs_) keys.insert(key);
+        for (const auto& [key, buf] : set->_bufs) keys.insert(key);
       return keys;
     }
 
   private:
-    static void append_chunk(FileBuffer& out, std::uint32_t fourcc, std::span<const std::byte> payload) {
+    static void _appendChunk(FileBuffer& out, std::uint32_t fourcc, std::span<const std::byte> payload) {
       const auto size = static_cast<std::uint32_t>(payload.size());
       const std::size_t at = out.size();
       out.resize(at + 8);
@@ -228,6 +228,6 @@ namespace wowlib::formats::m2 {
       out.insert(out.end(), payload.begin(), payload.end());
     }
 
-    std::map<SequenceKey, FileBuffer> bufs_;
+    std::map<SequenceKey, FileBuffer> _bufs;
   };
 }

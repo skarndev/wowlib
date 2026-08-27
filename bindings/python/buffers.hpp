@@ -26,8 +26,8 @@ namespace wowlib_py
       @return a freshly allocated buffer holding a copy of the bytes.
       @throws nanobind::type_error if @p src is neither bytes-like nor a readable
               file-like. */
-  wowlib::FileBuffer to_buffer(nb::handle src);
+  wowlib::FileBuffer toBuffer(nb::handle src);
 
   /** @brief Wrap a @c FileBuffer's contents as an immutable Python @c bytes (copied). */
-  nb::bytes to_pybytes(const wowlib::FileBuffer& buffer);
+  nb::bytes toPybytes(const wowlib::FileBuffer& buffer);
 }

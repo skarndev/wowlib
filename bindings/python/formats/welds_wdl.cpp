@@ -4,9 +4,9 @@
     serial tail; see gen_wdl.cpp for the C# twin of this split).
 
     weld_type per DISTINCT concrete, never weld_namespace: a namespace weld
-    instantiates one bind_namespace specialization whose members_of bakes
+    instantiates one bind_namespace specialization whose membersOf bakes
     from an arbitrary TU (the db shards learned this) — explicit types keyed
-    on the concrete never merge. The X-macro tables in wdl_ranges.hpp are
+    on the concrete never merge. The x-macro tables in wdl_ranges.hpp are
     the single source of truth for which aliases exist. */
 
 #include <nanobind/nanobind.h>
@@ -49,14 +49,14 @@ namespace wowlib_py::formats
     }
   }
 
-  void register_wdl_welds(::nanobind::module_& root)
+  void registerWdlWelds(::nanobind::module_& root)
   {
     using W = ::welder::welder<::welder::rods::nanobind::rod<>,
-                               wowlib_py::wowlib_python_naming>;
+                               wowlib_py::WowlibPythonNaming>;
     ::nanobind::module_ m0 = submodule(submodule(root, "formats"), "wdl");
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdl::WDL##S>(m0, "WDL" #S);
-    WOWLIB_WDL_RANGES(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdl::WDL##S>(m0, "WDL" #S);
+    WOWLIB_WDL_RANGES(x)
+#undef x
   }
 }

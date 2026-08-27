@@ -19,7 +19,7 @@ Each language has a typed per-table surface over the generic engine:
     ```cpp
     #include <wowlib/db/tables/map.hpp>   // generated, one header per table
 
-    wowlib::db::tables::Map<wowlib::versions::wotlk> map;
+    wowlib::db::tables::Map<wowlib::versions::Wotlk> map;
     if (auto r = map.read(fs, wowlib::FileKey{"DBFilesClient/Map.dbc"}); !r)
       return report(r.error());
 
@@ -69,10 +69,10 @@ directly — same behavior, runtime schema:
     ```cpp
     #include <wowlib/db/dyn_table.hpp>
 
-    auto table = wowlib::db::DynTable::open("Map", wowlib::versions::wotlk);
+    auto table = wowlib::db::DynTable::open("Map", wowlib::versions::Wotlk);
     table->read(fs, wowlib::FileKey{"DBFilesClient/Map.dbc"});
-    for (std::size_t row = 0; row < table->row_count(); ++row)
-      use(*table->get_string(row, *table->column_index("directory")));
+    for (std::size_t row = 0; row < table->rowCount(); ++row)
+      use(*table->getString(row, *table->columnIndex("directory")));
     ```
 
 === "Python"

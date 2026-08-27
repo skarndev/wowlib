@@ -31,14 +31,14 @@ namespace wowlib::fs {
       safe to destroy.
 
       Thread safety: one mutex around the storage handle for the whole
-      open-size-read-close sequence; CascLib handles are not documented
+      open-size-read-_close sequence; CascLib handles are not documented
       thread-safe. A storage-handle pool is a possible future upgrade (memory-heavy
       — measure first). */
   class CascStorage {
   public:
     /** What to open and how. */
     struct Options {
-      std::filesystem::path client_root; /**< Client install root (parent of Data/). */
+      std::filesystem::path clientRoot; /**< Client install root (parent of Data/). */
       std::string product = "wow"; /**< TACT product code. */
       Locale locale = Locale::enUS; /**< Locale mask for content selection. */
       std::optional<std::uint32_t> build; /**< Preferred client build; orders the
@@ -56,7 +56,7 @@ namespace wowlib::fs {
         @return the open storage, or StorageOpenFailed. */
     static Result<CascStorage> open(Options options);
 
-    ~CascStorage() { close(); }
+    ~CascStorage() { _close(); }
 
     CascStorage(const CascStorage&) = delete;
     CascStorage& operator=(const CascStorage&) = delete;
@@ -68,7 +68,7 @@ namespace wowlib::fs {
 
     CascStorage& operator=(CascStorage&& other) noexcept {
       if (this != &other) {
-        close();
+        _close();
         _options = std::move(other._options);
         _storage = other._storage;
         other._storage = nullptr;
@@ -80,26 +80,26 @@ namespace wowlib::fs {
         for path-only keys (pre-8.2 clients only).
         @param key the file identity.
         @return the bytes, or FileNotFound / PathNotResolvable / EncryptedContent. */
-    Result<FileBuffer> read_file(const FileKey& key);
+    Result<FileBuffer> readFile(const FileKey& key);
 
     /** Register a TACT encryption key so the storage can decrypt content behind
         it (encrypted BLTE blocks, and thus the encrypted sections of a .db2).
-        Once registered, read_file returns fully-decrypted bytes and the DB2
+        Once registered, readFile returns fully-decrypted bytes and the DB2
         reader decodes those sections normally instead of reporting them
         encrypted.
-        @param key_name the 64-bit key lookup (the section header's tact_key_hash).
+        @param keyName the 64-bit key lookup (the section header's tactKeyHash).
         @param key      the 16-byte key.
         @return nothing, or BackendError when CascLib rejects the key. */
-    Result<void> add_encryption_key(std::uint64_t key_name, std::span<const std::byte, 16> key);
+    Result<void> addEncryptionKey(std::uint64_t keyName, std::span<const std::byte, 16> key);
 
     /** Register TACT keys from a text list — the community "KeyName KeyHex" per
         line format (16 hex nibbles name, 32 hex nibbles key). Lines that do not
         parse are skipped by CascLib.
-        @param key_list the newline-separated key list.
+        @param keyList the newline-separated key list.
         @return nothing, or BackendError when CascLib rejects the list. */
-    Result<void> import_keys(std::string_view key_list);
+    Result<void> importKeys(std::string_view keyList);
 
-    /** Whether the file can be opened (probe open + close).
+    /** Whether the file can be opened (probe open + _close).
         @param key the file identity.
         @return true if a read would find it. */
     bool exists(const FileKey& key);
@@ -110,7 +110,7 @@ namespace wowlib::fs {
         listing regardless of listfile coverage (name resolution stays the
         composition layer's job).
         @return the sorted FileDataIDs, or StorageNotOpen / BackendError. */
-    Result<std::vector<FileDataID>> enumerate_fdids();
+    Result<std::vector<FileDataID>> enumerateFdids();
 
     /** @return the storage technology tag (Casc). */
     static constexpr StorageKind kind() { return StorageKind::Casc; }
@@ -124,13 +124,13 @@ namespace wowlib::fs {
     /** The opening ladder described on open(); called by the factory on a fresh
         instance.
         @return nothing, or StorageOpenFailed. */
-    Result<void> open_storage();
+    Result<void> _openStorage();
 
     /** Close the storage; safe to call repeatedly. */
-    void close() noexcept;
+    void _close() noexcept;
 
     /** @return whether the handle is held (false only for moved-from storages). */
-    bool is_open() const { return _storage != nullptr; }
+    bool _isOpen() const { return _storage != nullptr; }
 
     Options _options;
     void* _storage = nullptr; // CascLib HANDLE

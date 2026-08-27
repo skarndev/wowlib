@@ -27,16 +27,16 @@ namespace wowlib_py::formats::wmo
 {
   namespace
   {
-    /** Every expansion must have a @c wmo_versions instantiation, or its facade
+    /** Every expansion must have a @c WmoVersions instantiation, or its facade
         overloads would name an unregistered class. Caught at compile time. */
     static_assert(
       []() consteval
       {
         for (auto e : std::meta::enumerators_of(^^wowlib::Expansion))
         {
-          const auto version = wowlib::to_client_version(std::meta::extract<wowlib::Expansion>(e));
+          const auto version = wowlib::toClientVersion(std::meta::extract<wowlib::Expansion>(e));
           bool ok = false;
-          for (const auto& s : wowlib::formats::wmo::wmo_versions)
+          for (const auto& s : wowlib::formats::wmo::WmoVersions)
             ok = ok || s == version;
           if (!ok)
             return false;
@@ -45,78 +45,78 @@ namespace wowlib_py::formats::wmo
       }(),
       "every Expansion enumerator needs a wmo_versions instantiation for its facade");
 
-    /** @brief Run @p fn against @p self cast to its concrete @c WMO<X>, if it is one.
-        @return true if @p self was a @c WMO<X> and @p fn ran. */
-    template <wowlib::Expansion X, typename Fn>
-    bool wmo_try(nb::handle self, Fn&& fn)
+    /** @brief Run @p fn against @p self cast to its concrete @c WMO<x>, if it is one.
+        @return true if @p self was a @c WMO<x> and @p fn ran. */
+    template <wowlib::Expansion x, typename Fn>
+    bool wmoTry(nb::handle self, Fn&& fn)
     {
-      using W = wowlib::formats::wmo::WMO<wowlib::to_client_version(X)>;
+      using W = wowlib::formats::wmo::WMO<wowlib::toClientVersion(x)>;
       if (!nb::isinstance<W>(self))
         return false;
       fn(nb::cast<W&>(self));
       return true;
     }
 
-    /** @brief Dispatch @p fn to @p self's concrete @c WMO<X> via isinstance.
+    /** @brief Dispatch @p fn to @p self's concrete @c WMO<x> via isinstance.
         @throws nanobind::type_error if @p self is not a WMO instance. */
     template <typename Fn>
-    void wmo_dispatch(nb::handle self, Fn&& fn)
+    void wmoDispatch(nb::handle self, Fn&& fn)
     {
       bool done = false;
-      template for (constexpr auto e : expansion_enumerators)
+      template for (constexpr auto e : ExpansionEnumerators)
         if (!done)
-          done = wmo_try<([:e:])>(self, fn);
+          done = wmoTry<([:e:])>(self, fn);
       if (!done)
         throw nb::type_error("expected a WMO instance");
     }
 
-    /** @brief Convert @p source (any @c WMO<From>) to target expansion @p To.
+    /** @brief Convert @p source (any @c WMO<from>) to target expansion @p to.
 
         Identifies the source version by isinstance, then composes the C++ convert
         ladder. A pair with no complete @c convert_step ladder degrades to a
         @c NotImplemented Result (identity always works; writing the C++ steps lights
         the pair up here with no glue change).
         @throws nanobind::type_error if @p source is not a WMO instance. */
-    template <wowlib::Expansion To>
-    wowlib::Result<typename concrete_of<wowlib::formats::wmo::WMO, To>::type>
-    convert_wmo_from_any(nb::handle source)
+    template <wowlib::Expansion to>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::wmo::WMO, to>::Type>
+    convertWmoFromAny(nb::handle source)
     {
-      template for (constexpr auto e : expansion_enumerators)
+      template for (constexpr auto e : ExpansionEnumerators)
       {
-        constexpr wowlib::Expansion From = [:e:];
-        using S = wowlib::formats::wmo::WMO<wowlib::to_client_version(From)>;
+        constexpr wowlib::Expansion from = [:e:];
+        using S = wowlib::formats::wmo::WMO<wowlib::toClientVersion(from)>;
         if (nb::isinstance<S>(source))
         {
-          if constexpr (wowlib::formats::has_convert_path<wowlib::formats::wmo::WMO,
-                                                          wowlib::to_client_version(From),
-                                                          wowlib::to_client_version(To)>())
-            return wowlib::formats::convert<wowlib::to_client_version(To)>(nb::cast<const S&>(source));
+          if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::wmo::WMO,
+                                                          wowlib::toClientVersion(from),
+                                                          wowlib::toClientVersion(to)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(to)>(nb::cast<const S&>(source));
           else
-            return wowlib::make_error(
+            return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("WMO conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enum_name(From), wowlib::enum_name(To)));
+                          wowlib::enumName(from), wowlib::enumName(to)));
         }
       }
       throw nb::type_error("convert() expects a WMO instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
-    template <wowlib::Expansion To>
-    void def_convert_overload(nb::handle base)
+    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
+    template <wowlib::Expansion to>
+    void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != To)
+          if (target != to)
             throw nb::next_overload();
-          return nb::cast(convert_wmo_from_any<To>(self));
+          return nb::cast(convertWmoFromAny<to>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enum_name(To)} + "]) -> "
-                        + concrete_name("WMO", To, wowlib::formats::wmo::wmo_assembly_pivots,
-                                        wowlib::formats::wmo::wmo_versions))));
+                        + std::string{wowlib::enumName(to)} + "]) -> "
+                        + concreteName("WMO", to, wowlib::formats::wmo::WmoAssemblyPivots,
+                                        wowlib::formats::wmo::WmoVersions))));
     }
 
     /** @brief Attach @c read/@c write/@c convert to @c WMOBase.
@@ -125,16 +125,16 @@ namespace wowlib_py::formats::wmo
         @c \@overload blocks). @c read/@c write speak either a @c (FileSystem,
         FileKey) pair or in-memory buffers / binary file-likes; @c convert narrows
         on its target Literal with an @c Expansion → @c AnyWMO fallback. */
-    void def_wmo_ops(nb::handle base)
+    void defWmoOps(nb::handle base)
     {
       // read(FileSystem, FileKey) — load in place
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          wmo_dispatch(self, [&](auto& wmo)
+          wmoDispatch(self, [&](auto& wmo)
           {
             if (auto r = wmo.read(fs, key); !r)
-              throw wowlib::result_error(r.error());
+              throw wowlib::ResultError(r.error());
           });
         },
         nb::name("read"), nb::scope(base), nb::is_method(),
@@ -147,24 +147,24 @@ namespace wowlib_py::formats::wmo
         "    key: the root file identity; the \"_000\" … group keys derive from it\n\n"
         "Returns:\n"
         "    nothing; raises on a missing file or malformed chunk stream");
-      // read(root_buffer, group_buffers) — parse in place from bytes / file-likes
+      // read(rootBuffer, groupBuffers) — parse in place from bytes / file-likes
       nb::cpp_function(
         [](nb::handle self, nb::object root, nb::object groups)
         {
-          const wowlib::FileBuffer root_buffer = to_buffer(root);
-          std::vector<wowlib::FileBuffer> group_buffers;
+          const wowlib::FileBuffer rootBuffer = toBuffer(root);
+          std::vector<wowlib::FileBuffer> groupBuffers;
           const std::size_t n = nb::len(groups);
-          group_buffers.reserve(n);
+          groupBuffers.reserve(n);
           for (std::size_t i = 0; i < n; ++i)
-            group_buffers.push_back(to_buffer(nb::object(groups[i])));
+            groupBuffers.push_back(toBuffer(nb::object(groups[i])));
           std::vector<std::span<const std::byte>> spans;
-          spans.reserve(group_buffers.size());
-          for (const auto& g : group_buffers)
+          spans.reserve(groupBuffers.size());
+          for (const auto& g : groupBuffers)
             spans.emplace_back(g);
-          wmo_dispatch(self, [&](auto& wmo)
+          wmoDispatch(self, [&](auto& wmo)
           {
-            if (auto r = wmo.read(std::span<const std::byte>{root_buffer}, std::span{spans}); !r)
-              throw wowlib::result_error(r.error());
+            if (auto r = wmo.read(std::span<const std::byte>{rootBuffer}, std::span{spans}); !r)
+              throw wowlib::ResultError(r.error());
           });
         },
         nb::name("read"), nb::scope(base), nb::is_method(),
@@ -183,10 +183,10 @@ namespace wowlib_py::formats::wmo
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          wmo_dispatch(self, [&](auto& wmo)
+          wmoDispatch(self, [&](auto& wmo)
           {
             if (auto r = std::as_const(wmo).write(fs, key); !r)
-              throw wowlib::result_error(r.error());
+              throw wowlib::ResultError(r.error());
           });
         },
         nb::name("write"), nb::scope(base), nb::is_method(),
@@ -204,21 +204,21 @@ namespace wowlib_py::formats::wmo
       nb::cpp_function(
         [](nb::handle self, nb::object dest, nb::object groups)
         {
-          wmo_dispatch(self, [&](auto& mutable_wmo)
+          wmoDispatch(self, [&](auto& mutableWmo)
           {
-            const auto& wmo = std::as_const(mutable_wmo);
+            const auto& wmo = std::as_const(mutableWmo);
             if (nb::len(groups) != wmo.groups.size())
               throw nb::value_error("write() needs exactly one output per group file");
-            auto root_bytes = wmo.root.write();
-            if (!root_bytes)
-              throw wowlib::result_error(root_bytes.error());
-            dest.attr("write")(to_pybytes(*root_bytes));
+            auto rootBytes = wmo.root.write();
+            if (!rootBytes)
+              throw wowlib::ResultError(rootBytes.error());
+            dest.attr("write")(toPybytes(*rootBytes));
             for (std::size_t i = 0; i < wmo.groups.size(); ++i)
             {
-              auto group_bytes = wmo.groups[i].write();
-              if (!group_bytes)
-                throw wowlib::result_error(group_bytes.error());
-              nb::object(groups[i]).attr("write")(to_pybytes(*group_bytes));
+              auto groupBytes = wmo.groups[i].write();
+              if (!groupBytes)
+                throw wowlib::ResultError(groupBytes.error());
+              nb::object(groups[i]).attr("write")(toPybytes(*groupBytes));
             }
           });
         },
@@ -235,19 +235,19 @@ namespace wowlib_py::formats::wmo
         "    nothing; raises when the sink count mismatches the group count");
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyWMO fallback
-      template for (constexpr auto e : expansion_enumerators)
-        def_convert_overload<([:e:])>(base);
+      template for (constexpr auto e : ExpansionEnumerators)
+        defConvertOverload<([:e:])>(base);
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target)
         {
           nb::object result;
           bool found = false;
-          template for (constexpr auto e : expansion_enumerators)
+          template for (constexpr auto e : ExpansionEnumerators)
           {
-            constexpr wowlib::Expansion To = [:e:];
-            if (!found && target == To)
+            constexpr wowlib::Expansion to = [:e:];
+            if (!found && target == to)
             {
-              result = nb::cast(convert_wmo_from_any<To>(self));
+              result = nb::cast(convertWmoFromAny<to>(self));
               found = true;
             }
           }
@@ -268,56 +268,56 @@ namespace wowlib_py::formats::wmo
     }
   }
 
-  void register_facade(nb::module_& module)
+  void registerFacade(nb::module_& module)
   {
     nb::module_ formats = nb::cast<nb::module_>(module.attr("formats"));
     nb::module_ wmo = nb::cast<nb::module_>(formats.attr("wmo"));
     nb::module_ root = nb::cast<nb::module_>(wmo.attr("root"));
     nb::module_ group = nb::cast<nb::module_>(wmo.attr("group"));
-    nb::module_ group_chunks = nb::cast<nb::module_>(group.attr("chunks"));
+    nb::module_ groupChunks = nb::cast<nb::module_>(group.attr("chunks"));
 
     // every family hands the facade its canonicalization pivots + grid, so
     // the Literal overload/sig names are the same range-suffixed classes the
     // welded alias tables produce
     namespace fwmo = wowlib::formats::wmo;
-    def_for_version<fwmo::WMO>(wmo.attr("WMO"), "WMO", fwmo::wmo_assembly_pivots,
-                               fwmo::wmo_versions);
-    def_for_version<fwmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot",
-                                         fwmo::wmo_root_pivots, fwmo::wmo_versions);
-    def_for_version<fwmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup",
-                                           fwmo::wmo_group_pivots, fwmo::wmo_versions);
-    def_for_version<fwmo::group::WMOGroupBody>(group.attr("WMOGroupBody"), "WMOGroupBody",
-                                               fwmo::wmo_group_pivots, fwmo::wmo_versions);
-    def_for_version<fwmo::group::chunks::SMOGroupHeader>(
-      group_chunks.attr("WMOGroupHeader"), "WMOGroupHeader", fwmo::wmo_group_header_pivots,
-      fwmo::wmo_versions);
-    def_for_version<fwmo::group::chunks::SMOBatch>(
-      group_chunks.attr("WMOBatch"), "WMOBatch", fwmo::wmo_batch_pivots, fwmo::wmo_versions);
+    defForVersion<fwmo::WMO>(wmo.attr("WMO"), "WMO", fwmo::WmoAssemblyPivots,
+                               fwmo::WmoVersions);
+    defForVersion<fwmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot",
+                                         fwmo::WmoRootPivots, fwmo::WmoVersions);
+    defForVersion<fwmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup",
+                                           fwmo::WmoGroupPivots, fwmo::WmoVersions);
+    defForVersion<fwmo::group::WMOGroupBody>(group.attr("WMOGroupBody"), "WMOGroupBody",
+                                               fwmo::WmoGroupPivots, fwmo::WmoVersions);
+    defForVersion<fwmo::group::chunks::SMOGroupHeader>(
+      groupChunks.attr("WMOGroupHeader"), "WMOGroupHeader", fwmo::WmoGroupHeaderPivots,
+      fwmo::WmoVersions);
+    defForVersion<fwmo::group::chunks::SMOBatch>(
+      groupChunks.attr("WMOBatch"), "WMOBatch", fwmo::WmoBatchPivots, fwmo::WmoVersions);
 
-    def_wmo_ops(wmo.attr("WMO"));
+    defWmoOps(wmo.attr("WMO"));
 
     // Runtime AnyX union aliases (importable TypeAliases; stubgen renders them
-    // natively — see def_any_alias). Each lands on the submodule that owns its
+    // natively — see defAnyAlias). Each lands on the submodule that owns its
     // concretes. A new Expansion grows every union with no edit here.
     // the abstract bases speak the validation verbs too, so code annotated
     // against the family (def check(w: WMO)) type-checks (see facade.hpp)
-    def_validation_verbs<fwmo::WMO>(wmo.attr("WMO"), "WMO");
-    def_validation_verbs<fwmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot");
-    def_validation_verbs<fwmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup");
-    def_validation_verbs<fwmo::group::WMOGroupBody>(group.attr("WMOGroupBody"),
+    defValidationVerbs<fwmo::WMO>(wmo.attr("WMO"), "WMO");
+    defValidationVerbs<fwmo::root::WMORoot>(root.attr("WMORoot"), "WMORoot");
+    defValidationVerbs<fwmo::group::WMOGroup>(group.attr("WMOGroup"), "WMOGroup");
+    defValidationVerbs<fwmo::group::WMOGroupBody>(group.attr("WMOGroupBody"),
                                                     "WMOGroupBody");
 
-    def_any_alias<fwmo::WMO>(wmo, "WMO", fwmo::wmo_assembly_pivots, fwmo::wmo_versions);
-    def_any_alias<fwmo::root::WMORoot>(root, "WMORoot", fwmo::wmo_root_pivots,
-                                       fwmo::wmo_versions);
-    def_any_alias<fwmo::group::WMOGroup>(group, "WMOGroup", fwmo::wmo_group_pivots,
-                                         fwmo::wmo_versions);
-    def_any_alias<fwmo::group::WMOGroupBody>(group, "WMOGroupBody", fwmo::wmo_group_pivots,
-                                             fwmo::wmo_versions);
-    def_any_alias<fwmo::group::chunks::SMOGroupHeader>(group_chunks, "WMOGroupHeader",
-                                                       fwmo::wmo_group_header_pivots,
-                                                       fwmo::wmo_versions);
-    def_any_alias<fwmo::group::chunks::SMOBatch>(group_chunks, "WMOBatch",
-                                                 fwmo::wmo_batch_pivots, fwmo::wmo_versions);
+    defAnyAlias<fwmo::WMO>(wmo, "WMO", fwmo::WmoAssemblyPivots, fwmo::WmoVersions);
+    defAnyAlias<fwmo::root::WMORoot>(root, "WMORoot", fwmo::WmoRootPivots,
+                                       fwmo::WmoVersions);
+    defAnyAlias<fwmo::group::WMOGroup>(group, "WMOGroup", fwmo::WmoGroupPivots,
+                                         fwmo::WmoVersions);
+    defAnyAlias<fwmo::group::WMOGroupBody>(group, "WMOGroupBody", fwmo::WmoGroupPivots,
+                                             fwmo::WmoVersions);
+    defAnyAlias<fwmo::group::chunks::SMOGroupHeader>(groupChunks, "WMOGroupHeader",
+                                                       fwmo::WmoGroupHeaderPivots,
+                                                       fwmo::WmoVersions);
+    defAnyAlias<fwmo::group::chunks::SMOBatch>(groupChunks, "WMOBatch",
+                                                 fwmo::WmoBatchPivots, fwmo::WmoVersions);
   }
 }

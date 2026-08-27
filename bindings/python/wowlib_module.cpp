@@ -3,7 +3,7 @@
 
     welder reflects @c namespace @c wowlib (via the umbrella header) and lays the
     nanobind bindings down: callables and data reshape to PEP 8 snake_case, while
-    class/enum/enumerator identifiers bind verbatim (see @c wowlib_python_naming) —
+    class/enum/enumerator identifiers bind verbatim (see @c WowlibPythonNaming) —
     wowlib's C++ type names are the client's canonical spellings (@c SMOHeader,
     @c WMORoot, @c FileDataID) and acronym normalization would corrupt them.
 
@@ -68,19 +68,19 @@
 #include "wowlib.opaque.hpp"
 
 WELDER_MODULE(wowlib, nanobind,
-              welder::welder<welder::rods::nanobind::rod<>, wowlib_py::wowlib_python_naming>)
+              welder::welder<welder::rods::nanobind::rod<>, wowlib_py::WowlibPythonNaming>)
 {
-  wowlib_py::register_errors(module);
-  wowlib_py::formats::register_wmo_welds(module);
-  wowlib_py::formats::register_m2_welds(module);
-  wowlib_py::formats::register_adt_welds(module);
-  wowlib_py::formats::register_wdt_welds(module);
-  wowlib_py::formats::register_wdl_welds(module);
-  wowlib_py::db::register_dyn(module);
-  wowlib_py::formats::wmo::register_facade(module);
-  wowlib_py::formats::m2::register_facade(module);
-  wowlib_py::formats::wdt::register_facade(module);
-  wowlib_py::formats::wdl::register_facade(module);
-  wowlib_py::formats::adt::register_facade(module);
-  wowlib_py::fs::register_filesystem_protocol(module);
+  wowlib_py::registerErrors(module);
+  wowlib_py::formats::registerWmoWelds(module);
+  wowlib_py::formats::registerM2Welds(module);
+  wowlib_py::formats::registerAdtWelds(module);
+  wowlib_py::formats::registerWdtWelds(module);
+  wowlib_py::formats::registerWdlWelds(module);
+  wowlib_py::db::registerDyn(module);
+  wowlib_py::formats::wmo::registerFacade(module);
+  wowlib_py::formats::m2::registerFacade(module);
+  wowlib_py::formats::wdt::registerFacade(module);
+  wowlib_py::formats::wdl::registerFacade(module);
+  wowlib_py::formats::adt::registerFacade(module);
+  wowlib_py::fs::registerFilesystemProtocol(module);
 }

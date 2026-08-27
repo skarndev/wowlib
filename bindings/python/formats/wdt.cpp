@@ -26,16 +26,16 @@ namespace wowlib_py::formats::wdt
 {
   namespace
   {
-    /** Every expansion must have a @c wdt_versions instantiation, or its facade
+    /** Every expansion must have a @c WdtVersions instantiation, or its facade
         overloads would name an unregistered class. Caught at compile time. */
     static_assert(
       []() consteval
       {
         for (auto e : std::meta::enumerators_of(^^wowlib::Expansion))
         {
-          const auto version = wowlib::to_client_version(std::meta::extract<wowlib::Expansion>(e));
+          const auto version = wowlib::toClientVersion(std::meta::extract<wowlib::Expansion>(e));
           bool ok = false;
-          for (const auto& s : wowlib::formats::wdt::wdt_versions)
+          for (const auto& s : wowlib::formats::wdt::WdtVersions)
             ok = ok || s == version;
           if (!ok)
             return false;
@@ -44,79 +44,79 @@ namespace wowlib_py::formats::wdt
       }(),
       "every Expansion enumerator needs a wdt_versions instantiation for its facade");
 
-    /** @brief Run @p fn against @p self cast to its concrete @c F<X>, if it is one.
-        @return true if @p self was an @c F<X> and @p fn ran. */
-    template <template <wowlib::ClientVersion> class F, wowlib::Expansion X, typename Fn>
-    bool family_try(nb::handle self, Fn&& fn)
+    /** @brief Run @p fn against @p self cast to its concrete @c F<x>, if it is one.
+        @return true if @p self was an @c F<x> and @p fn ran. */
+    template <template <wowlib::ClientVersion> class F, wowlib::Expansion x, typename Fn>
+    bool familyTry(nb::handle self, Fn&& fn)
     {
-      using C = F<wowlib::to_client_version(X)>;
+      using C = F<wowlib::toClientVersion(x)>;
       if (!nb::isinstance<C>(self))
         return false;
       fn(nb::cast<C&>(self));
       return true;
     }
 
-    /** @brief Dispatch @p fn to @p self's concrete @c F<X> via isinstance.
+    /** @brief Dispatch @p fn to @p self's concrete @c F<x> via isinstance.
         @throws nanobind::type_error if @p self is no @c F instance. */
     template <template <wowlib::ClientVersion> class F, typename Fn>
-    void family_dispatch(nb::handle self, Fn&& fn, const char* what)
+    void familyDispatch(nb::handle self, Fn&& fn, const char* what)
     {
       bool done = false;
-      template for (constexpr auto e : expansion_enumerators)
-        if constexpr (family_has<F, ([:e:])>)
+      template for (constexpr auto e : ExpansionEnumerators)
+        if constexpr (FamilyHas<F, ([:e:])>)
           if (!done)
-            done = family_try<F, ([:e:])>(self, fn);
+            done = familyTry<F, ([:e:])>(self, fn);
       if (!done)
         throw nb::type_error(what);
     }
 
-    /** @brief Convert @p source (any @c WDT<From>) to target expansion @p To.
+    /** @brief Convert @p source (any @c WDT<from>) to target expansion @p to.
 
         Identifies the source version by isinstance, then composes the C++
         convert ladder; a pair with no complete @c convert_step ladder degrades
         to a @c NotImplemented Result.
         @throws nanobind::type_error if @p source is not a WDT instance. */
-    template <wowlib::Expansion To>
-    wowlib::Result<typename concrete_of<wowlib::formats::wdt::WDT, To>::type>
-    convert_wdt_from_any(nb::handle source)
+    template <wowlib::Expansion to>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::wdt::WDT, to>::Type>
+    convertWdtFromAny(nb::handle source)
     {
-      template for (constexpr auto e : expansion_enumerators)
+      template for (constexpr auto e : ExpansionEnumerators)
       {
-        constexpr wowlib::Expansion From = [:e:];
-        using S = wowlib::formats::wdt::WDT<wowlib::to_client_version(From)>;
+        constexpr wowlib::Expansion from = [:e:];
+        using S = wowlib::formats::wdt::WDT<wowlib::toClientVersion(from)>;
         if (nb::isinstance<S>(source))
         {
-          if constexpr (wowlib::formats::has_convert_path<wowlib::formats::wdt::WDT,
-                                                          wowlib::to_client_version(From),
-                                                          wowlib::to_client_version(To)>())
-            return wowlib::formats::convert<wowlib::to_client_version(To)>(
+          if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::wdt::WDT,
+                                                          wowlib::toClientVersion(from),
+                                                          wowlib::toClientVersion(to)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(to)>(
               nb::cast<const S&>(source));
           else
-            return wowlib::make_error(
+            return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("WDT conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enum_name(From), wowlib::enum_name(To)));
+                          wowlib::enumName(from), wowlib::enumName(to)));
         }
       }
       throw nb::type_error("convert() expects a WDT instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
-    template <wowlib::Expansion To>
-    void def_convert_overload(nb::handle base)
+    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
+    template <wowlib::Expansion to>
+    void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != To)
+          if (target != to)
             throw nb::next_overload();
-          return nb::cast(convert_wdt_from_any<To>(self));
+          return nb::cast(convertWdtFromAny<to>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enum_name(To)} + "]) -> "
-                        + concrete_name("WDT", To, wowlib::formats::wdt::wdt_assembly_pivots,
-                                        wowlib::formats::wdt::wdt_versions))));
+                        + std::string{wowlib::enumName(to)} + "]) -> "
+                        + concreteName("WDT", to, wowlib::formats::wdt::WdtAssemblyPivots,
+                                        wowlib::formats::wdt::WdtVersions))));
     }
 
     /** @brief Attach @c read/@c write/@c convert to @c WDTBase.
@@ -125,17 +125,17 @@ namespace wowlib_py::formats::wdt
         its satellite files through the gateway (path convention pre-8.1, MPHD
         FileDataIDs after). @c convert narrows on its target Literal with an
         @c Expansion → @c AnyWDT fallback. */
-    void def_wdt_ops(nb::handle base)
+    void defWdtOps(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          family_dispatch<wowlib::formats::wdt::WDT>(
+          familyDispatch<wowlib::formats::wdt::WDT>(
             self,
             [&](auto& map)
             {
               if (auto r = map.read(fs, key); !r)
-                throw wowlib::result_error(r.error());
+                throw wowlib::ResultError(r.error());
             },
             "expected a WDT instance");
         },
@@ -155,12 +155,12 @@ namespace wowlib_py::formats::wdt
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          family_dispatch<wowlib::formats::wdt::WDT>(
+          familyDispatch<wowlib::formats::wdt::WDT>(
             self,
             [&](auto& map)
             {
               if (auto r = std::as_const(map).write(fs, key); !r)
-                throw wowlib::result_error(r.error());
+                throw wowlib::ResultError(r.error());
             },
             "expected a WDT instance");
         },
@@ -176,19 +176,19 @@ namespace wowlib_py::formats::wdt
         "    nothing; raises when the key has no path or a file fails to write");
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyWDT fallback
-      template for (constexpr auto e : expansion_enumerators)
-        def_convert_overload<([:e:])>(base);
+      template for (constexpr auto e : ExpansionEnumerators)
+        defConvertOverload<([:e:])>(base);
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target)
         {
           nb::object result;
           bool found = false;
-          template for (constexpr auto e : expansion_enumerators)
+          template for (constexpr auto e : ExpansionEnumerators)
           {
-            constexpr wowlib::Expansion To = [:e:];
-            if (!found && target == To)
+            constexpr wowlib::Expansion to = [:e:];
+            if (!found && target == to)
             {
-              result = nb::cast(convert_wdt_from_any<To>(self));
+              result = nb::cast(convertWdtFromAny<to>(self));
               found = true;
             }
           }
@@ -209,12 +209,12 @@ namespace wowlib_py::formats::wdt
     }
   }
 
-  void register_facade(nb::module_& module)
+  void registerFacade(nb::module_& module)
   {
     nb::module_ formats = nb::cast<nb::module_>(module.attr("formats"));
     nb::module_ wdt = nb::cast<nb::module_>(formats.attr("wdt"));
     nb::module_ root = nb::cast<nb::module_>(wdt.attr("root"));
-    nb::module_ root_chunks = nb::cast<nb::module_>(root.attr("chunks"));
+    nb::module_ rootChunks = nb::cast<nb::module_>(root.attr("chunks"));
     nb::module_ occlusion = nb::cast<nb::module_>(wdt.attr("occlusion"));
     nb::module_ lights = nb::cast<nb::module_>(wdt.attr("lights"));
     nb::module_ fogs = nb::cast<nb::module_>(wdt.attr("fogs"));
@@ -225,49 +225,49 @@ namespace wowlib_py::formats::wdt
     // welded alias tables produce; the satellite families run on their
     // era-subset grids and skip the expansions they exclude
     namespace fwdt = wowlib::formats::wdt;
-    def_for_version<fwdt::WDT>(wdt.attr("WDT"), "WDT", fwdt::wdt_assembly_pivots,
-                               fwdt::wdt_versions);
-    def_for_version<fwdt::root::WDTRoot>(root.attr("WDTRoot"), "WDTRoot", fwdt::wdt_root_pivots,
-                                         fwdt::wdt_versions);
-    def_for_version<fwdt::root::chunks::SMMapHeader>(root_chunks.attr("WDTHeader"), "WDTHeader",
-                                                     fwdt::wdt_header_pivots, fwdt::wdt_versions);
-    def_for_version<fwdt::occlusion::WDTOcclusion>(occlusion.attr("WDTOcclusion"), "WDTOcclusion",
-                                                   fwdt::wdt_occlusion_pivots,
-                                                   fwdt::wdt_satellite_versions);
-    def_for_version<fwdt::lights::WDTLights>(lights.attr("WDTLights"), "WDTLights",
-                                             fwdt::wdt_lights_pivots,
-                                             fwdt::wdt_satellite_versions);
-    def_for_version<fwdt::fogs::WDTFogs>(fogs.attr("WDTFogs"), "WDTFogs", fwdt::wdt_fogs_pivots,
-                                         fwdt::wdt_fogs_versions);
-    def_for_version<fwdt::mpv::WDTParticulates>(mpv.attr("WDTParticulates"), "WDTParticulates",
-                                                fwdt::wdt_mpv_pivots, fwdt::wdt_mpv_versions);
+    defForVersion<fwdt::WDT>(wdt.attr("WDT"), "WDT", fwdt::WdtAssemblyPivots,
+                               fwdt::WdtVersions);
+    defForVersion<fwdt::root::WDTRoot>(root.attr("WDTRoot"), "WDTRoot", fwdt::WdtRootPivots,
+                                         fwdt::WdtVersions);
+    defForVersion<fwdt::root::chunks::SMMapHeader>(rootChunks.attr("WDTHeader"), "WDTHeader",
+                                                     fwdt::WdtHeaderPivots, fwdt::WdtVersions);
+    defForVersion<fwdt::occlusion::WDTOcclusion>(occlusion.attr("WDTOcclusion"), "WDTOcclusion",
+                                                   fwdt::WdtOcclusionPivots,
+                                                   fwdt::WdtSatelliteVersions);
+    defForVersion<fwdt::lights::WDTLights>(lights.attr("WDTLights"), "WDTLights",
+                                             fwdt::WdtLightsPivots,
+                                             fwdt::WdtSatelliteVersions);
+    defForVersion<fwdt::fogs::WDTFogs>(fogs.attr("WDTFogs"), "WDTFogs", fwdt::WdtFogsPivots,
+                                         fwdt::WdtFogsVersions);
+    defForVersion<fwdt::mpv::WDTParticulates>(mpv.attr("WDTParticulates"), "WDTParticulates",
+                                                fwdt::WdtMpvPivots, fwdt::WdtMpvVersions);
 
-    def_wdt_ops(wdt.attr("WDT"));
+    defWdtOps(wdt.attr("WDT"));
 
     // Runtime AnyX union aliases (importable TypeAliases) on the family's own
     // submodule; the satellite families fold only the expansions they exist for.
-    def_validation_verbs<fwdt::WDT>(wdt.attr("WDT"), "WDT");
-    def_validation_verbs<fwdt::root::WDTRoot>(root.attr("WDTRoot"), "WDTRoot");
-    def_validation_verbs<fwdt::occlusion::WDTOcclusion>(occlusion.attr("WDTOcclusion"),
+    defValidationVerbs<fwdt::WDT>(wdt.attr("WDT"), "WDT");
+    defValidationVerbs<fwdt::root::WDTRoot>(root.attr("WDTRoot"), "WDTRoot");
+    defValidationVerbs<fwdt::occlusion::WDTOcclusion>(occlusion.attr("WDTOcclusion"),
                                                         "WDTOcclusion");
-    def_validation_verbs<fwdt::lights::WDTLights>(lights.attr("WDTLights"), "WDTLights");
-    def_validation_verbs<fwdt::fogs::WDTFogs>(fogs.attr("WDTFogs"), "WDTFogs");
-    def_validation_verbs<fwdt::mpv::WDTParticulates>(mpv.attr("WDTParticulates"),
+    defValidationVerbs<fwdt::lights::WDTLights>(lights.attr("WDTLights"), "WDTLights");
+    defValidationVerbs<fwdt::fogs::WDTFogs>(fogs.attr("WDTFogs"), "WDTFogs");
+    defValidationVerbs<fwdt::mpv::WDTParticulates>(mpv.attr("WDTParticulates"),
                                                      "WDTParticulates");
 
-    def_any_alias<fwdt::WDT>(wdt, "WDT", fwdt::wdt_assembly_pivots, fwdt::wdt_versions);
-    def_any_alias<fwdt::root::WDTRoot>(root, "WDTRoot", fwdt::wdt_root_pivots,
-                                       fwdt::wdt_versions);
-    def_any_alias<fwdt::root::chunks::SMMapHeader>(root_chunks, "WDTHeader",
-                                                   fwdt::wdt_header_pivots, fwdt::wdt_versions);
-    def_any_alias<fwdt::occlusion::WDTOcclusion>(occlusion, "WDTOcclusion",
-                                                 fwdt::wdt_occlusion_pivots,
-                                                 fwdt::wdt_satellite_versions);
-    def_any_alias<fwdt::lights::WDTLights>(lights, "WDTLights", fwdt::wdt_lights_pivots,
-                                           fwdt::wdt_satellite_versions);
-    def_any_alias<fwdt::fogs::WDTFogs>(fogs, "WDTFogs", fwdt::wdt_fogs_pivots,
-                                       fwdt::wdt_fogs_versions);
-    def_any_alias<fwdt::mpv::WDTParticulates>(mpv, "WDTParticulates", fwdt::wdt_mpv_pivots,
-                                              fwdt::wdt_mpv_versions);
+    defAnyAlias<fwdt::WDT>(wdt, "WDT", fwdt::WdtAssemblyPivots, fwdt::WdtVersions);
+    defAnyAlias<fwdt::root::WDTRoot>(root, "WDTRoot", fwdt::WdtRootPivots,
+                                       fwdt::WdtVersions);
+    defAnyAlias<fwdt::root::chunks::SMMapHeader>(rootChunks, "WDTHeader",
+                                                   fwdt::WdtHeaderPivots, fwdt::WdtVersions);
+    defAnyAlias<fwdt::occlusion::WDTOcclusion>(occlusion, "WDTOcclusion",
+                                                 fwdt::WdtOcclusionPivots,
+                                                 fwdt::WdtSatelliteVersions);
+    defAnyAlias<fwdt::lights::WDTLights>(lights, "WDTLights", fwdt::WdtLightsPivots,
+                                           fwdt::WdtSatelliteVersions);
+    defAnyAlias<fwdt::fogs::WDTFogs>(fogs, "WDTFogs", fwdt::WdtFogsPivots,
+                                       fwdt::WdtFogsVersions);
+    defAnyAlias<fwdt::mpv::WDTParticulates>(mpv, "WDTParticulates", fwdt::WdtMpvPivots,
+                                              fwdt::WdtMpvVersions);
   }
 }

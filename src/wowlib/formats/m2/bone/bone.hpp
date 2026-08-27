@@ -40,27 +40,27 @@ namespace wowlib::formats::m2::bone {
         one file per pose variant, referenced by BFID. See
         https://wowdev.wiki/BONE.)")
     ]] BoneFile : ChunkedFile<BoneFile> {
-    static constexpr ClientVersion version = versions::wod;
-    static constexpr FourCCEndian unknown_fourcc_endian = FourCCEndian::forward;
+    static constexpr ClientVersion Version = versions::Wod;
+    static constexpr FourCCEndian UnknownFourccEndian = FourCCEndian::Forward;
 
-    [[=formats::header,
+    [[=formats::Header,
       =welder::doc("The raw u32 prelude (version marker).")]]
     BoneFilePrelude prelude{};
 
     [[
-      =chunk("BIDA", FourCCEndian::forward),
-      =formats::optional,
+      =chunk("BIDA", FourCCEndian::Forward),
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc("The affected bone ids (BIDA).")]]
-    std::vector<std::uint16_t> bone_ids;
+    std::vector<std::uint16_t> boneIds;
 
     [[
-      =chunk("BOMT", FourCCEndian::forward),
-      =formats::optional,
+      =chunk("BOMT", FourCCEndian::Forward),
+      =formats::Optional,
       =welder::mark::no_reassign,
       =welder::doc("The per-bone offset matrices (BOMT), same count as "
         "bone_ids.")]]
-    std::vector<C44Matrix> bone_offset_matrices;
+    std::vector<C44Matrix> boneOffsetMatrices;
 
     bool operator==(const BoneFile&) const = default;
   };

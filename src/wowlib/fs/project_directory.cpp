@@ -30,21 +30,21 @@ namespace wowlib::fs {
     std::error_code ec;
     fsys::create_directories(root, ec);
     if (ec)
-      return make_error(ErrorCode::IoError,
+      return makeError(ErrorCode::IoError,
                         std::format("cannot create project directory '{}': {}", root.string(), ec.message()));
 
     root = fsys::absolute(root, ec);
     if (ec)
-      return make_error(ErrorCode::IoError,
+      return makeError(ErrorCode::IoError,
                         std::format("cannot resolve project directory '{}': {}", root.string(), ec.message()));
 
     ProjectDirectory result;
     result._root = std::move(root);
-    result.index_tree_locked(); // sole owner, no readers yet
+    result._indexTreeLocked(); // sole owner, no readers yet
     return result;
   }
 
-  void ProjectDirectory::index_tree_locked() {
+  void ProjectDirectory::_indexTreeLocked() {
     _index.clear();
 
     std::error_code ec;
@@ -54,17 +54,17 @@ namespace wowlib::fs {
       auto relative = fsys::relative(it->path(), _root, ec);
       if (ec) continue;
 
-      _index.insert_or_assign(normalize_path(relative.generic_string()), it->path());
+      _index.insert_or_assign(normalizePath(relative.generic_string()), it->path());
     }
   }
 
   void ProjectDirectory::rescan() {
     std::unique_lock lock{_mtx};
-    index_tree_locked();
+    _indexTreeLocked();
   }
 
   std::optional<std::filesystem::path> ProjectDirectory::resolve(std::string_view path) const {
-    const std::string canonical = normalize_path(path);
+    const std::string canonical = normalizePath(path);
     std::shared_lock lock{_mtx};
     const auto it = _index.find(canonical);
     return it == _index.end() ? std::nullopt : std::optional{it->second};
@@ -75,47 +75,47 @@ namespace wowlib::fs {
   }
 
   Result<FileBuffer> ProjectDirectory::read(std::string_view path) const {
-    const auto on_disk = resolve(path);
-    if (!on_disk)
-      return make_error(ErrorCode::FileNotFound,
-                        std::format("'{}' is not in the project directory", normalize_path(path)));
+    const auto onDisk = resolve(path);
+    if (!onDisk)
+      return makeError(ErrorCode::FileNotFound,
+                        std::format("'{}' is not in the project directory", normalizePath(path)));
 
-    std::ifstream file{*on_disk, std::ios::binary | std::ios::ate};
+    std::ifstream file{*onDisk, std::ios::binary | std::ios::ate};
     if (!file)
-      return make_error(ErrorCode::IoError, std::format("cannot open '{}'", on_disk->string()));
+      return makeError(ErrorCode::IoError, std::format("cannot open '{}'", onDisk->string()));
 
     FileBuffer buffer(static_cast<std::size_t>(file.tellg()));
     file.seekg(0);
     if (!buffer.empty() && !file.read(reinterpret_cast<char*>(buffer.data()),
                                       static_cast<std::streamsize>(buffer.size())))
-      return make_error(ErrorCode::IoError, std::format("I/O error reading '{}'", on_disk->string()));
+      return makeError(ErrorCode::IoError, std::format("I/O error reading '{}'", onDisk->string()));
 
     return buffer;
   }
 
   Result<void> ProjectDirectory::write(std::string_view path, std::span<const std::byte> content) {
-    const std::string canonical = normalize_path(path);
-    if (canonical.empty()) return make_error(ErrorCode::InvalidPath, "cannot write an empty path");
+    const std::string canonical = normalizePath(path);
+    if (canonical.empty()) return makeError(ErrorCode::InvalidPath, "cannot write an empty path");
 
-    const fsys::path on_disk = _root / to_native_relative(canonical);
+    const fsys::path onDisk = _root / toNativeRelative(canonical);
 
     std::error_code ec;
-    fsys::create_directories(on_disk.parent_path(), ec);
+    fsys::create_directories(onDisk.parent_path(), ec);
     if (ec)
-      return make_error(ErrorCode::IoError,
-                        std::format("cannot create directories for '{}': {}", on_disk.string(), ec.message()));
+      return makeError(ErrorCode::IoError,
+                        std::format("cannot create directories for '{}': {}", onDisk.string(), ec.message()));
 
-    std::ofstream file{on_disk, std::ios::binary | std::ios::trunc};
+    std::ofstream file{onDisk, std::ios::binary | std::ios::trunc};
     if (!file)
-      return make_error(ErrorCode::IoError, std::format("cannot write '{}'", on_disk.string()));
+      return makeError(ErrorCode::IoError, std::format("cannot write '{}'", onDisk.string()));
 
     if (!content.empty())
       file.write(reinterpret_cast<const char*>(content.data()), static_cast<std::streamsize>(content.size()));
     if (!file.flush())
-      return make_error(ErrorCode::IoError, std::format("I/O error writing '{}'", on_disk.string()));
+      return makeError(ErrorCode::IoError, std::format("I/O error writing '{}'", onDisk.string()));
 
     std::unique_lock lock{_mtx};
-    _index.insert_or_assign(canonical, on_disk);
+    _index.insert_or_assign(canonical, onDisk);
     return {};
   }
 

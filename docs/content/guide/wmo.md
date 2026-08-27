@@ -18,7 +18,7 @@ file.
     ```cpp
     #include <wowlib/formats/wmo/wmo.hpp>
 
-    wowlib::formats::wmo::WMO<wowlib::versions::wotlk> model;
+    wowlib::formats::wmo::WMO<wowlib::versions::Wotlk> model;
     if (auto r = model.read(fs, wowlib::FileKey{
           "World/wmo/Dungeon/AZ_Subway/Subway.wmo"}); !r)
       return report(r.error());
@@ -61,7 +61,7 @@ numeric geometry arrays are zero-copy.
 
     ```cpp
     for (const auto& material : model.root.materials)
-      use(material.shader, material.blend_mode);
+      use(material.shader, material.blendMode);
 
     for (const auto& group : model.groups)
       upload(group.body.vertices, group.body.normals, group.body.batches);

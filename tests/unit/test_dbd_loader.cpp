@@ -17,7 +17,7 @@ namespace
   /** The definitions directory: the build-tree path baked at compile time,
       overridable at runtime — the test binary travels to the integration box,
       where the build tree's absolute path does not exist. */
-  std::filesystem::path dbdefs_dir()
+  std::filesystem::path dbdefsDir()
   {
     if (const char* env = std::getenv("WOWLIB_TEST_DBDEFS_DIR"))
       return env;
@@ -29,25 +29,25 @@ TEST_CASE("the runtime WoWDBDefs loader reproduces the embedded catalog",
           "[db][schema][dbd]")
 {
   // The parity contract: built from the SAME definitions the build baked,
-  // from_dbd_dir and the embedded catalog agree schema for schema — every
+  // fromDbdDir and the embedded catalog agree schema for schema — every
   // table, every era, every column fact. This is the fence around the
   // C++ port of dbdgen's mangling rules.
-  const auto definitions = dbdefs_dir();
+  const auto definitions = dbdefsDir();
   if (!std::filesystem::exists(definitions))
     SKIP("no WoWDBDefs checkout at " << definitions.string()
          << " (travelling binary; set WOWLIB_TEST_DBDEFS_DIR)");
-  const auto loaded = db::SchemaCatalog::from_dbd_dir(definitions);
+  const auto loaded = db::SchemaCatalog::fromDbdDir(definitions);
   REQUIRE(loaded.has_value());
   const db::SchemaCatalog& embedded = db::SchemaCatalog::embedded();
 
-  REQUIRE(loaded->table_count() == embedded.table_count());
+  REQUIRE(loaded->tableCount() == embedded.tableCount());
   REQUIRE(loaded->eras().size() == embedded.eras().size());
 
   std::size_t compared = 0;
-  for (std::size_t i = 0; i < embedded.table_count(); ++i)
+  for (std::size_t i = 0; i < embedded.tableCount(); ++i)
   {
-    const std::string_view name = embedded.table_name(i);
-    REQUIRE(loaded->table_name(i) == name);
+    const std::string_view name = embedded.tableName(i);
+    REQUIRE(loaded->tableName(i) == name);
     for (const ClientVersion era : embedded.eras())
     {
       const auto expected = embedded.lookup(name, era);
@@ -56,21 +56,21 @@ TEST_CASE("the runtime WoWDBDefs loader reproduces the embedded catalog",
       if (!expected)
         continue;
       INFO("table " << name << " era " << era.major);
-      REQUIRE(actual->disk_name == expected->disk_name);
+      REQUIRE(actual->diskName == expected->diskName);
       REQUIRE(actual->columns.size() == expected->columns.size());
       for (std::size_t c = 0; c < expected->columns.size(); ++c)
       {
         const db::Column& e = expected->columns[c];
         const db::Column& a = actual->columns[c];
-        INFO("column " << c << " '" << e.name_view() << "'");
-        CHECK(a.name_view() == e.name_view());
+        INFO("column " << c << " '" << e.nameView() << "'");
+        CHECK(a.nameView() == e.nameView());
         CHECK(a.type == e.type);
         CHECK(a.bits == e.bits);
-        CHECK(a.is_signed == e.is_signed);
-        CHECK(a.array_len == e.array_len);
-        CHECK(a.locale_count == e.locale_count);
-        CHECK(a.is_id == e.is_id);
-        CHECK(a.is_relation == e.is_relation);
+        CHECK(a.isSigned == e.isSigned);
+        CHECK(a.arrayLen == e.arrayLen);
+        CHECK(a.localeCount == e.localeCount);
+        CHECK(a.isId == e.isId);
+        CHECK(a.isRelation == e.isRelation);
         CHECK(a.noninline == e.noninline);
       }
       ++compared;

@@ -12,16 +12,16 @@ using wowlib::fs::CsvListfile;
 
 namespace
 {
-  const std::filesystem::path sample = tests::data_root() /
-                                       "sample-listfile.csv";
+  const std::filesystem::path Sample = tests::dataRoot() /
+                                       "Sample-listfile.csv";
 
   // The loaded CSV is the working database registrations write to, so tests
-  // always operate on a disposable copy of the committed sample.
-  std::filesystem::path working_copy(std::string_view name)
+  // always operate on a disposable copy of the committed Sample.
+  std::filesystem::path workingCopy(std::string_view name)
   {
     const auto path = std::filesystem::temp_directory_path() / "wowlib-tests" / name;
     std::filesystem::create_directories(path.parent_path());
-    std::filesystem::copy_file(sample, path,
+    std::filesystem::copy_file(Sample, path,
                                std::filesystem::copy_options::overwrite_existing);
     return path;
   }
@@ -29,25 +29,25 @@ namespace
 
 TEST_CASE("loading a listfile resolves both directions", "[listfile]")
 {
-  auto listfile = CsvListfile::load(sample);
+  auto listfile = CsvListfile::load(Sample);
   REQUIRE(listfile.has_value());
   CHECK(listfile->size() == 6);
-  CHECK(listfile->source() == sample);
+  CHECK(listfile->source() == Sample);
 
   // lookups canonicalize, so any input spelling works
-  CHECK(listfile->path_to_fdid("DBFilesClient\\Map.db2") == FileDataID{1349477});
-  CHECK(listfile->path_to_fdid("world/maps/azeroth/azeroth.wdt") == FileDataID{775971});
+  CHECK(listfile->pathToFdid("DBFilesClient\\Map.db2") == FileDataID{1349477});
+  CHECK(listfile->pathToFdid("world/maps/azeroth/azeroth.wdt") == FileDataID{775971});
 
   // mixed-case CSV content was canonicalized on ingest
-  CHECK(listfile->path_to_fdid("world/maps/azeroth/azeroth_28_50.adt") ==
+  CHECK(listfile->pathToFdid("world/maps/azeroth/azeroth_28_50.adt") ==
         FileDataID{777237});
-  CHECK(listfile->fdid_to_path(FileDataID{1375801}) ==
+  CHECK(listfile->fdidToPath(FileDataID{1375801}) ==
         "dbfilesclient\\manifestinterfacedata.db2");
 
   CHECK(listfile->contains("creature/murloc/murloc.m2"));
   CHECK_FALSE(listfile->contains("no/such/file.m2"));
-  CHECK_FALSE(listfile->path_to_fdid("no/such/file.m2").has_value());
-  CHECK_FALSE(listfile->fdid_to_path(FileDataID{1}).has_value());
+  CHECK_FALSE(listfile->pathToFdid("no/such/file.m2").has_value());
+  CHECK_FALSE(listfile->fdidToPath(FileDataID{1}).has_value());
 }
 
 TEST_CASE("malformed lines are reported with their location", "[listfile]")
@@ -74,37 +74,37 @@ TEST_CASE("registration allocates from the configured start and persists to the 
           "working file",
           "[listfile]")
 {
-  const auto csv = working_copy("register.csv");
+  const auto csv = workingCopy("register.csv");
 
-  auto listfile = CsvListfile::load(csv, {.custom_fdid_start = FileDataID{2'000'000}});
+  auto listfile = CsvListfile::load(csv, {.customFdidStart = FileDataID{2'000'000}});
   REQUIRE(listfile.has_value());
 
-  const auto id = listfile->register_path("world/maps/mymap/MyMap.wdt");
+  const auto id = listfile->registerPath("world/maps/mymap/MyMap.wdt");
   REQUIRE(id.has_value());
   CHECK(*id == FileDataID{2'000'000});
-  CHECK(listfile->path_to_fdid("world/maps/mymap/mymap.wdt") == *id);
+  CHECK(listfile->pathToFdid("world/maps/mymap/mymap.wdt") == *id);
 
   // duplicates are refused — community and custom alike
-  CHECK(listfile->register_path("world/maps/mymap/mymap.wdt").error().code ==
+  CHECK(listfile->registerPath("world/maps/mymap/mymap.wdt").error().code ==
         ErrorCode::DuplicatePath);
-  CHECK(listfile->register_path("dbfilesclient/map.db2").error().code ==
+  CHECK(listfile->registerPath("dbfilesclient/map.db2").error().code ==
         ErrorCode::DuplicatePath);
 
   // the registration was appended to the working file: a fresh load sees it and
   // the allocator resumes past it
-  auto reloaded = CsvListfile::load(csv, {.custom_fdid_start = FileDataID{2'000'000}});
+  auto reloaded = CsvListfile::load(csv, {.customFdidStart = FileDataID{2'000'000}});
   REQUIRE(reloaded.has_value());
-  CHECK(reloaded->path_to_fdid("world/maps/mymap/mymap.wdt") == FileDataID{2'000'000});
-  CHECK(reloaded->register_path("another/new/file.blp").value() == FileDataID{2'000'001});
+  CHECK(reloaded->pathToFdid("world/maps/mymap/mymap.wdt") == FileDataID{2'000'000});
+  CHECK(reloaded->registerPath("another/new/file.blp").value() == FileDataID{2'000'001});
 }
 
 TEST_CASE("save rewrites the working file canonically", "[listfile]")
 {
-  const auto csv = working_copy("save.csv");
+  const auto csv = workingCopy("save.csv");
 
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  REQUIRE(listfile->register_path("zz/last.blp").has_value());
+  REQUIRE(listfile->registerPath("zz/last.blp").has_value());
   REQUIRE(listfile->save().has_value());
 
   auto reloaded = CsvListfile::load(csv);
@@ -116,7 +116,7 @@ TEST_CASE("save rewrites the working file canonically", "[listfile]")
 TEST_CASE("an in-memory database registers without persistence", "[listfile]")
 {
   CsvListfile listfile;   // default: no working file
-  const auto id = listfile.register_path("some/file.blp");
+  const auto id = listfile.registerPath("some/file.blp");
   REQUIRE(id.has_value());
-  CHECK(listfile.path_to_fdid("some/file.blp") == *id);
+  CHECK(listfile.pathToFdid("some/file.blp") == *id);
 }

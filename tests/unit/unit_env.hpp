@@ -12,7 +12,7 @@
 
 namespace wowlib::tests
 {
-  inline std::filesystem::path data_root()
+  inline std::filesystem::path dataRoot()
   {
     if (const char* env = std::getenv("WOWLIB_TEST_DATA_DIR"); env && *env)
       return env;

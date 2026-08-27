@@ -42,7 +42,7 @@ namespace wowlib::formats::wdt::fogs {
       [[
         =chunk("VFOG"),
         =since(builds::BfA_Beta_25902),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("The volumetric fogs (VFOG, 8.0+).")]]
       std::vector<VolumetricFog> fogs;
@@ -53,12 +53,12 @@ namespace wowlib::formats::wdt::fogs {
       [[
         =chunk("VFEX"),
         =since(builds::TWW_Alpha_54935),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           "The VFOG extension records (VFEX, 11.0+, format version 2), "
           "matched to fogs by id.")]]
-      std::vector<VolumetricFogExtra> fog_extras;
+      std::vector<VolumetricFogExtra> fogExtras;
     };
   }
 
@@ -78,9 +78,9 @@ namespace wowlib::formats::wdt::fogs {
       ]] WDTFogs
       : ChunkedFile<WDTFogs<V>>,
         WDTFogsBase,
-        slot<V, builds::BfA_Beta_25902, FogsBfa>,
-        slot<V, builds::TWW_Alpha_54935, FogsTww> {
-      static constexpr ClientVersion version = V;
+        Slot<V, builds::BfA_Beta_25902, FogsBfa>,
+        Slot<V, builds::TWW_Alpha_54935, FogsTww> {
+      static constexpr ClientVersion Version = V;
 
       [[
         =chunk("MVER"),
@@ -89,8 +89,8 @@ namespace wowlib::formats::wdt::fogs {
       std::uint32_t mver = V >= builds::TWW_Alpha_54935 ? 2 : 1;
 
       /** The canonical chunk-stream order the serializer emits a fresh entity
-          in (see write_order). Lists every chunk member exactly once. */
-      static constexpr std::array chunk_order = {four_cc("MVER"), four_cc("VFOG"), four_cc("VFEX"),};
+          in (see writeOrder). Lists every chunk member exactly once. */
+      static constexpr std::array ChunkOrder = {fourCc("MVER"), fourCc("VFOG"), fourCc("VFEX"),};
     };
   }
 
@@ -98,5 +98,5 @@ namespace wowlib::formats::wdt::fogs {
       three instantiations (Legion; BfA-Dragonflight; TWW+) serve every
       release. */
   template <ClientVersion V> requires(V >= builds::Legion_TombOfSargeras)
-  using WDTFogs = detail::WDTFogs<canonical_version(V, wdt_fogs_pivots, wdt_fogs_versions)>;
+  using WDTFogs = detail::WDTFogs<canonicalVersion(V, WdtFogsPivots, WdtFogsVersions)>;
 }

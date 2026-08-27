@@ -26,7 +26,7 @@ namespace {
       @param rewritten the bytes to compare.
       @param entity    the parsed texture (for the stored mip layout).
       @return the description, or nullopt when identical. */
-  std::optional<std::string> first_divergence_blp(const FileBuffer& original,
+  std::optional<std::string> firstDivergenceBlp(const FileBuffer& original,
                                                   const FileBuffer& rewritten,
                                                   const blp::BLP& entity) {
     if (original == rewritten) return std::nullopt;
@@ -37,11 +37,11 @@ namespace {
 
     std::string inside = "gap/tail";
     if (at < 0x94) inside = "header";
-    else if (at < blp::blp_header_bytes) inside = "palette";
+    else if (at < blp::BlpHeaderBytes) inside = "palette";
     else
-      for (std::size_t level = 0; level < blp::blp_max_mips; ++level) {
-        const std::uint32_t offset = entity.stored_layout.offsets[level];
-        const std::uint32_t size = entity.stored_layout.sizes[level];
+      for (std::size_t level = 0; level < blp::BlpMaxMips; ++level) {
+        const std::uint32_t offset = entity.storedLayout.offsets[level];
+        const std::uint32_t size = entity.storedLayout.sizes[level];
         if (offset != 0 && size != 0 && at >= offset && at < std::uint64_t{offset} + size) {
           inside = std::format("mip {}", level);
           break;
@@ -55,18 +55,18 @@ namespace {
       @param fs   the client filesystem.
       @param path the canonical .blp path.
       @return the outcome. */
-  RoundtripReport roundtrip_blp(fs::FileSystem& fs, const std::string& path) {
+  RoundtripReport roundtripBlp(fs::FileSystem& fs, const std::string& path) {
     RoundtripReport report;
-    const auto raw = fs.read_file(FileKey{path});
-    if (auto outcome = audit::detail::classify_read(report, "read", raw)) return *outcome;
+    const auto raw = fs.readFile(FileKey{path});
+    if (auto outcome = audit::detail::classifyRead(report, "read", raw)) return *outcome;
 
     blp::BLP entity;
-    if (auto r = entity.read(*raw); !r) return audit::detail::fail_with(report, "parse", r.error().message);
+    if (auto r = entity.read(*raw); !r) return audit::detail::failWith(report, "parse", r.error().message);
 
     const auto rewritten = entity.write();
     if (!rewritten)
-      return audit::detail::fail_with(report, "write", rewritten.error().message);
-    if (auto divergence = first_divergence_blp(*raw, *rewritten, entity)) return audit::detail::fail_with(
+      return audit::detail::failWith(report, "write", rewritten.error().message);
+    if (auto divergence = firstDivergenceBlp(*raw, *rewritten, entity)) return audit::detail::failWith(
       report, "compare", *divergence);
     return report;
   }
@@ -74,6 +74,6 @@ namespace {
 
 namespace wowlib::audit::detail {
   RoundtripReport FormatDrivers::blp(fs::FileSystem& fs, const std::string& path) {
-    return guarded([&] { return roundtrip_blp(fs, path); });
+    return guarded([&] { return roundtripBlp(fs, path); });
   }
 }

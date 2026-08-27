@@ -4,10 +4,10 @@
     @brief Per-RANGE welded alias tables for the ADT template surface.
 
     Two versioned families: the ADT tile assembly and the MapChunk terrain cell.
-    Each X-macro lists one row per REAL content permutation — X(Suffix, version)
+    Each x-macro lists one row per REAL content permutation — x(Suffix, version)
     with the range's canonical grid version — and drives the welded aliases here
     plus the instantiation matrix in adt_matrix.inl. Both tables are
-    consteval-checked against the family pivots (ranges_valid in adt::detail
+    consteval-checked against the family pivots (rangesValid in adt::detail
     below). Extending the version list means revisiting the pivot lists in
     formats/adt/boundaries.hpp; the checks then dictate the rows.
 
@@ -19,18 +19,18 @@
 #include <wowlib/formats/adt/adt.hpp>
 
 // ADT assembly ranges (pivots TBC / WotLK / Cata / 8.1).
-#define WOWLIB_ADT_RANGES_ASSEMBLY(X)                                                              \
-  X(Vanilla, vanilla)                                                                              \
-  X(Tbc, tbc)                                                                                      \
-  X(Wotlk, wotlk)                                                                                  \
-  X(CataToLegion, cata)                                                                            \
-  X(BfaPlus, bfa)
+#define WOWLIB_ADT_RANGES_ASSEMBLY(x)                                                              \
+  x(Vanilla, Vanilla)                                                                              \
+  x(Tbc, Tbc)                                                                                      \
+  x(Wotlk, Wotlk)                                                                                  \
+  x(CataToLegion, Cata)                                                                            \
+  x(BfaPlus, Bfa)
 
 // MapChunk cell ranges (pivots WotLK / Cata).
-#define WOWLIB_ADT_RANGES_MAPCHUNK(X)                                                              \
-  X(VanillaToTbc, vanilla)                                                                         \
-  X(Wotlk, wotlk)                                                                                  \
-  X(CataPlus, cata)
+#define WOWLIB_ADT_RANGES_MAPCHUNK(x)                                                              \
+  x(VanillaToTbc, Vanilla)                                                                         \
+  x(Wotlk, Wotlk)                                                                                  \
+  x(CataPlus, Cata)
 
 // The bindings surface for the versioned templates: welder welds a
 // class-template instantiation through a namespace-scope alias whose identifier
@@ -49,15 +49,15 @@ namespace wowlib::formats::adt
   namespace detail
   {
     // Range-table validation: each family's rows must exactly enumerate the
-    // distinct canonicals of its grid, with the suffix range_suffix derives.
+    // distinct canonicals of its grid, with the suffix rangeSuffix derives.
 #define WOWLIB_ADT_RANGE_ROW(Suffix, version_)                                                     \
   ::wowlib::formats::RangeRow{#Suffix, ::wowlib::versions::version_},
 
-    inline constexpr std::array adt_assembly_rows{WOWLIB_ADT_RANGES_ASSEMBLY(WOWLIB_ADT_RANGE_ROW)};
-    static_assert(ranges_valid(adt_assembly_rows, adt_pivots, adt_versions),
+    inline constexpr std::array AdtAssemblyRows{WOWLIB_ADT_RANGES_ASSEMBLY(WOWLIB_ADT_RANGE_ROW)};
+    static_assert(rangesValid(AdtAssemblyRows, AdtPivots, AdtVersions),
                   "WOWLIB_ADT_RANGES_ASSEMBLY drifted from adt_pivots");
-    inline constexpr std::array adt_mapchunk_rows{WOWLIB_ADT_RANGES_MAPCHUNK(WOWLIB_ADT_RANGE_ROW)};
-    static_assert(ranges_valid(adt_mapchunk_rows, map_chunk_pivots, adt_versions),
+    inline constexpr std::array AdtMapchunkRows{WOWLIB_ADT_RANGES_MAPCHUNK(WOWLIB_ADT_RANGE_ROW)};
+    static_assert(rangesValid(AdtMapchunkRows, MapChunkPivots, AdtVersions),
                   "WOWLIB_ADT_RANGES_MAPCHUNK drifted from map_chunk_pivots");
 #undef WOWLIB_ADT_RANGE_ROW
   }

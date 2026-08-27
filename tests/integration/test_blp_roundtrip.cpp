@@ -23,7 +23,7 @@ namespace
 {
   /** Fail with the first divergence offset and the file region it falls into —
       the byte-perfect guarantee's debugging lens. */
-  void require_identical(const FileBuffer& original, const FileBuffer& rewritten, const BLP& blp,
+  void requireIdentical(const FileBuffer& original, const FileBuffer& rewritten, const BLP& blp,
                          const std::string& label)
   {
     if (original == rewritten)
@@ -37,13 +37,13 @@ namespace
     std::string inside = "gap/tail";
     if (at < 0x94)
       inside = "header";
-    else if (at < blp_header_bytes)
+    else if (at < BlpHeaderBytes)
       inside = "palette";
     else
-      for (std::size_t level = 0; level < blp_max_mips; ++level)
+      for (std::size_t level = 0; level < BlpMaxMips; ++level)
       {
-        const std::uint32_t offset = blp.stored_layout.offsets[level];
-        const std::uint32_t size = blp.stored_layout.sizes[level];
+        const std::uint32_t offset = blp.storedLayout.offsets[level];
+        const std::uint32_t size = blp.storedLayout.sizes[level];
         if (offset != 0 && size != 0 && at >= offset && at < std::uint64_t{offset} + size)
         {
           inside = std::format("mip {}", level);
@@ -54,12 +54,12 @@ namespace
                      inside, original.size(), rewritten.size()));
   }
 
-  std::map<std::string, int> encoding_histogram;
+  std::map<std::string, int> gEncodingHistogram;
 
   /** Round-trip one BLP byte-for-byte and decode every stored level. */
-  void roundtrip_blp(fs::FileSystem& fs, const FileKey& key, const std::string& label)
+  void roundtripBlp(fs::FileSystem& fs, const FileKey& key, const std::string& label)
   {
-    const auto data = fs.read_file(key);
+    const auto data = fs.readFile(key);
     REQUIRE(data.has_value());
 
     BLP blp;
@@ -68,16 +68,16 @@ namespace
       FAIL(std::format("{}: read failed: {}", label, parsed.error().message));
     // a freshly read, unmodified client texture passes validation with zero
     // errors (warnings are allowed - they mark states real files ship)
-    if (const auto valid = blp.ensure_valid(); !valid)
+    if (const auto valid = blp.ensureValid(); !valid)
       FAIL(std::format("{}: {}", label, valid.error().message));
 
     const auto rewritten = blp.write();
     REQUIRE(rewritten.has_value());
-    require_identical(*data, *rewritten, blp, label);
+    requireIdentical(*data, *rewritten, blp, label);
 
-    ++encoding_histogram[std::format(
+    ++gEncodingHistogram[std::format(
       "{}/pf{}/a{}", [&] {
-        switch (blp.color_encoding)
+        switch (blp.colorEncoding)
         {
           case ColorEncoding::Jpeg: return "Jpeg";
           case ColorEncoding::Palettized: return "Pal";
@@ -87,9 +87,9 @@ namespace
         }
         return "?";
       }(),
-      std::to_underlying(blp.preferred_format), blp.alpha_depth)];
+      std::to_underlying(blp.preferredFormat), blp.alphaDepth)];
 
-    for (std::uint32_t level = 0; level < blp.mip_count(); ++level)
+    for (std::uint32_t level = 0; level < blp.mipCount(); ++level)
     {
       if (blp.mip(level).has_value() == false)
         continue;  // absent middle level
@@ -98,26 +98,26 @@ namespace
         FAIL(std::format("{}: decode of level {} failed: {}", label, level,
                          image.error().message));
       CHECK(image->pixels.size()
-            == std::size_t{blp.mip_width(level)} * blp.mip_height(level) * 4);
+            == std::size_t{blp.mipWidth(level)} * blp.mipHeight(level) * 4);
     }
   }
 
-  void dump_histogram(const char* which)
+  void dumpHistogram(const char* which)
   {
-    if (encoding_histogram.empty())
+    if (gEncodingHistogram.empty())
       return;
     std::string lines;
-    for (const auto& [combo, count] : encoding_histogram)
+    for (const auto& [combo, count] : gEncodingHistogram)
       lines += std::format("  {} x{}\n", combo, count);
     WARN(std::format("{}: encoding/preferredFormat/alphaDepth spread:\n{}", which, lines));
-    encoding_histogram.clear();
+    gEncodingHistogram.clear();
   }
 }
 
 TEST_CASE("3.3.5a BLPs rewrite byte-for-byte and decode", "[integration][formats][blp]")
 {
-  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
-                                  .version = versions::wotlk});
+  auto fs = fs::FileSystem::open({.clientPath = tests::mpqClient(),
+                                  .version = versions::Wotlk});
   REQUIRE(fs.has_value());
 
   // curated spread across categories: icons and UI (DXT + palettized),
@@ -155,20 +155,20 @@ TEST_CASE("3.3.5a BLPs rewrite byte-for-byte and decode", "[integration][formats
       WARN("not in client, skipped: " + path);
       continue;
     }
-    roundtrip_blp(*fs, FileKey{path}, path);
+    roundtripBlp(*fs, FileKey{path}, path);
     ++verified;
   }
-  dump_histogram("3.3.5a");
+  dumpHistogram("3.3.5a");
   CHECK(verified >= 8);  // enough coverage even if some curated paths drift
 }
 
 TEST_CASE("9.2.7 BLPs rewrite byte-for-byte and decode", "[integration][formats][blp]")
 {
-  const auto listfile = tests::require_listfile();
+  const auto listfile = tests::requireListfile();
 
-  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
-                                  .version = versions::shadowlands,
-                                  .listfile_csv = listfile});
+  auto fs = fs::FileSystem::open({.clientPath = tests::cascClient(),
+                                  .version = versions::Shadowlands,
+                                  .listfileCsv = listfile});
   REQUIRE(fs.has_value());
 
   // sample textures from the community listfile: every .blp path
@@ -203,16 +203,16 @@ TEST_CASE("9.2.7 BLPs rewrite byte-for-byte and decode", "[integration][formats]
     if (verified >= 60)
       break;
     const FileKey key{path, FileDataID{fdid}};
-    const auto probe = fs->read_file(key);
+    const auto probe = fs->readFile(key);
     if (!probe)
     {
       ++skipped;  // encrypted or absent from this install
       continue;
     }
-    roundtrip_blp(*fs, key, path);
+    roundtripBlp(*fs, key, path);
     ++verified;
   }
-  dump_histogram("9.2.7");
+  dumpHistogram("9.2.7");
   WARN(std::format("9.2.7 sample: {} verified, {} unreadable/skipped", verified, skipped));
   CHECK(verified >= 40);
 }

@@ -71,10 +71,10 @@ TEST_CASE("the full 3.3.5a chain expands in client load order", "[mpq-chain]")
   data.add("enUS/base-enUS.MPQ");
   data.add("enUS/backup-enUS.MPQ");
 
-  const auto* spec = find_chain_spec(versions::wotlk);
+  const auto* spec = findChainSpec(versions::Wotlk);
   REQUIRE(spec != nullptr);
 
-  const auto chain = expand_chain(*spec, data.root, Locale::enUS);
+  const auto chain = expandChain(*spec, data.root, Locale::enUS);
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{
@@ -106,7 +106,7 @@ TEST_CASE("base and locale patches interleave by case-insensitive filename",
   data.add("enUS/patch-enUS-5.MPQ");
 
   const auto chain =
-    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
+    expandChain(*findChainSpec(versions::Wotlk), data.root, Locale::enUS);
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
@@ -132,7 +132,7 @@ TEST_CASE("a high base letter-patch outranks the locale patches", "[mpq-chain]")
   data.add("enUS/patch-enUS-2.MPQ");
 
   const auto chain =
-    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
+    expandChain(*findChainSpec(versions::Wotlk), data.root, Locale::enUS);
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
@@ -151,7 +151,7 @@ TEST_CASE("directory-backed patches join the chain and sort like archives",
   data.add("patch-9.MPQ");
 
   const auto chain =
-    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
+    expandChain(*findChainSpec(versions::Wotlk), data.root, Locale::enUS);
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ", "patch.MPQ",
@@ -160,7 +160,7 @@ TEST_CASE("directory-backed patches join the chain and sort like archives",
   const auto member = std::ranges::find_if(
     *chain, [](const ChainMember& m) { return m.path.filename() == "patch-4.MPQ"; });
   REQUIRE(member != chain->end());
-  CHECK(member->is_directory);
+  CHECK(member->isDirectory);
 }
 
 TEST_CASE("missing archives are skipped without error", "[mpq-chain]")
@@ -170,7 +170,7 @@ TEST_CASE("missing archives are skipped without error", "[mpq-chain]")
   data.add("enUS/locale-enUS.MPQ");
 
   const auto chain =
-    expand_chain(*find_chain_spec(versions::wotlk), data.root, Locale::enUS);
+    expandChain(*findChainSpec(versions::Wotlk), data.root, Locale::enUS);
   REQUIRE(chain.has_value());
   CHECK(names(*chain, data.root) ==
         std::vector<std::string>{"common.MPQ", "enUS/locale-enUS.MPQ"});
@@ -178,10 +178,10 @@ TEST_CASE("missing archives are skipped without error", "[mpq-chain]")
 
 TEST_CASE("unknown versions have no chain spec", "[mpq-chain]")
 {
-  CHECK(find_chain_spec(ClientVersion{3, 1, 0, 9767}) == nullptr);
+  CHECK(findChainSpec(ClientVersion{3, 1, 0, 9767}) == nullptr);
   // build-exact and version-triple matches both hit the 3.3.5a table
-  CHECK(find_chain_spec(ClientVersion{3, 3, 5, 12340}) != nullptr);
-  CHECK(find_chain_spec(ClientVersion{3, 3, 5, 0}) != nullptr);
+  CHECK(findChainSpec(ClientVersion{3, 3, 5, 12340}) != nullptr);
+  CHECK(findChainSpec(ClientVersion{3, 3, 5, 0}) != nullptr);
 }
 TEST_CASE("the 4.3.4 update chain globs wow-update archives ascending by build",
           "[mpq-chain]")
@@ -203,10 +203,10 @@ TEST_CASE("the 4.3.4 update chain globs wow-update archives ascending by build",
   data.add("wow-update-base-15595.MPQ.part");
   data.add("ruRU/Credits_CT.html");
 
-  const auto* spec = find_chain_spec(versions::cata);
+  const auto* spec = findChainSpec(versions::Cata);
   REQUIRE(spec != nullptr);
 
-  const auto chain = expand_chain(*spec, data.root, Locale::ruRU);
+  const auto chain = expandChain(*spec, data.root, Locale::ruRU);
   REQUIRE(chain.has_value());
 
   // Base tier: table order, only the archives on disk (no base-Mac here).

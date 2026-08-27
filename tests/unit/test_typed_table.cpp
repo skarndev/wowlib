@@ -16,8 +16,8 @@ namespace
       consteval-validated against the embedded WoWDBDefs blob. */
   struct MapRow
   {
-    static constexpr ClientVersion version = versions::wotlk;
-    static constexpr std::string_view table_name = "Map";
+    static constexpr ClientVersion Version = versions::Wotlk;
+    static constexpr std::string_view TableName = "Map";
 
     std::int32_t id = 0;
     std::string directory;
@@ -32,13 +32,13 @@ TEST_CASE("typed: a projection loads through the generic table",
 
   // Author rows through the GENERIC accessors, read them back typed.
   db::DynTable& t = typed->table();
-  const auto id = t.column_index("id").value();
-  const auto dir = t.column_index("directory").value();
+  const auto id = t.columnIndex("id").value();
+  const auto dir = t.columnIndex("directory").value();
   for (int i = 0; i < 3; ++i)
   {
-    const auto row = t.append_row();
-    REQUIRE(t.set_int(row, id, 100 + i).has_value());
-    REQUIRE(t.set_string(row, dir, "Zone" + std::to_string(i)).has_value());
+    const auto row = t.appendRow();
+    REQUIRE(t.setInt(row, id, 100 + i).has_value());
+    REQUIRE(t.setString(row, dir, "Zone" + std::to_string(i)).has_value());
   }
 
   const auto rows = typed->load();
@@ -60,8 +60,8 @@ TEST_CASE("typed: a GENERATED record is a valid full-coverage user struct",
 {
   // The 'Both' decision: dbdgen's typed records validate through the exact
   // same consteval path a hand-written struct does — and, covering every
-  // column, they may write_back.
-  using Record = db::tables::MapRecord<versions::wotlk>;
+  // column, they may writeBack.
+  using Record = db::tables::MapRecord<versions::Wotlk>;
   auto typed = db::TypedTable<Record>::open();
   REQUIRE(typed.has_value());
 
@@ -72,8 +72,8 @@ TEST_CASE("typed: a GENERATED record is a valid full-coverage user struct",
               .has_value());
   rows[1].id = 9;
   rows[1].directory = "Kalimdor";
-  typed->write_back(rows);
-  REQUIRE(typed->table().row_count() == 2);
+  typed->writeBack(rows);
+  REQUIRE(typed->table().rowCount() == 2);
 
   const auto back = typed->load();
   REQUIRE(back.size() == 2);

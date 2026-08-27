@@ -117,10 +117,10 @@ namespace wowlib::formats::wdt {
           byte-for-byte. See https://wowdev.wiki/WDT.)")
       ]] WDT
       : WDTBase,
-        slot<V, builds::WoD, SatellitesWod<V>>,
-        slot<V, builds::Legion_TombOfSargeras, SatellitesLegion725<V>>,
-        slot<V, builds::BfA_Beta_26287, SatellitesBfa<V>> {
-      static constexpr ClientVersion version = V;
+        Slot<V, builds::WoD, SatellitesWod<V>>,
+        Slot<V, builds::Legion_TombOfSargeras, SatellitesLegion725<V>>,
+        Slot<V, builds::BfA_Beta_26287, SatellitesBfa<V>> {
+      static constexpr ClientVersion Version = V;
 
       [[=welder::doc("The main file contents.")]]
       WDTRoot<V> root{};
@@ -131,14 +131,14 @@ namespace wowlib::formats::wdt {
       // version), so the per-version Python classes stay pure data. Lua and C#
       // have no such glue, so they take these methods directly.
 
-      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc(
           "Load the WDT and every satellite file present from a client "
           "filesystem, replacing this entity's contents.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                         const FileKey& key [[=welder::doc("the main file identity (path and/or FileDataID)")]]);
 
-      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc("Serialize and store the WDT (main file and every engaged "
           "satellite) through the filesystem's project overlay; satellite "
           "file names are derived from the main key, which must resolve "
@@ -162,25 +162,25 @@ namespace wowlib::formats::wdt {
           "returning a report — the assert-style face of "
           "validate()."),
         =welder::returns("nothing; raises when validate() finds any error")]]
-      Result<void> ensure_valid() const;
+      Result<void> ensureValid() const;
 
     private:
       // --- internal fs-I/O helpers (definitions at the bottom of this header) --
 
       /** Derive a satellite file path from the main one:
           "world\maps\azeroth\azeroth.wdt" -> "world\maps\azeroth\azeroth_occ.wdt".
-          @param root_path the main file path.
+          @param rootPath the main file path.
           @param suffix    the satellite suffix ("occ", "lgt", "fogs", "mpv").
           @return the derived satellite path. */
-      static std::string satellite_path(std::string_view root_path, std::string_view suffix);
+      static std::string _satellitePath(std::string_view rootPath, std::string_view suffix);
     };
   }
 
   /** A whole WDT — the canonicalizing face of detail::WDT: every client
-      version maps to its range's first grid version (wdt_assembly_pivots),
+      version maps to its range's first grid version (WdtAssemblyPivots),
       so e.g. one instantiation serves Vanilla through MoP. */
   template <ClientVersion V>
-  using WDT = detail::WDT<canonical_version(V, wdt_assembly_pivots, wdt_versions)>;
+  using WDT = detail::WDT<canonicalVersion(V, WdtAssemblyPivots, WdtVersions)>;
 }
 
 // --- fs-level read/write definitions -----------------------------------------
@@ -189,70 +189,70 @@ namespace wowlib::formats::wdt {
 // instantiations; the bindings expand the full matrix in their own TUs.
 namespace wowlib::formats::wdt {
   template <ClientVersion V>
-  std::string detail::WDT<V>::satellite_path(std::string_view root_path, std::string_view suffix) {
-    std::string_view stem = root_path;
+  std::string detail::WDT<V>::_satellitePath(std::string_view rootPath, std::string_view suffix) {
+    std::string_view stem = rootPath;
     if (stem.ends_with(".wdt")) stem.remove_suffix(4);
     return std::format("{}_{}.wdt", stem, suffix);
   }
 
   template <ClientVersion V>
   Result<void> detail::WDT<V>::read(fs::FileSystem& fs, const FileKey& key) {
-    const auto root_data = fs.read_file(key);
-    if (!root_data) return std::unexpected{root_data.error()};
+    const auto rootData = fs.readFile(key);
+    if (!rootData) return std::unexpected{rootData.error()};
 
     *this = WDT{};
 
-    if (auto r = root.read(*root_data); !r) return std::unexpected{r.error()};
-    if (root.mver != wdt_version_18)
-      return make_error(ErrorCode::FormatVersionMismatch,
-                        std::format("WDT MVER is {}, expected {}", root.mver, wdt_version_18));
+    if (auto r = root.read(*rootData); !r) return std::unexpected{r.error()};
+    if (root.mver != WdtVersion18)
+      return makeError(ErrorCode::FormatVersionMismatch,
+                        std::format("WDT MVER is {}, expected {}", root.mver, WdtVersion18));
 
     if constexpr (requires { this->occlusion; }) {
       // 8.1+ headers carry the satellite FileDataIDs; before that the files
       // sit next to the main one under the "{map}_<suffix>.wdt" convention.
-      constexpr bool by_fdid = requires { this->root.header.occ_fdid; };
+      constexpr bool byFdid = requires { this->root.header.occFdid; };
 
-      std::string root_path;
-      if constexpr (!by_fdid) {
+      std::string rootPath;
+      if constexpr (!byFdid) {
         const FileKey resolved = fs.resolve(key);
         if (!resolved.path)
-          return make_error(ErrorCode::PathNotResolvable,
+          return makeError(ErrorCode::PathNotResolvable,
                             "satellite files need the main path (pre-8.1 clients have no "
                             "satellite FileDataIDs and the main key has no resolvable path)");
-        root_path = *resolved.path;
+        rootPath = *resolved.path;
       }
 
       const auto load = [&](auto& satellite, std::uint32_t fdid, std::string_view suffix) -> Result<void> {
-        if constexpr (by_fdid)
+        if constexpr (byFdid)
           if (fdid == 0) return {}; // the map has no such satellite
         // Not if-constexpr: both arms are well-formed either way, and gcc-16
         // false-positives -Wreturn-type on constexpr-exhaustive lambdas.
-        const FileKey satellite_key = by_fdid ? FileKey{FileDataID{fdid}} : FileKey{satellite_path(root_path, suffix)};
-        if (!fs.exists(satellite_key)) return {}; // absent satellite: stays default-empty
-        const auto data = fs.read_file(satellite_key);
+        const FileKey satelliteKey = byFdid ? FileKey{FileDataID{fdid}} : FileKey{_satellitePath(rootPath, suffix)};
+        if (!fs.exists(satelliteKey)) return {}; // absent satellite: stays default-empty
+        const auto data = fs.readFile(satelliteKey);
         if (!data)
-          return make_error(data.error().code, std::format("_{} satellite: {}", suffix, data.error().message),
-                            data.error().native_error);
+          return makeError(data.error().code, std::format("_{} satellite: {}", suffix, data.error().message),
+                            data.error().nativeError);
         if (auto r = satellite.read(*data); !r)
-          return make_error(r.error().code, std::format("_{} satellite: {}", suffix, r.error().message),
-                            r.error().native_error);
+          return makeError(r.error().code, std::format("_{} satellite: {}", suffix, r.error().message),
+                            r.error().nativeError);
         return {};
       };
 
-      const auto header_fdid = [&](auto pick) -> std::uint32_t {
-        if constexpr (by_fdid) return pick(root.header);
+      const auto headerFdid = [&](auto pick) -> std::uint32_t {
+        if constexpr (byFdid) return pick(root.header);
         else return 0;
       };
 
-      if (auto r = load(this->occlusion, header_fdid([](const auto& h) { return h.occ_fdid; }), "occ"); !r) return r;
-      if (auto r = load(this->lights, header_fdid([](const auto& h) { return h.lgt_fdid; }), "lgt"); !r) return r;
+      if (auto r = load(this->occlusion, headerFdid([](const auto& h) { return h.occFdid; }), "occ"); !r) return r;
+      if (auto r = load(this->lights, headerFdid([](const auto& h) { return h.lgtFdid; }), "lgt"); !r) return r;
       if constexpr (requires { this->fogs; })
-        if (auto r = load(this->fogs, header_fdid([](const auto& h) {
-          return h.fogs_fdid;
+        if (auto r = load(this->fogs, headerFdid([](const auto& h) {
+          return h.fogsFdid;
         }), "fogs"); !r)
           return r;
       if constexpr (requires { this->particulates; })
-        if (auto r = load(this->particulates, header_fdid([](const auto& h) { return h.mpv_fdid; }), "mpv"); !r) return
+        if (auto r = load(this->particulates, headerFdid([](const auto& h) { return h.mpvFdid; }), "mpv"); !r) return
           r;
     }
     return {};
@@ -263,50 +263,50 @@ namespace wowlib::formats::wdt {
     ValidationReport report;
     {
       const std::size_t mark = report.size();
-      formats::detail::validate_entity(root, report);
-      report.prefix_from(mark, "root");
+      formats::detail::validateEntity(root, report);
+      report.prefixFrom(mark, "root");
     }
     // Each engaged satellite validates under its member path; the version
     // ranges the entity does not carry cost nothing to gate on.
-    const auto validate_part = [&report](const auto& part, std::string_view name) {
+    const auto validatePart = [&report](const auto& part, std::string_view name) {
       const std::size_t mark = report.size();
-      formats::detail::validate_entity(part, report);
-      report.prefix_from(mark, std::string{name});
+      formats::detail::validateEntity(part, report);
+      report.prefixFrom(mark, std::string{name});
     };
-    if constexpr (requires { this->occlusion; }) validate_part(this->occlusion, "occlusion");
-    if constexpr (requires { this->lights; }) validate_part(this->lights, "lights");
-    if constexpr (requires { this->fogs; }) validate_part(this->fogs, "fogs");
-    if constexpr (requires { this->particulates; }) validate_part(this->particulates, "particulates");
+    if constexpr (requires { this->occlusion; }) validatePart(this->occlusion, "occlusion");
+    if constexpr (requires { this->lights; }) validatePart(this->lights, "lights");
+    if constexpr (requires { this->fogs; }) validatePart(this->fogs, "fogs");
+    if constexpr (requires { this->particulates; }) validatePart(this->particulates, "particulates");
     return report;
   }
 
   template <ClientVersion V>
-  Result<void> detail::WDT<V>::ensure_valid() const {
-    return validate().to_result();
+  Result<void> detail::WDT<V>::ensureValid() const {
+    return validate().toResult();
   }
 
   template <ClientVersion V>
   Result<void> detail::WDT<V>::write(fs::FileSystem& fs, const FileKey& key) const {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
-      return make_error(ErrorCode::PathNotResolvable, "saving a WDT needs a path for the main key");
+      return makeError(ErrorCode::PathNotResolvable, "saving a WDT needs a path for the main key");
 
-    const auto root_data = root.write();
-    if (!root_data) return std::unexpected{root_data.error()};
-    if (auto r = fs.add_file(*resolved.path, *root_data); !r) return std::unexpected{r.error()};
+    const auto rootData = root.write();
+    if (!rootData) return std::unexpected{rootData.error()};
+    if (auto r = fs.addFile(*resolved.path, *rootData); !r) return std::unexpected{r.error()};
 
     if constexpr (requires { this->occlusion; }) {
       // a satellite writes only when engaged: read from a file (journaled) or
       // holding user data — a default-empty one stays unwritten
       const auto store = [&](const auto& satellite, std::string_view suffix) -> Result<void> {
-        if (!formats::detail::entity_engaged(satellite)) return {};
+        if (!formats::detail::entityEngaged(satellite)) return {};
         const auto data = satellite.write();
         if (!data)
-          return make_error(data.error().code, std::format("_{} satellite: {}", suffix, data.error().message),
-                            data.error().native_error);
-        if (auto r = fs.add_file(satellite_path(*resolved.path, suffix), *data); !r)
-          return make_error(r.error().code, std::format("_{} satellite: {}", suffix, r.error().message),
-                            r.error().native_error);
+          return makeError(data.error().code, std::format("_{} satellite: {}", suffix, data.error().message),
+                            data.error().nativeError);
+        if (auto r = fs.addFile(_satellitePath(*resolved.path, suffix), *data); !r)
+          return makeError(r.error().code, std::format("_{} satellite: {}", suffix, r.error().message),
+                            r.error().nativeError);
         return {};
       };
 

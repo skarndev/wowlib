@@ -11,95 +11,95 @@
 #include <wowlib/db/codec_detail.hpp>
 
 namespace wowlib::db {
-  Result<void> read_wdb2(const TableInfo& info, std::span<const std::byte> data, RecordSink& sink, TableState& state) {
+  Result<void> readWdb2(const TableInfo& info, std::span<const std::byte> data, RecordSink& sink, TableState& state) {
     if (data.size() < sizeof(Wdb2Header))
-      return make_error(ErrorCode::TableTruncated,
+      return makeError(ErrorCode::TableTruncated,
                         std::format("{}: {} bytes is too small for a WDB2 header", info.name, data.size()));
     Wdb2Header header;
     std::memcpy(&header, data.data(), sizeof header);
 
-    const std::size_t stride = detail::record_stride(info.schema);
-    if (header.record_size != stride)
-      return make_error(ErrorCode::SchemaMismatch,
+    const std::size_t stride = detail::recordStride(info.schema);
+    if (header.recordSize != stride)
+      return makeError(ErrorCode::SchemaMismatch,
                         std::format("{}: file record_size {} disagrees with the generated schema stride {}", info.name,
-                                    header.record_size, stride));
-    if (header.max_id != 0 && header.max_id < header.min_id)
-      return make_error(ErrorCode::TableTruncated,
-                        std::format("{}: WDB2 max_id {} below min_id {}", info.name, header.max_id, header.min_id));
+                                    header.recordSize, stride));
+    if (header.maxId != 0 && header.maxId < header.minId)
+      return makeError(ErrorCode::TableTruncated,
+                        std::format("{}: WDB2 max_id {} below min_id {}", info.name, header.maxId, header.minId));
 
-    const std::size_t index_bytes = header.max_id != 0
-                                      ? (std::size_t{header.max_id} - header.min_id + 1) * wdb2_index_entry_bytes
+    const std::size_t indexBytes = header.maxId != 0
+                                      ? (std::size_t{header.maxId} - header.minId + 1) * Wdb2IndexEntryBytes
                                       : 0;
-    const std::size_t records_at = sizeof header + index_bytes;
-    const std::size_t expected = records_at + std::size_t{header.record_count} * header.record_size + header.
-      string_block_size + header.copy_table_size;
+    const std::size_t recordsAt = sizeof header + indexBytes;
+    const std::size_t expected = recordsAt + std::size_t{header.recordCount} * header.recordSize + header.
+      stringBlockSize + header.copyTableSize;
     if (data.size() != expected)
-      return make_error(ErrorCode::TableTruncated, std::format(
+      return makeError(ErrorCode::TableTruncated, std::format(
                           "{}: {} bytes on disk, but the header describes {} ({} records of {} bytes "
                           "+ {} index + {} string + {} copy-table bytes)", info.name, data.size(), expected,
-                          header.record_count, header.record_size, index_bytes, header.string_block_size,
-                          header.copy_table_size));
+                          header.recordCount, header.recordSize, indexBytes, header.stringBlockSize,
+                          header.copyTableSize));
 
     sink.clear();
     state.reset();
-    if (auto r = state.strings.read(data.subspan(records_at + std::size_t{header.record_count} * header.record_size,
-                                                 header.string_block_size)); !r) return r;
+    if (auto r = state.strings.read(data.subspan(recordsAt + std::size_t{header.recordCount} * header.recordSize,
+                                                 header.stringBlockSize)); !r) return r;
 
-    sink.reserve(header.record_count);
-    state.string_offsets.reserve(std::size_t{header.record_count} * detail::string_slot_count(info.schema));
-    for (std::uint32_t i = 0; i < header.record_count; ++i) {
+    sink.reserve(header.recordCount);
+    state.stringOffsets.reserve(std::size_t{header.recordCount} * detail::stringSlotCount(info.schema));
+    for (std::uint32_t i = 0; i < header.recordCount; ++i) {
       const std::size_t rec = sink.add();
-      const auto image = data.subspan(records_at + std::size_t{i} * stride, stride);
-      detail::decode_inline_record(info.schema, rec, image, sink, state);
+      const auto image = data.subspan(recordsAt + std::size_t{i} * stride, stride);
+      detail::decodeInlineRecord(info.schema, rec, image, sink, state);
     }
 
-    const auto index_block = data.subspan(sizeof header, index_bytes);
-    state.wdb2_index.assign(index_block.begin(), index_block.end());
-    const auto copy_block = data.subspan(expected - header.copy_table_size, header.copy_table_size);
-    state.wdb2_copy.assign(copy_block.begin(), copy_block.end());
+    const auto indexBlock = data.subspan(sizeof header, indexBytes);
+    state.wdb2Index.assign(indexBlock.begin(), indexBlock.end());
+    const auto copyBlock = data.subspan(expected - header.copyTableSize, header.copyTableSize);
+    state.wdb2Copy.assign(copyBlock.begin(), copyBlock.end());
     const auto* hb = reinterpret_cast<const std::byte*>(&header);
-    state.wdb2_header.assign(hb, hb + sizeof header);
-    state.source_magic = header.magic;
-    state.field_count = header.field_count;
-    state.record_size = header.record_size;
+    state.wdb2Header.assign(hb, hb + sizeof header);
+    state.sourceMagic = header.magic;
+    state.fieldCount = header.fieldCount;
+    state.recordSize = header.recordSize;
     return {};
   }
 
-  Result<FileBuffer> write_wdb2(const TableInfo& info, const RecordSource& source, const TableState& state) {
-    const std::size_t stride = detail::record_stride(info.schema);
-    const bool loaded = state.source_magic == wdb2_magic;
+  Result<FileBuffer> writeWdb2(const TableInfo& info, const RecordSource& source, const TableState& state) {
+    const std::size_t stride = detail::recordStride(info.schema);
+    const bool loaded = state.sourceMagic == Wdb2Magic;
 
     Wdb2Header header{};
-    if (loaded && state.wdb2_header.size() == sizeof header) std::memcpy(
-      &header, state.wdb2_header.data(), sizeof header);
+    if (loaded && state.wdb2Header.size() == sizeof header) std::memcpy(
+      &header, state.wdb2Header.data(), sizeof header);
 
-    if (loaded && !state.wdb2_index.empty() && source.size() != header.record_count)
-      return make_error(ErrorCode::InvalidEntityState,
+    if (loaded && !state.wdb2Index.empty() && source.size() != header.recordCount)
+      return makeError(ErrorCode::InvalidEntityState,
                         std::format(
                           "{}: the WDB2 id-index block cannot be rebuilt yet; adding or removing "
                           "records of an indexed table is unsupported (had {}, have {})", info.name,
-                          header.record_count, source.size()));
+                          header.recordCount, source.size()));
 
-    header.magic = wdb2_magic;
-    header.record_count = static_cast<std::uint32_t>(source.size());
-    header.field_count = loaded ? state.field_count : detail::field_slot_count(info.schema);
-    header.record_size = loaded ? state.record_size : static_cast<std::uint32_t>(stride);
+    header.magic = Wdb2Magic;
+    header.recordCount = static_cast<std::uint32_t>(source.size());
+    header.fieldCount = loaded ? state.fieldCount : detail::fieldSlotCount(info.schema);
+    header.recordSize = loaded ? state.recordSize : static_cast<std::uint32_t>(stride);
     if (!loaded) header.build = info.version.build;
 
     detail::StringPool pool{state.strings};
     FileBuffer out;
     out.reserve(
-      sizeof header + state.wdb2_index.size() + source.size() * stride + pool.block.size() + state.wdb2_copy.size());
+      sizeof header + state.wdb2Index.size() + source.size() * stride + pool.block.size() + state.wdb2Copy.size());
     out.resize(sizeof header);
-    out.insert(out.end(), state.wdb2_index.begin(), state.wdb2_index.end());
+    out.insert(out.end(), state.wdb2Index.begin(), state.wdb2Index.end());
     std::size_t cursor = 0;
     for (std::size_t r = 0; r < source.size(); ++r)
-      detail::encode_inline_record(info.schema, source, r, out, pool, state, cursor);
+      detail::encodeInlineRecord(info.schema, source, r, out, pool, state, cursor);
 
-    header.string_block_size = static_cast<std::uint32_t>(pool.block.size());
+    header.stringBlockSize = static_cast<std::uint32_t>(pool.block.size());
     if (auto w = pool.block.write(out); !w) return std::unexpected{w.error()};
-    out.insert(out.end(), state.wdb2_copy.begin(), state.wdb2_copy.end());
-    header.copy_table_size = static_cast<std::uint32_t>(state.wdb2_copy.size());
+    out.insert(out.end(), state.wdb2Copy.begin(), state.wdb2Copy.end());
+    header.copyTableSize = static_cast<std::uint32_t>(state.wdb2Copy.size());
     std::memcpy(out.data(), &header, sizeof header);
     return out;
   }

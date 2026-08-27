@@ -38,12 +38,12 @@ namespace wowlib::fs {
         the project directory wins over the client storage.
         @param key the file identity (path, id, or both).
         @return the file bytes. */
-    Result<FileBuffer> read_file(const FileKey& key) {
+    Result<FileBuffer> readFile(const FileKey& key) {
       const FileKey resolved = resolve(key);
 
       if (_project && resolved.path && _project->exists(*resolved.path)) return _project->read(*resolved.path);
 
-      return _backend.read_file(resolved);
+      return _backend.readFile(resolved);
     }
 
     /** Whether a file is reachable in the overlay or the storage.
@@ -61,8 +61,8 @@ namespace wowlib::fs {
         @return the completed key (unchanged parts preserved). */
     FileKey resolve(const FileKey& key) const {
       FileKey out = key;
-      if (!out.fdid && out.path) out.fdid = _listfile.path_to_fdid(*out.path);
-      else if (!out.path && out.fdid) out.path = _listfile.fdid_to_path(*out.fdid);
+      if (!out.fdid && out.path) out.fdid = _listfile.pathToFdid(*out.path);
+      else if (!out.path && out.fdid) out.path = _listfile.fdidToPath(*out.fdid);
       return out;
     }
 
@@ -73,17 +73,17 @@ namespace wowlib::fs {
         @param content the file contents.
         @return the file's FileDataID (0 on MPQ-era clients, which have no id
                 space). */
-    Result<FileDataID> add_file(std::string_view path, std::span<const std::byte> content) {
+    Result<FileDataID> addFile(std::string_view path, std::span<const std::byte> content) {
       if (!_project)
-        return make_error(ErrorCode::NotSupported, "no project directory is set; there is nowhere to add files");
+        return makeError(ErrorCode::NotSupported, "no project directory is set; there is nowhere to add files");
 
       if (auto written = _project->write(path, content); !written) return std::unexpected(written.error());
 
       if constexpr (Backend::kind() == StorageKind::Mpq) return FileDataID{0};
       else {
         // Overwriting an already-known file keeps its id; only new paths allocate.
-        if (auto existing = _listfile.path_to_fdid(path)) return *existing;
-        return _listfile.register_path(path);
+        if (auto existing = _listfile.pathToFdid(path)) return *existing;
+        return _listfile.registerPath(path);
       }
     }
 

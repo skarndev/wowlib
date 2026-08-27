@@ -59,20 +59,20 @@ namespace wowlib::formats::m2::root::record {
     struct M2CompBone;
 
     template <ClientVersion V>
-      requires (V < m2_compressed_bones)
+      requires (V < M2CompressedBones)
     struct [[
         =welder::weld,
         =welder::doc(
           "A bone, vanilla layout: raw-quaternion rotations, no name CRC.")
       ]] M2CompBone<V> : M2CompBoneBase {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
-      std::int32_t key_bone_id = -1;
+      std::int32_t keyBoneId = -1;
       [[=welder::doc("See BoneFlags.")]]
       std::uint32_t flags = 0;
       [[=welder::doc("Parent bone index, -1 for roots.")]]
-      std::int16_t parent_bone = -1;
+      std::int16_t parentBone = -1;
       [[=welder::doc("Mesh part id.")]]
-      std::uint16_t submesh_id = 0;
+      std::uint16_t submeshId = 0;
       [[=welder::doc("Translation keyframes, relative to the parent bone.")]]
       record::M2Track<C3Vector, V> translation{};
       [[=welder::doc("Rotation keyframes as raw quaternions.")]]
@@ -86,7 +86,7 @@ namespace wowlib::formats::m2::root::record {
     };
 
     template <ClientVersion V>
-      requires (V >= m2_compressed_bones)
+      requires (V >= M2CompressedBones)
     struct [[
         =welder::weld,
         =welder::doc(
@@ -94,15 +94,15 @@ namespace wowlib::formats::m2::root::record {
           "CRC; the track era inside follows the entity version.")
       ]] M2CompBone<V> : M2CompBoneBase {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
-      std::int32_t key_bone_id = -1;
+      std::int32_t keyBoneId = -1;
       [[=welder::doc("See BoneFlags.")]]
       std::uint32_t flags = 0;
       [[=welder::doc("Parent bone index, -1 for roots.")]]
-      std::int16_t parent_bone = -1;
+      std::int16_t parentBone = -1;
       [[=welder::doc("Mesh part id.")]]
-      std::uint16_t submesh_id = 0;
+      std::uint16_t submeshId = 0;
       [[=welder::doc("CRC of the authoring bone name (debug only).")]]
-      std::uint32_t bone_name_crc = 0;
+      std::uint32_t boneNameCrc = 0;
       [[=welder::doc("Translation keyframes, relative to the parent bone.")]]
       record::M2Track<C3Vector, V> translation{};
       [[=welder::doc("Rotation keyframes as compressed quaternions.")]]
@@ -117,9 +117,9 @@ namespace wowlib::formats::m2::root::record {
   }
 
   /** A bone — the canonicalizing face of detail::M2CompBone: every client
-      version maps to its range's first grid version (m2_bone_pivots: TBC's
+      version maps to its range's first grid version (M2BonePivots: TBC's
       compressed quaternions + name CRC, WotLK's per-sequence timelines). */
   template <ClientVersion V>
   using M2CompBone =
-  detail::M2CompBone<canonical_version(V, m2_bone_pivots, m2_versions)>;
+  detail::M2CompBone<canonicalVersion(V, M2BonePivots, M2Versions)>;
 }

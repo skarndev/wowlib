@@ -15,11 +15,11 @@ namespace wowlib::formats {
     /** The characters are stored reversed: 'MVER' appears in the file as the
         bytes "REVM". The common case — WMO, ADT, WDT, WDL and the M2 wrapper
         magic all use it. */
-    reversed,
+    Reversed,
 
     /** The characters are stored as written: 'AFID' appears in the file as the
         bytes "AFID". Used by the Legion+ M2 companion chunk ids. */
-    forward
+    Forward
   };
 
   /** The host integer a scanned chunk id compares equal to for code @a cc.
@@ -30,11 +30,11 @@ namespace wowlib::formats {
       @param cc     the four-character code as written on wowdev.wiki, e.g. "MVER".
       @param endian how the code is laid out on disk.
       @return the comparison value. */
-  constexpr std::uint32_t four_cc(const char (&cc)[5], FourCCEndian endian = FourCCEndian::reversed) {
+  constexpr std::uint32_t fourCc(const char (&cc)[5], FourCCEndian endian = FourCCEndian::Reversed) {
     const auto b = [&](std::size_t i) {
       return static_cast<std::uint32_t>(cc[i]);
     };
-    return endian == FourCCEndian::reversed
+    return endian == FourCCEndian::Reversed
              ? b(3) | b(2) << 8 | b(1) << 16 | b(0) << 24
              : b(0) | b(1) << 8 | b(2) << 16 | b(3) << 24;
   }
@@ -43,11 +43,11 @@ namespace wowlib::formats {
       @param fourcc a chunk id as memcpy'd from disk by the scanner.
       @param endian how the code is laid out on disk.
       @return e.g. "MVER"; non-printable bytes are kept verbatim. */
-  constexpr std::string fourcc_to_string(std::uint32_t fourcc, FourCCEndian endian = FourCCEndian::reversed) {
+  constexpr std::string fourccToString(std::uint32_t fourcc, FourCCEndian endian = FourCCEndian::Reversed) {
     const auto b = [&](unsigned shift) {
       return static_cast<char>((fourcc >> shift) & 0xFF);
     };
-    return endian == FourCCEndian::reversed
+    return endian == FourCCEndian::Reversed
              ? std::string{b(24), b(16), b(8), b(0)}
              : std::string{b(0), b(8), b(16), b(24)};
   }

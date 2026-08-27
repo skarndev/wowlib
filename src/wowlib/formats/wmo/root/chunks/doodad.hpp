@@ -25,10 +25,10 @@ namespace wowlib::formats::wmo::root::chunks {
         exclusive alternatives.)")
     ]] SMODoodadSet {
     /** The raw fixed-size name field; read through name(). */
-    [[=welder::mark::exclude]] std::array<char, 20> name_bytes{};
+    [[=welder::mark::exclude]] std::array<char, 20> nameBytes{};
 
     [[=welder::doc("First doodad instance in MODD.")]]
-    std::uint32_t start_index = 0;
+    std::uint32_t startIndex = 0;
 
     [[=welder::doc("Number of doodad instances in the set.")]]
     std::uint32_t count = 0;
@@ -40,8 +40,8 @@ namespace wowlib::formats::wmo::root::chunks {
       =welder::doc("The informational set name.")]]
     [[nodiscard]]
     std::string_view name() const {
-      const auto end = std::find(name_bytes.begin(), name_bytes.end(), '\0');
-      return {name_bytes.data(), static_cast<std::size_t>(end - name_bytes.begin())};
+      const auto end = std::find(nameBytes.begin(), nameBytes.end(), '\0');
+      return {nameBytes.data(), static_cast<std::size_t>(end - nameBytes.begin())};
     }
   };
 
@@ -52,11 +52,11 @@ namespace wowlib::formats::wmo::root::chunks {
       =welder::doc("Doodad placement flag bits, packed into the high byte of "
         "SMODoodadDef.name_and_flags.")
     ]] DoodadFlags : std::uint32_t {
-    name_mask [[=
+    NameMask [[=
       welder::doc("The low 24 bits: the MODN offset / MODI index mask.")]] =
     0x00FF'FFFF,
-    accept_proj_tex [[=welder::doc("Accept projected textures.")]] = 0x0100'0000,
-    interior_lighting [[=welder::doc("Use interior lighting.")]] = 0x0200'0000
+    AcceptProjTex [[=welder::doc("Accept projected textures.")]] = 0x0100'0000,
+    InteriorLighting [[=welder::doc("Use interior lighting.")]] = 0x0200'0000
   };
 
   struct [[
@@ -66,7 +66,7 @@ namespace wowlib::formats::wmo::root::chunks {
     ]] SMODoodadDef {
     [[=welder::doc("Packed 24-bit MODN offset / MODI index plus DoodadFlags "
       "bits in the high byte.")]]
-    std::uint32_t name_and_flags = 0;
+    std::uint32_t nameAndFlags = 0;
 
     [[=welder::doc("Position in WMO model space (Z-up).")]]
     C3Vector position{};
@@ -84,8 +84,8 @@ namespace wowlib::formats::wmo::root::chunks {
       =welder::doc(
         "The 24-bit MODN byte offset (or MODI index) of the model name.")]]
     [[nodiscard]]
-    constexpr std::uint32_t name_index() const {
-      return name_and_flags & std::to_underlying(DoodadFlags::name_mask);
+    constexpr std::uint32_t nameIndex() const {
+      return nameAndFlags & std::to_underlying(DoodadFlags::NameMask);
     }
   };
 

@@ -30,17 +30,17 @@ using namespace wowlib::fs;
 TEST_CASE("10.2.7: every shipped DB2 parses structurally (WDC5)",
           "[integration][db]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::df_client(),
-                                    .build = versions::dragonflight.build});
+  auto storage = CascStorage::open({.clientRoot = tests::dfClient(),
+                                    .build = versions::Dragonflight.build});
   REQUIRE(storage.has_value());
 
   tests::ImageStats stats;
-  tests::sweep_db2_images(*storage, *listfile, csv, stats);
+  tests::sweepDb2Images(*storage, *listfile, csv, stats);
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.parsed == stats.present);
   CHECK(stats.present >= 500);
@@ -49,29 +49,29 @@ TEST_CASE("10.2.7: every shipped DB2 parses structurally (WDC5)",
 TEST_CASE("10.2.7: representative tables decode and round-trip (WDC5)",
           "[integration][db]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::df_client(),
-                                    .build = versions::dragonflight.build});
+  auto storage = CascStorage::open({.clientRoot = tests::dfClient(),
+                                    .build = versions::Dragonflight.build});
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
   const auto sweep = [&]<typename Tbl>(std::string_view name) {
-    tests::sweep_table_casc<Tbl>(*storage, *listfile, name, stats,
-                                 /*byte_perfect=*/false);
+    tests::sweepTableCasc<Tbl>(*storage, *listfile, name, stats,
+                                 /*bytePerfect=*/false);
   };
-  sweep.template operator()<db::tables::Map<versions::dragonflight>>("Map");
-  sweep.template operator()<db::tables::ChrRaces<versions::dragonflight>>("ChrRaces");
-  sweep.template operator()<db::tables::CreatureModelData<versions::dragonflight>>(
+  sweep.template operator()<db::tables::Map<versions::Dragonflight>>("Map");
+  sweep.template operator()<db::tables::ChrRaces<versions::Dragonflight>>("ChrRaces");
+  sweep.template operator()<db::tables::CreatureModelData<versions::Dragonflight>>(
     "CreatureModelData");
-  sweep.template operator()<db::tables::CreatureDisplayInfoExtra<versions::dragonflight>>(
+  sweep.template operator()<db::tables::CreatureDisplayInfoExtra<versions::Dragonflight>>(
     "CreatureDisplayInfoExtra");
-  sweep.template operator()<db::tables::SoundKit<versions::dragonflight>>("SoundKit");
-  sweep.template operator()<db::tables::ManifestInterfaceData<versions::dragonflight>>(
+  sweep.template operator()<db::tables::SoundKit<versions::Dragonflight>>("SoundKit");
+  sweep.template operator()<db::tables::ManifestInterfaceData<versions::Dragonflight>>(
     "ManifestInterfaceData");
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 4);
 }
@@ -80,21 +80,21 @@ TEST_CASE("10.2.7: representative tables decode and round-trip (WDC5)",
 TEST_CASE("10.2.7: the FULL DB2 corpus decodes and round-trips (WDC5)",
           "[integration][db][full-corpus]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::df_client(),
-                                    .build = versions::dragonflight.build});
+  auto storage = CascStorage::open({.clientRoot = tests::dfClient(),
+                                    .build = versions::Dragonflight.build});
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
-#  define X(Name)                                                        \
-  tests::sweep_table_casc<db::tables::Name<versions::dragonflight>>(        \
-    *storage, *listfile, #Name, stats, /*byte_perfect=*/false);
-  WOWLIB_DB_TABLES_DRAGONFLIGHT(X)
-#  undef X
+#  define x(Name)                                                        \
+  tests::sweepTableCasc<db::tables::Name<versions::Dragonflight>>(        \
+    *storage, *listfile, #Name, stats, /*bytePerfect=*/false);
+  WOWLIB_DB_TABLES_DRAGONFLIGHT(x)
+#  undef x
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 500);
 }

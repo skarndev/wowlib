@@ -21,19 +21,19 @@ namespace wdlc = wowlib::formats::wdl::chunks;
 // memcpy reads depend on it) and a few load-bearing offsets.
 
 template <typename... Ts>
-constexpr bool all_trivially_copyable = (std::is_trivially_copyable_v<Ts> && ...);
+constexpr bool AllTriviallyCopyable = (std::is_trivially_copyable_v<Ts> && ...);
 
-static_assert(all_trivially_copyable<SMMapObjDef, SMDoodadDef>);
-static_assert(all_trivially_copyable<wdtc::SMMapHeader<versions::wotlk>,
-                                     wdtc::SMMapHeader<versions::shadowlands>,
+static_assert(AllTriviallyCopyable<SMMapObjDef, SMDoodadDef>);
+static_assert(AllTriviallyCopyable<wdtc::SMMapHeader<versions::Wotlk>,
+                                     wdtc::SMMapHeader<versions::Shadowlands>,
                                      wdtc::SMAreaInfo, wdtc::MapFileDataIDs>);
-static_assert(all_trivially_copyable<occc::OcclusionIndex>);
-static_assert(all_trivially_copyable<lgtc::MapPointLightLegacy, lgtc::MapPointLight,
+static_assert(AllTriviallyCopyable<occc::OcclusionIndex>);
+static_assert(AllTriviallyCopyable<lgtc::MapPointLightLegacy, lgtc::MapPointLight,
                                      lgtc::MapPointLight3, lgtc::MapSpotLight,
                                      lgtc::LightAnimation>);
-static_assert(all_trivially_copyable<fogc::VolumetricFog, fogc::VolumetricFogExtra>);
-static_assert(all_trivially_copyable<mpvc::ParticulatePoint, mpvc::ParticulateBounds>);
-static_assert(all_trivially_copyable<wdlc::TileHeights, wdlc::TileHoles, wdlc::TileOcean,
+static_assert(AllTriviallyCopyable<fogc::VolumetricFog, fogc::VolumetricFogExtra>);
+static_assert(AllTriviallyCopyable<mpvc::ParticulatePoint, mpvc::ParticulateBounds>);
+static_assert(AllTriviallyCopyable<wdlc::TileHeights, wdlc::TileHoles, wdlc::TileOcean,
                                      wdlc::LodMapObjDef, wdlc::LodExtent,
                                      wdlc::SkyScene, wdlc::SkySceneCondition,
                                      wdlc::SkySceneObject, wdlc::SkySceneObjectParams,
@@ -50,115 +50,115 @@ TEST_CASE("binary offsets match the wowdev layout", "[formats][wdt][wdl]")
   STATIC_CHECK(offsetof(SMDoodadDef, scale) == 0x20);
   STATIC_CHECK(offsetof(SMDoodadDef, flags) == 0x22);
 
-  using NewHeader = wdtc::SMMapHeader<versions::shadowlands>;
-  STATIC_CHECK(offsetof(NewHeader, lgt_fdid) == 0x04);
-  STATIC_CHECK(offsetof(NewHeader, wdl_fdid) == 0x18);
-  STATIC_CHECK(offsetof(NewHeader, pd4_fdid) == 0x1C);
+  using NewHeader = wdtc::SMMapHeader<versions::Shadowlands>;
+  STATIC_CHECK(offsetof(NewHeader, lgtFdid) == 0x04);
+  STATIC_CHECK(offsetof(NewHeader, wdlFdid) == 0x18);
+  STATIC_CHECK(offsetof(NewHeader, pd4Fdid) == 0x1C);
 
-  STATIC_CHECK(offsetof(lgtc::MapPointLight, attenuation_start) == 0x14);
-  STATIC_CHECK(offsetof(lgtc::MapPointLight, tile_x) == 0x2C);
+  STATIC_CHECK(offsetof(lgtc::MapPointLight, attenuationStart) == 0x14);
+  STATIC_CHECK(offsetof(lgtc::MapPointLight, tileX) == 0x2C);
   STATIC_CHECK(offsetof(lgtc::MapPointLight3, flags) == 0x34);
-  STATIC_CHECK(offsetof(lgtc::MapPointLight3, scale_half) == 0x36);
-  STATIC_CHECK(offsetof(lgtc::MapSpotLight, spotlight_radius) == 0x2C);
-  STATIC_CHECK(offsetof(lgtc::MapSpotLight, tile_x) == 0x38);
+  STATIC_CHECK(offsetof(lgtc::MapPointLight3, scaleHalf) == 0x36);
+  STATIC_CHECK(offsetof(lgtc::MapSpotLight, spotlightRadius) == 0x2C);
+  STATIC_CHECK(offsetof(lgtc::MapSpotLight, tileX) == 0x38);
 
   STATIC_CHECK(offsetof(fogc::VolumetricFog, position) == 0x1C);
   STATIC_CHECK(offsetof(fogc::VolumetricFog, rotation) == 0x2C);
   STATIC_CHECK(offsetof(fogc::VolumetricFog, flags) == 0x58);
   STATIC_CHECK(offsetof(fogc::VolumetricFog, id) == 0x64);
-  STATIC_CHECK(offsetof(fogc::VolumetricFogExtra, fog_id) == 0x44);
+  STATIC_CHECK(offsetof(fogc::VolumetricFogExtra, fogId) == 0x44);
 
-  STATIC_CHECK(offsetof(mpvc::ParticulateBounds, point_indices) == 0x1C);
+  STATIC_CHECK(offsetof(mpvc::ParticulateBounds, pointIndices) == 0x1C);
   STATIC_CHECK(offsetof(mpvc::ParticulateBounds, complete) == 0x3C);
 
   STATIC_CHECK(offsetof(wdlc::TileHeights, inner) == 17 * 17 * 2);
   STATIC_CHECK(offsetof(wdlc::LodMapObjDef, flags) == 0x20);
   STATIC_CHECK(offsetof(wdlc::LodExtent, radius) == 0x18);
   STATIC_CHECK(offsetof(wdlc::SkySceneObject, translation) == 0x0C);
-  STATIC_CHECK(offsetof(wdlc::SkySceneObject, params_index) == 0x28);
+  STATIC_CHECK(offsetof(wdlc::SkySceneObject, paramsIndex) == 0x28);
 }
 
 // --- version-gated member existence -------------------------------------------
 // (dependent variable templates: a non-dependent requires-expression makes a
 // missing member a hard error instead of `false`)
 
-template <typename T> constexpr bool has_map_fdids = requires(T v) { v.map_fdids; };
-template <typename T> constexpr bool has_map_anima = requires(T v) { v.map_anima; };
-template <typename T> constexpr bool has_header_fdids = requires(T v) { v.header.occ_fdid; };
-template <typename T> constexpr bool has_header_something = requires(T v) { v.header.something; };
-template <typename T> constexpr bool has_occlusion = requires(T v) { v.occlusion; };
-template <typename T> constexpr bool has_lights = requires(T v) { v.lights; };
-template <typename T> constexpr bool has_fogs = requires(T v) { v.fogs; };
-template <typename T> constexpr bool has_particulates = requires(T v) { v.particulates; };
-template <typename T> constexpr bool has_legacy_points = requires(T v) { v.legacy_point_lights; };
-template <typename T> constexpr bool has_points = requires(T v) { v.point_lights; };
-template <typename T> constexpr bool has_points_v3 = requires(T v) { v.point_lights_v3; };
-template <typename T> constexpr bool has_holes = requires(T v) { v.holes; };
-template <typename T> constexpr bool has_occ_meshes = requires(T v) { v.occlusion_meshes; };
-template <typename T> constexpr bool has_lod_doodads = requires(T v) { v.lod_doodads; };
-template <typename T> constexpr bool has_ocean_masks = requires(T v) { v.ocean_masks; };
-template <typename T> constexpr bool has_sky_scenes = requires(T v) { v.sky_scenes; };
-template <typename T> constexpr bool has_scene_living = requires(T v) { v.scene_living_defs; };
+template <typename T> constexpr bool HasMapFdids = requires(T v) { v.mapFdids; };
+template <typename T> constexpr bool HasMapAnima = requires(T v) { v.mapAnima; };
+template <typename T> constexpr bool HasHeaderFdids = requires(T v) { v.header.occFdid; };
+template <typename T> constexpr bool HasHeaderSomething = requires(T v) { v.header.something; };
+template <typename T> constexpr bool HasOcclusion = requires(T v) { v.occlusion; };
+template <typename T> constexpr bool HasLights = requires(T v) { v.lights; };
+template <typename T> constexpr bool HasFogs = requires(T v) { v.fogs; };
+template <typename T> constexpr bool HasParticulates = requires(T v) { v.particulates; };
+template <typename T> constexpr bool HasLegacyPoints = requires(T v) { v.legacyPointLights; };
+template <typename T> constexpr bool HasPoints = requires(T v) { v.pointLights; };
+template <typename T> constexpr bool HasPointsV3 = requires(T v) { v.pointLightsV3; };
+template <typename T> constexpr bool HasHoles = requires(T v) { v.holes; };
+template <typename T> constexpr bool HasOccMeshes = requires(T v) { v.occlusionMeshes; };
+template <typename T> constexpr bool HasLodDoodads = requires(T v) { v.lodDoodads; };
+template <typename T> constexpr bool HasOceanMasks = requires(T v) { v.oceanMasks; };
+template <typename T> constexpr bool HasSkyScenes = requires(T v) { v.skyScenes; };
+template <typename T> constexpr bool HasSceneLiving = requires(T v) { v.sceneLivingDefs; };
 
-using WdtRootOld = formats::wdt::root::WDTRoot<versions::wotlk>;
-using WdtRootNew = formats::wdt::root::WDTRoot<versions::shadowlands>;
-static_assert(!has_map_fdids<WdtRootOld>, "MAID is 8.1+; a WotLK root must not carry it");
-static_assert(has_map_fdids<WdtRootNew>);
-static_assert(!has_map_anima<WdtRootOld>);
-static_assert(has_map_anima<WdtRootNew>);
-static_assert(!has_header_fdids<WdtRootOld>);
-static_assert(has_header_fdids<WdtRootNew>);
-static_assert(has_header_something<WdtRootOld>);
+using WdtRootOld = formats::wdt::root::WDTRoot<versions::Wotlk>;
+using WdtRootNew = formats::wdt::root::WDTRoot<versions::Shadowlands>;
+static_assert(!HasMapFdids<WdtRootOld>, "MAID is 8.1+; a WotLK root must not carry it");
+static_assert(HasMapFdids<WdtRootNew>);
+static_assert(!HasMapAnima<WdtRootOld>);
+static_assert(HasMapAnima<WdtRootNew>);
+static_assert(!HasHeaderFdids<WdtRootOld>);
+static_assert(HasHeaderFdids<WdtRootNew>);
+static_assert(HasHeaderSomething<WdtRootOld>);
 
-using WdtOld = formats::wdt::WDT<versions::wotlk>;
-using WdtWod = formats::wdt::WDT<versions::wod>;
-using WdtNew = formats::wdt::WDT<versions::shadowlands>;
-static_assert(!has_occlusion<WdtOld>, "the _occ/_lgt satellites are WoD+");
-static_assert(has_occlusion<WdtWod>);
-static_assert(has_lights<WdtWod>);
-static_assert(!has_fogs<WdtWod>, "the _fogs satellite is Legion 7.2.5+");
-static_assert(!has_particulates<WdtWod>, "the _mpv satellite is BfA+");
-static_assert(has_fogs<WdtNew>);
-static_assert(has_particulates<WdtNew>);
+using WdtOld = formats::wdt::WDT<versions::Wotlk>;
+using WdtWod = formats::wdt::WDT<versions::Wod>;
+using WdtNew = formats::wdt::WDT<versions::Shadowlands>;
+static_assert(!HasOcclusion<WdtOld>, "the _occ/_lgt satellites are WoD+");
+static_assert(HasOcclusion<WdtWod>);
+static_assert(HasLights<WdtWod>);
+static_assert(!HasFogs<WdtWod>, "the _fogs satellite is Legion 7.2.5+");
+static_assert(!HasParticulates<WdtWod>, "the _mpv satellite is BfA+");
+static_assert(HasFogs<WdtNew>);
+static_assert(HasParticulates<WdtNew>);
 
-using WdtLightsWod = formats::wdt::lights::WDTLights<versions::wod>;
-using WdtLightsNew = formats::wdt::lights::WDTLights<versions::shadowlands>;
-static_assert(has_legacy_points<WdtLightsWod>);
-static_assert(!has_points<WdtLightsWod>);
-static_assert(!has_legacy_points<WdtLightsNew>);
-static_assert(has_points<WdtLightsNew>);
-static_assert(has_points_v3<WdtLightsNew>);
+using WdtLightsWod = formats::wdt::lights::WDTLights<versions::Wod>;
+using WdtLightsNew = formats::wdt::lights::WDTLights<versions::Shadowlands>;
+static_assert(HasLegacyPoints<WdtLightsWod>);
+static_assert(!HasPoints<WdtLightsWod>);
+static_assert(!HasLegacyPoints<WdtLightsNew>);
+static_assert(HasPoints<WdtLightsNew>);
+static_assert(HasPointsV3<WdtLightsNew>);
 
-using WdlVanilla = formats::wdl::WDL<versions::vanilla>;
-using WdlTbc = formats::wdl::WDL<versions::tbc>;
-using WdlOld = formats::wdl::WDL<versions::wotlk>;
-using WdlNew = formats::wdl::WDL<versions::shadowlands>;
-using WdlTww = formats::wdl::WDL<versions::tww>;
-static_assert(!has_holes<WdlVanilla>, "MAHO debuts in TBC, so vanilla carries none");
-static_assert(has_holes<WdlTbc>, "MAHO debuts in TBC (not WotLK, pace wowdev.wiki)");
-static_assert(has_occ_meshes<WdlVanilla>);
-static_assert(has_holes<WdlOld>);
-static_assert(!has_lod_doodads<WdlOld>);
-static_assert(!has_occ_meshes<WdlNew>, "MAOC is pre-Legion");
-static_assert(has_lod_doodads<WdlNew>);
-static_assert(has_ocean_masks<WdlNew>);
-static_assert(has_sky_scenes<WdlNew>);
-static_assert(!has_scene_living<WdlNew>, "MSLD is TWW+");
-static_assert(has_scene_living<WdlTww>);
+using WdlVanilla = formats::wdl::WDL<versions::Vanilla>;
+using WdlTbc = formats::wdl::WDL<versions::Tbc>;
+using WdlOld = formats::wdl::WDL<versions::Wotlk>;
+using WdlNew = formats::wdl::WDL<versions::Shadowlands>;
+using WdlTww = formats::wdl::WDL<versions::Tww>;
+static_assert(!HasHoles<WdlVanilla>, "MAHO debuts in TBC, so vanilla carries none");
+static_assert(HasHoles<WdlTbc>, "MAHO debuts in TBC (not WotLK, pace wowdev.wiki)");
+static_assert(HasOccMeshes<WdlVanilla>);
+static_assert(HasHoles<WdlOld>);
+static_assert(!HasLodDoodads<WdlOld>);
+static_assert(!HasOccMeshes<WdlNew>, "MAOC is pre-Legion");
+static_assert(HasLodDoodads<WdlNew>);
+static_assert(HasOceanMasks<WdlNew>);
+static_assert(HasSkyScenes<WdlNew>);
+static_assert(!HasSceneLiving<WdlNew>, "MSLD is TWW+");
+static_assert(HasSceneLiving<WdlTww>);
 
 // every version collapses onto its range representative; MAHO splits vanilla
 // (MARE only) from TBC..WoD (MARE + hole masks), which share one instantiation
-static_assert(!std::is_same_v<formats::wdl::WDL<versions::vanilla>,
-                              formats::wdl::WDL<versions::tbc>>);
-static_assert(std::is_same_v<formats::wdl::WDL<versions::tbc>,
-                             formats::wdl::WDL<versions::wotlk>>);
-static_assert(std::is_same_v<formats::wdl::WDL<versions::wotlk>,
-                             formats::wdl::WDL<versions::wod>>);
-static_assert(std::is_same_v<formats::wdt::WDT<versions::vanilla>,
-                             formats::wdt::WDT<versions::mop>>);
-static_assert(!std::is_same_v<formats::wdt::WDT<versions::mop>,
-                              formats::wdt::WDT<versions::wod>>);
-static_assert(std::is_same_v<formats::wdt::root::WDTRoot<versions::vanilla>,
-                             formats::wdt::root::WDTRoot<versions::legion>>);
-static_assert(std::is_same_v<formats::wdt::WDT<versions::shadowlands>,
-                             formats::wdt::WDT<versions::dragonflight>>);
+static_assert(!std::is_same_v<formats::wdl::WDL<versions::Vanilla>,
+                              formats::wdl::WDL<versions::Tbc>>);
+static_assert(std::is_same_v<formats::wdl::WDL<versions::Tbc>,
+                             formats::wdl::WDL<versions::Wotlk>>);
+static_assert(std::is_same_v<formats::wdl::WDL<versions::Wotlk>,
+                             formats::wdl::WDL<versions::Wod>>);
+static_assert(std::is_same_v<formats::wdt::WDT<versions::Vanilla>,
+                             formats::wdt::WDT<versions::Mop>>);
+static_assert(!std::is_same_v<formats::wdt::WDT<versions::Mop>,
+                              formats::wdt::WDT<versions::Wod>>);
+static_assert(std::is_same_v<formats::wdt::root::WDTRoot<versions::Vanilla>,
+                             formats::wdt::root::WDTRoot<versions::Legion>>);
+static_assert(std::is_same_v<formats::wdt::WDT<versions::Shadowlands>,
+                             formats::wdt::WDT<versions::Dragonflight>>);

@@ -30,13 +30,13 @@
 
 namespace wowlib::formats::adt::detail {
   /** The edge length of the decoded square edit surface (64). */
-  inline constexpr std::size_t alpha_dim = 64;
+  inline constexpr std::size_t AlphaDim = 64;
   /** The texel count of a decoded map (64 * 64 = 4096). */
-  inline constexpr std::size_t alpha_texels = alpha_dim * alpha_dim;
+  inline constexpr std::size_t AlphaTexels = AlphaDim * AlphaDim;
   /** The on-disk size of a 4-bit alpha map (4096 / 2 = 2048 bytes). */
-  inline constexpr std::size_t alpha_4bit_bytes = alpha_texels / 2;
+  inline constexpr std::size_t Alpha4bitBytes = AlphaTexels / 2;
   /** The on-disk size of a 1-bit shadow bitmap (4096 / 8 = 512 bytes). */
-  inline constexpr std::size_t shadow_bytes = alpha_texels / 8;
+  inline constexpr std::size_t ShadowBytes = AlphaTexels / 8;
 
   /** Shared geometry for the 64x64 terrain map codecs: the last-row/column
       repair the client applies to "unfixed" maps on load. Not instantiated on
@@ -47,9 +47,9 @@ namespace wowlib::formats::adt::detail {
         disk and the client copies their neighbours. Applied on read when the
         MCNK do_not_fix_alpha flag is clear, so wowlib always holds the full grid.
         @param map the 4096-texel edit surface to repair in place. */
-    static void fix_last_row_col(std::span<std::uint8_t> map) {
-      for (std::size_t r = 0; r < alpha_dim; ++r) map[r * alpha_dim + 63] = map[r * alpha_dim + 62];
-      for (std::size_t c = 0; c < alpha_dim; ++c) map[63 * alpha_dim + c] = map[62 * alpha_dim + c];
+    static void _fixLastRowCol(std::span<std::uint8_t> map) {
+      for (std::size_t r = 0; r < AlphaDim; ++r) map[r * AlphaDim + 63] = map[r * AlphaDim + 62];
+      for (std::size_t c = 0; c < AlphaDim; ++c) map[63 * AlphaDim + c] = map[62 * AlphaDim + c];
     }
   };
 
@@ -60,22 +60,22 @@ namespace wowlib::formats::adt::detail {
   class AlphaMapCodec : TerrainMapCodec {
   public:
     /** @param format the tile's on-disk alpha bit depth (from the WDT MPHD). */
-    explicit AlphaMapCodec(AlphaFormat format) noexcept : format_{format} {}
+    explicit AlphaMapCodec(AlphaFormat format) noexcept : _format{format} {}
 
     /** Decode one layer's on-disk alpha bytes to the 4096-texel edit surface.
         @param src        the layer's on-disk alpha bytes.
         @param compressed whether the layer is RLE-compressed (MCLY flag 0x200);
                           overrides the bit depth when set.
-        @param fix_edges  whether to repair the 63x63 "unfixed" form (MCNK flag
+        @param fixEdges  whether to repair the 63x63 "unfixed" form (MCNK flag
                           do_not_fix_alpha clear).
         @return the decoded 4096-texel map. */
     [[nodiscard]]
-    std::vector<std::uint8_t> decode(std::span<const std::byte> src, bool compressed, bool fix_edges) const {
+    std::vector<std::uint8_t> decode(std::span<const std::byte> src, bool compressed, bool fixEdges) const {
       std::vector<std::uint8_t> map;
       if (compressed) decode_rle(src, map);
-      else if (format_ == AlphaFormat::highres_8bit) decode_8bit(src, map);
+      else if (_format == AlphaFormat::Highres8Bit) decode_8bit(src, map);
       else decode_4bit(src, map);
-      if (fix_edges) fix_last_row_col(map);
+      if (fixEdges) _fixLastRowCol(map);
       return map;
     }
 
@@ -86,7 +86,7 @@ namespace wowlib::formats::adt::detail {
         @param out        the destination byte buffer, appended to. */
     void encode(std::span<const std::uint8_t> map, bool compressed, std::vector<std::byte>& out) const {
       if (compressed) encode_rle(map, out);
-      else if (format_ == AlphaFormat::highres_8bit) encode_8bit(map, out);
+      else if (_format == AlphaFormat::Highres8Bit) encode_8bit(map, out);
       else encode_4bit(map, out);
     }
 
@@ -95,8 +95,8 @@ namespace wowlib::formats::adt::detail {
         @param src the on-disk 4-bit bytes.
         @param out the decoded surface, resized to 4096. */
     void decode_4bit(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
-      out.resize(alpha_texels);
-      for (std::size_t i = 0; i < alpha_4bit_bytes && i < src.size(); ++i) {
+      out.resize(AlphaTexels);
+      for (std::size_t i = 0; i < Alpha4bitBytes && i < src.size(); ++i) {
         const auto b = std::to_integer<std::uint8_t>(src[i]);
         out[2 * i] = static_cast<std::uint8_t>((b & 0x0F) * 0x11);
         out[2 * i + 1] = static_cast<std::uint8_t>((b >> 4) * 0x11);
@@ -107,8 +107,8 @@ namespace wowlib::formats::adt::detail {
         @param src the on-disk 8-bit bytes.
         @param out the decoded surface, resized to 4096. */
     void decode_8bit(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
-      out.resize(alpha_texels);
-      for (std::size_t i = 0; i < alpha_texels && i < src.size(); ++i) out[i] = std::to_integer<std::uint8_t>(src[i]);
+      out.resize(AlphaTexels);
+      for (std::size_t i = 0; i < AlphaTexels && i < src.size(); ++i) out[i] = std::to_integer<std::uint8_t>(src[i]);
     }
 
     /** Decode a Blizzard RLE map (8-bit) to 4096 texels. Tolerates the known
@@ -117,31 +117,31 @@ namespace wowlib::formats::adt::detail {
         @param out the decoded surface, resized to 4096. */
     void decode_rle(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
       out.clear();
-      out.reserve(alpha_texels);
+      out.reserve(AlphaTexels);
       std::size_t p = 0;
-      while (out.size() < alpha_texels && p < src.size()) {
+      while (out.size() < AlphaTexels && p < src.size()) {
         const auto control = std::to_integer<std::uint8_t>(src[p++]);
         const std::size_t count = control & 0x7F;
         if (control & 0x80) // fill
         {
           if (p >= src.size()) break;
           const auto value = std::to_integer<std::uint8_t>(src[p++]);
-          for (std::size_t k = 0; k < count && out.size() < alpha_texels; ++k) out.push_back(value);
+          for (std::size_t k = 0; k < count && out.size() < AlphaTexels; ++k) out.push_back(value);
         }
         else // copy
         {
-          for (std::size_t k = 0; k < count && out.size() < alpha_texels && p < src.size(); ++k) out.push_back(
+          for (std::size_t k = 0; k < count && out.size() < AlphaTexels && p < src.size(); ++k) out.push_back(
             std::to_integer<std::uint8_t>(src[p++]));
         }
       }
-      out.resize(alpha_texels);
+      out.resize(AlphaTexels);
     }
 
     /** Encode 4096 texels to a 2048-byte 4-bit map (texel >> 4).
         @param map the 4096-texel surface.
         @param out the destination buffer, appended to. */
     void encode_4bit(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
-      for (std::size_t i = 0; i < alpha_4bit_bytes; ++i) {
+      for (std::size_t i = 0; i < Alpha4bitBytes; ++i) {
         const auto lo = static_cast<std::uint8_t>(map[2 * i] >> 4);
         const auto hi = static_cast<std::uint8_t>(map[2 * i + 1] >> 4);
         out.push_back(static_cast<std::byte>(lo | (hi << 4)));
@@ -162,38 +162,38 @@ namespace wowlib::formats::adt::detail {
         @param map the 4096-texel surface.
         @param out the destination buffer, appended to. */
     void encode_rle(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
-      for (std::size_t row = 0; row < alpha_dim; ++row) {
-        const std::uint8_t* r = map.data() + row * alpha_dim;
+      for (std::size_t row = 0; row < AlphaDim; ++row) {
+        const std::uint8_t* r = map.data() + row * AlphaDim;
         std::size_t i = 0;
-        std::size_t copy_start = alpha_dim + 1; // "none"
-        const auto flush_copy = [&](std::size_t end) {
-          if (copy_start > alpha_dim) return;
-          out.push_back(static_cast<std::byte>(end - copy_start));
+        std::size_t copyStart = AlphaDim + 1; // "none"
+        const auto flushCopy = [&](std::size_t end) {
+          if (copyStart > AlphaDim) return;
+          out.push_back(static_cast<std::byte>(end - copyStart));
           // copy, count
-          for (std::size_t k = copy_start; k < end; ++k) out.push_back(static_cast<std::byte>(r[k]));
-          copy_start = alpha_dim + 1;
+          for (std::size_t k = copyStart; k < end; ++k) out.push_back(static_cast<std::byte>(r[k]));
+          copyStart = AlphaDim + 1;
         };
-        while (i < alpha_dim) {
+        while (i < AlphaDim) {
           std::size_t run = 1;
-          while (i + run < alpha_dim && r[i + run] == r[i]) ++run;
+          while (i + run < AlphaDim && r[i + run] == r[i]) ++run;
           if (run >= 3) {
-            flush_copy(i);
+            flushCopy(i);
             out.push_back(static_cast<std::byte>(0x80 | run)); // fill
             out.push_back(static_cast<std::byte>(r[i]));
             i += run;
           }
           else {
-            if (copy_start > alpha_dim) copy_start = i;
+            if (copyStart > AlphaDim) copyStart = i;
             ++i;
           }
         }
-        flush_copy(alpha_dim);
+        flushCopy(AlphaDim);
       }
     }
 
   private:
     /** The tile's on-disk alpha bit depth. */
-    AlphaFormat format_;
+    AlphaFormat _format;
   };
 
   /** The MCSH shadow-map codec: a 512-byte 1-bit bitmap on disk, a 4096-texel
@@ -204,16 +204,16 @@ namespace wowlib::formats::adt::detail {
   public:
     /** Decode a 512-byte 1-bit shadow bitmap to 4096 texels (0/1), LSB first.
         @param src       the on-disk 1-bit bytes.
-        @param fix_edges whether to repair the 63x63 "unfixed" form.
+        @param fixEdges whether to repair the 63x63 "unfixed" form.
         @return the decoded 4096-texel map. */
     [[nodiscard]]
-    std::vector<std::uint8_t> decode(std::span<const std::byte> src, bool fix_edges) const {
-      std::vector<std::uint8_t> map(alpha_texels, 0);
-      for (std::size_t i = 0; i < alpha_texels && i / 8 < src.size(); ++i) {
+    std::vector<std::uint8_t> decode(std::span<const std::byte> src, bool fixEdges) const {
+      std::vector<std::uint8_t> map(AlphaTexels, 0);
+      for (std::size_t i = 0; i < AlphaTexels && i / 8 < src.size(); ++i) {
         const auto b = std::to_integer<std::uint8_t>(src[i / 8]);
         map[i] = (b >> (i % 8)) & 1;
       }
-      if (fix_edges) fix_last_row_col(map);
+      if (fixEdges) _fixLastRowCol(map);
       return map;
     }
 
@@ -221,7 +221,7 @@ namespace wowlib::formats::adt::detail {
         @param map the 4096-texel surface.
         @param out the destination buffer, appended to. */
     void encode(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
-      for (std::size_t byte = 0; byte < shadow_bytes; ++byte) {
+      for (std::size_t byte = 0; byte < ShadowBytes; ++byte) {
         std::uint8_t packed = 0;
         for (std::size_t bit = 0; bit < 8; ++bit)
           if (map[byte * 8 + bit] & 1) packed |= static_cast<std::uint8_t>(1 << bit);

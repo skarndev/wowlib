@@ -21,11 +21,11 @@
 
 namespace wowlib::db::detail {
   /** Read a little-endian integer of @a bytes bytes at @a pos, sign-extended
-      when @a is_signed, advancing @a pos. */
-  std::int64_t read_int(std::span<const std::byte> image, std::size_t& pos, std::size_t bytes, bool is_signed);
+      when @a isSigned, advancing @a pos. */
+  std::int64_t readInt(std::span<const std::byte> image, std::size_t& pos, std::size_t bytes, bool isSigned);
 
   /** Append @a value's low @a bytes bytes (little-endian) to @a out. */
-  void write_int(FileBuffer& out, std::int64_t value, std::size_t bytes);
+  void writeInt(FileBuffer& out, std::int64_t value, std::size_t bytes);
 
   /** A writable string block resolving values to byte-perfect offsets: the
       journaled original offset while the value still matches, else an equal
@@ -44,7 +44,7 @@ namespace wowlib::db::detail {
 
   /** Decode one fixed-stride record's inline fields into @a sink and journal its
       string offsets (record then schema then element order). */
-  void decode_inline_record(std::span<const Column> schema,
+  void decodeInlineRecord(std::span<const Column> schema,
                             std::size_t record,
                             std::span<const std::byte> image,
                             RecordSink& sink,
@@ -52,7 +52,7 @@ namespace wowlib::db::detail {
 
   /** Encode one fixed-stride record's inline fields from @a source, appending to
       @a out and resolving strings through @a pool (@a cursor tracks the journal). */
-  void encode_inline_record(std::span<const Column> schema,
+  void encodeInlineRecord(std::span<const Column> schema,
                             const RecordSource& source,
                             std::size_t record,
                             FileBuffer& out,

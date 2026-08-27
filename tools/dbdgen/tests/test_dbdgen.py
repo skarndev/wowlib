@@ -133,18 +133,18 @@ class EmitTest(unittest.TestCase):
         header = emit_table("Widget", self._ranges())
         # Each record specialization carries its own weld (so its per-range alias
         # participates in the welder walk) besides inheriting the row supertype.
-        self.assertIn("WidgetRecord<versions::vanilla> : db::rowbase::Widget", header)
-        self.assertIn("WidgetRecord<versions::wotlk> : db::rowbase::Widget", header)
-        self.assertNotIn("versions::tbc>", header)  # no tbc block
-        self.assertIn("[[=db::id]]\n      std::int32_t id = 0;", header)
+        self.assertIn("WidgetRecord<versions::Vanilla> : db::rowbase::Widget", header)
+        self.assertIn("WidgetRecord<versions::Wotlk> : db::rowbase::Widget", header)
+        self.assertNotIn("versions::Tbc>", header)  # no tbc block
+        self.assertIn("[[=db::Id]]\n      std::int32_t id = 0;", header)
         self.assertIn("std::array<std::uint32_t, 2> flags{};", header)
         # grid/pivots live in detail (kept off the db.tables module surface).
         self.assertIn("inline constexpr std::array<ClientVersion, 2> "
-                      "widget_grid{versions::vanilla, versions::wotlk};", header)
-        self.assertIn("widget_pivots{versions::wotlk};", header)
+                      "widget_grid{versions::Vanilla, versions::Wotlk};", header)
+        self.assertIn("widget_pivots{versions::Wotlk};", header)
         self.assertIn("detail::widget_pivots, detail::widget_grid", header)
         # A ranges table checked against C++ range_suffix guards naming drift.
-        self.assertIn("static_assert(formats::ranges_valid(widget_ranges, "
+        self.assertIn("static_assert(formats::rangesValid(widget_ranges, "
                       "widget_pivots, widget_grid));", header)
         # Welded bases + wrapper for the Python/Lua binding surface.
         self.assertIn("=welder::weld,", header)
@@ -156,8 +156,8 @@ class EmitTest(unittest.TestCase):
         # the method surface is INHERITED — the class contributes records + wiring
         self.assertIn("std::vector<WidgetRecord<V>> records;", header)
         self.assertIn("mark::exclude(welder::lang::py)", header)
-        self.assertIn("core_.wire(&records", header)
-        self.assertIn("using Widget = detail::WidgetTable<formats::canonical_version("
+        self.assertIn("_core.wire(&records", header)
+        self.assertIn("using Widget = detail::WidgetTable<formats::canonicalVersion("
                       "V, detail::widget_pivots, detail::widget_grid)>;", header)
 
     _NOLOC = """\

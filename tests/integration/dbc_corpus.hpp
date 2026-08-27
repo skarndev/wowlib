@@ -34,7 +34,7 @@ namespace wowlib::tests
   };
 
   /** Locate the first divergent byte and describe which region it lands in. */
-  inline std::string describe_divergence(std::span<const std::byte> original,
+  inline std::string describeDivergence(std::span<const std::byte> original,
                                          std::span<const std::byte> written)
   {
     const std::size_t common = std::min(original.size(), written.size());
@@ -44,20 +44,20 @@ namespace wowlib::tests
     db::WdbcHeader header{};
     std::memcpy(&header, original.data(), std::min(sizeof header, original.size()));
     std::string region = "header";
-    if (at >= sizeof header + std::size_t{header.record_count} * header.record_size)
+    if (at >= sizeof header + std::size_t{header.recordCount} * header.recordSize)
       region = "string block";
     else if (at >= sizeof header)
-      region = std::format("record {} byte {}", (at - sizeof header) / header.record_size,
-                           (at - sizeof header) % header.record_size);
+      region = std::format("record {} byte {}", (at - sizeof header) / header.recordSize,
+                           (at - sizeof header) % header.recordSize);
     return std::format("first divergence at {:#x} ({}), sizes {} vs {}", at, region,
                        original.size(), written.size());
   }
 
   /** Sweep one table: read, decode, re-encode, memcmp. */
   template <typename Tbl>
-  void sweep_table(fs::MpqStorage& storage, std::string_view name, CorpusStats& stats)
+  void sweepTable(fs::MpqStorage& storage, std::string_view name, CorpusStats& stats)
   {
-    const auto data = storage.read_file(FileKey{std::format("DBFilesClient/{}.dbc", name)});
+    const auto data = storage.readFile(FileKey{std::format("DBFilesClient/{}.dbc", name)});
     if (!data)
     {
       ++stats.missing;
@@ -80,7 +80,7 @@ namespace wowlib::tests
     }
     // a freshly read, unmodified client table passes validation with zero
     // errors (every stored value fits its column, ids are unique)
-    if (const auto valid = table.ensure_valid(); !valid)
+    if (const auto valid = table.ensureValid(); !valid)
       stats.failures.push_back(std::format("{}: {}", name, valid.error().message));
     const auto written = table.write();
     if (!written)
@@ -92,7 +92,7 @@ namespace wowlib::tests
     if (written->size() != data->size()
         || std::memcmp(written->data(), data->data(), data->size()) != 0)
       stats.failures.push_back(
-        std::format("{}: {}", name, describe_divergence(*data, *written)));
+        std::format("{}: {}", name, describeDivergence(*data, *written)));
   }
 
   /** Sweep one table of a mixed .dbc/.db2 era (Cata..WoD): try
@@ -103,14 +103,14 @@ namespace wowlib::tests
       @param name    the WoWDBDefs table name.
       @param stats   the sweep tally. */
   template <typename Tbl>
-  void sweep_table_mixed(fs::MpqStorage& storage, std::string_view name, CorpusStats& stats)
+  void sweepTableMixed(fs::MpqStorage& storage, std::string_view name, CorpusStats& stats)
   {
     // The one family whose identifier differs from its on-disk name: dbdgen
     // renames the hyphenated "Item-sparse" table to ItemSparseLegacy.
     const std::string base = name == "ItemSparseLegacy" ? "Item-sparse" : std::string{name};
-    auto data = storage.read_file(FileKey{std::format("DBFilesClient/{}.db2", base)});
+    auto data = storage.readFile(FileKey{std::format("DBFilesClient/{}.db2", base)});
     if (!data)
-      data = storage.read_file(FileKey{std::format("DBFilesClient/{}.dbc", base)});
+      data = storage.readFile(FileKey{std::format("DBFilesClient/{}.dbc", base)});
     if (!data)
     {
       ++stats.missing;
@@ -131,7 +131,7 @@ namespace wowlib::tests
     }
     // a freshly read, unmodified client table passes validation with zero
     // errors (every stored value fits its column, ids are unique)
-    if (const auto valid = table.ensure_valid(); !valid)
+    if (const auto valid = table.ensureValid(); !valid)
       stats.failures.push_back(std::format("{}: {}", name, valid.error().message));
     const auto written = table.write();
     if (!written)
@@ -143,11 +143,11 @@ namespace wowlib::tests
     if (written->size() != data->size()
         || std::memcmp(written->data(), data->data(), data->size()) != 0)
       stats.failures.push_back(
-        std::format("{}: {}", name, describe_divergence(*data, *written)));
+        std::format("{}: {}", name, describeDivergence(*data, *written)));
   }
 
   /** The failure list joined for a single INFO() block. */
-  inline std::string join_failures(const CorpusStats& stats)
+  inline std::string joinFailures(const CorpusStats& stats)
   {
     std::string out;
     for (const std::string& failure : stats.failures)
@@ -171,7 +171,7 @@ namespace wowlib::tests
       single paths but does not enumerate).
       @param csv the listfile path.
       @return the lowercased db2 paths. */
-  inline std::vector<std::string> db2_paths(const std::filesystem::path& csv)
+  inline std::vector<std::string> db2Paths(const std::filesystem::path& csv)
   {
     std::vector<std::string> out;
     std::ifstream in{csv};
@@ -203,20 +203,20 @@ namespace wowlib::tests
       @param listfile the loaded community listfile.
       @param csv      the listfile path (enumerated directly).
       @param stats    the sweep tally. */
-  inline void sweep_db2_images(fs::CascStorage& storage, const fs::CsvListfile& listfile,
+  inline void sweepDb2Images(fs::CascStorage& storage, const fs::CsvListfile& listfile,
                                const std::filesystem::path& csv, ImageStats& stats)
   {
-    for (const std::string& path : db2_paths(csv))
+    for (const std::string& path : db2Paths(csv))
     {
-      const auto fdid = listfile.path_to_fdid(path);
+      const auto fdid = listfile.pathToFdid(path);
       if (!fdid)
         continue;
-      const auto data = storage.read_file(FileKey{*fdid});
+      const auto data = storage.readFile(FileKey{*fdid});
       if (!data || data->size() < 4)
         continue;
       std::uint32_t magic = 0;
       std::memcpy(&magic, data->data(), 4);
-      if (!db::wdc::is_wdc_magic(magic))
+      if (!db::wdc::isWdcMagic(magic))
         continue;  // pre-Legion WDB2 images are swept typed instead
       ++stats.present;
       const auto img = db::wdc::WdcImage::parse(*data);
@@ -233,7 +233,7 @@ namespace wowlib::tests
   }
 
   /** The image-sweep failure list joined for a single INFO() block. */
-  inline std::string join_failures(const ImageStats& stats)
+  inline std::string joinFailures(const ImageStats& stats)
   {
     std::string out;
     for (const std::string& failure : stats.failures)
@@ -254,11 +254,11 @@ namespace wowlib::tests
       @param listfile the loaded community listfile.
       @param name     the WoWDBDefs table name.
       @param stats    the sweep tally.
-      @param byte_perfect require memcmp equality (WDB2) instead of the
+      @param bytePerfect require memcmp equality (WDB2) instead of the
                           semantic compare (WDC*). */
   template <typename Tbl>
-  void sweep_table_casc(fs::CascStorage& storage, const fs::CsvListfile& listfile,
-                        std::string_view name, CorpusStats& stats, bool byte_perfect)
+  void sweepTableCasc(fs::CascStorage& storage, const fs::CsvListfile& listfile,
+                        std::string_view name, CorpusStats& stats, bool bytePerfect)
   {
     std::string base = name == "ItemSparseLegacy" ? "Item-sparse" : std::string{name};
     for (char& c : base)
@@ -269,13 +269,13 @@ namespace wowlib::tests
     // table that is .dbc here still resolves its later .db2 name to a
     // FileDataID this client does not carry (that alone hid 94 of 6.2.3's
     // 164 present tables).
-    Result<FileBuffer> data = make_error(ErrorCode::FileNotFound, "no candidate");
+    Result<FileBuffer> data = makeError(ErrorCode::FileNotFound, "no candidate");
     for (const char* ext : {"db2", "dbc"})
     {
-      const auto fdid = listfile.path_to_fdid(std::format("dbfilesclient/{}.{}", base, ext));
+      const auto fdid = listfile.pathToFdid(std::format("dbfilesclient/{}.{}", base, ext));
       if (!fdid)
         continue;
-      if (auto candidate = storage.read_file(FileKey{*fdid}))
+      if (auto candidate = storage.readFile(FileKey{*fdid}))
       {
         data = std::move(candidate);
         break;
@@ -301,7 +301,7 @@ namespace wowlib::tests
     }
     // a freshly read, unmodified client table passes validation with zero
     // errors (every stored value fits its column, ids are unique)
-    if (const auto valid = table.ensure_valid(); !valid)
+    if (const auto valid = table.ensureValid(); !valid)
       stats.failures.push_back(std::format("{}: {}", name, valid.error().message));
     const auto written = table.write();
     if (!written)
@@ -311,9 +311,9 @@ namespace wowlib::tests
       return;
     }
 
-    bool preserve = byte_perfect;
-    if constexpr (requires { table.encrypted_sections(); })
-      preserve = preserve || !table.encrypted_sections().empty();
+    bool preserve = bytePerfect;
+    if constexpr (requires { table.encryptedSections(); })
+      preserve = preserve || !table.encryptedSections().empty();
     if (preserve)
     {
       // WDB2 round-trips byte-perfectly; an encrypted WDC image is preserved
@@ -321,7 +321,7 @@ namespace wowlib::tests
       if (written->size() != data->size()
           || std::memcmp(written->data(), data->data(), data->size()) != 0)
         stats.failures.push_back(
-          std::format("{}: {}", name, describe_divergence(*data, *written)));
+          std::format("{}: {}", name, describeDivergence(*data, *written)));
       return;
     }
 
@@ -338,9 +338,9 @@ namespace wowlib::tests
     }
     if constexpr (requires { table.records.front().id; })
     {
-      const auto by_id = [](const auto& a, const auto& b) { return a.id < b.id; };
-      std::ranges::sort(table.records, by_id);
-      std::ranges::sort(reread.records, by_id);
+      const auto byId = [](const auto& a, const auto& b) { return a.id < b.id; };
+      std::ranges::sort(table.records, byId);
+      std::ranges::sort(reread.records, byId);
     }
     if (reread.records != table.records)
       stats.failures.push_back(std::format(

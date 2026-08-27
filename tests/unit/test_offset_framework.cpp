@@ -17,20 +17,20 @@ using namespace wowlib::formats::m2;
 namespace
 {
   // A version boundary for gated members, plus one version on each side.
-  inline constexpr ClientVersion boundary{5, 0, 0, 0};
-  inline constexpr ClientVersion old_v = versions::wotlk;
-  inline constexpr ClientVersion new_v = versions::shadowlands;
+  inline constexpr ClientVersion Boundary{5, 0, 0, 0};
+  inline constexpr ClientVersion OldV = versions::Wotlk;
+  inline constexpr ClientVersion NewV = versions::Shadowlands;
 
   // M2Track-shaped nested record: inline scalars + per-sequence nested arrays.
   struct TestTrack
   {
     std::uint16_t interpolation = 0;
-    std::uint16_t global_sequence = 0xFFFF;
+    std::uint16_t globalSequence = 0xFFFF;
 
-    [[=formats::sequence_data]]
+    [[=formats::SequenceData]]
     std::vector<std::vector<std::uint32_t>> timestamps;
 
-    [[=formats::sequence_data]]
+    [[=formats::SequenceData]]
     std::vector<std::vector<float>> values;
 
     bool operator==(const TestTrack&) const = default;
@@ -47,18 +47,18 @@ namespace
     bool operator==(const TestRecord&) const = default;
   };
 
-  static_assert(layout_size<TestTrack, old_v>() == 20);
-  static_assert(layout_size<TestRecord, old_v>() == 40);
-  static_assert(layout_size<std::vector<std::vector<float>>, old_v>() == 8);
-  static_assert(layout_size<std::string, old_v>() == 8);
+  static_assert(layoutSize<TestTrack, OldV>() == 20);
+  static_assert(layoutSize<TestRecord, OldV>() == 40);
+  static_assert(layoutSize<std::vector<std::vector<float>>, OldV>() == 8);
+  static_assert(layoutSize<std::string, OldV>() == 8);
 
   namespace traits
   {
     /** Pre-boundary-only members (conditionally inherited). */
     struct ModelOld
     {
-      [[=until(boundary), =offset_after("name")]]
-      std::vector<std::uint32_t> old_refs;
+      [[=until(Boundary), =offsetAfter("name")]]
+      std::vector<std::uint32_t> oldRefs;
 
       bool operator==(const ModelOld&) const = default;
     };
@@ -66,8 +66,8 @@ namespace
     /** Post-boundary-only members (conditionally inherited). */
     struct ModelNew
     {
-      [[=since(boundary), =offset_after("records")]]
-      std::vector<std::uint64_t> new_refs;
+      [[=since(Boundary), =offsetAfter("records")]]
+      std::vector<std::uint64_t> newRefs;
 
       bool operator==(const ModelNew&) const = default;
     };
@@ -75,28 +75,28 @@ namespace
 
   template <ClientVersion V>
   struct TestModel : M2OffsetBlock<TestModel<V>>,
-                     slot<V, ClientVersion{0, 0, 0, 0}, traits::ModelOld, boundary>,
-                     slot<V, boundary, traits::ModelNew>
+                     Slot<V, ClientVersion{0, 0, 0, 0}, traits::ModelOld, Boundary>,
+                     Slot<V, Boundary, traits::ModelNew>
   {
-    static constexpr ClientVersion version = V;
+    static constexpr ClientVersion Version = V;
 
-    // Layout order = own declaration order; the trait members' offset_after
-    // anchors interleave them (old_refs after name, new_refs after records),
+    // Layout order = own declaration order; the trait members' offsetAfter
+    // anchors interleave them (oldRefs after name, newRefs after records),
     // proving flatten order does not leak onto the layout.
     std::uint32_t magic = 0x3244544D;  // 'MTD2'
-    std::uint32_t format_version = 264;
-    std::uint32_t global_flags = 0;
+    std::uint32_t formatVersion = 264;
+    std::uint32_t globalFlags = 0;
     std::string name;
     std::vector<TestRecord> records;
 
-    [[=gated_by(0x8)]]
+    [[=gatedBy(0x8)]]
     std::vector<std::uint16_t> combos;
 
     bool operator==(const TestModel&) const = default;
   };
 
-  using OldModel = TestModel<old_v>;
-  using NewModel = TestModel<new_v>;
+  using OldModel = TestModel<OldV>;
+  using NewModel = TestModel<NewV>;
 
   static_assert(OffsetEntity<OldModel>);
   static_assert(OffsetEntity<NewModel>);
@@ -105,7 +105,7 @@ namespace
 
   /** A model with every member kind populated. */
   template <ClientVersion V>
-  TestModel<V> sample_model()
+  TestModel<V> sampleModel()
   {
     TestModel<V> m;
     m.name = "creature/test/test.mdx";
@@ -118,12 +118,12 @@ namespace
     r0.indices = {1, 2, 3, 4};
     TestRecord r1;
     r1.id = 8;
-    r1.track.global_sequence = 2;
+    r1.track.globalSequence = 2;
     m.records = {r0, r1};
-    if constexpr (requires { m.old_refs; })
-      m.old_refs = {10, 11, 12};
-    if constexpr (requires { m.new_refs; })
-      m.new_refs = {100, 200};
+    if constexpr (requires { m.oldRefs; })
+      m.oldRefs = {10, 11, 12};
+    if constexpr (requires { m.newRefs; })
+      m.newRefs = {100, 200};
     return m;
   }
 
@@ -138,11 +138,11 @@ namespace
   }
 
   template <typename T>
-  concept has_new_refs = requires(T e) { e.new_refs; };
+  concept HasNewRefs = requires(T e) { e.newRefs; };
   template <typename T>
-  concept has_old_refs = requires(T e) { e.old_refs; };
+  concept HasOldRefs = requires(T e) { e.oldRefs; };
 
-  std::uint32_t u32_at(std::span<const std::byte> bytes, std::size_t pos)
+  std::uint32_t u32At(std::span<const std::byte> bytes, std::size_t pos)
   {
     std::uint32_t v = 0;
     REQUIRE(pos + 4 <= bytes.size());
@@ -153,7 +153,7 @@ namespace
 
 TEST_CASE("offset entity round-trips all member kinds", "[formats][offset]")
 {
-  const auto m = sample_model<old_v>();
+  const auto m = sampleModel<OldV>();
   auto bytes = m.write();
   REQUIRE(bytes.has_value());
   const auto back = reread<OldModel>(*bytes);
@@ -163,59 +163,59 @@ TEST_CASE("offset entity round-trips all member kinds", "[formats][offset]")
 TEST_CASE("offset_after anchors interleave trait members at their layout positions",
           "[formats][offset]")
 {
-  const auto m = sample_model<old_v>();
+  const auto m = sampleModel<OldV>();
   auto bytes = m.write();
   REQUIRE(bytes.has_value());
-  // image: magic(4) version(4) flags(4) name(8) old_refs(8) records(8) = 36
-  // (combos gated off, new_refs inactive for old_v).
-  CHECK(u32_at(*bytes, 0) == 0x3244544D);
-  CHECK(u32_at(*bytes, 4) == 264);
-  CHECK(u32_at(*bytes, 8) == 0);
-  CHECK(u32_at(*bytes, 12) == m.name.size() + 1);  // name count includes NUL
-  CHECK(u32_at(*bytes, 20) == 3);                  // old_refs count before records
-  CHECK(u32_at(*bytes, 28) == 2);                  // records count
+  // image: magic(4) version(4) flags(4) name(8) oldRefs(8) records(8) = 36
+  // (combos gated off, newRefs inactive for OldV).
+  CHECK(u32At(*bytes, 0) == 0x3244544D);
+  CHECK(u32At(*bytes, 4) == 264);
+  CHECK(u32At(*bytes, 8) == 0);
+  CHECK(u32At(*bytes, 12) == m.name.size() + 1);  // name count includes NUL
+  CHECK(u32At(*bytes, 20) == 3);                  // oldRefs count before records
+  CHECK(u32At(*bytes, 28) == 2);                  // records count
   // Every block offset is 16-byte aligned.
   for (std::size_t slot : {12u, 20u, 28u})
-    CHECK(u32_at(*bytes, slot + 4) % 16 == 0);
+    CHECK(u32At(*bytes, slot + 4) % 16 == 0);
 }
 
 TEST_CASE("version gating drops the other era's trait members", "[formats][offset]")
 {
-  const auto old_m = sample_model<old_v>();
-  const auto new_m = sample_model<new_v>();
-  auto old_bytes = old_m.write();
-  auto new_bytes = new_m.write();
-  REQUIRE(old_bytes.has_value());
-  REQUIRE(new_bytes.has_value());
+  const auto oldM = sampleModel<OldV>();
+  const auto newM = sampleModel<NewV>();
+  auto oldBytes = oldM.write();
+  auto newBytes = newM.write();
+  REQUIRE(oldBytes.has_value());
+  REQUIRE(newBytes.has_value());
 
-  const auto old_back = reread<OldModel>(*old_bytes);
-  CHECK(old_back.old_refs == std::vector<std::uint32_t>{10, 11, 12});
-  const auto new_back = reread<NewModel>(*new_bytes);
-  CHECK(new_back.new_refs == std::vector<std::uint64_t>{100, 200});
+  const auto oldBack = reread<OldModel>(*oldBytes);
+  CHECK(oldBack.oldRefs == std::vector<std::uint32_t>{10, 11, 12});
+  const auto newBack = reread<NewModel>(*newBytes);
+  CHECK(newBack.newRefs == std::vector<std::uint64_t>{100, 200});
 
-  static_assert(!has_new_refs<OldModel>);
-  static_assert(!has_old_refs<NewModel>);
-  static_assert(has_old_refs<OldModel>);
-  static_assert(has_new_refs<NewModel>);
+  static_assert(!HasNewRefs<OldModel>);
+  static_assert(!HasOldRefs<NewModel>);
+  static_assert(HasOldRefs<OldModel>);
+  static_assert(HasNewRefs<NewModel>);
 }
 
 TEST_CASE("gated members occupy layout bytes only when their flag is set", "[formats][offset]")
 {
-  auto gated_off = sample_model<old_v>();
-  auto gated_on = sample_model<old_v>();
-  gated_on.global_flags = 0x8;
-  gated_on.combos = {5, 6, 7};
+  auto gatedOff = sampleModel<OldV>();
+  auto gatedOn = sampleModel<OldV>();
+  gatedOn.globalFlags = 0x8;
+  gatedOn.combos = {5, 6, 7};
 
-  auto off_bytes = gated_off.write();
-  auto on_bytes = gated_on.write();
-  REQUIRE(off_bytes.has_value());
-  REQUIRE(on_bytes.has_value());
+  auto offBytes = gatedOff.write();
+  auto onBytes = gatedOn.write();
+  REQUIRE(offBytes.has_value());
+  REQUIRE(onBytes.has_value());
 
-  const auto off_back = reread<OldModel>(*off_bytes);
-  CHECK(off_back == gated_off);
-  const auto on_back = reread<OldModel>(*on_bytes);
-  CHECK(on_back == gated_on);
-  CHECK(on_back.combos == std::vector<std::uint16_t>{5, 6, 7});
+  const auto offBack = reread<OldModel>(*offBytes);
+  CHECK(offBack == gatedOff);
+  const auto onBack = reread<OldModel>(*onBytes);
+  CHECK(onBack == gatedOn);
+  CHECK(onBack.combos == std::vector<std::uint16_t>{5, 6, 7});
 }
 
 TEST_CASE("empty vectors and strings write valid slots", "[formats][offset]")
@@ -224,19 +224,19 @@ TEST_CASE("empty vectors and strings write valid slots", "[formats][offset]")
   auto bytes = m.write();
   REQUIRE(bytes.has_value());
   // name: empty string still counts its NUL (client buffer-size semantics)
-  CHECK(u32_at(*bytes, 12) == 1);
-  // old_refs / records: {0, 0}
-  CHECK(u32_at(*bytes, 20) == 0);
-  CHECK(u32_at(*bytes, 24) == 0);
-  CHECK(u32_at(*bytes, 28) == 0);
-  CHECK(u32_at(*bytes, 32) == 0);
+  CHECK(u32At(*bytes, 12) == 1);
+  // oldRefs / records: {0, 0}
+  CHECK(u32At(*bytes, 20) == 0);
+  CHECK(u32At(*bytes, 24) == 0);
+  CHECK(u32At(*bytes, 28) == 0);
+  CHECK(u32At(*bytes, 32) == 0);
   const auto back = reread<OldModel>(*bytes);
   CHECK(back == m);
 }
 
 TEST_CASE("out-of-bounds offsets are structural errors", "[formats][offset]")
 {
-  const auto m = sample_model<old_v>();
+  const auto m = sampleModel<OldV>();
   auto bytes = m.write();
   REQUIRE(bytes.has_value());
   // Corrupt the records array offset to point past the buffer.
@@ -256,13 +256,13 @@ TEST_CASE("out-of-bounds offsets are structural errors", "[formats][offset]")
 
 TEST_CASE("sequence_data routes per-sequence blocks through the contexts", "[formats][offset]")
 {
-  auto m = sample_model<old_v>();
+  auto m = sampleModel<OldV>();
 
   // Route sequence 0 and 2 of every track to external per-sequence buffers,
   // as the M2 .anim split does; sequence 1 stays inline.
   std::map<std::size_t, FileBuffer> anim;
   OffsetWriteContext wctx;
-  wctx.sequence_sink = [&](std::size_t i) -> FileBuffer* {
+  wctx.sequenceSink = [&](std::size_t i) -> FileBuffer* {
     if (i == 1)
       return nullptr;
     return &anim[i];
@@ -275,7 +275,7 @@ TEST_CASE("sequence_data routes per-sequence blocks through the contexts", "[for
   // A context returning empty spans (missing .anim files) leaves those
   // sequences empty while the inline sequence still reads...
   OffsetReadContext missing;
-  missing.sequence_base = [&](std::size_t i) -> std::span<const std::byte> {
+  missing.sequenceBase = [&](std::size_t i) -> std::span<const std::byte> {
     if (i == 1)
       return *bytes;
     return {};
@@ -291,7 +291,7 @@ TEST_CASE("sequence_data routes per-sequence blocks through the contexts", "[for
 
   // ...while resolving through the read context restores the full entity.
   OffsetReadContext rctx;
-  rctx.sequence_base = [&](std::size_t i) -> std::span<const std::byte> {
+  rctx.sequenceBase = [&](std::size_t i) -> std::span<const std::byte> {
     if (i == 1)
       return *bytes;  // inline: resolves against the entity's own buffer
     return anim[i];
@@ -306,7 +306,7 @@ TEST_CASE("sequence_data routes per-sequence blocks through the contexts", "[for
 
 TEST_CASE("offset entity composes as a SelfSerializing chunk payload", "[formats][offset]")
 {
-  const auto m = sample_model<old_v>();
+  const auto m = sampleModel<OldV>();
   FileBuffer out;
   REQUIRE(m.write(out).has_value());
   auto direct = m.write();

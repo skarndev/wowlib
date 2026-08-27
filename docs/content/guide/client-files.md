@@ -21,17 +21,17 @@ on a CASC client the FileDataID does, and a **listfile** (the community
 
     // Wrath of the Lich King 3.3.5a — an MPQ-era client.
     auto fs = wowlib::fs::FileSystem::open({
-      .client_path = "/games/World of Warcraft 3.3.5a",
-      .version = wowlib::versions::wotlk,
+      .clientPath = "/games/World of Warcraft 3.3.5a",
+      .version = wowlib::versions::Wotlk,
     });
     if (!fs)
       return report(fs.error());     // Result<T> everywhere — no exceptions
 
     // Shadowlands 9.2.7 — a CASC client; the listfile enables path lookups.
     auto retail = wowlib::fs::FileSystem::open({
-      .client_path = "/games/World of Warcraft 9.2.7",
-      .version = wowlib::versions::shadowlands,
-      .listfile_csv = "/data/listfile.csv",
+      .clientPath = "/games/World of Warcraft 9.2.7",
+      .version = wowlib::versions::Shadowlands,
+      .listfileCsv = "/data/listfile.csv",
     });
     ```
 
@@ -96,10 +96,10 @@ version in `.build.info` there or one directory up.
       return report(install.error());
 
     // install->version   1.15.9.69109 (ClassicEra)
-    // install->casc_product   "wow_classic_era"
-    auto fs = wowlib::fs::FileSystem::open({.client_path = install->path,
+    // install->cascProduct   "wow_classic_era"
+    auto fs = wowlib::fs::FileSystem::open({.clientPath = install->path,
                                             .version = install->version,
-                                            .casc_product = install->casc_product});
+                                            .cascProduct = install->cascProduct});
     ```
 
 === "Python"
@@ -142,10 +142,10 @@ or let detection supply the exact code the installation recorded.
 
     ```cpp
     // By path (MPQ, or CASC through the listfile).
-    auto map = fs->read_file("DBFilesClient/Map.dbc");
+    auto map = fs->readFile("DBFilesClient/Map.dbc");
 
     // By FileDataID on a CASC client.
-    auto blp = retail->read_file(wowlib::FileDataID{189077});
+    auto blp = retail->readFile(wowlib::FileDataID{189077});
 
     // A FileKey can carry either half; resolve() fills in the other
     // from the listfile.

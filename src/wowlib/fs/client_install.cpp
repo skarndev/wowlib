@@ -18,7 +18,7 @@ namespace wowlib::fs {
         and .flavor.info tables.
         @param line the raw line.
         @return the fields, in order, empty fields included. */
-    std::vector<std::string_view> split_fields(std::string_view line) {
+    std::vector<std::string_view> splitFields(std::string_view line) {
       std::vector<std::string_view> fields;
       while (true) {
         const auto bar = line.find('|');
@@ -32,17 +32,17 @@ namespace wowlib::fs {
 
     /** The column name of a .build.info header field: "Version!STRING:0" names
         the column "Version".
-        @param header_field one header cell.
+        @param headerField one header cell.
         @return the name before the '!' type suffix. */
-    std::string_view column_name(std::string_view header_field) {
-      return header_field.substr(0, header_field.find('!'));
+    std::string_view columnName(std::string_view headerField) {
+      return headerField.substr(0, headerField.find('!'));
     }
 
     /** Read a whole text file into lines, dropping a trailing empty one and any
         stray carriage returns.
         @param path the file to read.
         @return the lines, or nullopt if the file cannot be opened. */
-    std::optional<std::vector<std::string>> read_lines(const fsys::path& path) {
+    std::optional<std::vector<std::string>> readLines(const fsys::path& path) {
       std::ifstream file{path};
       if (!file) return std::nullopt;
 
@@ -56,10 +56,10 @@ namespace wowlib::fs {
 
     /** The product code a flavor directory records in its .flavor.info: a
         "## product-install-script-name!STRING:0" header followed by the code.
-        @param client_path the directory holding Data/.
+        @param clientPath the directory holding Data/.
         @return the code, or nullopt when the file is absent or empty. */
-    std::optional<std::string> read_flavor(const fsys::path& client_path) {
-      const auto lines = read_lines(client_path / ".flavor.info");
+    std::optional<std::string> readFlavor(const fsys::path& clientPath) {
+      const auto lines = readLines(clientPath / ".flavor.info");
       if (!lines) return std::nullopt;
       for (const std::string& line : *lines)
         if (!line.starts_with("##")) return line;
@@ -69,11 +69,11 @@ namespace wowlib::fs {
     /** Where the install's .build.info lives: beside Data/ for a single-flavor
         install, one level up for a multi-flavor one (the flavor directories
         share the parent's table).
-        @param client_path the directory holding Data/.
+        @param clientPath the directory holding Data/.
         @return the path, or nullopt when neither location has one. */
-    std::optional<fsys::path> find_build_info(const fsys::path& client_path) {
+    std::optional<fsys::path> findBuildInfo(const fsys::path& clientPath) {
       std::error_code ec;
-      for (const fsys::path& candidate : {client_path / ".build.info", client_path.parent_path() / ".build.info"})
+      for (const fsys::path& candidate : {clientPath / ".build.info", clientPath.parent_path() / ".build.info"})
         if (fsys::is_regular_file(candidate, ec)) return candidate;
       return std::nullopt;
     }
@@ -82,7 +82,7 @@ namespace wowlib::fs {
         @param text the Version column's contents.
         @return the version (flavor left at its default), or nullopt if the
                 string is not four dot-separated numbers. */
-    std::optional<ClientVersion> parse_version(std::string_view text) {
+    std::optional<ClientVersion> parseVersion(std::string_view text) {
       std::array<std::uint32_t, 4> parts{};
       for (std::uint32_t& part : parts) {
         const auto dot = text.find('.');
@@ -104,7 +104,7 @@ namespace wowlib::fs {
         common prefix, while every Classic-family code does.
         @param product the product code.
         @return the flavor. */
-    ClientFlavor flavor_of(std::string_view product) {
+    ClientFlavor flavorOf(std::string_view product) {
       if (product.starts_with("wow_classic_era")) return ClientFlavor::ClassicEra;
       if (product.starts_with("wow_anniversary")) return ClientFlavor::Anniversary;
       if (product.starts_with("wow_classic")) return ClientFlavor::Classic;
@@ -121,80 +121,80 @@ namespace wowlib::fs {
     /** Parse a .build.info table.
         @param lines the file's non-empty lines, header first.
         @return every row carrying both a Product and a Version. */
-    std::vector<BuildInfoRow> parse_build_info(const std::vector<std::string>& lines) {
+    std::vector<BuildInfoRow> parseBuildInfo(const std::vector<std::string>& lines) {
       if (lines.empty()) return {};
 
-      const auto header = split_fields(lines.front());
+      const auto header = splitFields(lines.front());
       const auto column = [&](std::string_view name) -> std::size_t {
         const auto found = std::ranges::find_if(header, [&](std::string_view field) {
-          return column_name(field) == name;
+          return columnName(field) == name;
         });
         return static_cast<std::size_t>(found - header.begin());
       };
-      const std::size_t product_at = column("Product");
-      const std::size_t version_at = column("Version");
-      const std::size_t active_at = column("Active");
+      const std::size_t productAt = column("Product");
+      const std::size_t versionAt = column("Version");
+      const std::size_t activeAt = column("Active");
 
       std::vector<BuildInfoRow> rows;
       for (const std::string& line : lines | std::views::drop(1)) {
-        const auto fields = split_fields(line);
-        if (product_at >= fields.size() || version_at >= fields.size()) continue;
+        const auto fields = splitFields(line);
+        if (productAt >= fields.size() || versionAt >= fields.size()) continue;
         rows.push_back({
-          .product = std::string{fields[product_at]},
-          .version = std::string{fields[version_at]},
-          .active = active_at < fields.size() && fields[active_at] != "0"
+          .product = std::string{fields[productAt]},
+          .version = std::string{fields[versionAt]},
+          .active = activeAt < fields.size() && fields[activeAt] != "0"
         });
       }
       return rows;
     }
   }
 
-  Result<ClientInstall> ClientInstall::detect(fsys::path client_path) {
-    const auto info_path = find_build_info(client_path);
-    if (!info_path)
-      return make_error(ErrorCode::NotSupported,
+  Result<ClientInstall> ClientInstall::detect(fsys::path clientPath) {
+    const auto infoPath = findBuildInfo(clientPath);
+    if (!infoPath)
+      return makeError(ErrorCode::NotSupported,
                         std::format(
                           "no .build.info in '{}' or its parent — not a CASC installation "
                           "(MPQ-era clients and bare repacks record no version; construct "
-                          "the ClientVersion directly)", client_path.string()));
+                          "the ClientVersion directly)", clientPath.string()));
 
-    const auto lines = read_lines(*info_path);
+    const auto lines = readLines(*infoPath);
     if (!lines)
-      return make_error(ErrorCode::IoError, std::format("cannot read '{}'", info_path->string()));
+      return makeError(ErrorCode::IoError, std::format("cannot read '{}'", infoPath->string()));
 
-    auto rows = parse_build_info(*lines);
+    auto rows = parseBuildInfo(*lines);
     std::erase_if(rows, [](const BuildInfoRow& row) { return !row.active; });
     if (rows.empty())
-      return make_error(ErrorCode::NotSupported, std::format("'{}' lists no active installation", info_path->string()));
+      return makeError(ErrorCode::NotSupported, std::format("'{}' lists no active installation", infoPath->string()));
 
     // A multi-flavor install shares one table across its flavor directories;
     // .flavor.info beside Data/ says which row is THIS one.
-    const auto flavor = read_flavor(client_path);
+    const auto flavor = readFlavor(clientPath);
     if (flavor) {
       const auto match = std::ranges::find(rows, *flavor, &BuildInfoRow::product);
       if (match == rows.end())
-        return make_error(ErrorCode::NotSupported, std::format("'{}' declares product '{}', which '{}' does not list",
-                                                               (client_path / ".flavor.info").string(), *flavor,
-                                                               info_path->string()));
+        return makeError(ErrorCode::NotSupported, std::format("'{}' declares product '{}', which '{}' does not list",
+                                                               (clientPath / ".flavor.info").string(), *flavor,
+                                                               infoPath->string()));
       rows = {*match};
     }
     else if (rows.size() > 1) {
       std::string products;
       for (const BuildInfoRow& row : rows) products += (products.empty() ? "" : ", ") + row.product;
-      return make_error(ErrorCode::NotSupported, std::format(
+      return makeError(ErrorCode::NotSupported, std::format(
                           "'{}' lists several products ({}) and '{}' has no .flavor.info "
                           "to choose between them — point detect() at a flavor directory "
-                          "(_retail_, _classic_era_, ...)", info_path->string(), products, client_path.string()));
+                          "(_retail_, _classic_era_, ...)", infoPath->string(), products, clientPath.string()));
     }
 
     const BuildInfoRow& row = rows.front();
-    auto version = parse_version(row.version);
+    auto version = parseVersion(row.version);
     if (!version)
-      return make_error(ErrorCode::NotSupported,
-                        std::format("'{}' records an unparseable version '{}' for " "product '{}'", info_path->string(),
+      return makeError(ErrorCode::NotSupported,
+                        std::format("'{}' records an unparseable version '{}' for " "product '{}'", infoPath->string(),
                                     row.version, row.product));
-    version->flavor = flavor_of(row.product);
+    version->flavor = flavorOf(row.product);
 
-    return ClientInstall{.path = std::move(client_path), .version = *version, .casc_product = row.product};
+    return ClientInstall{.path = std::move(clientPath), .version = *version, .cascProduct = row.product};
   }
 }

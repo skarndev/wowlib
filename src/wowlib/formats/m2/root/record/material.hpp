@@ -89,13 +89,13 @@ namespace wowlib::formats::m2::root::record {
     [[=welder::doc("Position in model space.")]]
     C3Vector pos{};
     [[=welder::doc("Influence weights of the four bones; they sum to 255.")]]
-    std::array<std::uint8_t, 4> bone_weights{};
+    std::array<std::uint8_t, 4> boneWeights{};
     [[=welder::doc("The four influencing bone indices.")]]
-    std::array<std::uint8_t, 4> bone_indices{};
+    std::array<std::uint8_t, 4> boneIndices{};
     [[=welder::doc("Normal in model space.")]]
     C3Vector normal{};
     [[=welder::doc("Two UV sets; the shader picks which are used.")]]
-    std::array<C2Vector, 2> tex_coords{};
+    std::array<C2Vector, 2> texCoords{};
 
     bool operator==(const M2Vertex&) const = default;
   };
@@ -123,7 +123,7 @@ namespace wowlib::formats::m2::root::record {
     [[=welder::doc("See MaterialFlags.")]]
     std::uint16_t flags = 0;
     [[=welder::doc("M2BLEND blending mode (see M2/Rendering).")]]
-    std::uint16_t blending_mode = 0;
+    std::uint16_t blendingMode = 0;
 
     bool operator==(const M2Material&) const = default;
   };
@@ -208,13 +208,13 @@ namespace wowlib::formats::m2::root::record {
   }
 
   // The canonicalizing faces: these records' only version axis is the track
-  // era of the animations they embed (m2_track_pivots).
+  // era of the animations they embed (M2TrackPivots).
   template <ClientVersion V>
-  using M2Color = detail::M2Color<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2Color = detail::M2Color<canonicalVersion(V, M2TrackPivots, M2Versions)>;
   template <ClientVersion V>
-  using M2TextureWeight = detail::M2TextureWeight<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2TextureWeight = detail::M2TextureWeight<canonicalVersion(V, M2TrackPivots, M2Versions)>;
   template <ClientVersion V>
-  using M2TextureFlipbook = detail::M2TextureFlipbook<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2TextureFlipbook = detail::M2TextureFlipbook<canonicalVersion(V, M2TrackPivots, M2Versions)>;
   template <ClientVersion V>
-  using M2TextureTransform = detail::M2TextureTransform<canonical_version(V, m2_track_pivots, m2_versions)>;
+  using M2TextureTransform = detail::M2TextureTransform<canonicalVersion(V, M2TrackPivots, M2Versions)>;
 }

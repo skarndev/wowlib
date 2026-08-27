@@ -47,7 +47,7 @@ namespace wowlib_py
       we return. */
   struct wowlib_opaque_naming : welder::naming::none
   {
-    /** Decimal render of @a n (constexpr std::to_string is unavailable on gcc-16). */
+    /** Decimal render of @a n (constexpr std::toString is unavailable on gcc-16). */
     static consteval std::string decimal(std::size_t n)
     {
       if (n == 0)
@@ -97,7 +97,7 @@ namespace wowlib_py
             std::meta::remove_cv(std::meta::type_of(args[0])) == ^^wowlib::ClientVersion)
         {
           const auto version = std::meta::extract<wowlib::ClientVersion>(args[0]);
-          if (const auto expansion = wowlib::to_expansion(version))
+          if (const auto expansion = wowlib::toExpansion(version))
           {
             const std::string tmpl{std::meta::identifier_of(std::meta::template_of(elem))};
             const std::string ver{std::meta::identifier_of(std::meta::enumerators_of(

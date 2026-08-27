@@ -28,16 +28,16 @@ namespace wowlib_py::formats::m2
 {
   namespace
   {
-    /** Every expansion must have an @c m2_versions instantiation, or its facade
+    /** Every expansion must have an @c M2Versions instantiation, or its facade
         overloads would name an unregistered class. Caught at compile time. */
     static_assert(
       []() consteval
       {
         for (auto e : std::meta::enumerators_of(^^wowlib::Expansion))
         {
-          const auto version = wowlib::to_client_version(std::meta::extract<wowlib::Expansion>(e));
+          const auto version = wowlib::toClientVersion(std::meta::extract<wowlib::Expansion>(e));
           bool ok = false;
-          for (const auto& s : wowlib::formats::m2::m2_versions)
+          for (const auto& s : wowlib::formats::m2::M2Versions)
             ok = ok || s == version;
           if (!ok)
             return false;
@@ -46,80 +46,80 @@ namespace wowlib_py::formats::m2
       }(),
       "every Expansion enumerator needs an m2_versions instantiation for its facade");
 
-    /** @brief Run @p fn against @p self cast to its concrete @c F<X>, if it is one.
-        @return true if @p self was an @c F<X> and @p fn ran. */
-    template <template <wowlib::ClientVersion> class F, wowlib::Expansion X, typename Fn>
-    bool family_try(nb::handle self, Fn&& fn)
+    /** @brief Run @p fn against @p self cast to its concrete @c F<x>, if it is one.
+        @return true if @p self was an @c F<x> and @p fn ran. */
+    template <template <wowlib::ClientVersion> class F, wowlib::Expansion x, typename Fn>
+    bool familyTry(nb::handle self, Fn&& fn)
     {
-      using C = F<wowlib::to_client_version(X)>;
+      using C = F<wowlib::toClientVersion(x)>;
       if (!nb::isinstance<C>(self))
         return false;
       fn(nb::cast<C&>(self));
       return true;
     }
 
-    /** @brief Dispatch @p fn to @p self's concrete @c F<X> via isinstance,
+    /** @brief Dispatch @p fn to @p self's concrete @c F<x> via isinstance,
         skipping the expansions a subset family excludes.
         @throws nanobind::type_error if @p self is no @c F instance. */
     template <template <wowlib::ClientVersion> class F, typename Fn>
-    void family_dispatch(nb::handle self, Fn&& fn, const char* what)
+    void familyDispatch(nb::handle self, Fn&& fn, const char* what)
     {
       bool done = false;
-      template for (constexpr auto e : expansion_enumerators)
-        if constexpr (family_has<F, ([:e:])>)
+      template for (constexpr auto e : ExpansionEnumerators)
+        if constexpr (FamilyHas<F, ([:e:])>)
           if (!done)
-            done = family_try<F, ([:e:])>(self, fn);
+            done = familyTry<F, ([:e:])>(self, fn);
       if (!done)
         throw nb::type_error(what);
     }
 
-    /** @brief Convert @p source (any @c M2<From>) to target expansion @p To.
+    /** @brief Convert @p source (any @c M2<from>) to target expansion @p to.
 
         Identifies the source version by isinstance, then composes the C++
         convert ladder; a pair with no complete @c convert_step ladder degrades
         to a @c NotImplemented Result.
         @throws nanobind::type_error if @p source is not an M2 instance. */
-    template <wowlib::Expansion To>
-    wowlib::Result<typename concrete_of<wowlib::formats::m2::M2, To>::type>
-    convert_m2_from_any(nb::handle source)
+    template <wowlib::Expansion to>
+    wowlib::Result<typename ConcreteOf<wowlib::formats::m2::M2, to>::Type>
+    convertM2FromAny(nb::handle source)
     {
-      template for (constexpr auto e : expansion_enumerators)
+      template for (constexpr auto e : ExpansionEnumerators)
       {
-        constexpr wowlib::Expansion From = [:e:];
-        using S = wowlib::formats::m2::M2<wowlib::to_client_version(From)>;
+        constexpr wowlib::Expansion from = [:e:];
+        using S = wowlib::formats::m2::M2<wowlib::toClientVersion(from)>;
         if (nb::isinstance<S>(source))
         {
-          if constexpr (wowlib::formats::has_convert_path<wowlib::formats::m2::M2,
-                                                          wowlib::to_client_version(From),
-                                                          wowlib::to_client_version(To)>())
-            return wowlib::formats::convert<wowlib::to_client_version(To)>(
+          if constexpr (wowlib::formats::hasConvertPath<wowlib::formats::m2::M2,
+                                                          wowlib::toClientVersion(from),
+                                                          wowlib::toClientVersion(to)>())
+            return wowlib::formats::convert<wowlib::toClientVersion(to)>(
               nb::cast<const S&>(source));
           else
-            return wowlib::make_error(
+            return wowlib::makeError(
               wowlib::ErrorCode::NotImplemented,
               std::format("M2 conversion {} -> {} has no complete convert_step ladder yet",
-                          wowlib::enum_name(From), wowlib::enum_name(To)));
+                          wowlib::enumName(from), wowlib::enumName(to)));
         }
       }
       throw nb::type_error("convert() expects an M2 instance");
     }
 
-    /** @brief Attach one @c convert Literal overload (@p To → the concrete class). */
-    template <wowlib::Expansion To>
-    void def_convert_overload(nb::handle base)
+    /** @brief Attach one @c convert Literal overload (@p to → the concrete class). */
+    template <wowlib::Expansion to>
+    void defConvertOverload(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target) -> nb::object
         {
-          if (target != To)
+          if (target != to)
             throw nb::next_overload();
-          return nb::cast(convert_m2_from_any<To>(self));
+          return nb::cast(convertM2FromAny<to>(self));
         },
         nb::name("convert"), nb::scope(base), nb::is_method(), nb::arg("target"),
         nb::sig(persist("def convert(self, target: typing.Literal[wowlib.Expansion."
-                        + std::string{wowlib::enum_name(To)} + "]) -> "
-                        + concrete_name("M2", To, wowlib::formats::m2::m2_assembly_pivots,
-                                        wowlib::formats::m2::m2_versions))));
+                        + std::string{wowlib::enumName(to)} + "]) -> "
+                        + concreteName("M2", to, wowlib::formats::m2::M2AssemblyPivots,
+                                        wowlib::formats::m2::M2Versions))));
     }
 
     /** @brief Attach @c read/@c write/@c convert to @c M2Base.
@@ -128,17 +128,17 @@ namespace wowlib_py::formats::m2
         satellite files (.skin/.anim/.skel/.bone/.phys) through the gateway
         and re-splits them on write. @c convert narrows on its target Literal
         with an @c Expansion → @c AnyM2 fallback. */
-    void def_m2_ops(nb::handle base)
+    void defM2Ops(nb::handle base)
     {
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          family_dispatch<wowlib::formats::m2::M2>(
+          familyDispatch<wowlib::formats::m2::M2>(
             self,
             [&](auto& model)
             {
               if (auto r = model.read(fs, key); !r)
-                throw wowlib::result_error(r.error());
+                throw wowlib::ResultError(r.error());
             },
             "expected an M2 instance");
         },
@@ -157,12 +157,12 @@ namespace wowlib_py::formats::m2
       nb::cpp_function(
         [](nb::handle self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
-          family_dispatch<wowlib::formats::m2::M2>(
+          familyDispatch<wowlib::formats::m2::M2>(
             self,
             [&](auto& model)
             {
               if (auto r = std::as_const(model).write(fs, key); !r)
-                throw wowlib::result_error(r.error());
+                throw wowlib::ResultError(r.error());
             },
             "expected an M2 instance");
         },
@@ -179,19 +179,19 @@ namespace wowlib_py::formats::m2
         "    nothing; raises when the key has no path or a file fails to write");
 
       // convert(target) — Literal per target (narrows) + Expansion -> AnyM2 fallback
-      template for (constexpr auto e : expansion_enumerators)
-        def_convert_overload<([:e:])>(base);
+      template for (constexpr auto e : ExpansionEnumerators)
+        defConvertOverload<([:e:])>(base);
       nb::cpp_function(
         [](nb::handle self, wowlib::Expansion target)
         {
           nb::object result;
           bool found = false;
-          template for (constexpr auto e : expansion_enumerators)
+          template for (constexpr auto e : ExpansionEnumerators)
           {
-            constexpr wowlib::Expansion To = [:e:];
-            if (!found && target == To)
+            constexpr wowlib::Expansion to = [:e:];
+            if (!found && target == to)
             {
-              result = nb::cast(convert_m2_from_any<To>(self));
+              result = nb::cast(convertM2FromAny<to>(self));
               found = true;
             }
           }
@@ -212,16 +212,16 @@ namespace wowlib_py::formats::m2
 
     /** @brief Merge the (FileSystem, FileKey) read/write overloads into ONE
         concrete Skeleton class's welded verb chain. */
-    template <wowlib::Expansion X>
-    void def_skeleton_fs_verbs_on()
+    template <wowlib::Expansion x>
+    void defSkeletonFsVerbsOn()
     {
-      using C = wowlib::formats::m2::Skeleton<wowlib::to_client_version(X)>;
+      using C = wowlib::formats::m2::Skeleton<wowlib::toClientVersion(x)>;
       const nb::handle concrete = nb::type<C>();
       nb::cpp_function(
         [](C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
           if (auto r = self.read(fs, key); !r)
-            throw wowlib::result_error(r.error());
+            throw wowlib::ResultError(r.error());
         },
         nb::name("read"), nb::scope(concrete), nb::is_method(),
         nb::arg("source"), nb::arg("key"),
@@ -237,7 +237,7 @@ namespace wowlib_py::formats::m2
         [](const C& self, wowlib::fs::FileSystem& fs, const wowlib::FileKey& key)
         {
           if (auto r = self.write(fs, key); !r)
-            throw wowlib::result_error(r.error());
+            throw wowlib::ResultError(r.error());
         },
         nb::name("write"), nb::scope(concrete), nb::is_method(),
         nb::arg("dest"), nb::arg("key"),
@@ -257,25 +257,25 @@ namespace wowlib_py::formats::m2
         chain (nanobind merges cpp_functions by name+scope), once per RANGE: a
         base-scoped verb would be SHADOWED by the concrete's welded pair in
         Python's attribute lookup and unreachable from every instance. */
-    void def_skeleton_fs_verbs()
+    void defSkeletonFsVerbs()
     {
-      template for (constexpr auto e : expansion_enumerators)
+      template for (constexpr auto e : ExpansionEnumerators)
       {
-        constexpr wowlib::Expansion X = [:e:];
-        if constexpr (family_has<wowlib::formats::m2::Skeleton, X>)
+        constexpr wowlib::Expansion x = [:e:];
+        if constexpr (FamilyHas<wowlib::formats::m2::Skeleton, x>)
           // only the range representative (its own canonical) attaches, so a
           // shared concrete class is not given duplicate overloads
-          if constexpr (wowlib::formats::canonical_version(
-                          wowlib::to_client_version(X),
-                          wowlib::formats::m2::m2_chunk_payload_pivots,
-                          wowlib::formats::m2::m2_chunked_versions)
-                        == wowlib::to_client_version(X))
-            def_skeleton_fs_verbs_on<X>();
+          if constexpr (wowlib::formats::canonicalVersion(
+                          wowlib::toClientVersion(x),
+                          wowlib::formats::m2::M2ChunkPayloadPivots,
+                          wowlib::formats::m2::M2ChunkedVersions)
+                        == wowlib::toClientVersion(x))
+            defSkeletonFsVerbsOn<x>();
       }
     }
   }
 
-  void register_facade(nb::module_& module)
+  void registerFacade(nb::module_& module)
   {
     nb::module_ formats = nb::cast<nb::module_>(module.attr("formats"));
     nb::module_ m2 = nb::cast<nb::module_>(formats.attr("m2"));
@@ -289,34 +289,34 @@ namespace wowlib_py::formats::m2
     // the Literal overload/sig names are the same range-suffixed classes the
     // welded alias tables produce
     namespace fm2 = wowlib::formats::m2;
-    def_for_version<fm2::M2>(m2.attr("M2"), "M2", fm2::m2_assembly_pivots, fm2::m2_versions);
-    def_for_version<fm2::M2Root>(root.attr("M2Root"), "M2Root", fm2::m2_data_pivots,
-                                 fm2::m2_versions);
-    def_for_version<fm2::Skin>(skin.attr("Skin"), "Skin", fm2::m2_skin_pivots,
-                               fm2::m2_skin_versions);
-    def_for_version<fm2::M2ChunkedFile>(chunked.attr("M2ChunkedFile"), "M2ChunkedFile",
-                                        fm2::m2_file_pivots, fm2::m2_chunked_versions);
-    def_for_version<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton", fm2::m2_chunk_payload_pivots,
-                                   fm2::m2_chunked_versions);
+    defForVersion<fm2::M2>(m2.attr("M2"), "M2", fm2::M2AssemblyPivots, fm2::M2Versions);
+    defForVersion<fm2::M2Root>(root.attr("M2Root"), "M2Root", fm2::M2DataPivots,
+                                 fm2::M2Versions);
+    defForVersion<fm2::Skin>(skin.attr("Skin"), "Skin", fm2::M2SkinPivots,
+                               fm2::M2SkinVersions);
+    defForVersion<fm2::M2ChunkedFile>(chunked.attr("M2ChunkedFile"), "M2ChunkedFile",
+                                        fm2::M2FilePivots, fm2::M2ChunkedVersions);
+    defForVersion<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton", fm2::M2ChunkPayloadPivots,
+                                   fm2::M2ChunkedVersions);
 
-    def_m2_ops(m2.attr("M2"));
-    def_skeleton_fs_verbs();
+    defM2Ops(m2.attr("M2"));
+    defSkeletonFsVerbs();
 
     // Runtime AnyX union aliases (importable TypeAliases) on the family's own
     // submodule; the subset families fold only the expansions they exist for.
-    def_validation_verbs<fm2::M2>(m2.attr("M2"), "M2");
-    def_validation_verbs<fm2::M2Root>(root.attr("M2Root"), "M2Root");
-    def_validation_verbs<fm2::Skin>(skin.attr("Skin"), "Skin");
-    def_validation_verbs<fm2::M2ChunkedFile>(chunked.attr("M2ChunkedFile"),
+    defValidationVerbs<fm2::M2>(m2.attr("M2"), "M2");
+    defValidationVerbs<fm2::M2Root>(root.attr("M2Root"), "M2Root");
+    defValidationVerbs<fm2::Skin>(skin.attr("Skin"), "Skin");
+    defValidationVerbs<fm2::M2ChunkedFile>(chunked.attr("M2ChunkedFile"),
                                              "M2ChunkedFile");
-    def_validation_verbs<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton");
+    defValidationVerbs<fm2::Skeleton>(m2.attr("Skeleton"), "Skeleton");
 
-    def_any_alias<fm2::M2>(m2, "M2", fm2::m2_assembly_pivots, fm2::m2_versions);
-    def_any_alias<fm2::M2Root>(root, "M2Root", fm2::m2_data_pivots, fm2::m2_versions);
-    def_any_alias<fm2::Skin>(skin, "Skin", fm2::m2_skin_pivots, fm2::m2_skin_versions);
-    def_any_alias<fm2::M2ChunkedFile>(chunked, "M2ChunkedFile", fm2::m2_file_pivots,
-                                      fm2::m2_chunked_versions);
-    def_any_alias<fm2::Skeleton>(m2, "Skeleton", fm2::m2_chunk_payload_pivots,
-                                 fm2::m2_chunked_versions);
+    defAnyAlias<fm2::M2>(m2, "M2", fm2::M2AssemblyPivots, fm2::M2Versions);
+    defAnyAlias<fm2::M2Root>(root, "M2Root", fm2::M2DataPivots, fm2::M2Versions);
+    defAnyAlias<fm2::Skin>(skin, "Skin", fm2::M2SkinPivots, fm2::M2SkinVersions);
+    defAnyAlias<fm2::M2ChunkedFile>(chunked, "M2ChunkedFile", fm2::M2FilePivots,
+                                      fm2::M2ChunkedVersions);
+    defAnyAlias<fm2::Skeleton>(m2, "Skeleton", fm2::M2ChunkPayloadPivots,
+                                 fm2::M2ChunkedVersions);
   }
 }

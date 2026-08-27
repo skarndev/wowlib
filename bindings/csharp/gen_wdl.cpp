@@ -1,6 +1,6 @@
 /** @file
     @brief The WDL version-matrix contribution to the C# generator
-    (see gen_contributors.hpp for the multi-TU story). The X-macro tables in
+    (see gen_contributors.hpp for the multi-TU story). The x-macro tables in
     wdl_ranges.hpp are the single source of truth for which per-range
     aliases exist; this TU welds exactly those, explicitly, into the shared
     document — each family into the same nested C# namespace the single-TU
@@ -24,8 +24,8 @@ namespace wowlib_cs
     using W = ::welder::welder<wcs::rod, wcs::dotnet>;
     auto m0 = wcs::rod::at(doc, "Formats.WDL");
 
-    #define X(S, v) W::weld_type<^^::wowlib::formats::wdl::WDL##S>(m0, "WDL" #S);
-    WOWLIB_WDL_RANGES(X)
-#undef X
+    #define x(S, v) W::weld_type<^^::wowlib::formats::wdl::WDL##S>(m0, "WDL" #S);
+    WOWLIB_WDL_RANGES(x)
+#undef x
   }
 }

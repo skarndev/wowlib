@@ -10,9 +10,9 @@
 
 namespace wowlib_py::formats
 {
-  void register_wmo_welds(::nanobind::module_& root);
-  void register_m2_welds(::nanobind::module_& root);
-  void register_adt_welds(::nanobind::module_& root);
-  void register_wdt_welds(::nanobind::module_& root);
-  void register_wdl_welds(::nanobind::module_& root);
+  void registerWmoWelds(::nanobind::module_& root);
+  void registerM2Welds(::nanobind::module_& root);
+  void registerAdtWelds(::nanobind::module_& root);
+  void registerWdtWelds(::nanobind::module_& root);
+  void registerWdlWelds(::nanobind::module_& root);
 }

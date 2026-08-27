@@ -13,20 +13,20 @@ using namespace wowlib::fs;
 TEST_CASE("6.2.3: the full DB2 corpus decodes and round-trips byte-perfectly (WDB2)",
           "[integration][db]")
 {
-  auto listfile = CsvListfile::load(tests::require_listfile());
+  auto listfile = CsvListfile::load(tests::requireListfile());
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::wod_client(),
-                                    .build = versions::wod.build});
+  auto storage = CascStorage::open({.clientRoot = tests::wodClient(),
+                                    .build = versions::Wod.build});
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
-#define X(Name)                                                          \
-  tests::sweep_table_casc<db::tables::Name<versions::wod>>(        \
-    *storage, *listfile, #Name, stats, /*byte_perfect=*/true);
-  WOWLIB_DB_TABLES_WOD(X)
-#undef X
+#define x(Name)                                                          \
+  tests::sweepTableCasc<db::tables::Name<versions::Wod>>(        \
+    *storage, *listfile, #Name, stats, /*bytePerfect=*/true);
+  WOWLIB_DB_TABLES_WOD(x)
+#undef x
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   // 6.2.3 carries 164 of the 165 generated WoD tables (61 as .db2, 103 as
   // .dbc; only DeclinedWordCases is absent) — measured against the install.

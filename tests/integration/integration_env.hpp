@@ -27,7 +27,7 @@
 
 namespace wowlib::tests
 {
-  inline std::optional<std::filesystem::path> env_path(const char* name)
+  inline std::optional<std::filesystem::path> envPath(const char* name)
   {
     const char* value = std::getenv(name);
     if (!value || !*value)
@@ -35,17 +35,17 @@ namespace wowlib::tests
     return std::filesystem::path{value};
   }
 
-  inline std::filesystem::path require_clients_dir()
+  inline std::filesystem::path requireClientsDir()
   {
-    const auto dir = env_path("WOWLIB_TEST_CLIENTS_DIR");
+    const auto dir = envPath("WOWLIB_TEST_CLIENTS_DIR");
     if (!dir)
       SKIP("WOWLIB_TEST_CLIENTS_DIR is not set");
     return *dir;
   }
 
-  inline std::filesystem::path require_listfile()
+  inline std::filesystem::path requireListfile()
   {
-    const auto listfile = env_path("WOWLIB_TEST_LISTFILE");
+    const auto listfile = envPath("WOWLIB_TEST_LISTFILE");
     if (!listfile)
       SKIP("WOWLIB_TEST_LISTFILE is not set");
     return *listfile;
@@ -56,10 +56,10 @@ namespace wowlib::tests
       stay green on machines that carry only a subset of the clients.
       @param candidates install directory names, canonical (bare version) first.
       @return the resolved client root. */
-  inline std::filesystem::path require_client(
+  inline std::filesystem::path requireClient(
     std::initializer_list<const char*> candidates)
   {
-    const auto clients = require_clients_dir();
+    const auto clients = requireClientsDir();
     for (const char* name : candidates)
       if (std::filesystem::is_directory(clients / name))
         return clients / name;
@@ -71,42 +71,42 @@ namespace wowlib::tests
   /** The archive data directory of an MPQ-era install: `Data/` canonically,
       but some repacks ship a lowercase `data/`, which matters on
       case-sensitive filesystems.
-      @param client_root the client install root.
-      @return the existing data directory (`client_root / "Data"` when neither
+      @param clientRoot the client install root.
+      @return the existing data directory (`clientRoot / "Data"` when neither
               casing exists, letting the caller produce the natural error). */
-  inline std::filesystem::path data_dir(const std::filesystem::path& client_root)
+  inline std::filesystem::path dataDir(const std::filesystem::path& clientRoot)
   {
     for (const char* name : {"Data", "data"})
-      if (std::filesystem::is_directory(client_root / name))
-        return client_root / name;
-    return client_root / "Data";
+      if (std::filesystem::is_directory(clientRoot / name))
+        return clientRoot / name;
+    return clientRoot / "Data";
   }
 
   /** Scan a data directory for locale subdirectories, preferring English when
       several are present (readable assertions).
-      @param data the install's data directory (see data_dir()).
+      @param data the install's data directory (see dataDir()).
       @return the locale, or nullopt when no locale subdirectory exists. */
-  inline std::optional<Locale> find_locale(const std::filesystem::path& data)
+  inline std::optional<Locale> findLocale(const std::filesystem::path& data)
   {
     constexpr std::array preferred{Locale::enUS, Locale::enGB, Locale::ruRU};
     for (const Locale locale : preferred)
-      if (std::filesystem::is_directory(data / locale_code(locale)))
+      if (std::filesystem::is_directory(data / localeCode(locale)))
         return locale;
     for (const auto& entry : std::filesystem::directory_iterator{data})
       if (entry.is_directory())
         if (const auto locale =
-              locale_from_code(entry.path().filename().string()))
+              localeFromCode(entry.path().filename().string()))
           return locale;
     return std::nullopt;
   }
 
-  /** Detect the locale an MPQ-era install ships (see find_locale()); SKIPs the
+  /** Detect the locale an MPQ-era install ships (see findLocale()); SKIPs the
       test when no locale subdirectory is found.
-      @param data the install's data directory (see data_dir()).
+      @param data the install's data directory (see dataDir()).
       @return the detected locale. */
-  inline Locale detect_locale(const std::filesystem::path& data)
+  inline Locale detectLocale(const std::filesystem::path& data)
   {
-    if (const auto locale = find_locale(data))
+    if (const auto locale = findLocale(data))
       return *locale;
     SKIP("no locale directory found under " + data.string());
     return Locale::enUS;
@@ -115,68 +115,68 @@ namespace wowlib::tests
   // Resolved install roots for the version-specific suites. Canonical names
   // first; the descriptive names are the pre-CI local installs.
 
-  inline std::filesystem::path mpq_client()      ///< Wrath of the Lich King.
+  inline std::filesystem::path mpqClient()      ///< Wrath of the Lich King.
   {
-    return require_client({"3.3.5a", "World of Warcraft 3.3.5a"});
+    return requireClient({"3.3.5a", "World of Warcraft 3.3.5a"});
   }
 
-  inline std::filesystem::path casc_client()     ///< Shadowlands.
+  inline std::filesystem::path cascClient()     ///< Shadowlands.
   {
-    return require_client({"9.2.7", "WoWCircle 9.2.7"});
+    return requireClient({"9.2.7", "WoWCircle 9.2.7"});
   }
 
-  inline std::filesystem::path vanilla_client()  ///< Vanilla 1.12.x.
+  inline std::filesystem::path vanillaClient()  ///< Vanilla 1.12.x.
   {
-    return require_client({"1.12.1", "1.12.2", "WoW Classic 1.12.2"});
+    return requireClient({"1.12.1", "1.12.2", "WoW Classic 1.12.2"});
   }
 
-  inline std::filesystem::path tbc_client()      ///< The Burning Crusade.
+  inline std::filesystem::path tbcClient()      ///< The Burning Crusade.
   {
-    return require_client({"2.4.3", "WoW TBC 2.4.3"});
+    return requireClient({"2.4.3", "WoW TBC 2.4.3"});
   }
 
-  inline std::filesystem::path cata_client()     ///< Cataclysm.
+  inline std::filesystem::path cataClient()     ///< Cataclysm.
   {
-    return require_client({"4.3.4", "WoW Cata 4.3.4"});
+    return requireClient({"4.3.4", "WoW Cata 4.3.4"});
   }
 
-  inline std::filesystem::path mop_client()      ///< Mists of Pandaria.
+  inline std::filesystem::path mopClient()      ///< Mists of Pandaria.
   {
-    return require_client({"5.4.8"});
+    return requireClient({"5.4.8"});
   }
 
-  inline std::filesystem::path wod_client()      ///< Warlords of Draenor.
+  inline std::filesystem::path wodClient()      ///< Warlords of Draenor.
   {
-    return require_client({"6.2.3", "6.2.4"});
+    return requireClient({"6.2.3", "6.2.4"});
   }
 
-  inline std::filesystem::path legion_client()   ///< Legion.
+  inline std::filesystem::path legionClient()   ///< Legion.
   {
-    return require_client({"7.3.5"});
+    return requireClient({"7.3.5"});
   }
 
-  inline std::filesystem::path bfa_client()      ///< Battle for Azeroth.
+  inline std::filesystem::path bfaClient()      ///< Battle for Azeroth.
   {
-    return require_client({"8.3.7"});
+    return requireClient({"8.3.7"});
   }
 
-  inline std::filesystem::path df_client()       ///< Dragonflight.
+  inline std::filesystem::path dfClient()       ///< Dragonflight.
   {
-    return require_client({"10.2.7"});
+    return requireClient({"10.2.7"});
   }
 
-  // Detected locales of the resolved installs (see detect_locale()). Vanilla
+  // Detected locales of the resolved installs (see detectLocale()). Vanilla
   // is special: stock 1.x installs are flat (no Data/{locale}/ tier — it
   // entered the layout with TBC), so absence of a locale directory means "any
   // locale works", not "broken install".
 
-  inline Locale mpq_locale()     { return detect_locale(data_dir(mpq_client())); }
-  inline Locale tbc_locale()     { return detect_locale(data_dir(tbc_client())); }
-  inline Locale cata_locale()    { return detect_locale(data_dir(cata_client())); }
-  inline Locale mop_locale()     { return detect_locale(data_dir(mop_client())); }
+  inline Locale mpqLocale()     { return detectLocale(dataDir(mpqClient())); }
+  inline Locale tbcLocale()     { return detectLocale(dataDir(tbcClient())); }
+  inline Locale cataLocale()    { return detectLocale(dataDir(cataClient())); }
+  inline Locale mopLocale()     { return detectLocale(dataDir(mopClient())); }
 
-  inline Locale vanilla_locale()
+  inline Locale vanillaLocale()
   {
-    return find_locale(data_dir(vanilla_client())).value_or(Locale::enUS);
+    return findLocale(dataDir(vanillaClient())).value_or(Locale::enUS);
   }
 }

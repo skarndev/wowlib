@@ -45,12 +45,12 @@ namespace wowlib::formats::wdt::lights {
         =chunk("MPLT"),
         =since(builds::WoD),
         =until(builds::Legion),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           "The WoD point lights (MPLT); Legion+ clients ignore them in "
           "favor of MPL2.")]]
-      std::vector<MapPointLightLegacy> legacy_point_lights;
+      std::vector<MapPointLightLegacy> legacyPointLights;
     };
 
     /** The Legion light set (point v2, spot, textures, animations). */
@@ -58,38 +58,38 @@ namespace wowlib::formats::wdt::lights {
       [[
         =chunk("MPL2"),
         =since(builds::Legion),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("The Legion point lights (MPL2); 9.0+ files carry MPL3 "
           "instead.")]]
-      std::vector<MapPointLight> point_lights;
+      std::vector<MapPointLight> pointLights;
 
       [[
         =chunk("MSLT"),
         =since(builds::Legion),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("The spot lights (MSLT, Legion+).")]]
-      std::vector<MapSpotLight> spot_lights;
+      std::vector<MapSpotLight> spotLights;
 
       [[
         =chunk("MTEX"),
         =since(builds::Legion),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           "Light-cookie texture FileDataIDs (MTEX, Legion+), referenced "
           "by texture_index.")]]
-      std::vector<std::uint32_t> texture_fdids;
+      std::vector<std::uint32_t> textureFdids;
 
       [[
         =chunk("MLTA"),
         =since(builds::Legion),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Light texture animations (MLTA, Legion+), referenced by "
           "mlta_index.")]]
-      std::vector<LightAnimation> light_animations;
+      std::vector<LightAnimation> lightAnimations;
     };
 
     /** The Shadowlands point-light revision. */
@@ -97,12 +97,12 @@ namespace wowlib::formats::wdt::lights {
       [[
         =chunk("MPL3"),
         =since(builds::SL_Beta_34490),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           "The Shadowlands point lights (MPL3, 9.0.1.34490+; replaces "
           "MPL2 in shipped files).")]]
-      std::vector<MapPointLight3> point_lights_v3;
+      std::vector<MapPointLight3> pointLightsV3;
     };
   }
 
@@ -123,27 +123,27 @@ namespace wowlib::formats::wdt::lights {
       ]] WDTLights
       : ChunkedFile<WDTLights<V>>,
         WDTLightsBase,
-        slot<V, builds::WoD, LightsWod, builds::Legion>,
-        slot<V, builds::Legion, LightsLegion>,
-        slot<V, builds::SL_Beta_34490, LightsSL> {
-      static constexpr ClientVersion version = V;
+        Slot<V, builds::WoD, LightsWod, builds::Legion>,
+        Slot<V, builds::Legion, LightsLegion>,
+        Slot<V, builds::SL_Beta_34490, LightsSL> {
+      static constexpr ClientVersion Version = V;
 
       [[
         =chunk("MVER"),
         =welder::doc("The file format version: 18 up to Legion 7.0.1.20740, 20 "
           "since 7.0.1.20914.")]]
-      std::uint32_t mver = V >= builds::Legion_Alpha_20914 ? 20 : wdt_version_18;
+      std::uint32_t mver = V >= builds::Legion_Alpha_20914 ? 20 : WdtVersion18;
 
       /** The canonical chunk-stream order the serializer emits a fresh entity
-          in (see write_order). Lists every chunk member exactly once. */
-      static constexpr std::array chunk_order = {
-        four_cc("MVER"),
-        four_cc("MPLT"),
-        four_cc("MPL2"),
-        four_cc("MPL3"),
-        four_cc("MSLT"),
-        four_cc("MTEX"),
-        four_cc("MLTA"),
+          in (see writeOrder). Lists every chunk member exactly once. */
+      static constexpr std::array ChunkOrder = {
+        fourCc("MVER"),
+        fourCc("MPLT"),
+        fourCc("MPL2"),
+        fourCc("MPL3"),
+        fourCc("MSLT"),
+        fourCc("MTEX"),
+        fourCc("MLTA"),
       };
     };
   }
@@ -152,5 +152,5 @@ namespace wowlib::formats::wdt::lights {
       three instantiations (WoD; Legion-BfA; Shadowlands+) serve every
       release. */
   template <ClientVersion V> requires(V >= builds::WoD)
-  using WDTLights = detail::WDTLights<canonical_version(V, wdt_lights_pivots, wdt_satellite_versions)>;
+  using WDTLights = detail::WDTLights<canonicalVersion(V, WdtLightsPivots, WdtSatelliteVersions)>;
 }

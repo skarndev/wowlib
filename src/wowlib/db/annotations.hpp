@@ -10,7 +10,7 @@
     struct MapRecord
     {
       static constexpr ClientVersion version = versions::wotlk;
-      static constexpr std::string_view table_name = "Map";
+      static constexpr std::string_view TableName = "Map";
 
       [[=db::id]]
       std::uint32_t id = 0;
@@ -31,30 +31,30 @@
 namespace wowlib::db {
   namespace detail {
     /** Stored form of `id`: the member is the table's primary key ($id$). */
-    struct id_spec {};
+    struct IdSpec {};
 
     /** Stored form of `noninline`: the member holds no bytes inside the record
         image — its values come from a satellite block (the WDC id list for ids,
         the relationship block for relations). Never present in WDBC/WDB2-era
         records ($noninline$). */
-    struct noninline_spec {};
+    struct NoninlineSpec {};
 
     /** Stored form of `relation`: the member is a relationship key referencing
         the parent table's id ($relation$). */
-    struct relation_spec {};
+    struct RelationSpec {};
   }
 
   /** Mark the table's primary-key column ($id$ in WoWDBDefs). Exactly one
       member per record carries it. */
-  inline constexpr detail::id_spec id{};
+  inline constexpr detail::IdSpec Id{};
 
   /** Mark a column stored outside the record image ($noninline$ in WoWDBDefs):
       ids delivered by the WDC id list, relations delivered by the relationship
       block. Combined with `id` or `relation`. */
-  inline constexpr detail::noninline_spec noninline{};
+  inline constexpr detail::NoninlineSpec Noninline{};
 
   /** Mark a relationship-key column ($relation$ in WoWDBDefs): its value
       references the id of the table's parent (e.g. SpellID on the SpellX*
       satellites). */
-  inline constexpr detail::relation_spec relation{};
+  inline constexpr detail::RelationSpec Relation{};
 }

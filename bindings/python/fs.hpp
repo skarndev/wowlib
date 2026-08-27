@@ -20,5 +20,5 @@ namespace wowlib_py::fs
       from the module body, after welder's walk has registered @c fs.FileSystem.
 
       @param module the extension module being initialized. */
-  void register_filesystem_protocol(nb::module_& module);
+  void registerFilesystemProtocol(nb::module_& module);
 }

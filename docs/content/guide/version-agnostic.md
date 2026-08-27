@@ -4,7 +4,7 @@ wowlib targets eleven client generations at once, and most tools want to work
 on *whichever client the user opened* — not one hard-coded era. Every format
 family therefore has two spellings:
 
-- a **typed, era-resolved** one — `WMO<versions::wotlk>` in C++,
+- a **typed, era-resolved** one — `WMO<versions::Wotlk>` in C++,
   `wmo.WMO.for_version(wowlib.Expansion.Wotlk)` in Python,
   `Formats.WMO.WMO.Era.Wotlk()` in C# — where every field is known at
   compile/checking time;
@@ -33,7 +33,7 @@ it:
             "World/Maps/Azeroth/Azeroth.wdt"}); !r)
         return report(r.error());
       // Version-gated members cost nothing to gate on:
-      if constexpr (V >= wowlib::versions::wod)
+      if constexpr (V >= wowlib::versions::Wod)
         use(world.lights);
     }
 
@@ -41,14 +41,14 @@ it:
     {
       // fs.version() remembers what was opened; dispatch it once onto the
       // template — per era you support, exactly what the binding facades do.
-      // Compare on format_lineage(), never on the raw version: that is what
+      // Compare on formatLineage(), never on the raw version: that is what
       // puts a Classic client on the engine it actually is.
       using namespace wowlib;
-      const ClientVersion engine = fs.version().format_lineage();
-      if (engine == versions::wotlk)
-        dump_map<versions::wotlk>(fs);
-      else if (engine == versions::shadowlands)
-        dump_map<versions::shadowlands>(fs);
+      const ClientVersion engine = fs.version().formatLineage();
+      if (engine == versions::Wotlk)
+        dump_map<versions::Wotlk>(fs);
+      else if (engine == versions::Shadowlands)
+        dump_map<versions::Shadowlands>(fs);
     }
     ```
 
@@ -122,12 +122,12 @@ wowlib models this with a **flavor** on `ClientVersion` and a
 
     constexpr ClientVersion cata_classic{4, 4, 2, 60895, ClientFlavor::Classic};
 
-    static_assert(cata_classic.format_lineage() == versions::tww);
-    static_assert(cata_classic.storage_kind() == StorageKind::Casc);
-    static_assert(expansion_of(cata_classic) == Expansion::Cata);  // content
+    static_assert(cata_classic.formatLineage() == versions::Tww);
+    static_assert(cata_classic.storageKind() == StorageKind::Casc);
+    static_assert(expansionOf(cata_classic) == Expansion::Cata);  // content
     // ... and so the entity IS the War Within one, not the Cataclysm one:
     static_assert(std::is_same_v<formats::wmo::WMO<cata_classic>,
-                                 formats::wmo::WMO<versions::tww>>);
+                                 formats::wmo::WMO<versions::Tww>>);
     ```
 
 === "Python"
@@ -270,7 +270,7 @@ one client, retarget, write to another:
     ```cpp
     #include <wowlib/formats/wmo/convert.hpp>
 
-    auto retail = wowlib::formats::convert<wowlib::versions::shadowlands>(model);
+    auto retail = wowlib::formats::convert<wowlib::versions::Shadowlands>(model);
     if (retail)
       retail->write(fs_927, wowlib::FileKey{"world/wmo/ported.wmo"});
     ```

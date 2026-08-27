@@ -24,11 +24,11 @@ namespace wowlib::formats::m2::chunked::record {
         "variation) pair; 0 means none.")
     ]] AnimFileEntry {
     [[=welder::doc("AnimationData.dbc id of the sequence.")]]
-    std::uint16_t anim_id = 0;
+    std::uint16_t animId = 0;
     [[=welder::doc("The sequence variation index.")]]
-    std::uint16_t sub_anim_id = 0;
+    std::uint16_t subAnimId = 0;
     [[=welder::doc("FileDataID of the .anim file; 0 means none.")]]
-    std::uint32_t file_id = 0;
+    std::uint32_t fileId = 0;
 
     bool operator==(const AnimFileEntry&) const = default;
   };
@@ -44,11 +44,11 @@ namespace wowlib::formats::m2::chunked::record {
     ]] M2ExtendedParticleSimple {
     [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) to "
       "the spawn point.")]]
-    float z_source = 0;
+    float zSource = 0;
     [[=welder::doc("Multiplied into the particle's diffuse color.")]]
-    float color_mult = 1;
+    float colorMult = 1;
     [[=welder::doc("Multiplied into the particle's opacity.")]]
-    float alpha_mult = 1;
+    float alphaMult = 1;
 
     bool operator==(const M2ExtendedParticleSimple&) const = default;
   };
@@ -62,13 +62,13 @@ namespace wowlib::formats::m2::chunked::record {
     ]] M2ExtendedParticle {
     [[=welder::doc("If > 0, initial velocity points from (0, 0, z_source) to "
       "the spawn point.")]]
-    float z_source = 0;
+    float zSource = 0;
     [[=welder::doc("Multiplied into the particle's diffuse color.")]]
-    float color_mult = 1;
+    float colorMult = 1;
     [[=welder::doc("Multiplied into the particle's opacity.")]]
-    float alpha_mult = 1;
+    float alphaMult = 1;
     [[=welder::doc("Alpha-test threshold sampled by the particle's lifetime.")]]
-    root::record::M2PartTrack<fixed16> alpha_cutoff{};
+    root::record::M2PartTrack<fixed16> alphaCutoff{};
 
     bool operator==(const M2ExtendedParticle&) const = default;
   };
@@ -83,10 +83,10 @@ namespace wowlib::formats::m2::chunked::record {
     [[=welder::doc("Unknown per-light flags.")]]
     std::uint16_t flags = 0;
     [[=welder::doc("Scale for the shadow RT matrix (raw half-float).")]]
-    std::uint16_t scale_half = 0;
+    std::uint16_t scaleHalf = 0;
     [[=welder::doc("Multiplier for the light's diffuse color (raw "
       "half-float).")]]
-    std::uint16_t diffuse_color_mult_half = 0;
+    std::uint16_t diffuseColorMultHalf = 0;
     [[=welder::doc("Unknown.")]]
     std::uint16_t unknown0 = 0;
     [[=welder::doc("Unknown.")]]
@@ -98,7 +98,7 @@ namespace wowlib::formats::m2::chunked::record {
   static_assert(sizeof(M2LightDetail) == 12);
 
   // The chunk payloads are NON-templated: their content is version-independent
-  // (M2ExtendedParticle's alpha_cutoff is the unversioned M2PartTrack, PSBC
+  // (M2ExtendedParticle's alphaCutoff is the unversioned M2PartTrack, PSBC
   // holds unversioned M2Bounds, the rest are plain int arrays) and the chunks
   // only exist Legion+, so any embedded offset structure is fixed at its WotLK+
   // layout. Rather than propagate the shell's V through a type that never uses
@@ -110,7 +110,7 @@ namespace wowlib::formats::m2::chunked::record {
       =welder::doc("The EXP2 chunk payload: extended particle records, one per "
         "particle emitter.")
     ]] Exp2Data : M2OffsetBlock<Exp2Data> {
-    static constexpr ClientVersion version = versions::legion;
+    static constexpr ClientVersion Version = versions::Legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Extended particle parameters, one per particle emitter.")]]
@@ -129,17 +129,17 @@ namespace wowlib::formats::m2::chunked::record {
       =welder::doc("The PABC chunk payload: the parent-model sequence-id "
         "blacklist ('BlacklistAnimData').")
     ]] PabcData : M2OffsetBlock<PabcData> {
-    static constexpr ClientVersion version = versions::legion;
+    static constexpr ClientVersion Version = versions::Legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Replacement parent-sequence lookups: a plain list of "
         "present AnimationData ids.")]]
-    std::vector<std::uint16_t> replacement_parent_sequence_lookups;
+    std::vector<std::uint16_t> replacementParentSequenceLookups;
 
     /** Chunk engagement: shadow M2OffsetBlock's always-false empty() so the
         optional chunk is emitted only when data is present. */
     [[=welder::mark::exclude]]
-    bool empty() const { return replacement_parent_sequence_lookups.empty(); }
+    bool empty() const { return replacementParentSequenceLookups.empty(); }
 
     bool operator==(const PabcData&) const = default;
   };
@@ -148,16 +148,16 @@ namespace wowlib::formats::m2::chunked::record {
       =welder::weld,
       =welder::doc("The PSBC chunk payload: parent sequence bounds.")
     ]] PsbcData : M2OffsetBlock<PsbcData> {
-    static constexpr ClientVersion version = versions::legion;
+    static constexpr ClientVersion Version = versions::Legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("Parent sequence bounds, one per parent sequence.")]]
-    std::vector<root::record::M2Bounds> parent_sequence_bounds;
+    std::vector<root::record::M2Bounds> parentSequenceBounds;
 
     /** Chunk engagement: shadow M2OffsetBlock's always-false empty() so the
         optional chunk is emitted only when data is present. */
     [[=welder::mark::exclude]]
-    bool empty() const { return parent_sequence_bounds.empty(); }
+    bool empty() const { return parentSequenceBounds.empty(); }
 
     bool operator==(const PsbcData&) const = default;
   };
@@ -167,7 +167,7 @@ namespace wowlib::formats::m2::chunked::record {
       =welder::doc("The PGD1 chunk payload: per-particle-emitter geoset "
         "assignments.")
     ]] Pgd1Data : M2OffsetBlock<Pgd1Data> {
-    static constexpr ClientVersion version = versions::legion;
+    static constexpr ClientVersion Version = versions::Legion;
 
     [[=welder::mark::no_reassign,
       =welder::doc("The geoset each particle emitter obeys (M2SkinSection "

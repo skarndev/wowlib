@@ -142,7 +142,7 @@ def _body_fields() -> dict[str, dict]:
         # The struct-head annotation block ([[=welder::weld…]] M2Root : bases…)
         # parses as a spurious member named after the first `;` inside the body
         # (the `version` constant); it is not a layout field, drop it.
-        fields.pop("version", None)
+        fields.pop("Version", None)
         _FIELDS_CACHE["body"] = fields
     return _FIELDS_CACHE["body"]
 

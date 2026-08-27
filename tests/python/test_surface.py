@@ -37,7 +37,7 @@ def test_version_constant_maps_to_expansion():
 
 def test_flag_enum_exposes_bit_values():
     # GroupFlags is an IntEnum; bit tests work against the plain integer fields.
-    assert gchunks.GroupFlags.exterior == 0x8
+    assert gchunks.GroupFlags.Exterior == 0x8
 
 
 @pytest.mark.parametrize("absent", ["ErrorCode"])

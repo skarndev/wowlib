@@ -21,39 +21,39 @@
 
 namespace wowlib::formats::adt {
   /** The ADT format version every supported client writes (the MVER payload). */
-  inline constexpr std::uint32_t adt_version_18 = 18;
+  inline constexpr std::uint32_t AdtVersion18 = 18;
 
   /** The terrain chunks a tile is divided into: a 16x16 grid, indexed
       row-major (y * 16 + x) — the client addresses them positionally, so the
       count is fixed for every version. */
-  inline constexpr std::size_t chunks_per_tile = 16 * 16;
+  inline constexpr std::size_t ChunksPerTile = 16 * 16;
 
   // --- layout pivots (documented boundaries that change ADT<V> content) -------
 
   /** 8.1.0.27826: MDID/MHID diffuse+height FileDataID tables arrive in _tex0
       (MTEX still present this one build). */
-  inline constexpr ClientVersion adt_tex_fdids = builds::BfA_TidesOfVengeance_28294;
+  inline constexpr ClientVersion AdtTexFdids = builds::BfA_TidesOfVengeance_28294;
 
   /** Cataclysm: ADTs split into root/_tex0/_obj0 (+_obj1); MCIN gone, MCLV /
       MCRD / MCRW / MAMP / MCMT arrive. */
-  inline constexpr ClientVersion adt_split = builds::Cata;
+  inline constexpr ClientVersion AdtSplit = builds::Cata;
 
   // --- version grids ----------------------------------------------------------
 
   /** The versions ADT is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
-  inline constexpr std::array adt_versions{
-    versions::vanilla,
-    versions::tbc,
-    versions::wotlk,
-    versions::cata,
-    versions::mop,
-    versions::wod,
-    versions::legion,
-    versions::bfa,
-    versions::shadowlands,
-    versions::dragonflight,
-    versions::tww
+  inline constexpr std::array AdtVersions{
+    versions::Vanilla,
+    versions::Tbc,
+    versions::Wotlk,
+    versions::Cata,
+    versions::Mop,
+    versions::Wod,
+    versions::Legion,
+    versions::Bfa,
+    versions::Shadowlands,
+    versions::Dragonflight,
+    versions::Tww
   };
 
   // --- per-family canonicalization pivots -------------------------------------
@@ -68,17 +68,17 @@ namespace wowlib::formats::adt {
       shipping it in 3.3.5a and the exact removal build is unknown, so it stays
       available through WotLK (see map_chunk.hpp). MoP MCBB/MPTX and later
       per-chunk sub-chunks are not modeled yet; add their pivots when they are (a
-      no-op pivot would just over-instantiate). Ranges: VanillaToTbc / Wotlk /
+      no-op pivot would just over-instantiate). Ranges: VanillaToTbc / wotlk /
       CataPlus. */
-  inline constexpr std::array map_chunk_pivots{builds::WotLK, builds::Cata};
+  inline constexpr std::array MapChunkPivots{builds::WotLK, builds::Cata};
 
   /** ADT<V> assembly content pivots — only boundaries that change what the tile
       CURRENTLY carries: TBC (MFBO), WotLK (MH2O/MTXF/MCCV), Cata (split files,
       MAMP, obj1/lod), 8.1 (MDID/MHID FileDataID texture tables). MoP/WoD add no
       modeled tile chunks, and _obj1/_lod stay raw until stage 3, so Legion and
-      SL are not yet pivots. Ranges: Vanilla / Tbc / Wotlk / CataToLegion /
+      SL are not yet pivots. Ranges: Vanilla / tbc / wotlk / CataToLegion /
       BfaPlus. */
-  inline constexpr std::array adt_pivots{builds::TBC, builds::WotLK, builds::Cata, adt_tex_fdids};
+  inline constexpr std::array AdtPivots{builds::TBC, builds::WotLK, builds::Cata, AdtTexFdids};
 
   // --- alpha-format context ---------------------------------------------------
 
@@ -92,10 +92,10 @@ namespace wowlib::formats::adt {
         reproduce the same encoding. RLE compression is an independent per-layer
         choice (the MCLY alpha_map_compressed flag), orthogonal to the depth.)")
     ]] AlphaFormat : std::uint8_t {
-    lowres_4bit [[=welder::doc(
+    Lowres4Bit [[=welder::doc(
       "2048-byte 4-bit alpha maps (the default when the WDT "
       "sets neither big-alpha flag).")]] = 0,
-    highres_8bit [[=welder::doc(
+    Highres8Bit [[=welder::doc(
       "4096-byte 8-bit alpha maps (the WDT has adt_has_big_alpha "
       "or adt_has_height_texturing).")]] = 1
   };

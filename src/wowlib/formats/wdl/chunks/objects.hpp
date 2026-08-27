@@ -24,11 +24,11 @@ namespace wowlib::formats::wdl::chunks {
         table).)")
     ]] LodMapObjDef {
     [[=welder::doc("The WMO FileDataID.")]]
-    std::uint32_t name_id = 0;
+    std::uint32_t nameId = 0;
 
     [[=welder::doc("Unique instance id across the whole map; matches the full-"
       "resolution ADT placement.")]]
-    std::uint32_t unique_id = 0;
+    std::uint32_t uniqueId = 0;
 
     [[=welder::doc("Position, in the map's placement coordinate system.")]]
     C3Vector position{};
@@ -40,10 +40,10 @@ namespace wowlib::formats::wdl::chunks {
     std::uint16_t flags = 0;
 
     [[=welder::doc("The WMO doodad set shown by this instance.")]]
-    std::uint16_t doodad_set = 0;
+    std::uint16_t doodadSet = 0;
 
     [[=welder::doc("The WMO name set.")]]
-    std::uint16_t name_set = 0;
+    std::uint16_t nameSet = 0;
 
     [[=welder::doc("Scale, 1024 = 1.0.")]]
     std::uint16_t scale = 0;
@@ -79,10 +79,10 @@ namespace wowlib::formats::wdl::chunks {
         (5000, 5050), (10000, 10050)).)")
     ]] LodDoodadFade {
     [[=welder::doc("The distance the fade starts at.")]]
-    float fade_start = 0;
+    float fadeStart = 0;
 
     [[=welder::doc("The distance the fade ends at.")]]
-    float fade_end = 0;
+    float fadeEnd = 0;
   };
 
   static_assert(sizeof(LodDoodadFade) == 8);

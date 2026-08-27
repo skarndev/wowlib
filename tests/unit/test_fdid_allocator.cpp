@@ -16,11 +16,11 @@ TEST_CASE("allocation is monotonic from the configured start", "[fdid]")
 TEST_CASE("note_existing bumps past previously used ids", "[fdid]")
 {
   FdidAllocator alloc{FileDataID{5000}};
-  alloc.note_existing(FileDataID{7000});
+  alloc.noteExisting(FileDataID{7000});
   CHECK(alloc.next().value() == FileDataID{7001});
 
   // ids below the cursor change nothing
-  alloc.note_existing(FileDataID{42});
+  alloc.noteExisting(FileDataID{42});
   CHECK(alloc.next().value() == FileDataID{7002});
 }
 

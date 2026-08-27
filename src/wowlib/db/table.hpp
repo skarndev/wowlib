@@ -10,7 +10,7 @@
 
     The dbdgen-generated table classes do NOT use this template: they derive
     the welded TableBase chain (so the method surface binds once for all ~4200
-    of them) and wire the same core themselves. This facade is the hand-written
+    of them) and _wire the same core themselves. This facade is the hand-written
     C++ path — a record struct you write yourself gets the full engine by
     naming this one type.
 
@@ -43,7 +43,7 @@ namespace wowlib::db {
   /** A client database table: the typed records of one DBFilesClient file.
 
       A thin typed shell: the records vector and the identity are here, the
-      engine is the shared TableCore. Copy/move re-wire the core at the fresh
+      engine is the shared TableCore. Copy/move re-_wire the core at the fresh
       records vector — the one obligation a core owner carries.
       @tparam Record the record type (generated, or hand-written per
               schema.hpp's TableRecord contract). */
@@ -51,34 +51,34 @@ namespace wowlib::db {
   class Table {
   public:
     /** The client version the record schema belongs to. */
-    static constexpr ClientVersion version = Record::version;
+    static constexpr ClientVersion Version = Record::Version;
 
     /** The WoWDBDefs table name (e.g. "Map"). */
-    static constexpr std::string_view table_name = Record::table_name;
+    static constexpr std::string_view TableName = Record::TableName;
 
     [[=welder::mark::no_reassign,
       =welder::doc("The decoded records, file order. Mutate in place; write() "
         "serializes exactly this list.")]]
     std::vector<Record> records;
 
-    Table() { wire(); }
-    Table(const Table& o) : records{o.records}, core_{o.core_} { wire(); }
+    Table() { _wire(); }
+    Table(const Table& o) : records{o.records}, _core{o._core} { _wire(); }
 
-    Table(Table&& o) noexcept : records{std::move(o.records)}, core_{std::move(o.core_)} {
-      wire();
+    Table(Table&& o) noexcept : records{std::move(o.records)}, _core{std::move(o._core)} {
+      _wire();
     }
 
     Table& operator=(const Table& o) {
       records = o.records;
-      core_ = o.core_;
-      wire();
+      _core = o._core;
+      _wire();
       return *this;
     }
 
     Table& operator=(Table&& o) noexcept {
       records = std::move(o.records);
-      core_ = std::move(o.core_);
-      wire();
+      _core = std::move(o._core);
+      _wire();
       return *this;
     }
 
@@ -89,7 +89,7 @@ namespace wowlib::db {
       =welder::returns(
         "nothing; raises on malformed input or a schema mismatch")]]
     Result<void> read(std::span<const std::byte> data [[=welder::doc("the whole file content")]]) {
-      return core_.read(data);
+      return _core.read(data);
     }
 
     /** Load the table from a client filesystem.
@@ -98,7 +98,7 @@ namespace wowlib::db {
         @return nothing, or why loading failed. */
     Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                       const FileKey& key [[=welder::doc("the file to read")]]) {
-      return core_.read(fs, key);
+      return _core.read(fs, key);
     }
 
     /** Serialize the table. A loaded table re-emits the magic it was read from; a
@@ -114,7 +114,7 @@ namespace wowlib::db {
     Result<FileBuffer> write(EncryptedPolicy policy
       [[=welder::doc("keyless-section handling (WDC only)")]]
       = EncryptedPolicy::Preserve) const {
-      return core_.write(policy);
+      return _core.write(policy);
     }
 
     /** Serialize the table into a client filesystem (project overlay).
@@ -127,7 +127,7 @@ namespace wowlib::db {
                        EncryptedPolicy policy
         [[=welder::doc("keyless-section handling (WDC only)")]]
                          = EncryptedPolicy::Preserve) const {
-      return core_.write(fs, key, policy);
+      return _core.write(fs, key, policy);
     }
 
     /** The preserved string block the record string fields were decoded from.
@@ -137,7 +137,7 @@ namespace wowlib::db {
         "The preserved string block the record string fields were decoded "
         "from; offsets never move, write() appends new strings past its "
         "end.")]]
-    const formats::StringBlock& strings() const { return core_.strings(); }
+    const formats::StringBlock& strings() const { return _core.strings(); }
 
     /** The encrypted sections skipped on the last read (empty when the file was
         fully decodable or is not a WDC format).
@@ -146,8 +146,8 @@ namespace wowlib::db {
       =welder::doc(
         "The encrypted sections skipped on read: their records are not "
         "in records, but the file re-writes them verbatim.")]]
-    const std::vector<EncryptedSection>& encrypted_sections() const {
-      return core_.encrypted_sections();
+    const std::vector<EncryptedSection>& encryptedSections() const {
+      return _core.encryptedSections();
     }
 
     /** Whether every record of the file was decoded (no encrypted sections).
@@ -156,7 +156,7 @@ namespace wowlib::db {
       =welder::doc(
         "Whether the whole table decoded — false when encrypted sections "
         "were skipped.")]]
-    bool fully_decoded() const { return core_.fully_decoded(); }
+    bool fullyDecoded() const { return _core.fullyDecoded(); }
 
     // There is deliberately NO "value fits its column" check: a column's width
     // IS its member's width (schema.hpp derives one from the other) and the WDC
@@ -170,24 +170,24 @@ namespace wowlib::db {
         and no string holds an embedded NUL the string block would truncate.
         write() never runs this.)"),
       =welder::returns("every violated contract, in record order")]]
-    formats::ValidationReport validate() const { return core_.validate(); }
+    formats::ValidationReport validate() const { return _core.validate(); }
 
     [[nodiscard]]
     [[=welder::doc("Validate and raise on the first error instead of returning "
         "a report — the assert-style face of validate()."),
       =welder::returns("nothing; raises when validate() finds any error")]]
-    Result<void> ensure_valid() const { return validate().to_result(); }
+    Result<void> ensureValid() const { return validate().toResult(); }
 
     /** The erased engine (bindings and tests reach the shared machinery here). */
-    const TableCore& core() const { return core_; }
+    const TableCore& core() const { return _core; }
 
   private:
     /** (Re-)point the core at this instance's vector and identity. */
-    void wire() {
-      static constexpr auto schema = schema_of<Record>();
-      core_.wire(&records, &detail::record_ops < Record >, TableInfo{version, table_name, schema});
+    void _wire() {
+      static constexpr auto Schema = schemaOf<Record>();
+      _core.wire(&records, &detail::RecordOpsFor<Record>, TableInfo{Version, TableName, Schema});
     }
 
-    TableCore core_;
+    TableCore _core;
   };
 }

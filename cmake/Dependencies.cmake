@@ -105,9 +105,11 @@ endif()
 # anchor on the namespace-scope alias, which the C# generator shards need
 # for distinct per-alias C symbols (dda6d03 before it: C++ default
 # arguments bind as truncated overloads).
+# a97833d: kwarg names flow through the name style (camelCase C++ parameters
+# bind as snake_case Python keywords again after the naming-convention sweep).
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG 542176e744633869b7a897452ba394e91a63271b)
+  GIT_TAG a97833d1d2ff5cd73519025c5c5ebae8238ffb7b)
 
 # --- welder-csharp (the C#/.NET rod, an out-of-tree welder extension) ---
 # Declared for every configure (declarations are free) but made available only

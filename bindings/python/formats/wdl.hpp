@@ -24,5 +24,5 @@ namespace wowlib_py::formats::wdl
       body, after welder's walk has registered the welded classes.
 
       @param module the extension module being initialized. */
-  void register_facade(nb::module_& module);
+  void registerFacade(nb::module_& module);
 }

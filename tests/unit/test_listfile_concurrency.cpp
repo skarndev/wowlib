@@ -17,7 +17,7 @@ TEST_CASE("concurrent lookups and registrations keep the maps consistent",
           "[listfile][threads]")
 {
   // work on a disposable copy — registrations append to the working file
-  const auto sample = tests::data_root() /
+  const auto sample = tests::dataRoot() /
                       "sample-listfile.csv";
   const auto csv = std::filesystem::temp_directory_path() / "wowlib-tests" /
                    "concurrency.csv";
@@ -29,7 +29,7 @@ TEST_CASE("concurrent lookups and registrations keep the maps consistent",
   REQUIRE(listfile.has_value());
 
   constexpr int writers = 4;
-  constexpr int per_writer = 250;
+  constexpr int perWriter = 250;
   constexpr int readers = 4;
 
   std::atomic<bool> stop{false};
@@ -38,14 +38,14 @@ TEST_CASE("concurrent lookups and registrations keep the maps consistent",
   std::vector<std::jthread> threads;
   for (int w = 0; w < writers; ++w)
     threads.emplace_back([&, w] {
-      for (int i = 0; i < per_writer; ++i)
-        if (!listfile->register_path(std::format("custom/writer{}/file{}.blp", w, i)))
+      for (int i = 0; i < perWriter; ++i)
+        if (!listfile->registerPath(std::format("custom/writer{}/file{}.blp", w, i)))
           ++failures;
     });
   for (int r = 0; r < readers; ++r)
     threads.emplace_back([&] {
       while (!stop)
-        if (listfile->path_to_fdid("dbfilesclient/map.db2") != FileDataID{1349477})
+        if (listfile->pathToFdid("dbfilesclient/map.db2") != FileDataID{1349477})
           ++failures;
     });
 
@@ -55,16 +55,16 @@ TEST_CASE("concurrent lookups and registrations keep the maps consistent",
   threads.clear();
 
   REQUIRE(failures == 0);
-  CHECK(listfile->size() == 6 + writers * per_writer);
+  CHECK(listfile->size() == 6 + writers * perWriter);
 
   // every allocated id resolves back and ids were not double-assigned
   for (int w = 0; w < writers; ++w)
-    for (int i = 0; i < per_writer; ++i)
+    for (int i = 0; i < perWriter; ++i)
     {
       const auto id =
-        listfile->path_to_fdid(std::format("custom/writer{}/file{}.blp", w, i));
+        listfile->pathToFdid(std::format("custom/writer{}/file{}.blp", w, i));
       REQUIRE(id.has_value());
-      CHECK(listfile->fdid_to_path(*id) ==
+      CHECK(listfile->fdidToPath(*id) ==
             std::format("custom\\writer{}\\file{}.blp", w, i));
     }
 

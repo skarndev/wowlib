@@ -4,7 +4,7 @@
     The round-trip audit surface (namespace wowlib::audit): one welded entry
     point that read->write->compares a single client file with the matching
     format entity and reports the outcome as a value instead of raising —
-    built for exhaustive sweeps over FileSystem::enumerate_paths() driven from
+    built for exhaustive sweeps over FileSystem::enumeratePaths() driven from
     the scripting side, one file per call. */
 
 #include <string>
@@ -43,7 +43,7 @@ namespace wowlib::audit {
         Every unmodeled chunk encountered while parsing, as fourcc spellings —
         one entry per occurrence (ready for counting), still round-tripped
         verbatim by the chunk framework.)")]]
-    std::vector<std::string> unknown_chunks;
+    std::vector<std::string> unknownChunks;
   };
 
   struct [[

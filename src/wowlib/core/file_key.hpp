@@ -50,20 +50,20 @@ namespace wowlib {
         A path-only key; the path is canonicalized here and may use any accepted
         spelling.)")]]
     FileKey(
-      std::string_view file_path [[=welder::doc("the client-internal file path")
+      std::string_view filePath [[=welder::doc("the client-internal file path")
       ]])
-      : path(normalize_path(file_path)) {}
+      : path(normalizePath(filePath)) {}
 
     [[=welder::doc("An id-only key.")]]
-    FileKey(FileDataID file_id [[=welder::doc("the numeric file identifier")]])
-      : fdid(file_id) {}
+    FileKey(FileDataID fileId [[=welder::doc("the numeric file identifier")]])
+      : fdid(fileId) {}
 
     [[=welder::doc("A key carrying both identities of one file.")]]
     FileKey(
-      std::string_view file_path [[=welder::doc("the client-internal file path")
+      std::string_view filePath [[=welder::doc("the client-internal file path")
       ]],
-      FileDataID file_id [[=welder::doc("the numeric file identifier")]])
-      : fdid(file_id), path(normalize_path(file_path)) {}
+      FileDataID fileId [[=welder::doc("the numeric file identifier")]])
+      : fdid(fileId), path(normalizePath(filePath)) {}
   };
 }
 

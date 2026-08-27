@@ -32,13 +32,13 @@ namespace
   {
     std::map<std::string, FileBuffer> files;
 
-    Result<FileBuffer> read_file(const FileKey& key)
+    Result<FileBuffer> readFile(const FileKey& key)
     {
       if (!key.path)
-        return make_error(ErrorCode::FdidNotResolvable, "fake is path-addressed");
+        return makeError(ErrorCode::FdidNotResolvable, "fake is path-addressed");
       const auto it = files.find(*key.path);
       if (it == files.end())
-        return make_error(ErrorCode::FileNotFound, *key.path);
+        return makeError(ErrorCode::FileNotFound, *key.path);
       return it->second;
     }
 
@@ -54,13 +54,13 @@ namespace
   static_assert(StorageBackend<MpqStorage>);
   static_assert(StorageBackend<CascStorage>);
 
-  // Same fake, presenting as CASC so add_file exercises the listfile path.
+  // Same fake, presenting as CASC so addFile exercises the listfile path.
   struct FakeCascStorage : FakeStorage
   {
     static constexpr StorageKind kind() { return StorageKind::Casc; }
   };
 
-  fsys::path fresh_root(std::string_view name)
+  fsys::path freshRoot(std::string_view name)
   {
     const auto root = fsys::temp_directory_path() / "wowlib-tests" / name;
     fsys::remove_all(root);
@@ -73,26 +73,26 @@ TEST_CASE("the project overlay wins over the backend", "[client-fs]")
   FakeStorage storage;
   storage.files["interface\\gluexml\\gluestrings.lua"] = bytes("from archive");
 
-  auto project = ProjectDirectory::open(fresh_root("cfs-overlay"));
+  auto project = ProjectDirectory::open(freshRoot("cfs-overlay"));
   REQUIRE(project.has_value());
   REQUIRE(project->write("Interface/GlueXML/GlueStrings.lua", bytes("from project"))
             .has_value());
 
   ClientFileSystem<FakeStorage> fs{std::move(storage), {}, std::move(*project)};
 
-  CHECK(fs.read_file(FileKey{"interface/gluexml/gluestrings.lua"}).value() ==
+  CHECK(fs.readFile(FileKey{"interface/gluexml/gluestrings.lua"}).value() ==
         bytes("from project"));
   CHECK(fs.exists(FileKey{"interface/gluexml/gluestrings.lua"}));
 
   // backend-only files still resolve
   fs.backend().files["dbfilesclient\\map.dbc"] = bytes("archive only");
-  CHECK(fs.read_file(FileKey{"DBFilesClient/Map.dbc"}).value() ==
+  CHECK(fs.readFile(FileKey{"DBFilesClient/Map.dbc"}).value() ==
         bytes("archive only"));
 }
 
 TEST_CASE("resolve fills the missing identity half from the listfile", "[client-fs]")
 {
-  auto listfile = CsvListfile::load(tests::data_root() /
+  auto listfile = CsvListfile::load(tests::dataRoot() /
                                     "sample-listfile.csv");
   REQUIRE(listfile.has_value());
 
@@ -102,14 +102,14 @@ TEST_CASE("resolve fills the missing identity half from the listfile", "[client-
   ClientFileSystem<FakeCascStorage, CsvListfile> fs{std::move(storage),
                                                     std::move(*listfile)};
 
-  const auto by_id = fs.resolve(FileKey{FileDataID{1349477}});
-  CHECK(by_id.path == "dbfilesclient\\map.db2");
+  const auto byId = fs.resolve(FileKey{FileDataID{1349477}});
+  CHECK(byId.path == "dbfilesclient\\map.db2");
 
-  const auto by_path = fs.resolve(FileKey{"DBFilesClient/Map.db2"});
-  CHECK(by_path.fdid == FileDataID{1349477});
+  const auto byPath = fs.resolve(FileKey{"DBFilesClient/Map.db2"});
+  CHECK(byPath.fdid == FileDataID{1349477});
 
   // an id-only request reads through the resolved path on a path-addressed backend
-  CHECK(fs.read_file(FileKey{FileDataID{1349477}}).value() == bytes("WDC3..."));
+  CHECK(fs.readFile(FileKey{FileDataID{1349477}}).value() == bytes("WDC3..."));
 }
 
 TEST_CASE("add_file allocates a custom id on CASC and persists it in the working "
@@ -119,40 +119,40 @@ TEST_CASE("add_file allocates a custom id on CASC and persists it in the working
   // the loaded CSV is the working database, so operate on a disposable copy
   const auto csv = fsys::temp_directory_path() / "wowlib-tests" / "cfs-addfile.csv";
   fsys::create_directories(csv.parent_path());
-  fsys::copy_file(tests::data_root() / "sample-listfile.csv", csv,
+  fsys::copy_file(tests::dataRoot() / "sample-listfile.csv", csv,
                   fsys::copy_options::overwrite_existing);
 
   auto listfile = CsvListfile::load(csv,
-                                    {.custom_fdid_start = FileDataID{1'000'000'000}});
+                                    {.customFdidStart = FileDataID{1'000'000'000}});
   REQUIRE(listfile.has_value());
 
-  auto project = ProjectDirectory::open(fresh_root("cfs-addfile"));
+  auto project = ProjectDirectory::open(freshRoot("cfs-addfile"));
   REQUIRE(project.has_value());
 
   ClientFileSystem<FakeCascStorage, CsvListfile> fs{{}, std::move(*listfile),
                                                     std::move(*project)};
 
-  const auto id = fs.add_file("world/maps/custom/custom.wdt", bytes("MVER"));
+  const auto id = fs.addFile("world/maps/custom/custom.wdt", bytes("MVER"));
   REQUIRE(id.has_value());
   CHECK(*id == FileDataID{1'000'000'000});
-  CHECK(fs.read_file(FileKey{*id}).value() == bytes("MVER"));
+  CHECK(fs.readFile(FileKey{*id}).value() == bytes("MVER"));
 
   // the registration reached the working file
   auto reloaded = CsvListfile::load(csv);
   REQUIRE(reloaded.has_value());
-  CHECK(reloaded->path_to_fdid("world/maps/custom/custom.wdt") == *id);
+  CHECK(reloaded->pathToFdid("world/maps/custom/custom.wdt") == *id);
 
   // overwriting keeps the id stable
-  CHECK(fs.add_file("world/maps/custom/custom.wdt", bytes("MVER v2")).value() == *id);
+  CHECK(fs.addFile("world/maps/custom/custom.wdt", bytes("MVER v2")).value() == *id);
 
   // MPQ-era composition: files land in the overlay, id space does not exist
-  auto mpq_project = ProjectDirectory::open(fresh_root("cfs-addfile-mpq"));
-  REQUIRE(mpq_project.has_value());
-  ClientFileSystem<FakeStorage> mpq_fs{{}, {}, std::move(*mpq_project)};
-  CHECK(mpq_fs.add_file("interface/custom.lua", bytes("-- lua")).value() ==
+  auto mpqProject = ProjectDirectory::open(freshRoot("cfs-addfile-mpq"));
+  REQUIRE(mpqProject.has_value());
+  ClientFileSystem<FakeStorage> mpqFs{{}, {}, std::move(*mpqProject)};
+  CHECK(mpqFs.addFile("interface/custom.lua", bytes("-- lua")).value() ==
         FileDataID{0});
 
   // without a project directory there is nowhere to add
   ClientFileSystem<FakeStorage> bare{{}};
-  CHECK(bare.add_file("foo.blp", bytes("x")).error().code == ErrorCode::NotSupported);
+  CHECK(bare.addFile("foo.blp", bytes("x")).error().code == ErrorCode::NotSupported);
 }

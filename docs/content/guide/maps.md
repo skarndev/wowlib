@@ -21,7 +21,7 @@ re-derives offset tables on write.
     #include <wowlib/formats/wdl/wdl.hpp>
     #include <wowlib/formats/wdt/wdt.hpp>
 
-    wowlib::formats::wdt::WDT<wowlib::versions::wotlk> world;
+    wowlib::formats::wdt::WDT<wowlib::versions::Wotlk> world;
     world.read(fs, wowlib::FileKey{"World/Maps/Azeroth/Azeroth.wdt"});
 
     for (int y = 0; y < 64; ++y)
@@ -29,7 +29,7 @@ re-derives offset tables on write.
         if (world.root.tiles[y * 64 + x].flags & 1)
           ;  // this tile has an ADT
 
-    wowlib::formats::wdl::WDL<wowlib::versions::wotlk> low;
+    wowlib::formats::wdl::WDL<wowlib::versions::Wotlk> low;
     low.read(fs, wowlib::FileKey{"World/Maps/Azeroth/Azeroth.wdl"});
     ```
 
@@ -94,16 +94,16 @@ physical file a chunk lives in.**
     #include <wowlib/formats/adt/adt.hpp>
 
     using wowlib::formats::adt::AlphaFormat;
-    wowlib::formats::adt::ADT<wowlib::versions::wotlk> tile;
+    wowlib::formats::adt::ADT<wowlib::versions::Wotlk> tile;
     tile.read(fs, wowlib::FileKey{"World/Maps/Azeroth/Azeroth_32_48.adt"},
-              AlphaFormat::lowres_4bit);
+              AlphaFormat::Lowres4Bit);
 
     for (auto& chunk : tile.chunks)          // 256 chunks, row-major
       for (float& h : chunk.heights)
         h += 10.0f;                          // raise the terrain
 
     tile.write(fs, wowlib::FileKey{"World/Maps/Azeroth/Azeroth_32_48.adt"},
-               AlphaFormat::lowres_4bit);
+               AlphaFormat::Lowres4Bit);
     ```
 
 === "Python"

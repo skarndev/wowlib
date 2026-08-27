@@ -66,7 +66,7 @@ def _entity_fields() -> dict[str, dict]:
     if _FIELDS_CACHE is None:
         text = fr.slice_text(WDL_HPP.read_text(encoding="utf-8"), "namespace detail", None)
         fields = {f["name"]: f for f in fr.parse_members(text, consts=_consts())}
-        fields.pop("version", None)   # the struct-head parse artifact
+        fields.pop("Version", None)   # the struct-head parse artifact
         _FIELDS_CACHE = fields
     return _FIELDS_CACHE
 
@@ -77,9 +77,9 @@ _ORDER_CACHE: list[str] | None = None
 def _chunk_order() -> list[str]:
     global _ORDER_CACHE
     if _ORDER_CACHE is None:
-        m = re.search(r"chunk_order\s*=\s*\{(.*?)\}",
+        m = re.search(r"ChunkOrder\s*=\s*\{(.*?)\}",
                       WDL_HPP.read_text(encoding="utf-8"), re.DOTALL)
-        _ORDER_CACHE = re.findall(r'four_cc\("([^"]+)"\)', m.group(1)) if m else []
+        _ORDER_CACHE = re.findall(r'fourCc\("([^"]+)"\)', m.group(1)) if m else []
     return _ORDER_CACHE
 
 

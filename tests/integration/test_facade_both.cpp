@@ -13,7 +13,7 @@ namespace fsys = std::filesystem;
 
 namespace
 {
-  fsys::path fresh_project(std::string_view name)
+  fsys::path freshProject(std::string_view name)
   {
     const auto root = fsys::temp_directory_path() / "wowlib-tests" / name;
     fsys::remove_all(root);
@@ -34,59 +34,59 @@ TEST_CASE("both clients work through the runtime facade alone",
 
   SECTION("3.3.5a")
   {
-    auto fs = FileSystem::open({.client_path = tests::mpq_client(),
-                                .version = versions::wotlk,
-                                .project_directory = fresh_project("facade-mpq")});
+    auto fs = FileSystem::open({.clientPath = tests::mpqClient(),
+                                .version = versions::Wotlk,
+                                .projectDirectory = freshProject("facade-mpq")});
     REQUIRE(fs.has_value());
     CHECK(fs->kind() == StorageKind::Mpq);
     CHECK(fs->mpq() != nullptr);
     CHECK(fs->casc() == nullptr);
 
     REQUIRE(fs->exists("DBFilesClient/Map.dbc"));
-    CHECK(fs->read_file("DBFilesClient/Map.dbc").has_value());
+    CHECK(fs->readFile("DBFilesClient/Map.dbc").has_value());
 
     // the overlay overrides the archive
     const auto payload = bytes("-- override");
-    REQUIRE(fs->add_file("Interface/GlueXML/GlueStrings.lua", payload).has_value());
-    CHECK(fs->read_file("Interface/GlueXML/GlueStrings.lua").value() == payload);
+    REQUIRE(fs->addFile("Interface/GlueXML/GlueStrings.lua", payload).has_value());
+    CHECK(fs->readFile("Interface/GlueXML/GlueStrings.lua").value() == payload);
   }
 
   SECTION("9.2.7")
   {
     // the supplied CSV is the working database registrations append to, so run
     // against a disposable copy of the community listfile
-    const auto listfile_csv = fsys::temp_directory_path() / "wowlib-tests" /
+    const auto listfileCsv = fsys::temp_directory_path() / "wowlib-tests" /
                               "facade-listfile.csv";
-    fsys::create_directories(listfile_csv.parent_path());
-    fsys::copy_file(tests::require_listfile(), listfile_csv,
+    fsys::create_directories(listfileCsv.parent_path());
+    fsys::copy_file(tests::requireListfile(), listfileCsv,
                     fsys::copy_options::overwrite_existing);
 
-    auto fs = FileSystem::open({.client_path = tests::casc_client(),
-                                .version = versions::shadowlands,
-                                .project_directory = fresh_project("facade-casc"),
-                                .listfile_csv = listfile_csv});
+    auto fs = FileSystem::open({.clientPath = tests::cascClient(),
+                                .version = versions::Shadowlands,
+                                .projectDirectory = freshProject("facade-casc"),
+                                .listfileCsv = listfileCsv});
     REQUIRE(fs.has_value());
     CHECK(fs->kind() == StorageKind::Casc);
 
     // path reads route through the listfile to a FileDataID
-    CHECK(fs->read_file("dbfilesclient/manifestinterfacedata.db2").has_value());
-    CHECK(fs->read_file(FileDataID{1375801}).has_value());
+    CHECK(fs->readFile("dbfilesclient/manifestinterfacedata.db2").has_value());
+    CHECK(fs->readFile(FileDataID{1375801}).has_value());
 
     // adding a new file allocates a custom id, persisted in the working listfile
-    const auto id = fs->add_file("world/maps/custom/custom.wdt", bytes("MVER"));
+    const auto id = fs->addFile("world/maps/custom/custom.wdt", bytes("MVER"));
     REQUIRE(id.has_value());
     CHECK(id->value >= 1'000'000'000);
-    CHECK(fs->read_file("world/maps/custom/custom.wdt").value() == bytes("MVER"));
+    CHECK(fs->readFile("world/maps/custom/custom.wdt").value() == bytes("MVER"));
 
     // a fresh open of the same project + listfile remembers the id
-    auto again = FileSystem::open({.client_path = tests::casc_client(),
-                                   .version = versions::shadowlands,
-                                   .project_directory =
+    auto again = FileSystem::open({.clientPath = tests::cascClient(),
+                                   .version = versions::Shadowlands,
+                                   .projectDirectory =
                                      fsys::temp_directory_path() / "wowlib-tests" /
                                      "facade-casc",
-                                   .listfile_csv = listfile_csv});
+                                   .listfileCsv = listfileCsv});
     REQUIRE(again.has_value());
-    CHECK(again->add_file("world/maps/custom/custom.wdt", bytes("MVER v2")).value() ==
+    CHECK(again->addFile("world/maps/custom/custom.wdt", bytes("MVER v2")).value() ==
           *id);
   }
 }

@@ -29,14 +29,14 @@ namespace wowlib::fs::detail {
         @return the id, or FdidSpaceExhausted once max is passed. */
     Result<FileDataID> next() {
       if (_next > _max)
-        return make_error(ErrorCode::FdidSpaceExhausted, std::format("custom FileDataID space exhausted at {}", _max));
+        return makeError(ErrorCode::FdidSpaceExhausted, std::format("custom FileDataID space exhausted at {}", _max));
       return FileDataID{static_cast<std::uint32_t>(_next++)};
     }
 
     /** Bump the allocator past an id seen in a loaded listfile, so re-opening a
         project never re-hands-out an id already in use.
         @param id an existing id (only ids inside the custom range move the cursor). */
-    void note_existing(FileDataID id) {
+    void noteExisting(FileDataID id) {
       if (id.value >= _next && id.value <= _max) _next = id.value + 1;
     }
 

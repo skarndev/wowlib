@@ -45,6 +45,12 @@ def snake(name: str) -> str:
     return s
 
 
+def cpp_era(era: str) -> str:
+    """The C++ versions:: constant for an era id ("vanilla" -> "Vanilla",
+    "classic_era" -> "ClassicEra"). The Python-facing era id stays snake."""
+    return "".join(w.capitalize() for w in era.split("_"))
+
+
 def member_name(dbd_name: str) -> str:
     """The C++ member spelling of a DBD column name: snake_case, the
     ``_lang`` locstring marker dropped, keywords and the record statics
@@ -100,11 +106,11 @@ class Member:
         """The member's full C++ declaration, annotations included."""
         annotations = []
         if self.is_id:
-            annotations.append("=db::id")
+            annotations.append("=db::Id")
         if self.is_relation:
-            annotations.append("=db::relation")
+            annotations.append("=db::Relation")
         if self.noninline:
-            annotations.append("=db::noninline")
+            annotations.append("=db::Noninline")
         if self.doc:
             annotations.append(f'=welder::doc("{_escape(self.doc)}")')
 
@@ -288,6 +294,7 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     out.append(f"    struct {table}Record;")
     for r in ranges:
         era = r.canonical.era
+        pascal_era = cpp_era(era)
         out.append("")
         out.append("    template <>")
         # Own weld (besides inheriting the row supertype) so the per-range alias
@@ -296,10 +303,10 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
         out.append("    struct [[")
         out.append("      =welder::weld,")
         out.append(f'      =welder::doc("A {table} table row for {era}+ clients.")]]')
-        out.append(f"    {table}Record<versions::{era}> : db::rowbase::{table}")
+        out.append(f"    {table}Record<versions::{pascal_era}> : db::rowbase::{table}")
         out.append("    {")
-        out.append(f"      static constexpr ClientVersion version = versions::{era};")
-        out.append(f'      static constexpr std::string_view table_name = "{dbd_name}";')
+        out.append(f"      static constexpr ClientVersion Version = versions::{pascal_era};")
+        out.append(f'      static constexpr std::string_view TableName = "{dbd_name}";')
         for member in r.members:
             out.append("")
             out.append(member.declaration("      "))
@@ -312,9 +319,9 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     # The canonicalization grid/pivots live in detail so weld_namespace does not
     # surface them as db.tables module attributes (an unannotated namespace never
     # participates in the walk); the facade reads them as detail::{var}_grid.
-    grid_list = ", ".join(f"versions::{t.era}" for t in grid)
+    grid_list = ", ".join(f"versions::{cpp_era(t.era)}" for t in grid)
     pivots = [r.canonical for r in ranges[1:]]
-    pivot_list = ", ".join(f"versions::{t.era}" for t in pivots)
+    pivot_list = ", ".join(f"versions::{cpp_era(t.era)}" for t in pivots)
     out.append("  namespace detail")
     out.append("  {")
     out.append(f"    inline constexpr std::array<ClientVersion, {len(grid)}> "
@@ -324,16 +331,16 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     # The per-range class-name suffixes, checked against C++ range_suffix so the
     # binding's concrete_name lookups can never drift from dbdgen's naming.
     rows = ", ".join(
-        f'{{"{range_suffix(r, grid)}", versions::{r.canonical.era}}}'
+        f'{{"{range_suffix(r, grid)}", versions::{cpp_era(r.canonical.era)}}}'
         for r in ranges)
     out.append(f"    inline constexpr std::array<formats::RangeRow, {len(ranges)}> "
                f"{var}_ranges{{{{{rows}}}}};")
-    out.append(f"    static_assert(formats::ranges_valid({var}_ranges, {var}_pivots, "
+    out.append(f"    static_assert(formats::rangesValid({var}_ranges, {var}_pivots, "
                f"{var}_grid));")
     out.append("  }")
     out.append("")
     out.append("  template <ClientVersion V>")
-    out.append(f"  using {table}Record = detail::{table}Record<formats::canonical_version("
+    out.append(f"  using {table}Record = detail::{table}Record<formats::canonicalVersion("
                f"V, detail::{var}_pivots, detail::{var}_grid)>;")
     out.append("")
     out.append("  namespace detail")
@@ -352,8 +359,8 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
     out.append(f'      =welder::doc("The {table} client-database table.")]]')
     out.append(f"    {table}Table : {table}_")
     out.append("    {")
-    out.append("      static constexpr ClientVersion version = V;")
-    out.append(f'      static constexpr std::string_view table_name = "{dbd_name}";')
+    out.append("      static constexpr ClientVersion Version = V;")
+    out.append(f'      static constexpr std::string_view TableName = "{dbd_name}";')
     out.append("")
     out.append("      [[=welder::mark::exclude(welder::lang::py),")
     out.append("        =welder::mark::no_reassign,")
@@ -361,42 +368,42 @@ def emit_table(table: str, ranges: list[Range], dbd_name: str | None = None) -> 
                'place; write() serializes exactly this list.")]]')
     out.append(f"      std::vector<{table}Record<V>> records;")
     out.append("")
-    out.append(f"      {table}Table() {{ wire_(); }}")
+    out.append(f"      {table}Table() {{ _wire(); }}")
     out.append(f"      {table}Table(const {table}Table& o)")
-    out.append(f"        : {table}_(o), records(o.records) {{ wire_(); }}")
+    out.append(f"        : {table}_(o), records(o.records) {{ _wire(); }}")
     out.append(f"      {table}Table({table}Table&& o) noexcept")
     out.append(f"        : {table}_(std::move(o)), records(std::move(o.records)) "
-               "{ wire_(); }")
+               "{ _wire(); }")
     out.append(f"      {table}Table& operator=(const {table}Table& o)")
     out.append("      {")
     out.append(f"        {table}_::operator=(o);")
     out.append("        records = o.records;")
-    out.append("        wire_();")
+    out.append("        _wire();")
     out.append("        return *this;")
     out.append("      }")
     out.append(f"      {table}Table& operator=({table}Table&& o) noexcept")
     out.append("      {")
     out.append(f"        {table}_::operator=(std::move(o));")
     out.append("        records = std::move(o.records);")
-    out.append("        wire_();")
+    out.append("        _wire();")
     out.append("        return *this;")
     out.append("      }")
     out.append("")
     out.append("    private:")
-    out.append("      void wire_()")
+    out.append("      void _wire()")
     out.append("      {")
-    out.append("        static constexpr auto schema = "
-               f"db::schema_of<{table}Record<V>>();")
-    out.append("        this->core_.wire(&records, "
-               f"&db::detail::record_ops<{table}Record<V>>,")
-    out.append("                         db::TableInfo{version, table_name, "
-               "schema});")
+    out.append("        static constexpr auto Schema = "
+               f"db::schemaOf<{table}Record<V>>();")
+    out.append("        this->_core.wire(&records, "
+               f"&db::detail::RecordOpsFor<{table}Record<V>>,")
+    out.append("                         db::TableInfo{Version, TableName, "
+               "Schema});")
     out.append("      }")
     out.append("    };")
     out.append("  }")
     out.append("")
     out.append("  template <ClientVersion V>")
-    out.append(f"  using {table} = detail::{table}Table<formats::canonical_version("
+    out.append(f"  using {table} = detail::{table}Table<formats::canonicalVersion("
                f"V, detail::{var}_pivots, detail::{var}_grid)>;")
     out.append("}")
     out.append("")

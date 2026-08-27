@@ -62,89 +62,89 @@ namespace wowlib::formats::m2::skin {
     template <ClientVersion V>
     struct M2SkinSection;
 
-    template <ClientVersion V> requires (V < m2_compressed_bones)
+    template <ClientVersion V> requires (V < M2CompressedBones)
     struct [[
         =welder::weld,
         =welder::doc("A skin submesh, vanilla layout (no sort data yet).")
       ]] M2SkinSection<V> : M2SkinSectionBase {
       [[=welder::doc("Mesh part (geoset) id.")]]
-      std::uint16_t skin_section_id = 0;
+      std::uint16_t skinSectionId = 0;
       [[=welder::doc(
           "Extends the 16-bit index_start by (level << 16) — index lists outgrow 64k first; vertex_start stays plain (verified on level=1 client files).")
       ]]
       std::uint16_t level = 0;
       [[=welder::doc("First local vertex.")]]
-      std::uint16_t vertex_start = 0;
+      std::uint16_t vertexStart = 0;
       [[=welder::doc("Local vertex count.")]]
-      std::uint16_t vertex_count = 0;
+      std::uint16_t vertexCount = 0;
       [[=welder::doc("First triangle index.")]]
-      std::uint16_t index_start = 0;
+      std::uint16_t indexStart = 0;
       [[=welder::doc("Triangle index count.")]]
-      std::uint16_t index_count = 0;
+      std::uint16_t indexCount = 0;
       [[=welder::doc("Bone-lookup entries used.")]]
-      std::uint16_t bone_count = 0;
+      std::uint16_t boneCount = 0;
       [[=welder::doc("First bone-lookup entry.")]]
-      std::uint16_t bone_combo_index = 0;
+      std::uint16_t boneComboIndex = 0;
       [[=welder::doc("Highest bones-per-vertex in the submesh.")]]
-      std::uint16_t bone_influences = 0;
+      std::uint16_t boneInfluences = 0;
       [[=welder::doc(
           "The bone nearest the submesh center; wowdev leaves it otherwise undescribed.")
       ]]
-      std::uint16_t center_bone_index = 0;
+      std::uint16_t centerBoneIndex = 0;
       [[=welder::doc("Average vertex position.")]]
-      C3Vector center_position{};
+      C3Vector centerPosition{};
 
       bool operator==(const M2SkinSection&) const = default;
     };
 
-    template <ClientVersion V> requires (V >= m2_compressed_bones)
+    template <ClientVersion V> requires (V >= M2CompressedBones)
     struct [[
         =welder::weld,
         =welder::doc("A skin submesh (TBC+): adds the sort center and radius.")
       ]] M2SkinSection<V> : M2SkinSectionBase {
       [[=welder::doc("Mesh part (geoset) id.")]]
-      std::uint16_t skin_section_id = 0;
+      std::uint16_t skinSectionId = 0;
       [[=welder::doc(
           "Extends the 16-bit index_start by (level << 16) — index lists outgrow 64k first; vertex_start stays plain (verified on level=1 client files).")
       ]]
       std::uint16_t level = 0;
       [[=welder::doc("First local vertex.")]]
-      std::uint16_t vertex_start = 0;
+      std::uint16_t vertexStart = 0;
       [[=welder::doc("Local vertex count.")]]
-      std::uint16_t vertex_count = 0;
+      std::uint16_t vertexCount = 0;
       [[=welder::doc("First triangle index.")]]
-      std::uint16_t index_start = 0;
+      std::uint16_t indexStart = 0;
       [[=welder::doc("Triangle index count.")]]
-      std::uint16_t index_count = 0;
+      std::uint16_t indexCount = 0;
       [[=welder::doc("Bone-lookup entries used.")]]
-      std::uint16_t bone_count = 0;
+      std::uint16_t boneCount = 0;
       [[=welder::doc("First bone-lookup entry.")]]
-      std::uint16_t bone_combo_index = 0;
+      std::uint16_t boneComboIndex = 0;
       [[=welder::doc("Highest bones-per-vertex in the submesh.")]]
-      std::uint16_t bone_influences = 0;
+      std::uint16_t boneInfluences = 0;
       [[=welder::doc(
           "The bone nearest the submesh center; wowdev leaves it otherwise undescribed.")
       ]]
-      std::uint16_t center_bone_index = 0;
+      std::uint16_t centerBoneIndex = 0;
       [[=welder::doc("Average vertex position.")]]
-      C3Vector center_position{};
+      C3Vector centerPosition{};
       [[=welder::doc("Center of the submesh bounding box.")]]
-      C3Vector sort_center_position{};
+      C3Vector sortCenterPosition{};
       [[=welder::doc("Distance of the farthest vertex from it.")]]
-      float sort_radius = 0;
+      float sortRadius = 0;
 
       bool operator==(const M2SkinSection&) const = default;
     };
   }
 
   /** A skin submesh — the canonicalizing face of detail::M2SkinSection
-      (m2_skin_section_pivots: TBC's sort center/radius tail). */
+      (M2SkinSectionPivots: TBC's sort center/radius tail). */
   template <ClientVersion V>
-  using M2SkinSection = detail::M2SkinSection<canonical_version(V, m2_skin_section_pivots, m2_versions)>;
+  using M2SkinSection = detail::M2SkinSection<canonicalVersion(V, M2SkinSectionPivots, M2Versions)>;
 
 
-  static_assert(sizeof(M2SkinSection<versions::vanilla>) == 32);
-  static_assert(sizeof(M2SkinSection<versions::wotlk>) == 48);
+  static_assert(sizeof(M2SkinSection<versions::Vanilla>) == 32);
+  static_assert(sizeof(M2SkinSection<versions::Wotlk>) == 48);
 
   struct [[
       =welder::weld,
@@ -154,29 +154,29 @@ namespace wowlib::formats::m2::skin {
     [[=welder::doc("0x10 static texture, 0x40 transparency quirk, ...")]]
     std::uint8_t flags = 0;
     [[=welder::doc("Draw-order priority plane.")]]
-    std::int8_t priority_plane = 0;
+    std::int8_t priorityPlane = 0;
     [[=welder::doc("Pre-Cata: 0 on disk, computed at runtime.")]]
-    std::uint16_t shader_id = 0;
+    std::uint16_t shaderId = 0;
     [[=welder::doc("The submesh this batch renders.")]]
-    std::uint16_t skin_section_index = 0;
+    std::uint16_t skinSectionIndex = 0;
     [[=welder::doc("BfA+: renamed flags2 (0x2 projected, 0x8 EDGF).")]]
-    std::uint16_t geoset_index = 0;
+    std::uint16_t geosetIndex = 0;
     [[=welder::doc("Into the model colors, -1 if none.")]]
-    std::uint16_t color_index = 0;
+    std::uint16_t colorIndex = 0;
     [[=welder::doc("Into the model materials.")]]
-    std::uint16_t material_index = 0;
+    std::uint16_t materialIndex = 0;
     [[=welder::doc("Capped at 7.")]]
-    std::uint16_t material_layer = 0;
+    std::uint16_t materialLayer = 0;
     [[=welder::doc("1..4 consecutive lookup entries.")]]
-    std::uint16_t texture_count = 0;
+    std::uint16_t textureCount = 0;
     [[=welder::doc("Into the texture lookup.")]]
-    std::uint16_t texture_combo_index = 0;
+    std::uint16_t textureComboIndex = 0;
     [[=welder::doc("Into the texture-mapping lookup.")]]
-    std::uint16_t texture_coord_combo_index = 0;
+    std::uint16_t textureCoordComboIndex = 0;
     [[=welder::doc("Into the transparency lookup.")]]
-    std::uint16_t texture_weight_combo_index = 0;
+    std::uint16_t textureWeightComboIndex = 0;
     [[=welder::doc("Into the UV-animation lookup.")]]
-    std::uint16_t texture_transform_combo_index = 0;
+    std::uint16_t textureTransformComboIndex = 0;
 
     bool operator==(const M2Batch&) const = default;
   };
@@ -197,13 +197,13 @@ namespace wowlib::formats::m2::skin {
     [[=welder::doc("Unknown.")]]
     std::uint16_t unknown1 = 0;
     [[=welder::doc("The submesh shadowed.")]]
-    std::uint16_t submesh_id = 0;
+    std::uint16_t submeshId = 0;
     [[=welder::doc("Already looked up.")]]
-    std::uint16_t texture_id = 0;
+    std::uint16_t textureId = 0;
     [[=welder::doc("Into the model colors.")]]
-    std::uint16_t color_id = 0;
+    std::uint16_t colorId = 0;
     [[=welder::doc("Already looked up.")]]
-    std::uint16_t transparency_id = 0;
+    std::uint16_t transparencyId = 0;
 
     bool operator==(const M2ShadowBatch&) const = default;
   };
@@ -224,12 +224,12 @@ namespace wowlib::formats::m2::skin {
       [[=welder::doc("Local -> global vertex lookup.")]]
       std::vector<std::uint16_t> vertices;
       [[
-        =formats::count_multiple_of(3),
+        =formats::countMultipleOf(3),
         =formats::indexes("vertices"),
         =welder::doc("Triangle list into the local vertices.")]]
       std::vector<std::uint16_t> indices;
       [[
-        =formats::count_matches("vertices"),
+        =formats::countMatches("vertices"),
         =welder::doc("Per-vertex 4-bone indices.")]]
       std::vector<std::array<std::uint8_t, 4>> bones;
       // through the skin:: alias, NOT the sibling detail raw — member types
@@ -239,46 +239,46 @@ namespace wowlib::formats::m2::skin {
       [[=welder::doc("The render batches (texture units).")]]
       std::vector<M2Batch> batches;
       [[=welder::doc("Max bones per draw call (21/53/64/256).")]]
-      std::uint32_t bone_count_max = 0;
+      std::uint32_t boneCountMax = 0;
 
       [[
-        =since(m2_multitex_particles),
+        =since(M2MultitexParticles),
         =welder::doc("Shadow batches (Cata+).")]]
-      std::vector<M2ShadowBatch> shadow_batches;
+      std::vector<M2ShadowBatch> shadowBatches;
 
-      /** Validation hook (see formats::detail::validate_value): the submesh and
+      /** Validation hook (see formats::detail::validateValue): the submesh and
           batch slices the annotations cannot express. Contracts reaching into
           the MODEL (batch material/color/texture-combo indices, a submesh's
           bone-lookup slice) belong to the M2 assembly's validate(), which is
           where both sides exist.
 
-          A submesh's index slice starts at `index_start + (level << 16)` — the
+          A submesh's index slice starts at `indexStart + (level << 16)` — the
           level field extends the 16-bit start, since index lists outgrow 64k
           before vertex lists do.
           @param report the report findings land in. */
       [[=welder::mark::exclude]]
-      void validate_extra(ValidationReport& report) const {
+      void validateExtra(ValidationReport& report) const {
         for (std::size_t i = 0; i < submeshes.size(); ++i) {
           const auto& submesh = submeshes[i];
-          const std::size_t index_start = std::size_t{submesh.index_start} + (std::size_t{submesh.level} << 16);
-          if (std::size_t{submesh.vertex_start} + submesh.vertex_count > vertices.size())
-            report.add_error(std::format("submeshes[{}]", i),
-                             std::format("vertex range [{}, {}) overruns the {} local vertices", submesh.vertex_start,
-                                         submesh.vertex_start + submesh.vertex_count, vertices.size()));
-          if (index_start + submesh.index_count > indices.size())
-            report.add_error(std::format("submeshes[{}]", i),
-                             std::format("index range [{}, {}) overruns the {} indices", index_start,
-                                         index_start + submesh.index_count, indices.size()));
-          if (submesh.index_count % 3 != 0)
-            report.add_error(std::format("submeshes[{}]", i),
-                             std::format("index count {} is not a multiple of 3", submesh.index_count));
+          const std::size_t indexStart = std::size_t{submesh.indexStart} + (std::size_t{submesh.level} << 16);
+          if (std::size_t{submesh.vertexStart} + submesh.vertexCount > vertices.size())
+            report.addError(std::format("submeshes[{}]", i),
+                             std::format("vertex range [{}, {}) overruns the {} local vertices", submesh.vertexStart,
+                                         submesh.vertexStart + submesh.vertexCount, vertices.size()));
+          if (indexStart + submesh.indexCount > indices.size())
+            report.addError(std::format("submeshes[{}]", i),
+                             std::format("index range [{}, {}) overruns the {} indices", indexStart,
+                                         indexStart + submesh.indexCount, indices.size()));
+          if (submesh.indexCount % 3 != 0)
+            report.addError(std::format("submeshes[{}]", i),
+                             std::format("index count {} is not a multiple of 3", submesh.indexCount));
         }
 
         for (std::size_t i = 0; i < batches.size(); ++i)
-          if (batches[i].skin_section_index >= submeshes.size())
-            report.add_error(std::format("batches[{}]", i),
+          if (batches[i].skinSectionIndex >= submeshes.size())
+            report.addError(std::format("batches[{}]", i),
                              std::format("skin_section_index {} out of range: {} submeshes",
-                                         batches[i].skin_section_index, submeshes.size()));
+                                         batches[i].skinSectionIndex, submeshes.size()));
       }
 
       bool operator==(const M2SkinProfile&) const = default;
@@ -286,7 +286,7 @@ namespace wowlib::formats::m2::skin {
   }
 
   /** One LOD view — the canonicalizing face of detail::M2SkinProfile
-      (m2_skin_profile_pivots: TBC's section layout, Cata's shadow batches). */
+      (M2SkinProfilePivots: TBC's section layout, Cata's shadow batches). */
   template <ClientVersion V>
-  using M2SkinProfile = detail::M2SkinProfile<canonical_version(V, m2_skin_profile_pivots, m2_versions)>;
+  using M2SkinProfile = detail::M2SkinProfile<canonicalVersion(V, M2SkinProfilePivots, M2Versions)>;
 }

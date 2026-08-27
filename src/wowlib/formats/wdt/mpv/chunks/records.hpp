@@ -16,13 +16,13 @@ namespace wowlib::formats::wdt::mpv::chunks {
       =welder::doc("One PVPD particulate-volume point.")
     ]] ParticulatePoint {
     [[=welder::doc("Unknown 2D vector; components in [-1, 1].")]]
-    C2Vector unk_0{};
+    C2Vector unk0{};
 
     [[=welder::doc("Unknown; only -0.0 observed.")]]
-    float unk_8 = 0;
+    float unk8 = 0;
 
     [[=welder::doc("Unknown.")]]
-    float unk_c = 0;
+    float unkC = 0;
   };
 
   static_assert(sizeof(ParticulatePoint) == 16);
@@ -32,13 +32,13 @@ namespace wowlib::formats::wdt::mpv::chunks {
       =welder::doc("One PVBD particulate-volume bounds record.")
     ]] ParticulateBounds {
     [[=welder::doc("Number of engaged point indices.")]]
-    std::uint32_t point_count = 0;
+    std::uint32_t pointCount = 0;
 
     [[=welder::doc("The volume's bounds.")]]
     CAaBox bounds{};
 
     [[=welder::doc("Indices into the group's PVPD points.")]]
-    std::array<std::uint32_t, 8> point_indices{};
+    std::array<std::uint32_t, 8> pointIndices{};
 
     [[=welder::doc(
       "Whether this entry is complete; if 0 it joins the next entry "

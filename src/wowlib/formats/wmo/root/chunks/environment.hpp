@@ -28,14 +28,14 @@ namespace wowlib::formats::wmo::root::chunks {
     // diagnoses it at generation. Renaming the TYPE keeps the natural property
     // spelling (`smoFog.Fog` stays the fog band). Python and Lua are unaffected:
     // there the nested type is `Fog` and the member `fog`, which do not collide.
-    struct [[=welder::weld_as(wowlib::lang::cs, "FogBand"),
+    struct [[=welder::weld_as(wowlib::lang::Cs, "FogBand"),
         =welder::doc("One fog band: end distance, start scalar and color.")]]
       Fog {
       [[=welder::doc("Distance at which visibility ceases.")]]
       float end = 0;
 
       [[=welder::doc("Start = end * start_scalar (0..1).")]]
-      float start_scalar = 0;
+      float startScalar = 0;
 
       [[=welder::doc("Fog color.")]]
       CImVector color{};
@@ -48,16 +48,16 @@ namespace wowlib::formats::wmo::root::chunks {
     C3Vector position{};
 
     [[=welder::doc("Inner radius (full fog).")]]
-    float smaller_radius = 0;
+    float smallerRadius = 0;
 
     [[=welder::doc("Outer radius (fog starts).")]]
-    float larger_radius = 0;
+    float largerRadius = 0;
 
     [[=welder::doc("The regular fog band.")]]
     Fog fog{};
 
     [[=welder::doc("The under-water fog band.")]]
-    Fog under_water_fog{};
+    Fog underWaterFog{};
   };
 
   static_assert(sizeof(SMOFog) == 0x30);
@@ -67,7 +67,7 @@ namespace wowlib::formats::wmo::root::chunks {
       =welder::doc("One MFED entry (9.0+): fog extra data; same count as MFOG.")
     ]] FogExtra {
     [[=welder::doc("The doodad set this fog applies to.")]]
-    std::uint16_t doodad_set_id = 0;
+    std::uint16_t doodadSetId = 0;
 
     /** Undeciphered remainder of the record. */
     [[=welder::mark::exclude]] std::array<std::uint8_t, 14> unknown{};
@@ -94,19 +94,19 @@ namespace wowlib::formats::wmo::root::chunks {
     float end = 0;
 
     [[=welder::doc("Primary ambient color; overrides the MOHD ambient.")]]
-    CImVector color_1{};
+    CImVector color1{};
 
     [[=welder::doc("Secondary ambient color.")]]
-    CImVector color_2{};
+    CImVector color2{};
 
     [[=welder::doc("Tertiary ambient color.")]]
-    CImVector color_3{};
+    CImVector color3{};
 
     [[=welder::doc("0x1: blend color_1 and color_3.")]]
     std::uint32_t flags = 0;
 
     [[=welder::doc("The doodad set this volume applies to.")]]
-    std::uint16_t doodad_set_id = 0;
+    std::uint16_t doodadSetId = 0;
 
     /** Undeciphered remainder of the record. */
     [[=welder::mark::exclude]] std::array<std::uint8_t, 10> unknown{};
@@ -127,19 +127,19 @@ namespace wowlib::formats::wmo::root::chunks {
     float end = 0;
 
     [[=welder::doc("Primary ambient color.")]]
-    CImVector color_1{};
+    CImVector color1{};
 
     [[=welder::doc("Secondary ambient color.")]]
-    CImVector color_2{};
+    CImVector color2{};
 
     [[=welder::doc("Tertiary ambient color.")]]
-    CImVector color_3{};
+    CImVector color3{};
 
     [[=welder::doc("0x1: blend color_2 and color_3.")]]
     std::uint32_t flags = 0;
 
     [[=welder::doc("The doodad set this volume applies to.")]]
-    std::uint16_t doodad_set_id = 0;
+    std::uint16_t doodadSetId = 0;
 
     /** Undeciphered remainder of the record. */
     [[=welder::mark::exclude]] std::array<std::uint8_t, 10> unknown{};

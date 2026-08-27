@@ -37,8 +37,8 @@ namespace wowlib::formats::wdt::mpv {
 
   namespace detail {
     /** A _mpv.wdt particulate-volume satellite for one client version (BfA
-        8.0.1+). The i-th elements of volume_data / point_groups /
-        bound_groups belong together; the on-disk group interleave
+        8.0.1+). The i-th elements of volumeData / pointGroups /
+        boundGroups belong together; the on-disk group interleave
         (PVMI, PVPD, PVBD, PVMI, ...) round-trips through the journal.
         Instantiate through the canonicalizing wdt::mpv::WDTParticulates
         alias, never directly.
@@ -54,7 +54,7 @@ namespace wowlib::formats::wdt::mpv {
           maps ship it empty. See https://wowdev.wiki/WDT.)")
       ]] WDTParticulates : ChunkedFile<WDTParticulates<V>>,
                            WDTParticulatesBase {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[
         =chunk("MVER"),
@@ -65,37 +65,37 @@ namespace wowlib::formats::wdt::mpv {
 
       [[
         =chunk("PVMI"),
-        =formats::optional,
-        =formats::repeating,
+        =formats::Optional,
+        =formats::Repeating,
         =welder::doc(
           R"(One PVMI payload per volume group. The record layout is keyed
                         on the file's own version payload, not the client build, so
                         it is kept opaque.)")]]
-      std::vector<ChunkBlob> volume_data;
+      std::vector<ChunkBlob> volumeData;
 
       [[
         =chunk("PVPD"),
-        =formats::optional,
-        =formats::repeating,
+        =formats::Optional,
+        =formats::Repeating,
         =welder::mark::no_reassign,
         =welder::doc("One PVPD point array per volume group.")]]
-      std::vector<std::vector<ParticulatePoint>> point_groups;
+      std::vector<std::vector<ParticulatePoint>> pointGroups;
 
       [[
         =chunk("PVBD"),
-        =formats::optional,
-        =formats::repeating,
+        =formats::Optional,
+        =formats::Repeating,
         =welder::mark::no_reassign,
         =welder::doc("One PVBD bounds array per volume group; reading a PVBD "
           "finalizes the group.")]]
-      std::vector<std::vector<ParticulateBounds>> bound_groups;
+      std::vector<std::vector<ParticulateBounds>> boundGroups;
 
       /** The canonical chunk-stream order the serializer emits a fresh entity
-          in (see write_order). Lists every chunk member exactly once; note a
+          in (see writeOrder). Lists every chunk member exactly once; note a
           fresh MULTI-group entity emits each member's elements consecutively
           rather than the client's per-group interleave — entities read from a
           file replay their journal and keep it. */
-      static constexpr std::array chunk_order = {four_cc("MVER"), four_cc("PVMI"), four_cc("PVPD"), four_cc("PVBD"),};
+      static constexpr std::array ChunkOrder = {fourCc("MVER"), fourCc("PVMI"), fourCc("PVPD"), fourCc("PVBD"),};
     };
   }
 
@@ -104,5 +104,5 @@ namespace wowlib::formats::wdt::mpv {
       on the FILE version, not the client), so a single instantiation serves
       every release. */
   template <ClientVersion V> requires(V >= builds::BfA_Beta_26287)
-  using WDTParticulates = detail::WDTParticulates<canonical_version(V, wdt_mpv_pivots, wdt_mpv_versions)>;
+  using WDTParticulates = detail::WDTParticulates<canonicalVersion(V, WdtMpvPivots, WdtMpvVersions)>;
 }

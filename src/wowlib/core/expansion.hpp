@@ -38,21 +38,21 @@ namespace wowlib {
   namespace detail {
     /** The targeted ClientVersion of each Expansion, indexed by enumerator
         value. Must stay in enumerator order. */
-    inline constexpr std::array expansion_versions{
-      versions::vanilla,
-      versions::tbc,
-      versions::wotlk,
-      versions::cata,
-      versions::mop,
-      versions::wod,
-      versions::legion,
-      versions::bfa,
-      versions::shadowlands,
-      versions::dragonflight,
-      versions::tww
+    inline constexpr std::array ExpansionVersions{
+      versions::Vanilla,
+      versions::Tbc,
+      versions::Wotlk,
+      versions::Cata,
+      versions::Mop,
+      versions::Wod,
+      versions::Legion,
+      versions::Bfa,
+      versions::Shadowlands,
+      versions::Dragonflight,
+      versions::Tww
     };
 
-    static_assert(expansion_versions.size() == std::meta::enumerators_of(^^Expansion).size(),
+    static_assert(ExpansionVersions.size() == std::meta::enumerators_of(^^Expansion).size(),
                   "expansion_versions must cover every Expansion enumerator");
   }
 
@@ -61,8 +61,8 @@ namespace wowlib {
       "The last-minor-of-major client version wowlib targets for this "
       "expansion (the versions constant)."),
     =welder::returns("the matching versions constant")]]
-  constexpr ClientVersion to_client_version(Expansion expansion [[=welder::doc("the expansion")]]) {
-    return detail::expansion_versions[static_cast<std::size_t>(expansion)];
+  constexpr ClientVersion toClientVersion(Expansion expansion [[=welder::doc("the expansion")]]) {
+    return detail::ExpansionVersions[static_cast<std::size_t>(expansion)];
   }
 
   [[=welder::weld,
@@ -73,9 +73,9 @@ namespace wowlib {
       "expansion's FORMATS one uses."),
     =welder::returns("the expansion, or None if the version is not one of the "
       "versions constants")]]
-  constexpr std::optional<Expansion> to_expansion(ClientVersion version [[=welder::doc("a full client version")]]) {
-    for (std::size_t i = 0; i < detail::expansion_versions.size(); ++i)
-      if (detail::expansion_versions[i] == version) return static_cast<Expansion>(i);
+  constexpr std::optional<Expansion> toExpansion(ClientVersion version [[=welder::doc("a full client version")]]) {
+    for (std::size_t i = 0; i < detail::ExpansionVersions.size(); ++i)
+      if (detail::ExpansionVersions[i] == version) return static_cast<Expansion>(i);
     return std::nullopt;
   }
 
@@ -89,9 +89,9 @@ namespace wowlib {
         writes War Within-era files. For formats, ask
         to_expansion(version.format_lineage) instead.)"),
     =welder::returns("the expansion, or None for unknown majors")]]
-  constexpr std::optional<Expansion> expansion_of(ClientVersion version [[=welder::doc("a full client version")]]) {
-    for (std::size_t i = 0; i < detail::expansion_versions.size(); ++i)
-      if (detail::expansion_versions[i].major == version.major) return static_cast<Expansion>(i);
+  constexpr std::optional<Expansion> expansionOf(ClientVersion version [[=welder::doc("a full client version")]]) {
+    for (std::size_t i = 0; i < detail::ExpansionVersions.size(); ++i)
+      if (detail::ExpansionVersions[i].major == version.major) return static_cast<Expansion>(i);
     return std::nullopt;
   }
 }

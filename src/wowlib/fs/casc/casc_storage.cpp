@@ -19,7 +19,7 @@ namespace wowlib::fs {
     /** CascOpenFile's by-FileDataID calling convention smuggles the id through
         the name pointer — CascLib's CASC_FILE_DATA_ID macro, respelled without
         its C-style casts. */
-    LPCSTR casc_fdid_name(std::uint32_t fdid) {
+    LPCSTR cascFdidName(std::uint32_t fdid) {
       return reinterpret_cast<LPCSTR>(static_cast<std::uintptr_t>(fdid));
     }
 
@@ -31,11 +31,11 @@ namespace wowlib::fs {
     // Scans Data/config for "# Build Configuration" files; repacks carry several
     // (old builds, modified variants) and only trying them tells which one the
     // storage actually matches.
-    std::vector<BuildConfigCandidate> scan_build_configs(const fsys::path& config_dir) {
+    std::vector<BuildConfigCandidate> scanBuildConfigs(const fsys::path& configDir) {
       std::vector<BuildConfigCandidate> found;
 
       std::error_code ec;
-      for (fsys::recursive_directory_iterator it{config_dir, ec}, end; !ec && it != end; it.increment(ec)) {
+      for (fsys::recursive_directory_iterator it{configDir, ec}, end; !ec && it != end; it.increment(ec)) {
         if (!it->is_regular_file(ec)) continue;
 
         std::ifstream file{it->path()};
@@ -57,46 +57,46 @@ namespace wowlib::fs {
     // Synthesizes the minimal .build.info CascLib needs (Active, Build Key, CDN
     // Key, Product) in a shim directory whose Data symlink points back into the
     // client, leaving the client untouched.
-    Result<fsys::path> write_shim(const fsys::path& client_data,
-                                  const std::string& build_key,
+    Result<fsys::path> writeShim(const fsys::path& clientData,
+                                  const std::string& buildKey,
                                   const std::string& product) {
       const auto shim = fsys::temp_directory_path() / "wowlib-casc-shim" / std::format(
-        "{:016x}-{}", fsys::hash_value(client_data), build_key);
+        "{:016x}-{}", fsys::hash_value(clientData), buildKey);
 
       std::error_code ec;
       fsys::create_directories(shim, ec);
       if (ec)
-        return make_error(ErrorCode::IoError,
+        return makeError(ErrorCode::IoError,
                           std::format("cannot create CASC shim '{}': {}", shim.string(), ec.message()));
 
       fsys::remove(shim / "Data", ec);
-      fsys::create_directory_symlink(client_data, shim / "Data", ec);
+      fsys::create_directory_symlink(clientData, shim / "Data", ec);
       if (ec)
-        return make_error(ErrorCode::IoError,
-                          std::format("cannot link '{}' into CASC shim: {}", client_data.string(), ec.message()));
+        return makeError(ErrorCode::IoError,
+                          std::format("cannot link '{}' into CASC shim: {}", clientData.string(), ec.message()));
 
       std::ofstream info{shim / ".build.info", std::ios::trunc};
       // the CDN key is required by the parser but unused for local storages; the
       // build key doubles as a syntactically valid stand-in
       info << "Active!DEC:1|Build Key!HEX:16|CDN Key!HEX:16|Product!STRING:0\n" << std::format(
-        "1|{}|{}|{}\n", build_key, build_key, product);
+        "1|{}|{}|{}\n", buildKey, buildKey, product);
       if (!info.flush())
-        return make_error(ErrorCode::IoError, std::format("cannot write '{}'", (shim / ".build.info").string()));
+        return makeError(ErrorCode::IoError, std::format("cannot write '{}'", (shim / ".build.info").string()));
 
       return shim;
     }
 
     // CASC stores paths with forward slashes; convert from wowlib canonical form.
-    std::string casc_name(const std::string& canonical_path) {
-      return to_native_relative(canonical_path);
+    std::string cascName(const std::string& canonicalPath) {
+      return toNativeRelative(canonicalPath);
     }
 
-    Result<FileBuffer> read_open_file(HANDLE file, const std::string& what) {
+    Result<FileBuffer> readOpenFile(HANDLE file, const std::string& what) {
       ULONGLONG size = 0;
       if (!CascGetFileSize64(file, &size)) {
         const auto native = GetCascError();
         CascCloseFile(file);
-        return make_error(ErrorCode::BackendError, std::format("CascGetFileSize64 failed for {}", what),
+        return makeError(ErrorCode::BackendError, std::format("CascGetFileSize64 failed for {}", what),
                           static_cast<std::uint32_t>(native));
       }
 
@@ -106,7 +106,7 @@ namespace wowlib::fs {
         const auto native = GetCascError();
         CascCloseFile(file);
         const bool encrypted = native == ERROR_FILE_ENCRYPTED;
-        return make_error(encrypted ? ErrorCode::EncryptedContent : ErrorCode::BackendError,
+        return makeError(encrypted ? ErrorCode::EncryptedContent : ErrorCode::BackendError,
                           encrypted
                             ? std::format("{} is behind an unknown TACT key", what)
                             : std::format("CascReadFile failed for {}", what), static_cast<std::uint32_t>(native));
@@ -119,66 +119,66 @@ namespace wowlib::fs {
 
   Result<CascStorage> CascStorage::open(Options options) {
     CascStorage storage{std::move(options)};
-    if (auto opened = storage.open_storage(); !opened) return std::unexpected(opened.error());
+    if (auto opened = storage._openStorage(); !opened) return std::unexpected(opened.error());
     return storage;
   }
 
-  Result<void> CascStorage::open_storage() {
+  Result<void> CascStorage::_openStorage() {
     std::scoped_lock lock{_mtx};
 
-    const auto locale_mask = casc_locale_flag(_options.locale);
+    const auto localeMask = cascLocaleFlag(_options.locale);
 
-    const auto try_open = [&](const fsys::path& local_path) -> HANDLE {
+    const auto tryOpen = [&](const fsys::path& localPath) -> HANDLE {
       CASC_OPEN_STORAGE_ARGS args{};
       args.Size = sizeof(args);
-      const std::string path = local_path.string();
+      const std::string path = localPath.string();
       args.szLocalPath = path.c_str();
       args.szCodeName = _options.product.c_str();
-      args.dwLocaleMask = locale_mask;
+      args.dwLocaleMask = localeMask;
       HANDLE handle = nullptr;
       return CascOpenStorageEx(nullptr, &args, false, &handle) ? handle : nullptr;
     };
 
     // (a) a proper install: .build.info at the root (or discoverable from Data/)
-    for (const auto& root : {_options.client_root, _options.client_root / "Data"})
-      if (HANDLE handle = try_open(root)) {
+    for (const auto& root : {_options.clientRoot, _options.clientRoot / "Data"})
+      if (HANDLE handle = tryOpen(root)) {
         _storage = handle;
         return {};
       }
-    const std::uint32_t plain_native = GetCascError();
+    const std::uint32_t plainNative = GetCascError();
 
     // (b) a repack without .build.info: synthesize one per build config candidate
     // in a shim directory and try until the storage opens. Only opening tells
     // which config the local data actually matches — repacks carry stale and
     // modified configs side by side.
-    auto candidates = scan_build_configs(_options.client_root / "Data" / "config");
+    auto candidates = scanBuildConfigs(_options.clientRoot / "Data" / "config");
     std::ranges::stable_sort(candidates, [&](const auto& a, const auto& b) {
       if (_options.build) {
-        const bool a_match = a.build == *_options.build;
-        const bool b_match = b.build == *_options.build;
-        if (a_match != b_match) return a_match;
+        const bool aMatch = a.build == *_options.build;
+        const bool bMatch = b.build == *_options.build;
+        if (aMatch != bMatch) return aMatch;
       }
       return a.build > b.build;
     });
 
     for (const auto& candidate : candidates) {
-      auto shim = write_shim(_options.client_root / "Data", candidate.key, _options.product);
+      auto shim = writeShim(_options.clientRoot / "Data", candidate.key, _options.product);
       if (!shim) return std::unexpected(shim.error());
 
-      if (HANDLE handle = try_open(*shim)) {
+      if (HANDLE handle = tryOpen(*shim)) {
         _storage = handle;
         return {};
       }
     }
 
-    return make_error(ErrorCode::StorageOpenFailed,
+    return makeError(ErrorCode::StorageOpenFailed,
                       std::format(
                         "CascOpenStorage failed for '{}' (product '{}'; no .build.info and "
-                        "{} build config candidate(s) tried)", _options.client_root.string(), _options.product,
-                        candidates.size()), plain_native);
+                        "{} build config candidate(s) tried)", _options.clientRoot.string(), _options.product,
+                        candidates.size()), plainNative);
   }
 
-  void CascStorage::close() noexcept {
+  void CascStorage::_close() noexcept {
     std::scoped_lock lock{_mtx};
     if (_storage) {
       CascCloseStorage(_storage);
@@ -186,67 +186,67 @@ namespace wowlib::fs {
     }
   }
 
-  Result<FileBuffer> CascStorage::read_file(const FileKey& key) {
+  Result<FileBuffer> CascStorage::readFile(const FileKey& key) {
     std::scoped_lock lock{_mtx};
-    if (!_storage) return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
+    if (!_storage) return makeError(ErrorCode::StorageNotOpen, "CASC storage is not open");
 
     HANDLE file = nullptr;
 
     if (key.fdid) {
-      if (CascOpenFile(_storage, casc_fdid_name(key.fdid->value), casc_locale_flag(_options.locale),
+      if (CascOpenFile(_storage, cascFdidName(key.fdid->value), cascLocaleFlag(_options.locale),
                        CASC_OPEN_BY_FILEID, &file))
-        return read_open_file(file, std::format("FileDataID {}", key.fdid->value));
+        return readOpenFile(file, std::format("FileDataID {}", key.fdid->value));
 
       const std::uint32_t native = GetCascError();
-      return make_error(ErrorCode::FileNotFound,
+      return makeError(ErrorCode::FileNotFound,
                         std::format("FileDataID {} was not found in the CASC storage", key.fdid->value), native);
     }
 
     if (key.path) {
-      const std::string name = casc_name(*key.path);
-      if (CascOpenFile(_storage, name.c_str(), casc_locale_flag(_options.locale), CASC_OPEN_BY_NAME, &file)) return
-        read_open_file(file, std::format("'{}'", name));
+      const std::string name = cascName(*key.path);
+      if (CascOpenFile(_storage, name.c_str(), cascLocaleFlag(_options.locale), CASC_OPEN_BY_NAME, &file)) return
+        readOpenFile(file, std::format("'{}'", name));
 
       const std::uint32_t native = GetCascError();
-      return make_error(ErrorCode::PathNotResolvable,
+      return makeError(ErrorCode::PathNotResolvable,
                         std::format(
                           "'{}' could not be opened by name — this client's "
                           "root manifest likely has no name hashes; resolve " "the path through a listfile", name),
                         native);
     }
 
-    return make_error(ErrorCode::InvalidPath, "empty FileKey");
+    return makeError(ErrorCode::InvalidPath, "empty FileKey");
   }
 
-  Result<void> CascStorage::add_encryption_key(std::uint64_t key_name, std::span<const std::byte, 16> key) {
+  Result<void> CascStorage::addEncryptionKey(std::uint64_t keyName, std::span<const std::byte, 16> key) {
     std::scoped_lock lock{_mtx};
-    if (!_storage) return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
+    if (!_storage) return makeError(ErrorCode::StorageNotOpen, "CASC storage is not open");
     // CascLib takes the key as a mutable LPBYTE but only reads it.
     auto bytes = std::array<std::uint8_t, 16>{};
     std::memcpy(bytes.data(), key.data(), bytes.size());
-    if (!CascAddEncryptionKey(_storage, key_name, bytes.data()))
-      return make_error(ErrorCode::BackendError, std::format("CascLib rejected TACT key {:016X}", key_name),
+    if (!CascAddEncryptionKey(_storage, keyName, bytes.data()))
+      return makeError(ErrorCode::BackendError, std::format("CascLib rejected TACT key {:016X}", keyName),
                         GetCascError());
     return {};
   }
 
-  Result<void> CascStorage::import_keys(std::string_view key_list) {
+  Result<void> CascStorage::importKeys(std::string_view keyList) {
     std::scoped_lock lock{_mtx};
-    if (!_storage) return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
-    const std::string list{key_list};
+    if (!_storage) return makeError(ErrorCode::StorageNotOpen, "CASC storage is not open");
+    const std::string list{keyList};
     if (!CascImportKeysFromString(_storage, list.c_str()))
-      return make_error(ErrorCode::BackendError, "CascLib rejected the TACT key list", GetCascError());
+      return makeError(ErrorCode::BackendError, "CascLib rejected the TACT key list", GetCascError());
     return {};
   }
 
-  Result<std::vector<FileDataID>> CascStorage::enumerate_fdids() {
+  Result<std::vector<FileDataID>> CascStorage::enumerateFdids() {
     std::scoped_lock lock{_mtx};
-    if (!_storage) return make_error(ErrorCode::StorageNotOpen, "CASC storage is not open");
+    if (!_storage) return makeError(ErrorCode::StorageNotOpen, "CASC storage is not open");
 
     CASC_FIND_DATA found{};
     HANDLE find = CascFindFirstFile(_storage, "*", &found, nullptr);
     if (!find)
-      return make_error(ErrorCode::BackendError, "CascFindFirstFile failed", GetCascError());
+      return makeError(ErrorCode::BackendError, "CascFindFirstFile failed", GetCascError());
 
     std::vector<FileDataID> fdids;
     do {
@@ -272,10 +272,10 @@ namespace wowlib::fs {
     bool ok = false;
 
     if (key.fdid)
-      ok = CascOpenFile(_storage, casc_fdid_name(key.fdid->value), casc_locale_flag(_options.locale),
+      ok = CascOpenFile(_storage, cascFdidName(key.fdid->value), cascLocaleFlag(_options.locale),
                         CASC_OPEN_BY_FILEID, &file);
     else if (key.path)
-      ok = CascOpenFile(_storage, casc_name(*key.path).c_str(), casc_locale_flag(_options.locale), CASC_OPEN_BY_NAME,
+      ok = CascOpenFile(_storage, cascName(*key.path).c_str(), cascLocaleFlag(_options.locale), CASC_OPEN_BY_NAME,
                         &file);
 
     if (ok) CascCloseFile(file);

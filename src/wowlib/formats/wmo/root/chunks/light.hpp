@@ -37,7 +37,7 @@ namespace wowlib::formats::wmo::root::chunks {
     std::uint8_t type = 0;
 
     [[=welder::doc("Whether attenuation applies.")]]
-    std::uint8_t use_atten = 0;
+    std::uint8_t useAtten = 0;
 
     /** Alignment padding; zero in client files. */
     [[=welder::mark::exclude]] std::array<std::uint8_t, 2> pad{};
@@ -55,10 +55,10 @@ namespace wowlib::formats::wmo::root::chunks {
     C4Quaternion rotation{};
 
     [[=welder::doc("Attenuation start distance.")]]
-    float atten_start = 0;
+    float attenStart = 0;
 
     [[=welder::doc("Attenuation end distance.")]]
-    float atten_end = 0;
+    float attenEnd = 0;
   };
 
   static_assert(sizeof(SMOLight) == 0x30);
@@ -87,7 +87,7 @@ namespace wowlib::formats::wmo::root::chunks {
     [[=welder::mark::exclude]] std::array<std::uint8_t, 3> pad{};
 
     [[=welder::doc("The MOLT light this entry extends.")]]
-    std::uint8_t light_index = 0;
+    std::uint8_t lightIndex = 0;
   };
 
   static_assert(sizeof(LightExtension) == 0x64);
@@ -102,16 +102,16 @@ namespace wowlib::formats::wmo::root::chunks {
     std::int32_t type = 0;
 
     [[=welder::doc("Index of this light in the MNLD array.")]]
-    std::int32_t light_index = 0;
+    std::int32_t lightIndex = 0;
 
     [[=welder::doc("0x1: blend outer and inner color; 0x2: casts shadows.")]]
     std::int32_t flags = 0;
 
     [[=welder::doc("The doodad set this light belongs to.")]]
-    std::int32_t doodad_set = 0;
+    std::int32_t doodadSet = 0;
 
     [[=welder::doc("Inner color.")]]
-    CImVector inner_color{};
+    CImVector innerColor{};
 
     [[=welder::doc("Position in the WMO.")]]
     C3Vector position{};
@@ -121,66 +121,66 @@ namespace wowlib::formats::wmo::root::chunks {
     C3Vector rotation{};
 
     [[=welder::doc("Attenuation start distance.")]]
-    float atten_start = 0;
+    float attenStart = 0;
 
     [[=welder::doc("Attenuation end distance.")]]
-    float atten_end = 0;
+    float attenEnd = 0;
 
     [[=welder::doc("Light intensity.")]]
     float intensity = 0;
 
     [[=welder::doc("Outer color; used with flag 0x1.")]]
-    CImVector outer_color{};
+    CImVector outerColor{};
 
     [[=welder::doc(
       "Gradient start distance for inner/outer blending (flag 0x1).")]]
-    float blend_start = 0;
+    float blendStart = 0;
 
     [[=welder::doc("Gradient end distance for inner/outer blending (flag 0x1).")
     ]]
-    float blend_end = 0;
+    float blendEnd = 0;
 
     /** Empty gap in the client layout. */
-    [[=welder::mark::exclude]] std::array<std::uint8_t, 4> gap_1{};
+    [[=welder::mark::exclude]] std::array<std::uint8_t, 4> gap1{};
 
     [[=welder::doc("Flickering intensity.")]]
-    float flicker_intensity = 0;
+    float flickerIntensity = 0;
 
     [[=welder::doc("Flickering speed.")]]
-    float flicker_speed = 0;
+    float flickerSpeed = 0;
 
     [[=welder::doc("0 = off, 1 = sine curve, 2 = noise curve, 3 = noise step.")]
     ]
-    std::int32_t flicker_mode = 0;
+    std::int32_t flickerMode = 0;
 
     [[=welder::doc("Unknown; only zeros observed.")]]
-    C3Vector unknown_1{};
+    C3Vector unknown1{};
 
     /** Empty gap in the client layout. */
-    [[=welder::mark::exclude]] std::array<std::uint8_t, 4> gap_2{};
+    [[=welder::mark::exclude]] std::array<std::uint8_t, 4> gap2{};
 
     [[=welder::doc("FileDataID of the light cookie texture (a cube map for "
       "point lights).")]]
-    std::uint32_t light_cookie_fdid = 0;
+    std::uint32_t lightCookieFdid = 0;
 
     /** Empty gap in the client layout. */
-    [[=welder::mark::exclude]] std::array<std::uint8_t, 20> gap_3{};
+    [[=welder::mark::exclude]] std::array<std::uint8_t, 20> gap3{};
 
     [[=welder::doc("Falloff exponent for spot lights.")]]
     float falloff = 0;
 
     [[=welder::doc("Start of the spot drop-off gradient, in radians.")]]
-    float inner_angle = 0;
+    float innerAngle = 0;
 
     [[=welder::doc("End of the spot drop-off gradient, in radians.")]]
-    float outer_angle = 0;
+    float outerAngle = 0;
 
     [[=welder::doc("Scale, as raw IEEE half-float bits; used with flag 0x2.")]]
-    std::uint16_t scale_half = 0;
+    std::uint16_t scaleHalf = 0;
 
     [[=welder::doc("Intensity multiplier, as raw IEEE half-float bits; 0 is "
       "corrected to 1 by the client.")]]
-    std::uint16_t intensity_multiplier_half = 0;
+    std::uint16_t intensityMultiplierHalf = 0;
 
     /** Trailing fields the client does not read yet; zero in files. */
     [[=welder::mark::exclude]] std::array<std::int32_t, 11> unused{};

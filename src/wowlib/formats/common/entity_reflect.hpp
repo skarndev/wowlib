@@ -40,17 +40,17 @@ namespace wowlib::formats::detail {
       @tparam V the entity's client version.
       @tparam M the reflected member. */
   template <ClientVersion V, std::meta::info M>
-  consteval bool version_active() {
-    if (auto s = annotation<since_spec, M>(); s && V < s->v) return false;
-    if (auto u = annotation<until_spec, M>(); u && V >= u->v) return false;
+  consteval bool versionActive() {
+    if (auto s = annotation<SinceSpec, M>(); s && V < s->v) return false;
+    if (auto u = annotation<UntilSpec, M>(); u && V >= u->v) return false;
     return true;
   }
 
   /** Trait: is @a T a std::vector (an array-chunk member)? */
   template <typename T>
-  inline constexpr bool is_vector_v = false;
+  inline constexpr bool IsVectorV = false;
   template <typename U, typename A>
-  inline constexpr bool is_vector_v<std::vector<U, A>> = true;
+  inline constexpr bool IsVectorV<std::vector<U, A>> = true;
 
   /** Collect @a type's non-static data members with its public bases flattened
       in FIRST (recursively, declaration order) — mirroring how welder flattens a
@@ -61,35 +61,35 @@ namespace wowlib::formats::detail {
       come along but carry no chunk() annotation, so every chunk loop skips them.
       @param type the reflected class to walk.
       @param out  the member list being built. */
-  consteval void collect_members(std::meta::info type, std::vector<std::meta::info>& out) {
+  consteval void collectMembers(std::meta::info type, std::vector<std::meta::info>& out) {
     for (auto b : std::meta::bases_of(type, std::meta::access_context::unchecked()))
-      if (std::meta::is_public(b)) collect_members(std::meta::type_of(b), out);
+      if (std::meta::is_public(b)) collectMembers(std::meta::type_of(b), out);
     for (auto m : std::meta::nonstatic_data_members_of(type, std::meta::access_context::unchecked())) out.push_back(m);
   }
 
   /** The reflected member list of @a E, public bases flattened in (see
-      collect_members). Stable order, so the journal's member index is consistent
+      collectMembers). Stable order, so the journal's member index is consistent
       between read and write.
       @tparam E the entity type.
       @return a static array of the reflected non-static data members. */
   template <typename E>
-  consteval auto members_of() {
+  consteval auto membersOf() {
     std::vector<std::meta::info> out;
-    collect_members(^^E, out);
+    collectMembers(^^E, out);
     return std::define_static_array(out);
   }
 
   /** The reflected member of @a E named @a name (public bases flattened, like
-      members_of), or the null reflection when no member carries the name — how
-      the sibling-naming annotations (count_matches, indexes, offset_after)
+      membersOf), or the null reflection when no member carries the name — how
+      the sibling-naming annotations (countMatches, indexes, offsetAfter)
       resolve their target at compile time, so a typo is a static_assert at the
       use site rather than a silent no-op.
       @tparam E    the entity type.
       @param  name the member identifier to find.
       @return the reflected member, or `std::meta::info{}`. */
   template <typename E>
-  consteval std::meta::info member_named(std::string_view name) {
-    for (auto m : members_of<E>())
+  consteval std::meta::info memberNamed(std::string_view name) {
+    for (auto m : membersOf<E>())
       if (std::meta::has_identifier(m) && std::meta::identifier_of(m) == name) return m;
     return {};
   }
@@ -100,7 +100,7 @@ namespace wowlib::formats::detail {
       records, and reflecting into them would walk implementation details.
       @param r the reflected entity (typically a type).
       @return whether `std` encloses it. */
-  consteval bool nested_in_std(std::meta::info r) {
+  consteval bool nestedInStd(std::meta::info r) {
     while (r != std::meta::info{} && r != ^^::) {
       if (r == ^^std) return true;
       if (!std::meta::has_parent(r)) return false;
@@ -109,10 +109,10 @@ namespace wowlib::formats::detail {
     return false;
   }
 
-  /** Whether @a T is a standard-library type (see nested_in_std).
+  /** Whether @a T is a standard-library type (see nestedInStd).
       @tparam T the type to classify. */
   template <typename T>
-  consteval bool is_std_type() {
-    return nested_in_std(^^T);
+  consteval bool isStdType() {
+    return nestedInStd(^^T);
   }
 }

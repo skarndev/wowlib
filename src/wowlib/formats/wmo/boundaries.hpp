@@ -20,15 +20,15 @@
 
 namespace wowlib::formats::wmo {
   /** The WMO format version every supported client uses (MVER payload). */
-  inline constexpr std::uint32_t wmo_version_v17 = 17;
+  inline constexpr std::uint32_t WmoVersionV17 = 17;
 
-  /** Legion 7.0.1.20740: SMOBatch's culling-box prelude gives way to a large
+  /** legion 7.0.1.20740: SMOBatch's culling-box prelude gives way to a large
       (uint16) material id. A layout pivot for SMOBatch. */
-  inline constexpr ClientVersion wmo_batch_large_material = builds::Legion_Alpha;
+  inline constexpr ClientVersion WmoBatchLargeMaterial = builds::Legion_Alpha;
 
   /** 9.2.0.42423: the unused u32 at MOGP+0x40 becomes the two split-group
       indices. A layout pivot for SMOGroupHeader. */
-  inline constexpr ClientVersion wmo_split_groups = builds::SL_EternitysEnd;
+  inline constexpr ClientVersion WmoSplitGroups = builds::SL_EternitysEnd;
 
   // --- version grid and per-family canonicalization pivots ------------------
   //
@@ -41,30 +41,30 @@ namespace wowlib::formats::wmo {
 
   /** The versions WMO is instantiated (and welded) for: every targeted
       last-minor-of-major release, in release order. */
-  inline constexpr std::array wmo_versions{
-    versions::vanilla,
-    versions::tbc,
-    versions::wotlk,
-    versions::cata,
-    versions::mop,
-    versions::wod,
-    versions::legion,
-    versions::bfa,
-    versions::shadowlands,
-    versions::dragonflight,
-    versions::tww
+  inline constexpr std::array WmoVersions{
+    versions::Vanilla,
+    versions::Tbc,
+    versions::Wotlk,
+    versions::Cata,
+    versions::Mop,
+    versions::Wod,
+    versions::Legion,
+    versions::Bfa,
+    versions::Shadowlands,
+    versions::Dragonflight,
+    versions::Tww
   };
 
   /** SMOBatch: the culling-box prelude gives way to the large material id. */
-  inline constexpr std::array wmo_batch_pivots{wmo_batch_large_material};
+  inline constexpr std::array WmoBatchPivots{WmoBatchLargeMaterial};
 
   /** SMOGroupHeader: the split-group indices replacing the unused u32. */
-  inline constexpr std::array wmo_group_header_pivots{wmo_split_groups};
+  inline constexpr std::array WmoGroupHeaderPivots{WmoSplitGroups};
 
   /** WMORoot: every trait-slot boundary and chunk-introduction build the
       root file carries (GFID/MOUV/MOSI/MODI/the volume family/new lights/
       M3 materials). */
-  inline constexpr std::array wmo_root_pivots{
+  inline constexpr std::array WmoRootPivots{
     builds::Legion_Alpha,
     builds::Legion_ShadowsOfArgus_24473,
     builds::BfA_TidesOfVengeance,
@@ -84,31 +84,31 @@ namespace wowlib::formats::wmo {
       WotLK groups carry none. Without the pivot, WMOGroupBody<mop> would
       canonicalize onto the Cata instantiation and the chunk would stay
       unmodelled for the era that introduced it. */
-  inline constexpr std::array wmo_group_pivots{
+  inline constexpr std::array WmoGroupPivots{
     builds::Cata,
     builds::MoP,
     builds::WoD,
-    wmo_batch_large_material,
+    WmoBatchLargeMaterial,
     builds::BfA_TidesOfVengeance,
     builds::BfA_VisionsOfNzoth_33775,
     builds::SL_Alpha_33978,
-    wmo_split_groups,
+    WmoSplitGroups,
     builds::DF_Alpha
   };
 
   /** The WMO assembly: the union of the root and group pivots. */
-  inline constexpr std::array wmo_assembly_pivots{
+  inline constexpr std::array WmoAssemblyPivots{
     builds::Cata,
     builds::MoP,
     builds::WoD,
-    wmo_batch_large_material,
+    WmoBatchLargeMaterial,
     builds::Legion_ShadowsOfArgus_24473,
     builds::BfA_TidesOfVengeance,
     builds::BfA_VisionsOfNzoth_32044,
     builds::BfA_VisionsOfNzoth_33775,
     builds::SL_Alpha_33978,
     builds::SL_ChainsOfDomination,
-    wmo_split_groups,
+    WmoSplitGroups,
     builds::DF_Alpha,
     builds::TWW_Alpha,
     builds::TWW_Undermined

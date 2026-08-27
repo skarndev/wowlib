@@ -23,12 +23,12 @@ namespace {
       @param report the report accumulating the file's outcome.
       @return the outcome. */
   template <typename E>
-  RoundtripReport roundtrip_parsed(const E& entity, const FileBuffer& raw, RoundtripReport& report) {
-    audit::detail::tally_unknown(report, entity);
+  RoundtripReport roundtripParsed(const E& entity, const FileBuffer& raw, RoundtripReport& report) {
+    audit::detail::tallyUnknown(report, entity);
     const auto rewritten = entity.write();
     if (!rewritten)
-      return audit::detail::fail_with(report, "write", rewritten.error().message);
-    if (auto divergence = audit::detail::first_divergence_chunked(raw, *rewritten)) return audit::detail::fail_with(
+      return audit::detail::failWith(report, "write", rewritten.error().message);
+    if (auto divergence = audit::detail::firstDivergenceChunked(raw, *rewritten)) return audit::detail::failWith(
       report, "compare", *divergence);
     return report;
   }
@@ -39,14 +39,14 @@ namespace {
       @param path the canonical .wdt path.
       @return the outcome. */
   template <ClientVersion V>
-  RoundtripReport roundtrip_wdt(fs::FileSystem& fs, const std::string& path) {
+  RoundtripReport roundtripWdt(fs::FileSystem& fs, const std::string& path) {
     RoundtripReport report;
-    const auto raw = fs.read_file(FileKey{path});
-    if (auto outcome = audit::detail::classify_read(report, "read", raw)) return *outcome;
+    const auto raw = fs.readFile(FileKey{path});
+    if (auto outcome = audit::detail::classifyRead(report, "read", raw)) return *outcome;
 
     wdt::root::WDTRoot < V > root;
-    if (auto r = root.read(*raw); !r) return audit::detail::fail_with(report, "parse", r.error().message);
-    return roundtrip_parsed(root, *raw, report);
+    if (auto r = root.read(*raw); !r) return audit::detail::failWith(report, "parse", r.error().message);
+    return roundtripParsed(root, *raw, report);
   }
 
   /** Round-trip one WDL byte-for-byte.
@@ -55,37 +55,37 @@ namespace {
       @param path the canonical .wdl path.
       @return the outcome. */
   template <ClientVersion V>
-  RoundtripReport roundtrip_wdl(fs::FileSystem& fs, const std::string& path) {
+  RoundtripReport roundtripWdl(fs::FileSystem& fs, const std::string& path) {
     RoundtripReport report;
-    const auto raw = fs.read_file(FileKey{path});
-    if (auto outcome = audit::detail::classify_read(report, "read", raw)) return *outcome;
+    const auto raw = fs.readFile(FileKey{path});
+    if (auto outcome = audit::detail::classifyRead(report, "read", raw)) return *outcome;
 
     wdl::WDL < V > entity;
-    if (auto r = entity.read(*raw); !r) return audit::detail::fail_with(report, "parse", r.error().message);
-    return roundtrip_parsed(entity, *raw, report);
+    if (auto r = entity.read(*raw); !r) return audit::detail::failWith(report, "parse", r.error().message);
+    return roundtripParsed(entity, *raw, report);
   }
 }
 
 namespace wowlib::audit::detail {
   RoundtripReport FormatDrivers::wdt(fs::FileSystem& fs, const std::string& path, ClientVersion version) {
     RoundtripReport report = skipped("unsupported-version");
-    const bool matched = with_version(version, [&]<ClientVersion V>() {
-      if constexpr (version_supported(formats::wdt::wdt_versions, V)) report = guarded([&] {
-        return roundtrip_wdt<V>(fs, path);
+    const bool matched = withVersion(version, [&]<ClientVersion V>() {
+      if constexpr (versionSupported(formats::wdt::WdtVersions, V)) report = guarded([&] {
+        return roundtripWdt<V>(fs, path);
       });
     });
-    if (!matched) return unrecognized_version(version);
+    if (!matched) return unrecognizedVersion(version);
     return report;
   }
 
   RoundtripReport FormatDrivers::wdl(fs::FileSystem& fs, const std::string& path, ClientVersion version) {
     RoundtripReport report = skipped("unsupported-version");
-    const bool matched = with_version(version, [&]<ClientVersion V>() {
-      if constexpr (version_supported(formats::wdl::wdl_versions, V)) report = guarded([&] {
-        return roundtrip_wdl<V>(fs, path);
+    const bool matched = withVersion(version, [&]<ClientVersion V>() {
+      if constexpr (versionSupported(formats::wdl::WdlVersions, V)) report = guarded([&] {
+        return roundtripWdl<V>(fs, path);
       });
     });
-    if (!matched) return unrecognized_version(version);
+    if (!matched) return unrecognizedVersion(version);
     return report;
   }
 }

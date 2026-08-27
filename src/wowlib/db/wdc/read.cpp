@@ -24,7 +24,7 @@ namespace wowlib::db::wdc {
         @param at    the string's first byte (absolute file offset).
         @param limit the first byte the string may not touch (block end).
         @return the string, empty when @a at is out of range. */
-    std::string read_c_string(std::span<const std::byte> file, std::size_t at, std::size_t limit) {
+    std::string readCString(std::span<const std::byte> file, std::size_t at, std::size_t limit) {
       limit = std::min(limit, file.size());
       if (at >= limit) return {};
       const auto* bytes = reinterpret_cast<const char*>(file.data());
@@ -33,16 +33,16 @@ namespace wowlib::db::wdc {
       return std::string{bytes + at, end - at};
     }
 
-    /** Sign-extend @a raw from @a bits when @a is_signed and the sign bit is
+    /** Sign-extend @a raw from @a bits when @a isSigned and the sign bit is
         set.
         @param raw       the zero-extended field bits.
         @param bits      the field's element width.
-        @param is_signed whether the column stores a signed value.
+        @param isSigned whether the column stores a signed value.
         @return the (possibly) sign-extended 64-bit pattern. */
-    std::uint64_t signed_fit(std::uint64_t raw, std::size_t bits, bool is_signed) {
-      if (!is_signed || bits == 0 || bits >= 64) return raw;
-      const std::uint64_t sign_bit = std::uint64_t{1} << (bits - 1);
-      if (raw & sign_bit) return raw | ~((std::uint64_t{1} << bits) - 1);
+    std::uint64_t signedFit(std::uint64_t raw, std::size_t bits, bool isSigned) {
+      if (!isSigned || bits == 0 || bits >= 64) return raw;
+      const std::uint64_t signBit = std::uint64_t{1} << (bits - 1);
+      if (raw & signBit) return raw | ~((std::uint64_t{1} << bits) - 1);
       return raw;
     }
 
@@ -59,12 +59,12 @@ namespace wowlib::db::wdc {
           @param info the table identity + schema.
           @param sink the decode target. */
       Decoder(const WdcImage& img, const TableInfo& info, RecordSink& sink)
-        : img_{img}, info_{info}, sink_{sink}, additional_{img.field_additional_offsets()} {
+        : _img{img}, _info{info}, _sink{sink}, _additional{img.fieldAdditionalOffsets()} {
         // The single non-inline $relation$ column, when the table has one —
         // its values live in the relationship block, not the record image.
         std::size_t colidx = 0;
         for (const Column& col : info.schema) {
-          if (col.is_relation && col.noninline) relation_col_ = colidx;
+          if (col.isRelation && col.noninline) _relationCol = colidx;
           ++colidx;
         }
         // Cross-section string geometry. WDC2+ string references are relative
@@ -75,29 +75,29 @@ namespace wowlib::db::wdc {
         // back to file offsets (single-section files degenerate to "file
         // offset + reference", which is why the difference only shows on
         // multi-section tables).
-        records_before_.reserve(img.sections.size());
-        std::uint64_t rec_sum = 0;
+        _recordsBefore.reserve(img.sections.size());
+        std::uint64_t recSum = 0;
         for (const WdcSection& sec : img.sections) {
-          records_before_.push_back(rec_sum);
-          rec_sum += sec.records.size();
+          _recordsBefore.push_back(recSum);
+          recSum += sec.records.size();
         }
-        total_record_bytes_ = rec_sum;
+        _totalRecordBytes = recSum;
       }
 
       /** Decode every section into the sink and fill the preserved state.
           @param state the preserved-state store (already reset).
           @return nothing, or why a section does not decode. */
       Result<void> run(TableState& state) {
-        for (const WdcSection& sec : img_.sections) {
+        for (const WdcSection& sec : _img.sections) {
           // A key-flagged section whose records are all zero is genuinely
           // undecryptable (the storage lacked the TACT key and shipped
           // zeros); a key-flagged section with real bytes was decrypted by
           // the storage and decodes normally.
-          if (sec.encrypted && db::detail::all_zero(sec.records)) {
+          if (sec.encrypted && db::detail::allZero(sec.records)) {
             report_encrypted(sec, state);
             continue;
           }
-          if (auto r = decode_section(sec); !r) return r;
+          if (auto r = _decodeSection(sec); !r) return r;
         }
         return {};
       }
@@ -105,16 +105,16 @@ namespace wowlib::db::wdc {
     private:
       /** Record one undecryptable section's identity: its key hash, row
           count, and ids (WDC4+ lists them explicitly in encrypted_status;
-          for WDC3 the section's id_list is the best available source).
+          for WDC3 the section's idList is the best available source).
           @param sec   the skipped section.
           @param state the preserved-state store. */
       void report_encrypted(const WdcSection& sec, TableState& state) const {
-        EncryptedSection report{.key_hash = sec.header.tact_key_hash, .record_count = sec.header.record_count};
-        if (!sec.encrypted_ids.empty()) report.ids = sec.encrypted_ids;
+        EncryptedSection report{.keyHash = sec.header.tactKeyHash, .recordCount = sec.header.recordCount};
+        if (!sec.encryptedIds.empty()) report.ids = sec.encryptedIds;
         else {
           const auto ids = std::span{
-            reinterpret_cast<const std::uint32_t*>(sec.id_list.data()),
-            sec.id_list.size() / 4
+            reinterpret_cast<const std::uint32_t*>(sec.idList.data()),
+            sec.idList.size() / 4
           };
           report.ids.assign(ids.begin(), ids.end());
         }
@@ -125,20 +125,20 @@ namespace wowlib::db::wdc {
           its relationship map and expand its copy table.
           @param sec the section to decode.
           @return nothing, or why a sparse record does not close. */
-      Result<void> decode_section(const WdcSection& sec) {
-        const std::size_t first = sink_.size();
-        if (img_.is_sparse()) {
-          if (auto r = decode_sparse_section(sec); !r) return r;
+      Result<void> _decodeSection(const WdcSection& sec) {
+        const std::size_t first = _sink.size();
+        if (_img.isSparse()) {
+          if (auto r = _decodeSparseSection(sec); !r) return r;
         }
         else {
-          const std::size_t stride = img_.header.record_size;
-          const std::size_t section_index = index_of(sec);
-          for (std::uint32_t r = 0; r < sec.header.record_count; ++r) {
-            const std::uint32_t id = record_id(sec, r);
-            const auto record_bytes = sec.records.subspan(std::size_t{r} * stride, stride);
-            const std::uint64_t record_blob = records_before_[section_index] + std::uint64_t{r} * stride;
-            const std::size_t rec = sink_.add();
-            decode_record(rec, record_bytes, record_blob, id);
+          const std::size_t stride = _img.header.recordSize;
+          const std::size_t sectionIndex = _indexOf(sec);
+          for (std::uint32_t r = 0; r < sec.header.recordCount; ++r) {
+            const std::uint32_t id = _recordId(sec, r);
+            const auto recordBytes = sec.records.subspan(std::size_t{r} * stride, stride);
+            const std::uint64_t recordBlob = _recordsBefore[sectionIndex] + std::uint64_t{r} * stride;
+            const std::size_t rec = _sink.add();
+            _decodeRecord(rec, recordBytes, recordBlob, id);
           }
         }
         apply_relationship(sec, first);
@@ -149,45 +149,45 @@ namespace wowlib::db::wdc {
       /** Decode one sparse section: records are located by the offset map
           ({uint32 absolute offset, uint16 size}, ids in the parallel id
           list), fields are UNCOMPRESSED and SEQUENTIAL — fixed fields at
-          natural width, strings inline null-terminated; field_storage bit
+          natural width, strings inline null-terminated; fieldStorage bit
           offsets do not apply.
           @param sec the sparse section.
           @return nothing, or why a record overruns the file. */
-      Result<void> decode_sparse_section(const WdcSection& sec) {
-        for (std::uint32_t r = 0; r < sec.header.offset_map_id_count; ++r) {
+      Result<void> _decodeSparseSection(const WdcSection& sec) {
+        for (std::uint32_t r = 0; r < sec.header.offsetMapIdCount; ++r) {
           std::uint32_t offset = 0, id = 0;
           std::uint16_t size = 0;
-          std::memcpy(&offset, sec.offset_map.data() + std::size_t{r} * 6, 4);
-          std::memcpy(&size, sec.offset_map.data() + std::size_t{r} * 6 + 4, 2);
-          if (std::size_t{r} * 4 + 4 <= sec.offset_map_ids.size()) std::memcpy(
-            &id, sec.offset_map_ids.data() + std::size_t{r} * 4, 4);
-          if (offset + size > img_.file.size())
-            return make_error(ErrorCode::TableTruncated,
-                              std::format("{}: sparse record {} at {:#x} overruns the file", info_.name, r, offset));
-          const std::size_t rec = sink_.add();
-          decode_sparse_record(rec, img_.file.subspan(offset, size), id);
+          std::memcpy(&offset, sec.offsetMap.data() + std::size_t{r} * 6, 4);
+          std::memcpy(&size, sec.offsetMap.data() + std::size_t{r} * 6 + 4, 2);
+          if (std::size_t{r} * 4 + 4 <= sec.offsetMapIds.size()) std::memcpy(
+            &id, sec.offsetMapIds.data() + std::size_t{r} * 4, 4);
+          if (offset + size > _img.file.size())
+            return makeError(ErrorCode::TableTruncated,
+                              std::format("{}: sparse record {} at {:#x} overruns the file", _info.name, r, offset));
+          const std::size_t rec = _sink.add();
+          decode_sparse_record(rec, _img.file.subspan(offset, size), id);
         }
         return {};
       }
 
-      /** The record id of fixed-stride record @a r of @a sec: the id_list
+      /** The record id of fixed-stride record @a r of @a sec: the idList
           entry when the file stores ids out of line (flag 0x04), else the
-          id_index'th inline field.
+          idIndex'th inline field.
           @param sec the section.
           @param r   the record index within the section.
-          @return the id (0 when the id_list is truncated). */
-      std::uint32_t record_id(const WdcSection& sec, std::uint32_t r) const {
-        if (img_.id_is_noninline()) {
-          if (std::size_t{r} * 4 + 4 <= sec.id_list.size()) {
+          @return the id (0 when the idList is truncated). */
+      std::uint32_t _recordId(const WdcSection& sec, std::uint32_t r) const {
+        if (_img.idIsNoninline()) {
+          if (std::size_t{r} * 4 + 4 <= sec.idList.size()) {
             std::uint32_t id = 0;
-            std::memcpy(&id, sec.id_list.data() + std::size_t{r} * 4, 4);
+            std::memcpy(&id, sec.idList.data() + std::size_t{r} * 4, 4);
             return id;
           }
           return 0;
         }
-        const auto record_bytes = sec.records.
-                                      subspan(std::size_t{r} * img_.header.record_size, img_.header.record_size);
-        return static_cast<std::uint32_t>(img_.field_raw(img_.header.id_index, 0, 1, record_bytes, 0, additional_));
+        const auto recordBytes = sec.records.
+                                      subspan(std::size_t{r} * _img.header.recordSize, _img.header.recordSize);
+        return static_cast<std::uint32_t>(_img.fieldRaw(_img.header.idIndex, 0, 1, recordBytes, 0, _additional));
       }
 
       /** Decode one fixed-stride record: walk the schema, decoding every
@@ -195,22 +195,22 @@ namespace wowlib::db::wdc {
           column receives @a id, the non-inline relation column is left for
           apply_relationship().
           @param rec         the sink record index.
-          @param record_bytes the record's byte span.
-          @param record_blob the record's byte position inside the client
+          @param recordBytes the record's byte span.
+          @param recordBlob the record's byte position inside the client
                              blob (string-reference base).
           @param id          the record's id. */
-      void decode_record(std::size_t rec,
-                         std::span<const std::byte> record_bytes,
-                         std::uint64_t record_blob,
+      void _decodeRecord(std::size_t rec,
+                         std::span<const std::byte> recordBytes,
+                         std::uint64_t recordBlob,
                          std::uint32_t id) {
         std::size_t f = 0, colidx = 0;
-        for (const Column& col : info_.schema) {
+        for (const Column& col : _info.schema) {
           if (col.noninline) {
-            if (col.is_id) sink_.set_int(rec, colidx, 0, static_cast<std::int64_t>(id));
+            if (col.isId) _sink.setInt(rec, colidx, 0, static_cast<std::int64_t>(id));
           }
           else {
-            for (std::uint16_t e = 0; e < col.array_len; ++e)
-              decode_inline_element(rec, f, col, e, colidx, record_bytes, record_blob, id);
+            for (std::uint16_t e = 0; e < col.arrayLen; ++e)
+              decode_inline_element(rec, f, col, e, colidx, recordBytes, recordBlob, id);
             ++f;
           }
           ++colidx;
@@ -220,37 +220,37 @@ namespace wowlib::db::wdc {
       /** Decode one inline element of column @a col (inline field index
           @a f) into the sink.
           @param rec         the sink record index.
-          @param f           the inline field index (into field_storage).
+          @param f           the inline field index (into fieldStorage).
           @param col         the schema column.
           @param e           the array element.
           @param colidx      the schema column index (sink addressing).
-          @param record_bytes the record's byte span.
-          @param record_blob the record's blob position (string base).
+          @param recordBytes the record's byte span.
+          @param recordBlob the record's blob position (string base).
           @param id          the record's id (common-data lookups). */
       void decode_inline_element(std::size_t rec,
                                  std::size_t f,
                                  const Column& col,
                                  std::uint16_t e,
                                  std::size_t colidx,
-                                 std::span<const std::byte> record_bytes,
-                                 std::uint64_t record_blob,
+                                 std::span<const std::byte> recordBytes,
+                                 std::uint64_t recordBlob,
                                  std::uint32_t id) {
-        const std::uint64_t raw = img_.field_raw(f, e, col.array_len, record_bytes, id, additional_);
+        const std::uint64_t raw = _img.fieldRaw(f, e, col.arrayLen, recordBytes, id, _additional);
         switch (col.type) {
         case ColumnType::Int: {
-          const std::uint64_t v = signed_fit(raw, img_.elem_bit_width(f, col.array_len),
-                                             img_.field_is_signed(f) || col.is_signed);
-          sink_.set_int(rec, colidx, e, static_cast<std::int64_t>(v));
+          const std::uint64_t v = signedFit(raw, _img.elemBitWidth(f, col.arrayLen),
+                                             _img.fieldIsSigned(f) || col.isSigned);
+          _sink.setInt(rec, colidx, e, static_cast<std::int64_t>(v));
           break;
         }
         case ColumnType::Float:
-          sink_.set_float(rec, colidx, e, std::bit_cast<float>(static_cast<std::uint32_t>(raw)));
+          _sink.setFloat(rec, colidx, e, std::bit_cast<float>(static_cast<std::uint32_t>(raw)));
           break;
         case ColumnType::String: {
           // A string ARRAY stores one reference per element, each relative
           // to its OWN 4-byte slot, so the element base advances by e*4.
-          const std::size_t elem_byte = std::size_t{img_.field_storage[f].field_offset_bits} / 8 + std::size_t{e} * 4;
-          sink_.set_string(rec, colidx, e, resolve_string(record_blob + elem_byte, static_cast<std::uint32_t>(raw)));
+          const std::size_t elemByte = std::size_t{_img.fieldStorage[f].fieldOffsetBits} / 8 + std::size_t{e} * 4;
+          _sink.setString(rec, colidx, e, _resolveString(recordBlob + elemByte, static_cast<std::uint32_t>(raw)));
           break;
         }
         case ColumnType::LocString:
@@ -267,27 +267,27 @@ namespace wowlib::db::wdc {
           blob (records of every section, then strings of every section), so
           the target lands `raw` bytes past the field IN BLOB SPACE and must
           be mapped back to the file through the per-section geometry.
-          @param ref_blob the referencing field's byte position in the blob
+          @param refBlob the referencing field's byte position in the blob
                           (unused for WDC1).
           @param raw      the stored 32-bit reference.
           @return the referenced string (empty for out-of-range references). */
-      std::string resolve_string(std::uint64_t ref_blob, std::uint32_t raw) const {
-        if (img_.string_mode == StringRefMode::BlockRelative) {
-          const WdcSection& sec = img_.sections.front();
-          return read_c_string(img_.file, std::size_t{sec.string_base} + raw,
-                               std::size_t{sec.string_base} + sec.strings.size());
+      std::string _resolveString(std::uint64_t refBlob, std::uint32_t raw) const {
+        if (_img.stringMode == StringRefMode::BlockRelative) {
+          const WdcSection& sec = _img.sections.front();
+          return readCString(_img.file, std::size_t{sec.stringBase} + raw,
+                               std::size_t{sec.stringBase} + sec.strings.size());
         }
         // Sign-extend: a reference from a late section's field to an early
         // section's string is a forward blob distance too (strings all sit
         // after records), but keep the signed interpretation for safety.
-        const std::int64_t target = static_cast<std::int64_t>(ref_blob) + static_cast<std::int32_t>(raw);
-        if (target < static_cast<std::int64_t>(total_record_bytes_)) return {};
-        std::uint64_t t = static_cast<std::uint64_t>(target) - total_record_bytes_;
-        for (std::size_t s = 0; s < img_.sections.size(); ++s) {
-          const WdcSection& sec = img_.sections[s];
+        const std::int64_t target = static_cast<std::int64_t>(refBlob) + static_cast<std::int32_t>(raw);
+        if (target < static_cast<std::int64_t>(_totalRecordBytes)) return {};
+        std::uint64_t t = static_cast<std::uint64_t>(target) - _totalRecordBytes;
+        for (std::size_t s = 0; s < _img.sections.size(); ++s) {
+          const WdcSection& sec = _img.sections[s];
           if (t < sec.strings.size())
-            return read_c_string(img_.file, std::size_t{sec.string_base} + t,
-                                 std::size_t{sec.string_base} + sec.strings.size());
+            return readCString(_img.file, std::size_t{sec.stringBase} + t,
+                                 std::size_t{sec.stringBase} + sec.strings.size());
           t -= sec.strings.size();
         }
         return {};
@@ -301,28 +301,28 @@ namespace wowlib::db::wdc {
           @param id    the record's id (from the offset-map id list). */
       void decode_sparse_record(std::size_t rec, std::span<const std::byte> bytes, std::uint32_t id) {
         std::size_t cursor = 0, colidx = 0;
-        for (const Column& col : info_.schema) {
+        for (const Column& col : _info.schema) {
           if (col.noninline) {
-            if (col.is_id) sink_.set_int(rec, colidx, 0, static_cast<std::int64_t>(id));
+            if (col.isId) _sink.setInt(rec, colidx, 0, static_cast<std::int64_t>(id));
             ++colidx;
             continue;
           }
-          for (std::uint16_t e = 0; e < col.array_len; ++e) {
+          for (std::uint16_t e = 0; e < col.arrayLen; ++e) {
             switch (col.type) {
             case ColumnType::Int:
-              sink_.set_int(rec, colidx, e, db::detail::read_int(bytes, cursor, col.bits / 8u, col.is_signed));
+              _sink.setInt(rec, colidx, e, db::detail::readInt(bytes, cursor, col.bits / 8u, col.isSigned));
               break;
             case ColumnType::Float: {
               std::uint32_t v = 0;
               if (cursor + 4 <= bytes.size()) std::memcpy(&v, bytes.data() + cursor, 4);
               cursor += 4;
-              sink_.set_float(rec, colidx, e, std::bit_cast<float>(v));
+              _sink.setFloat(rec, colidx, e, std::bit_cast<float>(v));
               break;
             }
             case ColumnType::String: {
-              std::string s = read_c_string(bytes, cursor, bytes.size());
+              std::string s = readCString(bytes, cursor, bytes.size());
               cursor += s.size() + 1;
-              sink_.set_string(rec, colidx, e, s);
+              _sink.setString(rec, colidx, e, s);
               break;
             }
             case ColumnType::LocString:
@@ -340,32 +340,32 @@ namespace wowlib::db::wdc {
           @param sec   the section.
           @param first the sink index of the section's first record. */
       void apply_relationship(const WdcSection& sec, std::size_t first) {
-        if (relation_col_ == std::numeric_limits<std::size_t>::max() || sec.relationship.size() < 12) return;
+        if (_relationCol == std::numeric_limits<std::size_t>::max() || sec.relationship.size() < 12) return;
         std::uint32_t num = 0;
         std::memcpy(&num, sec.relationship.data(), 4);
-        const bool by_id = img_.magic != wdc1_magic && img_.magic != wdc3_magic && (img_.header.flags &
-          wdc_flag_secondary) != 0;
+        const bool byId = _img.magic != Wdc1Magic && _img.magic != Wdc3Magic && (_img.header.flags &
+          WdcFlagSecondary) != 0;
         for (std::uint32_t e = 0; e < num; ++e) {
           const std::size_t at = 12 + std::size_t{e} * 8;
           if (at + 8 > sec.relationship.size()) break;
           std::uint32_t foreign = 0, key = 0;
           std::memcpy(&foreign, sec.relationship.data() + at, 4);
           std::memcpy(&key, sec.relationship.data() + at + 4, 4);
-          const std::size_t rec = by_id ? sink_.find_by_id(key) : first + key;
-          if (rec < sink_.size())
-            sink_.set_int(rec, relation_col_, 0, static_cast<std::int64_t>(foreign));
+          const std::size_t rec = byId ? _sink.findById(key) : first + key;
+          if (rec < _sink.size())
+            _sink.setInt(rec, _relationCol, 0, static_cast<std::int64_t>(foreign));
         }
       }
 
-      /** Materialize the section's copy table: each {new_id, src_id} entry
+      /** Materialize the section's copy table: each {newId, srcId} entry
           clones the already-decoded source record under the new id.
           @param sec the section. */
       void expand_copies(const WdcSection& sec) {
-        for (std::size_t c = 0; c + 8 <= sec.copy_table.size(); c += 8) {
-          std::uint32_t new_id = 0, src_id = 0;
-          std::memcpy(&new_id, sec.copy_table.data() + c, 4);
-          std::memcpy(&src_id, sec.copy_table.data() + c + 4, 4);
-          if (const std::size_t src = sink_.find_by_id(src_id); src != sink_.size()) sink_.clone_with_id(src, new_id);
+        for (std::size_t c = 0; c + 8 <= sec.copyTable.size(); c += 8) {
+          std::uint32_t newId = 0, srcId = 0;
+          std::memcpy(&newId, sec.copyTable.data() + c, 4);
+          std::memcpy(&srcId, sec.copyTable.data() + c + 4, 4);
+          if (const std::size_t src = _sink.findById(srcId); src != _sink.size()) _sink.cloneWithId(src, newId);
         }
       }
 
@@ -373,56 +373,56 @@ namespace wowlib::db::wdc {
           decoded in order, so this is a pointer-difference, not a search).
           @param sec the section.
           @return its index. */
-      std::size_t index_of(const WdcSection& sec) const {
-        return static_cast<std::size_t>(&sec - img_.sections.data());
+      std::size_t _indexOf(const WdcSection& sec) const {
+        return static_cast<std::size_t>(&sec - _img.sections.data());
       }
 
-      const WdcImage& img_;
-      const TableInfo& info_;
-      RecordSink& sink_;
-      std::vector<std::uint32_t> additional_; /**< Pallet/common per-field base offsets. */
-      std::size_t relation_col_ = std::numeric_limits<std::size_t>::max();
-      std::vector<std::uint64_t> records_before_; /**< Blob offset of each section's records. */
-      std::uint64_t total_record_bytes_ = 0; /**< Blob offset where strings begin. */
+      const WdcImage& _img;
+      const TableInfo& _info;
+      RecordSink& _sink;
+      std::vector<std::uint32_t> _additional; /**< Pallet/common per-field base offsets. */
+      std::size_t _relationCol = std::numeric_limits<std::size_t>::max();
+      std::vector<std::uint64_t> _recordsBefore; /**< Blob offset of each section's records. */
+      std::uint64_t _totalRecordBytes = 0; /**< Blob offset where strings begin. */
     };
   }
 
-  Result<void> read_wdc(const TableInfo& info, std::span<const std::byte> data, RecordSink& sink, TableState& state) {
+  Result<void> readWdc(const TableInfo& info, std::span<const std::byte> data, RecordSink& sink, TableState& state) {
     if (info.version < builds::Cata)
-      return make_error(ErrorCode::TableMagicUnknown, std::format("{}: a {}.{} client does not use the WDC formats",
+      return makeError(ErrorCode::TableMagicUnknown, std::format("{}: a {}.{} client does not use the WDC formats",
                                                                   info.name, info.version.major, info.version.minor));
 
     auto parsed = WdcImage::parse(data);
     if (!parsed) return std::unexpected{parsed.error()};
     const WdcImage& img = *parsed;
 
-    const std::size_t inline_columns = db::detail::inline_column_count(info.schema);
-    if (img.header.field_count != inline_columns)
-      return make_error(ErrorCode::SchemaMismatch,
+    const std::size_t inlineColumns = db::detail::inlineColumnCount(info.schema);
+    if (img.header.fieldCount != inlineColumns)
+      return makeError(ErrorCode::SchemaMismatch,
                         std::format(
                           "{}: the file stores {} inline fields but the generated schema has {} "
-                          "(layout_hash {:#010x})", info.name, img.header.field_count, inline_columns,
-                          img.header.layout_hash));
+                          "(layout_hash {:#010x})", info.name, img.header.fieldCount, inlineColumns,
+                          img.header.layoutHash));
 
     sink.clear();
     state.reset();
-    state.source_magic = img.magic;
-    state.wdc_table_hash = img.header.table_hash;
-    state.wdc_layout_hash = img.header.layout_hash;
-    state.wdc_locale = img.header.locale;
-    state.wdc_kinds.assign(inline_columns, static_cast<std::uint8_t>(WdcCompression::None));
-    for (std::size_t f = 0; f < inline_columns && f < img.field_storage.size(); ++f)
-      state.wdc_kinds[f] = static_cast<std::uint8_t>(img.field_storage[f].storage_type);
-    if (img.magic == wdc5_magic) {
+    state.sourceMagic = img.magic;
+    state.wdcTableHash = img.header.tableHash;
+    state.wdcLayoutHash = img.header.layoutHash;
+    state.wdcLocale = img.header.locale;
+    state.wdcKinds.assign(inlineColumns, static_cast<std::uint8_t>(WdcCompression::None));
+    for (std::size_t f = 0; f < inlineColumns && f < img.fieldStorage.size(); ++f)
+      state.wdcKinds[f] = static_cast<std::uint8_t>(img.fieldStorage[f].storageType);
+    if (img.magic == Wdc5Magic) {
       const auto* pb = reinterpret_cast<const std::byte*>(&img.wdc5);
-      state.wdc5_prefix.assign(pb, pb + sizeof img.wdc5);
+      state.wdc5Prefix.assign(pb, pb + sizeof img.wdc5);
     }
 
     if (auto r = Decoder{img, info, sink}.run(state); !r) return r;
 
     // While any section stays undecryptable the original bytes are the only
     // faithful serialization — keep them for the verbatim re-emit.
-    if (!state.encrypted.empty()) state.wdc_original.assign(data.begin(), data.end());
+    if (!state.encrypted.empty()) state.wdcOriginal.assign(data.begin(), data.end());
     return {};
   }
 }

@@ -41,13 +41,13 @@ namespace wowlib::formats::common {
   struct [[
       =welder::weld,
       =welder::doc("A 2D integer vector.")
-    ]] C2iVector {
+    ]] C2IVector {
     [[=welder::doc("The x component.")]]
     std::int32_t x = 0;
     [[=welder::doc("The y component.")]]
     std::int32_t y = 0;
 
-    bool operator==(const C2iVector&) const = default;
+    bool operator==(const C2IVector&) const = default;
   };
 
   struct [[
@@ -68,7 +68,7 @@ namespace wowlib::formats::common {
   struct [[
       =welder::weld,
       =welder::doc("A 3D integer vector.")
-    ]] C3iVector {
+    ]] C3IVector {
     [[=welder::doc("The x component.")]]
     std::int32_t x = 0;
     [[=welder::doc("The y component.")]]
@@ -76,7 +76,7 @@ namespace wowlib::formats::common {
     [[=welder::doc("The z component.")]]
     std::int32_t z = 0;
 
-    bool operator==(const C3iVector&) const = default;
+    bool operator==(const C3IVector&) const = default;
   };
 
   struct [[
@@ -237,7 +237,7 @@ namespace wowlib::formats::common {
 
     [[=welder::getter,
       =welder::doc("The value as a float in [-1, 1].")]]
-    constexpr float as_float() const {
+    constexpr float asFloat() const {
       return static_cast<float>(value) / 0x7FFF;
     }
 
@@ -245,9 +245,9 @@ namespace wowlib::formats::common {
   };
 
   static_assert(sizeof(C2Vector) == 8);
-  static_assert(sizeof(C2iVector) == 8);
+  static_assert(sizeof(C2IVector) == 8);
   static_assert(sizeof(C3Vector) == 12);
-  static_assert(sizeof(C3iVector) == 12);
+  static_assert(sizeof(C3IVector) == 12);
   static_assert(sizeof(C4Vector) == 16);
   static_assert(sizeof(C4Quaternion) == 16);
   static_assert(sizeof(C33Matrix) == 36);

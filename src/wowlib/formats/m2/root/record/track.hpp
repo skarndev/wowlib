@@ -7,10 +7,10 @@
     offset records — the serializer recurses into them inline at the record
     cursor; their arrays live in blocks behind M2Array references.
 
-    Two track eras (m2_per_sequence_timelines pivot, MD20 v264 / WotLK):
+    Two track eras (M2PerSequenceTimelines pivot, MD20 v264 / WotLK):
     pre-WotLK tracks share ONE global timeline, sliced per sequence by
     interpolation ranges; WotLK+ tracks nest one timestamp/value array per
-    sequence, and those inner arrays are `sequence_data` — a low-priority
+    sequence, and those inner arrays are `SequenceData` — a low-priority
     sequence's data lives in its .anim file, routed through the offset I/O
     contexts. */
 
@@ -155,10 +155,10 @@ namespace wowlib::formats::m2::root::record {
     T value{};
 
     [[=welder::doc("The incoming tangent.")]]
-    T in_tan{};
+    T inTan{};
 
     [[=welder::doc("The outgoing tangent.")]]
-    T out_tan{};
+    T outTan{};
 
     bool operator==(const M2SplineKey&) const = default;
   };
@@ -177,7 +177,7 @@ namespace wowlib::formats::m2::root::record {
     template <typename T, ClientVersion V>
     struct M2Track;
 
-    template <typename T, ClientVersion V> requires (V < m2_per_sequence_timelines)
+    template <typename T, ClientVersion V> requires (V < M2PerSequenceTimelines)
     struct [[
         =welder::weld,
         =welder::doc(
@@ -186,26 +186,26 @@ namespace wowlib::formats::m2::root::record {
       ]] M2Track<T, V> : M2TrackFamilyBase<T> {
       [[=welder::doc("Interpolation: 0 none, 1 linear, 2 bezier, 3 hermite "
         "(spline types only valid for spline-key tracks).")]]
-      std::uint16_t interpolation_type = 0;
+      std::uint16_t interpolationType = 0;
 
       [[=welder::doc("The global sequence driving this track; -1: none.")]]
-      std::uint16_t global_sequence = 0xFFFF;
+      std::uint16_t globalSequence = 0xFFFF;
 
       [[=welder::doc("Per-sequence [first, last] key-index ranges into the "
         "global timeline.")]]
-      std::vector<M2Range> interpolation_ranges;
+      std::vector<M2Range> interpolationRanges;
 
       [[=welder::doc("The global timeline's keyframe timestamps.")]]
       std::vector<std::uint32_t> timestamps;
 
       [[
-        =formats::count_matches("timestamps"),
+        =formats::countMatches("timestamps"),
         =welder::doc("The keyframe values, one per timestamp.")]]
       std::vector<T> values;
 
       // --- the version-agnostic TIMELINE surface -----------------------------
       // Keys live on TIMELINES: here (pre-WotLK) one shared global array,
-      // sliced per sequence by interpolation_ranges; a global-sequence or
+      // sliced per sequence by interpolationRanges; a global-sequence or
       // rangeless track exposes the whole array as its single timeline 0.
       // WotLK+ stores one array per sequence outright - same accessors,
       // different backing, so version-agnostic code never branches.
@@ -214,11 +214,11 @@ namespace wowlib::formats::m2::root::record {
         "interpolation range, or a single timeline 0 for a "
         "global-sequence-driven or rangeless track (0 when the "
         "track is empty).")]]
-      std::size_t timeline_count() const {
-        if (global_sequence != 0xFFFF || interpolation_ranges.empty()) return timestamps.empty()
+      std::size_t timelineCount() const {
+        if (globalSequence != 0xFFFF || interpolationRanges.empty()) return timestamps.empty()
                                                                                 ? std::size_t{0}
                                                                                 : std::size_t{1};
-        return interpolation_ranges.size();
+        return interpolationRanges.size();
       }
 
       [[nodiscard]]
@@ -226,9 +226,9 @@ namespace wowlib::formats::m2::root::record {
           =welder::returns(
             "the key count; errors when timeline is out of range")]
       ]
-      Result<std::size_t> key_count(std::size_t timeline
+      Result<std::size_t> keyCount(std::size_t timeline
         [[=welder::doc("the timeline index")]]) const {
-        return timeline_slice(timeline).transform([](auto s) {
+        return _timelineSlice(timeline).transform([](auto s) {
           return s.second;
         });
       }
@@ -237,9 +237,9 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("One timeline's keyframe timestamps, as a copy."),
         =welder::returns("the timestamps; errors when timeline is out of range")
       ]]
-      Result<std::vector<std::uint32_t>> timeline_timestamps(
+      Result<std::vector<std::uint32_t>> timelineTimestamps(
         std::size_t timeline [[=welder::doc("the timeline index")]]) const {
-        return timeline_slice(timeline).transform([this](auto s) {
+        return _timelineSlice(timeline).transform([this](auto s) {
           const auto window = std::span(timestamps).subspan(s.first, s.second);
           return std::vector<std::uint32_t>(window.begin(), window.end());
         });
@@ -248,13 +248,13 @@ namespace wowlib::formats::m2::root::record {
       [[nodiscard]]
       [[=welder::doc("One timeline's keyframe values, as a copy."),
         =welder::returns("the values; errors when timeline is out of range")]]
-      Result<std::vector<T>> timeline_values(
+      Result<std::vector<T>> timelineValues(
         std::size_t timeline [[=welder::doc("the timeline index")]]) const {
-        return timeline_slice(timeline).transform([this](auto s) {
-          const std::size_t max_first = std::min(s.first, values.size());
+        return _timelineSlice(timeline).transform([this](auto s) {
+          const std::size_t maxFirst = std::min(s.first, values.size());
           const std::size_t count = std::min(s.second,
-                                             values.size() - max_first);
-          const auto window = std::span(values).subspan(max_first, count);
+                                             values.size() - maxFirst);
+          const auto window = std::span(values).subspan(maxFirst, count);
           return std::vector<T>(window.begin(), window.end());
         });
       }
@@ -264,17 +264,17 @@ namespace wowlib::formats::m2::root::record {
           the whole array for a global-sequence/rangeless track, else the
           inclusive interpolation range clamped to the array.
           @param timeline the timeline index.
-          @return the window, or InvalidEntityState past timeline_count(). */
-      Result<std::pair<std::size_t, std::size_t>> timeline_slice(
+          @return the window, or InvalidEntityState past timelineCount(). */
+      Result<std::pair<std::size_t, std::size_t>> _timelineSlice(
         std::size_t timeline) const {
-        if (timeline >= timeline_count())
-          return make_error(ErrorCode::InvalidEntityState,
+        if (timeline >= timelineCount())
+          return makeError(ErrorCode::InvalidEntityState,
                             std::format(
                               "timeline {} out of range ({} timelines)",
-                              timeline, timeline_count()));
-        if (global_sequence != 0xFFFF || interpolation_ranges.empty())
+                              timeline, timelineCount()));
+        if (globalSequence != 0xFFFF || interpolationRanges.empty())
           return std::pair<std::size_t, std::size_t>{0, timestamps.size()};
-        const M2Range& r = interpolation_ranges[timeline];
+        const M2Range& r = interpolationRanges[timeline];
         const std::size_t first = std::min<std::size_t>(
           r.minimum, timestamps.size());
         const std::size_t end =
@@ -290,7 +290,7 @@ namespace wowlib::formats::m2::root::record {
     };
 
     template <typename T, ClientVersion V>
-      requires (V >= m2_per_sequence_timelines)
+      requires (V >= M2PerSequenceTimelines)
     struct [[
         =welder::weld,
         =welder::doc(
@@ -299,20 +299,20 @@ namespace wowlib::formats::m2::root::record {
       ]] M2Track<T, V> : M2TrackFamilyBase<T> {
       [[=welder::doc("Interpolation: 0 none, 1 linear, 2 bezier, 3 hermite "
         "(spline types only valid for spline-key tracks).")]]
-      std::uint16_t interpolation_type = 0;
+      std::uint16_t interpolationType = 0;
 
       [[=welder::doc("The global sequence driving this track; -1: none.")]]
-      std::uint16_t global_sequence = 0xFFFF;
+      std::uint16_t globalSequence = 0xFFFF;
 
       [[
-        =formats::sequence_data,
+        =formats::SequenceData,
         =welder::doc("Keyframe timestamps, one array per sequence (an external "
           "sequence keeps its arrays in the .anim file).")]]
       std::vector<std::vector<std::uint32_t>> timestamps;
 
       [[
-        =formats::sequence_data,
-        =formats::count_matches("timestamps"),
+        =formats::SequenceData,
+        =formats::countMatches("timestamps"),
         =welder::doc("Keyframe values, per sequence, parallel to timestamps.")]]
       std::vector<std::vector<T>> values;
 
@@ -324,17 +324,17 @@ namespace wowlib::formats::m2::root::record {
         "sequence (a global-sequence-driven track stores a "
         "single timeline; an external sequence's timeline is "
         "empty until its .anim data is loaded).")]]
-      std::size_t timeline_count() const { return timestamps.size(); }
+      std::size_t timelineCount() const { return timestamps.size(); }
 
       [[nodiscard]]
       [[=welder::doc("The number of keys on one timeline."),
           =welder::returns(
             "the key count; errors when timeline is out of range")]
       ]
-      Result<std::size_t> key_count(std::size_t timeline
+      Result<std::size_t> keyCount(std::size_t timeline
         [[=welder::doc("the timeline index")]]) const {
         if (timeline >= timestamps.size())
-          return make_error(ErrorCode::InvalidEntityState,
+          return makeError(ErrorCode::InvalidEntityState,
                             std::format(
                               "timeline {} out of range ({} timelines)",
                               timeline, timestamps.size()));
@@ -345,10 +345,10 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("One timeline's keyframe timestamps, as a copy."),
         =welder::returns("the timestamps; errors when timeline is out of range")
       ]]
-      Result<std::vector<std::uint32_t>> timeline_timestamps(
+      Result<std::vector<std::uint32_t>> timelineTimestamps(
         std::size_t timeline [[=welder::doc("the timeline index")]]) const {
         if (timeline >= timestamps.size())
-          return make_error(ErrorCode::InvalidEntityState,
+          return makeError(ErrorCode::InvalidEntityState,
                             std::format(
                               "timeline {} out of range ({} timelines)",
                               timeline, timestamps.size()));
@@ -358,10 +358,10 @@ namespace wowlib::formats::m2::root::record {
       [[nodiscard]]
       [[=welder::doc("One timeline's keyframe values, as a copy."),
         =welder::returns("the values; errors when timeline is out of range")]]
-      Result<std::vector<T>> timeline_values(
+      Result<std::vector<T>> timelineValues(
         std::size_t timeline [[=welder::doc("the timeline index")]]) const {
         if (timeline >= values.size())
-          return make_error(ErrorCode::InvalidEntityState,
+          return makeError(ErrorCode::InvalidEntityState,
                             std::format(
                               "timeline {} out of range ({} timelines)",
                               timeline, values.size()));
@@ -377,7 +377,7 @@ namespace wowlib::formats::m2::root::record {
     struct M2TrackBase;
 
     template <ClientVersion V>
-      requires (V < m2_per_sequence_timelines)
+      requires (V < M2PerSequenceTimelines)
     struct [[
         =welder::weld,
         =welder::doc(
@@ -385,14 +385,14 @@ namespace wowlib::formats::m2::root::record {
       ]] M2TrackBase<V> : M2EventTrackBase {
       [[=welder::doc("Interpolation: 0 none, 1 linear (keys fire, no value to "
         "interpolate).")]]
-      std::uint16_t interpolation_type = 0;
+      std::uint16_t interpolationType = 0;
 
       [[=welder::doc("The global sequence driving this track; -1: none.")]]
-      std::uint16_t global_sequence = 0xFFFF;
+      std::uint16_t globalSequence = 0xFFFF;
 
       [[=welder::doc("Per-sequence [first, last] key-index ranges into the "
         "global timeline.")]]
-      std::vector<M2Range> interpolation_ranges;
+      std::vector<M2Range> interpolationRanges;
 
       [[=welder::doc("The global timeline's trigger timestamps.")]]
       std::vector<std::uint32_t> timestamps;
@@ -404,10 +404,10 @@ namespace wowlib::formats::m2::root::record {
         "interpolation range, or a single timeline 0 for a "
         "global-sequence-driven or rangeless track (0 when the "
         "track is empty).")]]
-      std::size_t timeline_count() const {
-        if (global_sequence != 0xFFFF || interpolation_ranges.empty())
+      std::size_t timelineCount() const {
+        if (globalSequence != 0xFFFF || interpolationRanges.empty())
           return timestamps.empty() ? std::size_t{0} : std::size_t{1};
-        return interpolation_ranges.size();
+        return interpolationRanges.size();
       }
 
       [[nodiscard]]
@@ -415,9 +415,9 @@ namespace wowlib::formats::m2::root::record {
           =welder::returns(
             "the key count; errors when timeline is out of range")]
       ]
-      Result<std::size_t> key_count(std::size_t timeline
+      Result<std::size_t> keyCount(std::size_t timeline
         [[=welder::doc("the timeline index")]]) const {
-        return timeline_slice(timeline).transform([](auto s) {
+        return _timelineSlice(timeline).transform([](auto s) {
           return s.second;
         });
       }
@@ -426,9 +426,9 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("One timeline's trigger timestamps, as a copy."),
         =welder::returns("the timestamps; errors when timeline is out of range")
       ]]
-      Result<std::vector<std::uint32_t>> timeline_timestamps(
+      Result<std::vector<std::uint32_t>> timelineTimestamps(
         std::size_t timeline [[=welder::doc("the timeline index")]]) const {
-        return timeline_slice(timeline).transform([this](auto s) {
+        return _timelineSlice(timeline).transform([this](auto s) {
           const auto window = std::span(timestamps).subspan(s.first, s.second);
           return std::vector<std::uint32_t>(window.begin(), window.end());
         });
@@ -438,17 +438,17 @@ namespace wowlib::formats::m2::root::record {
       /** The [first, count) window of @a timeline into the global timeline
           (see M2Track's twin).
           @param timeline the timeline index.
-          @return the window, or InvalidEntityState past timeline_count(). */
-      Result<std::pair<std::size_t, std::size_t>> timeline_slice(
+          @return the window, or InvalidEntityState past timelineCount(). */
+      Result<std::pair<std::size_t, std::size_t>> _timelineSlice(
         std::size_t timeline) const {
-        if (timeline >= timeline_count())
-          return make_error(ErrorCode::InvalidEntityState,
+        if (timeline >= timelineCount())
+          return makeError(ErrorCode::InvalidEntityState,
                             std::format(
                               "timeline {} out of range ({} timelines)",
-                              timeline, timeline_count()));
-        if (global_sequence != 0xFFFF || interpolation_ranges.empty())
+                              timeline, timelineCount()));
+        if (globalSequence != 0xFFFF || interpolationRanges.empty())
           return std::pair<std::size_t, std::size_t>{0, timestamps.size()};
-        const M2Range& r = interpolation_ranges[timeline];
+        const M2Range& r = interpolationRanges[timeline];
         const std::size_t first = std::min<std::size_t>(
           r.minimum, timestamps.size());
         const std::size_t end =
@@ -464,7 +464,7 @@ namespace wowlib::formats::m2::root::record {
     };
 
     template <ClientVersion V>
-      requires (V >= m2_per_sequence_timelines)
+      requires (V >= M2PerSequenceTimelines)
     struct [[
         =welder::weld,
         =welder::doc(
@@ -472,13 +472,13 @@ namespace wowlib::formats::m2::root::record {
       ]] M2TrackBase<V> : M2EventTrackBase {
       [[=welder::doc("Interpolation: 0 none, 1 linear (keys fire, no value to "
         "interpolate).")]]
-      std::uint16_t interpolation_type = 0;
+      std::uint16_t interpolationType = 0;
 
       [[=welder::doc("The global sequence driving this track; -1: none.")]]
-      std::uint16_t global_sequence = 0xFFFF;
+      std::uint16_t globalSequence = 0xFFFF;
 
       [[
-        =formats::sequence_data,
+        =formats::SequenceData,
         =welder::doc("Trigger timestamps, one array per sequence (an external "
           "sequence keeps its arrays in the .anim file).")]]
       std::vector<std::vector<std::uint32_t>> timestamps;
@@ -489,17 +489,17 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("The number of timelines this track carries: one per "
         "sequence (an external sequence's timeline is empty "
         "until its .anim data is loaded).")]]
-      std::size_t timeline_count() const { return timestamps.size(); }
+      std::size_t timelineCount() const { return timestamps.size(); }
 
       [[nodiscard]]
       [[=welder::doc("The number of trigger keys on one timeline."),
           =welder::returns(
             "the key count; errors when timeline is out of range")]
       ]
-      Result<std::size_t> key_count(std::size_t timeline
+      Result<std::size_t> keyCount(std::size_t timeline
         [[=welder::doc("the timeline index")]]) const {
         if (timeline >= timestamps.size())
-          return make_error(ErrorCode::InvalidEntityState,
+          return makeError(ErrorCode::InvalidEntityState,
                             std::format(
                               "timeline {} out of range ({} timelines)",
                               timeline, timestamps.size()));
@@ -510,10 +510,10 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("One timeline's trigger timestamps, as a copy."),
         =welder::returns("the timestamps; errors when timeline is out of range")
       ]]
-      Result<std::vector<std::uint32_t>> timeline_timestamps(
+      Result<std::vector<std::uint32_t>> timelineTimestamps(
         std::size_t timeline [[=welder::doc("the timeline index")]]) const {
         if (timeline >= timestamps.size())
-          return make_error(ErrorCode::InvalidEntityState,
+          return makeError(ErrorCode::InvalidEntityState,
                             std::format(
                               "timeline {} out of range ({} timelines)",
                               timeline, timestamps.size()));
@@ -526,17 +526,17 @@ namespace wowlib::formats::m2::root::record {
 
   /** An animation track for value type @a T — the canonicalizing face of
       detail::M2Track: every client version maps to its range's first grid
-      version (m2_track_pivots), so one instantiation serves the whole range.
+      version (M2TrackPivots), so one instantiation serves the whole range.
       See the detail primary for the era semantics. */
   template <typename T, ClientVersion V>
   using M2Track =
-  detail::M2Track<T, canonical_version(V, m2_track_pivots, m2_versions)>;
+  detail::M2Track<T, canonicalVersion(V, M2TrackPivots, M2Versions)>;
 
   /** A timestamp-only event track — the canonicalizing face of
       detail::M2TrackBase (same two eras and pivots as M2Track). */
   template <ClientVersion V>
   using M2TrackBase =
-  detail::M2TrackBase<canonical_version(V, m2_track_pivots, m2_versions)>;
+  detail::M2TrackBase<canonicalVersion(V, M2TrackPivots, M2Versions)>;
 
 
   template <typename T>
@@ -550,7 +550,7 @@ namespace wowlib::formats::m2::root::record {
     std::vector<std::uint16_t> timestamps;
 
     [[
-      =formats::count_matches("timestamps"),
+      =formats::countMatches("timestamps"),
       =welder::doc("The keys, one per timestamp.")]]
     std::vector<T> keys;
 
@@ -568,7 +568,7 @@ namespace wowlib::formats::m2::root::record {
     std::vector<fixed16> times;
 
     [[
-      =formats::count_matches("times"),
+      =formats::countMatches("times"),
       =welder::doc("The values, one per time.")]]
     std::vector<T> values;
 

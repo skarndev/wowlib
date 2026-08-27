@@ -75,7 +75,7 @@ namespace wowlib::formats::wmo {
         a client and left unmodified rewrites byte-for-byte. See
         https://wowdev.wiki/WMO.)")
       ]] WMO : WMOBase {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[=welder::doc("The root file contents.")]]
       WMORoot<V> root{};
@@ -92,7 +92,7 @@ namespace wowlib::formats::wmo {
       // no such glue, so they take these methods directly. The span-of-spans parse
       // below stays C++/glue-only.
 
-      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc("Load the WMO and all its group files from a client "
           "filesystem, replacing this entity's contents.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
@@ -102,13 +102,13 @@ namespace wowlib::formats::wmo {
           replacing this entity's contents. Not welded: span-of-spans does not
           cross the binding boundary — the Python read() glue accepts a root
           buffer plus one buffer/file-like per group instead.
-          @param root_data   the root file bytes.
-          @param group_datas one buffer per group file, in group order.
+          @param rootData   the root file bytes.
+          @param groupDatas one buffer per group file, in group order.
           @return nothing, or the first error. */
       [[=welder::mark::exclude]]
-      Result<void> read(std::span<const std::byte> root_data, std::span<const std::span<const std::byte>> group_datas);
+      Result<void> read(std::span<const std::byte> rootData, std::span<const std::span<const std::byte>> groupDatas);
 
-      [[=welder::mark::only(welder::lang::lua, wowlib::lang::cs),
+      [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc(
           "Serialize and store the WMO (root and every group) through "
           "the filesystem's project overlay; group file names are "
@@ -118,7 +118,7 @@ namespace wowlib::formats::wmo {
 
       // Beyond the root's and each group's own contracts, this sees the ones
       // only the assembly can: MOGI describing exactly the groups held, the
-      // groups' indexes_in_root references, the header portal ranges into MOPR,
+      // groups' indexesInRoot references, the header portal ranges into MOPR,
       // and every rendered face resolving its material in MOMT.
       [[nodiscard]]
       [[=welder::doc(R"(
@@ -137,7 +137,7 @@ namespace wowlib::formats::wmo {
           "Validate and raise on the first error instead of returning "
           "a report — the assert-style face of validate()."),
         =welder::returns("nothing; raises when validate() finds any error")]]
-      Result<void> ensure_valid() const;
+      Result<void> ensureValid() const;
 
     private:
       // --- internal fs-I/O helpers (definitions at the bottom of this header;
@@ -145,10 +145,10 @@ namespace wowlib::formats::wmo {
 
       /** Derive a group file path from its root: "world\wmo\thing.wmo" ->
           "world\wmo\thing_007.wmo".
-          @param root_path the root file path.
+          @param rootPath the root file path.
           @param index     the zero-based group index.
           @return the derived group path. */
-      static std::string group_path(std::string_view root_path, std::size_t index);
+      static std::string _groupPath(std::string_view rootPath, std::size_t index);
 
       /** Verify an MVER payload against the v17 the supported clients share.
           @param mver  the version value read from the file.
@@ -156,15 +156,15 @@ namespace wowlib::formats::wmo {
                        "group 3", ...).
           @return nothing, or FormatVersionMismatch. */
       static Result<void>
-      check_mver(std::uint32_t mver, std::string_view which);
+      _checkMver(std::uint32_t mver, std::string_view which);
     };
   }
 
   /** A whole WMO — the canonicalizing face of detail::WMO: every client
-      version maps to its range's first grid version (wmo_assembly_pivots),
+      version maps to its range's first grid version (WmoAssemblyPivots),
       so e.g. one instantiation serves Vanilla through WotLK. */
   template <ClientVersion V>
-  using WMO = detail::WMO<canonical_version(V, wmo_assembly_pivots, wmo_versions)>;
+  using WMO = detail::WMO<canonicalVersion(V, WmoAssemblyPivots, WmoVersions)>;
 }
 
 // --- fs-level read/write definitions -----------------------------------------
@@ -175,8 +175,8 @@ namespace wowlib::formats::wmo {
 // own translation units, see bindings/instantiations/).
 namespace wowlib::formats::wmo {
   template <ClientVersion V>
-  std::string detail::WMO<V>::group_path(std::string_view root_path, std::size_t index) {
-    std::string_view stem = root_path;
+  std::string detail::WMO<V>::_groupPath(std::string_view rootPath, std::size_t index) {
+    std::string_view stem = rootPath;
     if (stem.ends_with(".wmo")) stem.remove_suffix(4);
     return std::format("{}_{:03}.wmo", stem, index);
   }
@@ -186,80 +186,80 @@ namespace wowlib::formats::wmo {
     ValidationReport report;
     {
       const std::size_t mark = report.size();
-      formats::detail::validate_entity(root, report);
-      report.prefix_from(mark, "root");
+      formats::detail::validateEntity(root, report);
+      report.prefixFrom(mark, "root");
     }
     for (std::size_t i = 0; i < groups.size(); ++i) {
       const std::size_t mark = report.size();
-      formats::detail::validate_entity(groups[i], report);
-      report.prefix_from(mark, std::format("groups[{}]", i));
+      formats::detail::validateEntity(groups[i], report);
+      report.prefixFrom(mark, std::format("groups[{}]", i));
     }
 
     // the MOGI table must describe exactly the groups the assembly holds
-    if (root.group_infos.size() != groups.size())
-      report.add_error("root.group_infos",
-                       std::format("count {} != {} group files held", root.group_infos.size(), groups.size()));
+    if (root.groupInfos.size() != groups.size())
+      report.addError("root.groupInfos",
+                       std::format("count {} != {} group files held", root.groupInfos.size(), groups.size()));
 
     // Legion+: GFID locates the group files - too few cannot load; LOD WMOs
     // repeat the table per level, so any whole multiple is fine
-    if constexpr (requires { root.group_fdids; })
-      if (!groups.empty() && !root.group_fdids.empty()) {
-        if (root.group_fdids.size() < groups.size())
-          report.add_error("root.group_fdids",
-                           std::format("count {} < {} group files held", root.group_fdids.size(), groups.size()));
-        else if (root.group_fdids.size() % groups.size() != 0)
-          report.add_warning("root.group_fdids",
+    if constexpr (requires { root.groupFdids; })
+      if (!groups.empty() && !root.groupFdids.empty()) {
+        if (root.groupFdids.size() < groups.size())
+          report.addError("root.group_fdids",
+                           std::format("count {} < {} group files held", root.groupFdids.size(), groups.size()));
+        else if (root.groupFdids.size() % groups.size() != 0)
+          report.addWarning("root.group_fdids",
                              std::format(
                                "count {} is not a whole multiple of the {} groups " "(LOD tables repeat per level)",
-                               root.group_fdids.size(), groups.size()));
+                               root.groupFdids.size(), groups.size()));
       }
 
-    constexpr std::size_t max_reported = 8;
-    const std::size_t material_count = root.materials.size();
+    constexpr std::size_t maxReported = 8;
+    const std::size_t materialCount = root.materials.size();
     for (std::size_t i = 0; i < groups.size(); ++i) {
       const auto& body = groups[i].body;
       const std::string prefix = std::format("groups[{}].body", i);
 
       // the groups' declarative references into the root's arrays
-      static constexpr auto body_members = formats::detail::members_of<std::remove_cvref_t<decltype(body)>>();
-      template for (constexpr auto m : body_members) {
-        if constexpr (constexpr auto ir = formats::detail::annotation<formats::detail::indexes_in_root_spec, m>(); ir.
+      static constexpr auto BodyMembers = formats::detail::membersOf<std::remove_cvref_t<decltype(body)>>();
+      template for (constexpr auto m : BodyMembers) {
+        if constexpr (constexpr auto ir = formats::detail::annotation<formats::detail::IndexesInRootSpec, m>(); ir.
           has_value()) {
-          constexpr auto target = formats::detail::member_named<WMORoot<V>>(ir->view());
+          constexpr auto target = formats::detail::memberNamed<WMORoot<V>>(ir->view());
           static_assert(target != std::meta::info{}, "indexes_in_root names no member of the root entity");
           constexpr const char* ident = std::define_static_string(std::meta::identifier_of(m));
-          formats::detail::validate_index_elements(body.[:m:], root.[:target:].size(),
+          formats::detail::validateIndexElements(body.[:m:], root.[:target:].size(),
                                                    std::format("{}.{}", prefix, ident), ir->view(), report);
         }
       }
 
       // the header's portal slice references MOPR
-      if (body.header.portal_count > 0 && body.header.portal_start + body.header.portal_count > root.portal_refs.size())
-        report.add_error(std::format("{}.header", prefix),
+      if (body.header.portalCount > 0 && body.header.portalStart + body.header.portalCount > root.portalRefs.size())
+        report.addError(std::format("{}.header", prefix),
                          std::format("portal range [{}, {}) overruns the {} portal references",
-                                     body.header.portal_start, body.header.portal_start + body.header.portal_count,
-                                     root.portal_refs.size()));
+                                     body.header.portalStart, body.header.portalStart + body.header.portalCount,
+                                     root.portalRefs.size()));
 
       // every rendered face and batch must resolve its material in MOMT
       // (0xFF marks a collision-only face with no material)
-      std::size_t bad_polys = 0;
+      std::size_t badPolys = 0;
       for (std::size_t j = 0; j < body.polys.size(); ++j)
-        if (body.polys[j].material_id != 0xFF && body.polys[j].material_id >= material_count)
-          if (++bad_polys <= max_reported)
-            report.add_error(std::format("{}.polys[{}]", prefix, j),
-                             std::format("material {} out of range: {} materials", body.polys[j].material_id,
-                                         material_count));
-      if (bad_polys > max_reported)
-        report.add_error(std::format("{}.polys", prefix),
-                         std::format("... and {} more unresolvable materials", bad_polys - max_reported));
+        if (body.polys[j].materialId != 0xFF && body.polys[j].materialId >= materialCount)
+          if (++badPolys <= maxReported)
+            report.addError(std::format("{}.polys[{}]", prefix, j),
+                             std::format("material {} out of range: {} materials", body.polys[j].materialId,
+                                         materialCount));
+      if (badPolys > maxReported)
+        report.addError(std::format("{}.polys", prefix),
+                         std::format("... and {} more unresolvable materials", badPolys - maxReported));
       for (std::size_t j = 0; j < body.batches.size(); ++j) {
         const auto& batch = body.batches[j];
-        std::size_t material = batch.material_id;
-        if constexpr (requires { batch.material_id_large; })
-          if ((batch.flags & 0x2) != 0) material = batch.material_id_large;
-        if (material >= material_count)
-          report.add_error(std::format("{}.batches[{}]", prefix, j),
-                           std::format("material {} out of range: {} materials", material, material_count));
+        std::size_t material = batch.materialId;
+        if constexpr (requires { batch.materialIdLarge; })
+          if ((batch.flags & 0x2) != 0) material = batch.materialIdLarge;
+        if (material >= materialCount)
+          report.addError(std::format("{}.batches[{}]", prefix, j),
+                           std::format("material {} out of range: {} materials", material, materialCount));
       }
 
       // note: MOGI flags are deliberately NOT compared against the group
@@ -271,33 +271,33 @@ namespace wowlib::formats::wmo {
   }
 
   template <ClientVersion V>
-  Result<void> detail::WMO<V>::ensure_valid() const {
-    return validate().to_result();
+  Result<void> detail::WMO<V>::ensureValid() const {
+    return validate().toResult();
   }
 
   template <ClientVersion V>
-  Result<void> detail::WMO<V>::check_mver(std::uint32_t mver, std::string_view which) {
-    if (mver != wmo_version_v17)
-      return make_error(ErrorCode::FormatVersionMismatch,
-                        std::format("{} MVER is {}, expected {}", which, mver, wmo_version_v17));
+  Result<void> detail::WMO<V>::_checkMver(std::uint32_t mver, std::string_view which) {
+    if (mver != WmoVersionV17)
+      return makeError(ErrorCode::FormatVersionMismatch,
+                        std::format("{} MVER is {}, expected {}", which, mver, WmoVersionV17));
     return {};
   }
 
   template <ClientVersion V>
-  Result<void> detail::WMO<V>::read(std::span<const std::byte> root_data,
-                                    std::span<const std::span<const std::byte>> group_datas) {
+  Result<void> detail::WMO<V>::read(std::span<const std::byte> rootData,
+                                    std::span<const std::span<const std::byte>> groupDatas) {
     root = {};
     groups.clear();
 
-    if (auto r = root.read(root_data); !r) return std::unexpected{r.error()};
-    if (auto r = check_mver(root.mver, "root"); !r) return std::unexpected{r.error()};
+    if (auto r = root.read(rootData); !r) return std::unexpected{r.error()};
+    if (auto r = _checkMver(root.mver, "root"); !r) return std::unexpected{r.error()};
 
-    groups.reserve(group_datas.size());
-    for (std::size_t i = 0; i < group_datas.size(); ++i) {
+    groups.reserve(groupDatas.size());
+    for (std::size_t i = 0; i < groupDatas.size(); ++i) {
       WMOGroup < V > group;
-      if (auto r = group.read(group_datas[i]); !r)
-        return make_error(r.error().code, std::format("group {}: {}", i, r.error().message), r.error().native_error);
-      if (auto r = check_mver(group.mver, std::format("group {}", i)); !r) return std::unexpected{r.error()};
+      if (auto r = group.read(groupDatas[i]); !r)
+        return makeError(r.error().code, std::format("group {}: {}", i, r.error().message), r.error().nativeError);
+      if (auto r = _checkMver(group.mver, std::format("group {}", i)); !r) return std::unexpected{r.error()};
       groups.push_back(std::move(group));
     }
     return {};
@@ -305,49 +305,49 @@ namespace wowlib::formats::wmo {
 
   template <ClientVersion V>
   Result<void> detail::WMO<V>::read(fs::FileSystem& fs, const FileKey& key) {
-    const auto root_data = fs.read_file(key);
-    if (!root_data) return std::unexpected{root_data.error()};
+    const auto rootData = fs.readFile(key);
+    if (!rootData) return std::unexpected{rootData.error()};
 
     root = {};
     groups.clear();
 
-    if (auto r = root.read(*root_data); !r) return std::unexpected{r.error()};
-    if (auto r = check_mver(root.mver, "root"); !r) return std::unexpected{r.error()};
+    if (auto r = root.read(*rootData); !r) return std::unexpected{r.error()};
+    if (auto r = _checkMver(root.mver, "root"); !r) return std::unexpected{r.error()};
 
     // MOGI (one info record per group file) is the group count's source of
-    // truth — header.n_groups is a derived binary field stamped from it.
-    const std::size_t n_groups = root.group_infos.size();
+    // truth — header.nGroups is a derived binary field stamped from it.
+    const std::size_t nGroups = root.groupInfos.size();
     // GFID (group FileDataIDs) is Legion+; pre-Legion roots have no such member
     // (it lives in a version trait that version does not inherit), so they always
     // locate groups by the "{root}_NNN.wmo" path convention.
-    bool by_fdid = false;
-    if constexpr (requires { root.group_fdids; }) by_fdid = root.group_fdids.size() >= n_groups;
+    bool byFdid = false;
+    if constexpr (requires { root.groupFdids; }) byFdid = root.groupFdids.size() >= nGroups;
 
-    std::string root_path;
-    if (!by_fdid) {
+    std::string rootPath;
+    if (!byFdid) {
       const FileKey resolved = fs.resolve(key);
       if (!resolved.path)
-        return make_error(ErrorCode::PathNotResolvable,
+        return makeError(ErrorCode::PathNotResolvable,
                           "group files need the root path (no GFID chunk and the root " "key has no resolvable path)");
-      root_path = *resolved.path;
+      rootPath = *resolved.path;
     }
 
-    groups.reserve(n_groups);
-    for (std::size_t i = 0; i < n_groups; ++i) {
-      const FileKey group_key = [&]() -> FileKey {
-        if constexpr (requires { root.group_fdids; })
-          if (by_fdid) return FileKey{FileDataID{root.group_fdids[i]}};
-        return FileKey{group_path(root_path, i)};
+    groups.reserve(nGroups);
+    for (std::size_t i = 0; i < nGroups; ++i) {
+      const FileKey groupKey = [&]() -> FileKey {
+        if constexpr (requires { root.groupFdids; })
+          if (byFdid) return FileKey{FileDataID{root.groupFdids[i]}};
+        return FileKey{_groupPath(rootPath, i)};
       }();
-      const auto group_data = fs.read_file(group_key);
-      if (!group_data)
-        return make_error(group_data.error().code, std::format("group {}: {}", i, group_data.error().message),
-                          group_data.error().native_error);
+      const auto groupData = fs.readFile(groupKey);
+      if (!groupData)
+        return makeError(groupData.error().code, std::format("group {}: {}", i, groupData.error().message),
+                          groupData.error().nativeError);
 
       WMOGroup < V > group;
-      if (auto r = group.read(*group_data); !r)
-        return make_error(r.error().code, std::format("group {}: {}", i, r.error().message), r.error().native_error);
-      if (auto r = check_mver(group.mver, std::format("group {}", i)); !r) return std::unexpected{r.error()};
+      if (auto r = group.read(*groupData); !r)
+        return makeError(r.error().code, std::format("group {}: {}", i, r.error().message), r.error().nativeError);
+      if (auto r = _checkMver(group.mver, std::format("group {}", i)); !r) return std::unexpected{r.error()};
       groups.push_back(std::move(group));
     }
     return {};
@@ -357,25 +357,25 @@ namespace wowlib::formats::wmo {
   Result<void> detail::WMO<V>::write(fs::FileSystem& fs, const FileKey& key) const {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
-      return make_error(ErrorCode::PathNotResolvable, "saving a WMO needs a path for the root key");
-    // the derived n_groups is stamped from MOGI, so the two group tables the
+      return makeError(ErrorCode::PathNotResolvable, "saving a WMO needs a path for the root key");
+    // the derived nGroups is stamped from MOGI, so the two group tables the
     // entity does keep (info records and group files) must agree
-    if (root.group_infos.size() != groups.size())
-      return make_error(ErrorCode::InvalidEntityState,
+    if (root.groupInfos.size() != groups.size())
+      return makeError(ErrorCode::InvalidEntityState,
                         std::format(
                           "the MOGI group-info table holds {} records but {} group "
-                          "files are baked in — every group needs its info record", root.group_infos.size(),
+                          "files are baked in — every group needs its info record", root.groupInfos.size(),
                           groups.size()));
 
-    const auto root_data = root.write();
-    if (!root_data) return std::unexpected{root_data.error()};
-    if (auto r = fs.add_file(*resolved.path, *root_data); !r) return std::unexpected{r.error()};
+    const auto rootData = root.write();
+    if (!rootData) return std::unexpected{rootData.error()};
+    if (auto r = fs.addFile(*resolved.path, *rootData); !r) return std::unexpected{r.error()};
 
     for (std::size_t i = 0; i < groups.size(); ++i) {
-      const auto group_data = groups[i].write();
-      if (!group_data) return std::unexpected{group_data.error()};
-      if (auto r = fs.add_file(group_path(*resolved.path, i), *group_data); !r)
-        return make_error(r.error().code, std::format("group {}: {}", i, r.error().message), r.error().native_error);
+      const auto groupData = groups[i].write();
+      if (!groupData) return std::unexpected{groupData.error()};
+      if (auto r = fs.addFile(_groupPath(*resolved.path, i), *groupData); !r)
+        return makeError(r.error().code, std::format("group {}: {}", i, r.error().message), r.error().nativeError);
     }
     return {};
   }

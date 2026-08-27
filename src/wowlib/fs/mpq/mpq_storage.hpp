@@ -38,7 +38,7 @@ namespace wowlib::fs {
   public:
     /** What to open and how. */
     struct Options {
-      std::filesystem::path data_dir; /**< The client's Data/ directory. */
+      std::filesystem::path dataDir; /**< The client's Data/ directory. */
       ClientVersion version; /**< Selects the chain table. */
       Locale locale = Locale::enUS; /**< The locale to open; its Data/{code}/
                                                 directory must exist on disk. */
@@ -49,7 +49,7 @@ namespace wowlib::fs {
         @return the open storage, or StorageOpenFailed / ArchiveOpenFailed. */
     static Result<MpqStorage> open(Options options);
 
-    ~MpqStorage() { close(); }
+    ~MpqStorage() { _close(); }
 
     MpqStorage(const MpqStorage&) = delete;
     MpqStorage& operator=(const MpqStorage&) = delete;
@@ -59,7 +59,7 @@ namespace wowlib::fs {
 
     MpqStorage& operator=(MpqStorage&& other) noexcept {
       if (this != &other) {
-        close();
+        _close();
         _options = std::move(other._options);
         _archives = std::move(other._archives);
       }
@@ -71,7 +71,7 @@ namespace wowlib::fs {
         composition layer first).
         @param key the file identity.
         @return the file bytes, or FileNotFound / FdidNotResolvable. */
-    Result<FileBuffer> read_file(const FileKey& key);
+    Result<FileBuffer> readFile(const FileKey& key);
 
     /** Whether the file exists in any archive of the chain.
         @param key the file identity (path required).
@@ -87,17 +87,17 @@ namespace wowlib::fs {
         and the nameless hash-table placeholders — a partial listing is more
         useful than none.
         @return the sorted canonical paths, or StorageNotOpen. */
-    Result<std::vector<std::string>> enumerate_paths();
+    Result<std::vector<std::string>> enumeratePaths();
 
     /** @return the storage technology tag (Mpq). */
     static constexpr StorageKind kind() { return StorageKind::Mpq; }
 
     /** One opened member of the chain, for introspection and tests. Exactly one
         source is active — a StormLib archive, or a loose directory whose files
-        are indexed by canonical in-game path — as selected by @ref is_directory. */
+        are indexed by canonical in-game path — as selected by @ref isDirectory. */
     struct OpenedArchive {
       std::filesystem::path path; /**< The archive file or loose-dir root on disk. */
-      bool is_directory = false; /**< true => served from loose files below. */
+      bool isDirectory = false; /**< true => served from loose files below. */
 
       void* handle = nullptr; /**< StormLib HANDLE (archive members). */
       std::unique_ptr<std::mutex> mtx; /**< Serializes StormLib calls (archive members). */
@@ -129,13 +129,13 @@ namespace wowlib::fs {
     /** Expand the chain and open every archive present on disk; called by the
         factory on a fresh instance.
         @return nothing, or StorageOpenFailed / ArchiveOpenFailed. */
-    Result<void> open_chain();
+    Result<void> _openChain();
 
     /** Close all archives; safe to call repeatedly. */
-    void close() noexcept;
+    void _close() noexcept;
 
     /** @return whether archives are held (false only for moved-from storages). */
-    bool is_open() const { return !_archives.empty(); }
+    bool _isOpen() const { return !_archives.empty(); }
 
     Options _options;
     std::vector<OpenedArchive> _archives;

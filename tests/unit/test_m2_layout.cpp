@@ -16,144 +16,144 @@ using namespace wowlib::formats::m2;
 // make every unqualified M2Root ambiguous against the m2::M2Root alias
 using namespace wowlib::formats::m2::root::record;
 using namespace wowlib::formats::m2::skin;
-using wowlib::formats::m2::root::md20_magic;
+using wowlib::formats::m2::root::Md20Magic;
 
 namespace
 {
-  inline constexpr ClientVersion va = versions::vanilla;
-  inline constexpr ClientVersion tb = versions::tbc;
-  inline constexpr ClientVersion wk = versions::wotlk;
-  inline constexpr ClientVersion ca = versions::cata;
-  inline constexpr ClientVersion wo = versions::wod;
+  inline constexpr ClientVersion Va = versions::Vanilla;
+  inline constexpr ClientVersion Tb = versions::Tbc;
+  inline constexpr ClientVersion Wk = versions::Wotlk;
+  inline constexpr ClientVersion Ca = versions::Cata;
+  inline constexpr ClientVersion Wo = versions::Wod;
 }
 
 // --- track and record offset layouts, per era (wowdev.wiki/M2) -----------------
 
-static_assert(layout_size<M2Track<C3Vector, va>, va>() == 28);
-static_assert(layout_size<M2Track<C3Vector, wk>, wk>() == 20);
-static_assert(layout_size<M2TrackBase<va>, va>() == 20);
-static_assert(layout_size<M2TrackBase<wk>, wk>() == 12);
-static_assert(layout_size<FBlock<C3Vector>, wk>() == 16);
+static_assert(layoutSize<M2Track<C3Vector, Va>, Va>() == 28);
+static_assert(layoutSize<M2Track<C3Vector, Wk>, Wk>() == 20);
+static_assert(layoutSize<M2TrackBase<Va>, Va>() == 20);
+static_assert(layoutSize<M2TrackBase<Wk>, Wk>() == 12);
+static_assert(layoutSize<FBlock<C3Vector>, Wk>() == 16);
 
-static_assert(layout_size<M2CompBone<va>, va>() == 108);
-static_assert(layout_size<M2CompBone<tb>, tb>() == 112);
-static_assert(layout_size<M2CompBone<wk>, wk>() == 88);  // 0x58
+static_assert(layoutSize<M2CompBone<Va>, Va>() == 108);
+static_assert(layoutSize<M2CompBone<Tb>, Tb>() == 112);
+static_assert(layoutSize<M2CompBone<Wk>, Wk>() == 88);  // 0x58
 
-static_assert(layout_size<M2Texture, wk>() == 16);
-static_assert(layout_size<M2Color<wk>, wk>() == 40);
-static_assert(layout_size<M2TextureWeight<wk>, wk>() == 20);
-static_assert(layout_size<M2TextureTransform<wk>, wk>() == 60);
+static_assert(layoutSize<M2Texture, Wk>() == 16);
+static_assert(layoutSize<M2Color<Wk>, Wk>() == 40);
+static_assert(layoutSize<M2TextureWeight<Wk>, Wk>() == 20);
+static_assert(layoutSize<M2TextureTransform<Wk>, Wk>() == 60);
 
-static_assert(layout_size<M2Attachment<wk>, wk>() == 40);   // 0x28
-static_assert(layout_size<M2Event<wk>, wk>() == 36);
-static_assert(layout_size<M2Light<wk>, wk>() == 156);       // 0x9C
-static_assert(layout_size<M2Camera<va>, va>() == 124);
-static_assert(layout_size<M2Camera<wk>, wk>() == 100);
-static_assert(layout_size<M2Camera<ca>, ca>() == 116);
+static_assert(layoutSize<M2Attachment<Wk>, Wk>() == 40);   // 0x28
+static_assert(layoutSize<M2Event<Wk>, Wk>() == 36);
+static_assert(layoutSize<M2Light<Wk>, Wk>() == 156);       // 0x9C
+static_assert(layoutSize<M2Camera<Va>, Va>() == 124);
+static_assert(layoutSize<M2Camera<Wk>, Wk>() == 100);
+static_assert(layoutSize<M2Camera<Ca>, Ca>() == 116);
 
-static_assert(layout_size<M2Ribbon<va>, va>() == 220);
-static_assert(layout_size<M2Ribbon<wk>, wk>() == 176);      // 0xB0
-static_assert(layout_size<M2Particle<va>, va>() == 504);
-static_assert(layout_size<M2Particle<wk>, wk>() == 476);
-static_assert(layout_size<M2Particle<ca>, ca>() == 492);
+static_assert(layoutSize<M2Ribbon<Va>, Va>() == 220);
+static_assert(layoutSize<M2Ribbon<Wk>, Wk>() == 176);      // 0xB0
+static_assert(layoutSize<M2Particle<Va>, Va>() == 504);
+static_assert(layoutSize<M2Particle<Wk>, Wk>() == 476);
+static_assert(layoutSize<M2Particle<Ca>, Ca>() == 492);
 
-static_assert(layout_size<M2SkinProfile<wk>, wk>() == 44);
-static_assert(layout_size<M2SkinProfile<ca>, ca>() == 52);
+static_assert(layoutSize<M2SkinProfile<Wk>, Wk>() == 44);
+static_assert(layoutSize<M2SkinProfile<Ca>, Ca>() == 52);
 
-static_assert(OffsetEntity<M2Root<wk>>);
-static_assert(OffsetEntity<Skin<wk>>);
-static_assert(SelfSerializing<M2Root<wk>>);  // the Legion MD21 payload path
+static_assert(OffsetEntity<M2Root<Wk>>);
+static_assert(OffsetEntity<Skin<Wk>>);
+static_assert(SelfSerializing<M2Root<Wk>>);  // the Legion MD21 payload path
 
 TEST_CASE("MD20 header image sizes match the client eras", "[formats][m2]")
 {
   // wowdev header layouts: vanilla/TBC 0x144 (324), WotLK+ 0x130 (304).
-  CHECK(M2Root<va>{}.image_size() == 324);
-  CHECK(M2Root<tb>{}.image_size() == 324);
-  CHECK(M2Root<wk>{}.image_size() == 304);
-  CHECK(M2Root<ca>{}.image_size() == 304);
-  CHECK(M2Root<wo>{}.image_size() == 304);
+  CHECK(M2Root<Va>{}.imageSize() == 324);
+  CHECK(M2Root<Tb>{}.imageSize() == 324);
+  CHECK(M2Root<Wk>{}.imageSize() == 304);
+  CHECK(M2Root<Ca>{}.imageSize() == 304);
+  CHECK(M2Root<Wo>{}.imageSize() == 304);
 
-  M2Root<tb> gated;
-  gated.global_flags = 0x8;  // engages texture_combiner_combos
-  CHECK(gated.image_size() == 332);
+  M2Root<Tb> gated;
+  gated.globalFlags = 0x8;  // engages textureCombinerCombos
+  CHECK(gated.imageSize() == 332);
 }
 
 TEST_CASE("skin files carry the magic ahead of the flattened profile", "[formats][m2]")
 {
-  Skin<wk> skin;
+  Skin<Wk> skin;
   skin.profile.vertices = {0, 1, 2};
   skin.profile.indices = {0, 1, 2};
   skin.profile.bones = {{0, 0, 0, 0}, {1, 0, 0, 0}, {2, 0, 0, 0}};
-  M2SkinSection<wk> section;
-  section.vertex_count = 3;
-  section.index_count = 3;
-  section.bone_count = 1;
+  M2SkinSection<Wk> section;
+  section.vertexCount = 3;
+  section.indexCount = 3;
+  section.boneCount = 1;
   skin.profile.submeshes = {section};
   M2Batch batch;
-  batch.texture_count = 1;
+  batch.textureCount = 1;
   skin.profile.batches = {batch};
-  skin.profile.bone_count_max = 64;
+  skin.profile.boneCountMax = 64;
 
   auto bytes = skin.write();
   REQUIRE(bytes.has_value());
   std::uint32_t magic = 0;
   std::memcpy(&magic, bytes->data(), 4);
-  CHECK(magic == skin_magic);
+  CHECK(magic == SkinMagic);
 
-  Skin<wk> back;
+  Skin<Wk> back;
   REQUIRE(back.read(*bytes).has_value());
   CHECK(back == skin);
 }
 
 TEST_CASE("a synthetic WotLK body round-trips semantically", "[formats][m2]")
 {
-  M2Root<wk> model;
+  M2Root<Wk> model;
   model.name = "unit_test_model";
-  model.global_flags = 0;
-  model.global_loops = {{1500}};
-  M2Sequence<wk> stand;
+  model.globalFlags = 0;
+  model.globalLoops = {{1500}};
+  M2Sequence<Wk> stand;
   stand.id = 0;
   stand.duration = 2000;
   stand.flags = 0x20;  // data in .m2
   model.sequences = {stand};
-  model.sequence_lookups = {0};
+  model.sequenceLookups = {0};
 
-  M2CompBone<wk> bone;
-  bone.key_bone_id = -1;
+  M2CompBone<Wk> bone;
+  bone.keyBoneId = -1;
   bone.translation.timestamps = {{0, 1000, 2000}};
   bone.translation.values = {{{0, 0, 0}, {0, 1, 0}, {0, 0, 0}}};
   bone.rotation.timestamps = {{0}};
   bone.rotation.values = {{{}}};
   model.bones = {bone};
-  model.key_bone_lookup = {-1};
+  model.keyBoneLookup = {-1};
 
   model.vertices.resize(3);
   model.textures = {{0, 0x3, "textures/unit_test.blp"}};
   model.materials = {{0x10, 1}};
-  model.bone_lookup_table = {0};
-  model.texture_lookup_table = {0};
-  model.transparency_lookup_table = {0};
-  M2TextureWeight<wk> weight;
+  model.boneLookupTable = {0};
+  model.textureLookupTable = {0};
+  model.transparencyLookupTable = {0};
+  M2TextureWeight<Wk> weight;
   weight.weight.timestamps = {{0}};
   weight.weight.values = {{fixed16{0x7FFF}}};
-  model.texture_weights = {weight};
-  model.num_skin_profiles = 1;
+  model.textureWeights = {weight};
+  model.numSkinProfiles = 1;
 
-  M2Ribbon<wk> ribbon;
-  ribbon.texture_indices = {0};
-  ribbon.material_indices = {0};
-  ribbon.priority_plane = 2;
-  model.ribbon_emitters = {ribbon};
+  M2Ribbon<Wk> ribbon;
+  ribbon.textureIndices = {0};
+  ribbon.materialIndices = {0};
+  ribbon.priorityPlane = 2;
+  model.ribbonEmitters = {ribbon};
 
-  M2Particle<wk> particle;
-  particle.geometry_model_filename = "spells/unit_test.mdx";
-  particle.color_track.timestamps = {0, 16384, 32767};
-  particle.color_track.keys = {{1, 1, 1}, {0.5f, 0.5f, 0.5f}, {0, 0, 0}};
-  model.particle_emitters = {particle};
+  M2Particle<Wk> particle;
+  particle.geometryModelFilename = "spells/unit_test.mdx";
+  particle.colorTrack.timestamps = {0, 16384, 32767};
+  particle.colorTrack.keys = {{1, 1, 1}, {0.5f, 0.5f, 0.5f}, {0, 0, 0}};
+  model.particleEmitters = {particle};
 
   auto bytes = model.write();
   REQUIRE(bytes.has_value());
-  M2Root<wk> back;
+  M2Root<Wk> back;
   {
     auto r = back.read(*bytes);
     INFO((r ? std::string{} : r.error().message));
@@ -164,40 +164,40 @@ TEST_CASE("a synthetic WotLK body round-trips semantically", "[formats][m2]")
   std::uint32_t version = 0;
   std::memcpy(&magic, bytes->data(), 4);
   std::memcpy(&version, bytes->data() + 4, 4);
-  CHECK(magic == md20_magic);
+  CHECK(magic == Md20Magic);
   CHECK(version == 264);
 }
 
 TEST_CASE("a synthetic vanilla body embeds its skin profiles", "[formats][m2]")
 {
-  M2Root<va> model;
+  M2Root<Va> model;
   model.name = "vanilla_test";
-  M2Sequence<va> stand;
-  stand.start_timestamp = 0;
-  stand.end_timestamp = 1000;
+  M2Sequence<Va> stand;
+  stand.startTimestamp = 0;
+  stand.endTimestamp = 1000;
   model.sequences = {stand};
 
-  M2CompBone<va> bone;
-  bone.rotation.interpolation_ranges = {{0, 1}};
+  M2CompBone<Va> bone;
+  bone.rotation.interpolationRanges = {{0, 1}};
   bone.rotation.timestamps = {0, 1000};
   bone.rotation.values = {{}, {}};
   model.bones = {bone};
 
   model.vertices.resize(4);
-  M2SkinProfile<va> profile;
+  M2SkinProfile<Va> profile;
   profile.vertices = {0, 1, 2, 3};
   profile.indices = {0, 1, 2, 2, 1, 3};
   profile.bones = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
-  M2SkinSection<va> section;
-  section.vertex_count = 4;
-  section.index_count = 6;
+  M2SkinSection<Va> section;
+  section.vertexCount = 4;
+  section.indexCount = 6;
   profile.submeshes = {section};
   profile.batches = {{}};
-  model.skin_profiles = {profile};
+  model.skinProfiles = {profile};
 
   auto bytes = model.write();
   REQUIRE(bytes.has_value());
-  M2Root<va> back;
+  M2Root<Va> back;
   {
     auto r = back.read(*bytes);
     INFO((r ? std::string{} : r.error().message));

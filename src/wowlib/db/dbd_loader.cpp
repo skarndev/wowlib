@@ -1,9 +1,9 @@
 /** @file
-    SchemaCatalog::from_dbd_dir — the runtime WoWDBDefs loader: parse a
+    SchemaCatalog::fromDbdDir — the runtime WoWDBDefs loader: parse a
     checkout's `definitions` directory of `.dbd` files, resolve every
     targeted era's member list
     with EXACTLY dbdgen's rules, assemble a WDBS blob in memory and hand it
-    to from_blob. The parity contract (tested): built from the same
+    to fromBlob. The parity contract (tested): built from the same
     definitions, this catalog and the embedded one agree schema for schema —
     which means every mangling rule here (snake_case, `_lang` stripping and
     its collision escape, keyword escaping, LocString locale counts, range
@@ -39,35 +39,35 @@ namespace wowlib::db {
 
     /** dbdgen's era targets (tools/dbdgen/dbdgen/targets.py), same order —
         the blob's era table and mask bits. */
-    constexpr std::array<ClientVersion, 11> targets{
-      versions::vanilla,
-      versions::tbc,
-      versions::wotlk,
-      versions::cata,
-      versions::mop,
-      versions::wod,
-      versions::legion,
-      versions::bfa,
-      versions::shadowlands,
-      versions::dragonflight,
-      versions::tww
+    constexpr std::array<ClientVersion, 11> Targets{
+      versions::Vanilla,
+      versions::Tbc,
+      versions::Wotlk,
+      versions::Cata,
+      versions::Mop,
+      versions::Wod,
+      versions::Legion,
+      versions::Bfa,
+      versions::Shadowlands,
+      versions::Dragonflight,
+      versions::Tww
     };
 
-    Build build_of(ClientVersion v) {
+    Build buildOf(ClientVersion v) {
       return {v.major, v.minor, v.patch, v.build};
     }
 
-    /** locstring_langs (targets.py): 8 slots before TBC 2.1.0.6692 added
+    /** locstringLangs (targets.py): 8 slots before TBC 2.1.0.6692 added
         ruRU, 16 until Cataclysm collapsed to a single localized string. */
-    std::optional<int> locstring_langs(Build build) {
+    std::optional<int> locstringLangs(Build build) {
       if (build < Build{2, 1, 0, 6692}) return 8;
       if (build < Build{4, 0, 0, 0}) return 16;
       return std::nullopt;
     }
 
     /** emit.py's _RESERVED: C++ keywords + the record statics. */
-    bool reserved_name(std::string_view name) {
-      static const std::set<std::string_view> reserved{
+    bool reservedName(std::string_view name) {
+      static const std::set<std::string_view> Reserved{
         "alignas",
         "alignof",
         "and",
@@ -144,7 +144,7 @@ namespace wowlib::db {
         "version",
         "table_name"
       };
-      return reserved.contains(name);
+      return Reserved.contains(name);
     }
 
     /** emit.py's snake(): CamelCase -> snake_case with acronym runs kept
@@ -180,13 +180,13 @@ namespace wowlib::db {
       return out;
     }
 
-    /** emit.py's member_name(): strip the `_lang` locstring marker, snake,
+    /** emit.py's memberName(): strip the `_lang` locstring marker, snake,
         escape keywords/statics with a trailing underscore, digit prefix. */
-    std::string member_name(std::string_view dbd_name) {
-      std::string_view base = dbd_name;
+    std::string memberName(std::string_view dbdName) {
+      std::string_view base = dbdName;
       if (base.ends_with("_lang")) base.remove_suffix(5);
       std::string name = snake(base);
-      if (reserved_name(name)) name += '_';
+      if (reservedName(name)) name += '_';
       if (!name.empty() && name.front() >= '0' && name.front() <= '9') name.insert(name.begin(), '_');
       return name;
     }
@@ -199,17 +199,17 @@ namespace wowlib::db {
 
     struct Entry {
       std::string name;
-      bool is_id = false;
-      bool is_relation = false;
+      bool isId = false;
+      bool isRelation = false;
       bool noninline = false;
       std::optional<int> bits;
-      bool is_unsigned = false;
-      std::optional<int> array_len;
+      bool isUnsigned = false;
+      std::optional<int> arrayLen;
     };
 
     struct VersionBlock {
       std::vector<std::pair<Build, Build>> builds; /**< Inclusive ranges. */
-      bool has_layouts = false;
+      bool hasLayouts = false;
       std::vector<Entry> entries;
 
       bool matches(Build build) const {
@@ -223,7 +223,7 @@ namespace wowlib::db {
       std::map<std::string, ColumnDecl, std::less<>> columns;
       std::vector<VersionBlock> blocks;
 
-      const VersionBlock* block_for(Build build) const {
+      const VersionBlock* blockFor(Build build) const {
         for (const VersionBlock& block : blocks)
           if (block.matches(build)) return &block;
         return nullptr;
@@ -231,7 +231,7 @@ namespace wowlib::db {
     };
 
     /** Strip a trailing `// comment` and surrounding whitespace. */
-    std::string_view strip_line(std::string_view line) {
+    std::string_view stripLine(std::string_view line) {
       if (const auto at = line.find("//"); at != std::string_view::npos) line = line.substr(0, at);
       while (!line.empty() && (line.front() == ' ' || line.front() == '\t' || line.front() == '\r')) line.
         remove_prefix(1);
@@ -239,11 +239,11 @@ namespace wowlib::db {
       return line;
     }
 
-    bool ident_char(char c) {
+    bool identChar(char c) {
       return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
     }
 
-    std::optional<Build> parse_build(std::string_view text) {
+    std::optional<Build> parseBuild(std::string_view text) {
       Build out{};
       std::size_t part = 0;
       const char* p = text.data();
@@ -262,10 +262,10 @@ namespace wowlib::db {
     }
 
     /** `int<Map::ID> ParentMapID?` -> decl; nullopt on anything else. */
-    bool parse_column_line(std::string_view body, Definition& def) {
-      static constexpr std::array<std::string_view, 4> types{"int", "float", "string", "locstring"};
+    bool parseColumnLine(std::string_view body, Definition& def) {
+      static constexpr std::array<std::string_view, 4> Types{"int", "float", "string", "locstring"};
       std::string_view type;
-      for (const std::string_view t : types)
+      for (const std::string_view t : Types)
         if (body.starts_with(t) && (body.size() == t.size() || body[t.size()] == '<' || body[t.size()] == ' '))
           if (t.size() > type.size()) type = t;
       if (type.empty()) return false;
@@ -278,13 +278,13 @@ namespace wowlib::db {
       while (body.starts_with(' ')) body.remove_prefix(1);
       std::string_view name = body;
       if (name.ends_with('?')) name.remove_suffix(1);
-      if (name.empty() || !std::ranges::all_of(name, ident_char)) return false;
+      if (name.empty() || !std::ranges::all_of(name, identChar)) return false;
       def.columns.emplace(std::string{name}, ColumnDecl{std::string{type}});
       return true;
     }
 
     /** `$id,noninline$ID<u32>[2]` -> entry; nullopt on mismatch. */
-    std::optional<Entry> parse_entry(std::string_view body) {
+    std::optional<Entry> parseEntry(std::string_view body) {
       Entry entry{};
       if (body.starts_with('$')) {
         const auto close = body.find('$', 1);
@@ -294,22 +294,22 @@ namespace wowlib::db {
         while (!anns.empty()) {
           const auto comma = anns.find(',');
           const std::string_view ann = anns.substr(0, comma);
-          if (ann == "id") entry.is_id = true;
-          else if (ann == "relation") entry.is_relation = true;
+          if (ann == "id") entry.isId = true;
+          else if (ann == "relation") entry.isRelation = true;
           else if (ann == "noninline") entry.noninline = true;
           if (comma == std::string_view::npos) break;
           anns.remove_prefix(comma + 1);
         }
       }
       std::size_t at = 0;
-      while (at < body.size() && ident_char(body[at])) ++at;
+      while (at < body.size() && identChar(body[at])) ++at;
       if (at == 0) return std::nullopt;
       entry.name = std::string{body.substr(0, at)};
       body.remove_prefix(at);
       if (body.starts_with('<')) {
         body.remove_prefix(1);
         if (body.starts_with('u')) {
-          entry.is_unsigned = true;
+          entry.isUnsigned = true;
           body.remove_prefix(1);
         }
         int bits = 0;
@@ -323,7 +323,7 @@ namespace wowlib::db {
         int len = 0;
         auto [next, ec] = std::from_chars(body.data(), body.data() + body.size(), len);
         if (ec != std::errc{} || next == body.data() || *next != ']') return std::nullopt;
-        entry.array_len = len;
+        entry.arrayLen = len;
         body.remove_prefix(static_cast<std::size_t>(next - body.data()) + 1);
       }
       return body.empty() ? std::optional{entry} : std::nullopt;
@@ -331,7 +331,7 @@ namespace wowlib::db {
 
     /** Parse one whole .dbd (dbd.py's paragraph model). Nullopt = skip the
         table, exactly as dbdgen skips on a warning. */
-    std::optional<Definition> parse_dbd(const std::string& text) {
+    std::optional<Definition> parseDbd(const std::string& text) {
       std::vector<std::vector<std::string_view>> paragraphs;
       std::vector<std::string_view> current;
       std::string_view rest = text;
@@ -359,31 +359,31 @@ namespace wowlib::db {
 
       Definition def{};
       for (std::size_t i = 1; i < paragraphs.front().size(); ++i) {
-        const std::string_view body = strip_line(paragraphs.front()[i]);
+        const std::string_view body = stripLine(paragraphs.front()[i]);
         if (body.empty()) continue;
-        if (!parse_column_line(body, def)) return std::nullopt;
+        if (!parseColumnLine(body, def)) return std::nullopt;
       }
       for (std::size_t p = 1; p < paragraphs.size(); ++p) {
         VersionBlock block{};
         for (const std::string_view raw : paragraphs[p]) {
-          const std::string_view body = strip_line(raw);
+          const std::string_view body = stripLine(raw);
           if (body.empty()) continue;
           if (body.starts_with("LAYOUT ")) {
-            block.has_layouts = true;
+            block.hasLayouts = true;
           }
           else if (body.starts_with("BUILD ")) {
             std::string_view list = body.substr(6);
             while (!list.empty()) {
               const auto comma = list.find(',');
-              std::string_view part = strip_line(list.substr(0, comma));
+              std::string_view part = stripLine(list.substr(0, comma));
               if (const auto dash = part.find('-'); dash != std::string_view::npos) {
-                const auto lo = parse_build(strip_line(part.substr(0, dash)));
-                const auto hi = parse_build(strip_line(part.substr(dash + 1)));
+                const auto lo = parseBuild(stripLine(part.substr(0, dash)));
+                const auto hi = parseBuild(stripLine(part.substr(dash + 1)));
                 if (!lo || !hi) return std::nullopt;
                 block.builds.emplace_back(*lo, *hi);
               }
               else {
-                const auto build = parse_build(part);
+                const auto build = parseBuild(part);
                 if (!build) return std::nullopt;
                 block.builds.emplace_back(*build, *build);
               }
@@ -395,12 +395,12 @@ namespace wowlib::db {
             // Doc text only — the schema does not carry it.
           }
           else {
-            auto entry = parse_entry(body);
+            auto entry = parseEntry(body);
             if (!entry) return std::nullopt;
             block.entries.push_back(std::move(*entry));
           }
         }
-        if (block.builds.empty() && !block.has_layouts) return std::nullopt;
+        if (block.builds.empty() && !block.hasLayouts) return std::nullopt;
         def.blocks.push_back(std::move(block));
       }
       return def;
@@ -413,34 +413,34 @@ namespace wowlib::db {
       std::string name;
       ColumnType type = ColumnType::Int;
       std::uint8_t bits = 32;
-      bool is_signed = false;
-      std::uint16_t array_len = 1;
-      std::uint8_t locale_count = 0;
-      bool is_id = false;
-      bool is_relation = false;
+      bool isSigned = false;
+      std::uint16_t arrayLen = 1;
+      std::uint8_t localeCount = 0;
+      bool isId = false;
+      bool isRelation = false;
       bool noninline = false;
 
-      bool same_shape(const Member& other) const {
-        return name == other.name && type == other.type && bits == other.bits && is_signed == other.is_signed &&
-          array_len == other.array_len && locale_count == other.locale_count && is_id == other.is_id && is_relation ==
-          other.is_relation && noninline == other.noninline;
+      bool sameShape(const Member& other) const {
+        return name == other.name && type == other.type && bits == other.bits && isSigned == other.isSigned &&
+          arrayLen == other.arrayLen && localeCount == other.localeCount && isId == other.isId && isRelation ==
+          other.isRelation && noninline == other.noninline;
       }
     };
 
     /** build_members for one target; nullopt = the table skips this era
         (dbdgen warns and drops the whole table for that target). */
-    std::optional<std::vector<Member>> members_for(const Definition& def, const VersionBlock& block, Build build) {
-      const std::optional<int> langs = locstring_langs(build);
+    std::optional<std::vector<Member>> membersFor(const Definition& def, const VersionBlock& block, Build build) {
+      const std::optional<int> langs = locstringLangs(build);
 
       // The `_lang` strip may collide with a sibling column; colliding
       // locstrings keep their suffix (build_members' first pass).
       std::vector<std::string> names;
       names.reserve(block.entries.size());
-      for (const Entry& entry : block.entries) names.push_back(member_name(entry.name));
+      for (const Entry& entry : block.entries) names.push_back(memberName(entry.name));
       for (std::size_t i = 0; i < block.entries.size(); ++i) {
         if (std::ranges::count(names, names[i]) > 1 && block.entries[i].name.ends_with("_lang")) {
           std::string kept = snake(block.entries[i].name);
-          if (reserved_name(kept)) kept += '_';
+          if (reservedName(kept)) kept += '_';
           names[i] = std::move(kept);
         }
       }
@@ -458,9 +458,9 @@ namespace wowlib::db {
 
         Member m{};
         m.name = names[i];
-        m.array_len = static_cast<std::uint16_t>(entry.array_len.value_or(1));
-        m.is_id = entry.is_id;
-        m.is_relation = entry.is_relation;
+        m.arrayLen = static_cast<std::uint16_t>(entry.arrayLen.value_or(1));
+        m.isId = entry.isId;
+        m.isRelation = entry.isRelation;
         m.noninline = entry.noninline;
 
         if (entry.bits) {
@@ -469,7 +469,7 @@ namespace wowlib::db {
           // unsupported width
           m.type = ColumnType::Int;
           m.bits = static_cast<std::uint8_t>(*entry.bits);
-          m.is_signed = !entry.is_unsigned;
+          m.isSigned = !entry.isUnsigned;
         }
         else if (type == "float") {
           m.type = ColumnType::Float;
@@ -480,11 +480,11 @@ namespace wowlib::db {
           m.bits = 32;
         }
         else if (type == "locstring") {
-          if (entry.array_len) return std::nullopt; // locstring arrays unsupported
+          if (entry.arrayLen) return std::nullopt; // locstring arrays unsupported
           if (langs) {
             m.type = ColumnType::LocString;
             m.bits = 32;
-            m.locale_count = static_cast<std::uint8_t>(*langs);
+            m.localeCount = static_cast<std::uint8_t>(*langs);
           }
           else {
             m.type = ColumnType::String;
@@ -495,7 +495,7 @@ namespace wowlib::db {
           // ids/relations delivered by satellite blocks: u32.
           m.type = ColumnType::Int;
           m.bits = 32;
-          m.is_signed = false;
+          m.isSigned = false;
         }
         else {
           return std::nullopt; // int entry without a <size>
@@ -509,97 +509,97 @@ namespace wowlib::db {
     // --- WDBS assembly (emit.py's emit_schema_blob) -------------------------
 
     struct Range {
-      std::uint16_t era_mask = 0;
+      std::uint16_t eraMask = 0;
       std::vector<Member> members;
     };
 
     class BlobWriter {
     public:
-      void add_table(const std::string& name, const std::string& disk, const std::vector<Range>& ranges) {
-        append_u32(tables_, intern(name));
-        append_u32(tables_, intern(disk));
-        append_u32(tables_, range_count_);
-        append_u32(tables_, static_cast<std::uint32_t>(ranges.size()));
+      void addTable(const std::string& name, const std::string& disk, const std::vector<Range>& ranges) {
+        _appendU32(_tables, _intern(name));
+        _appendU32(_tables, _intern(disk));
+        _appendU32(_tables, _rangeCount);
+        _appendU32(_tables, static_cast<std::uint32_t>(ranges.size()));
         for (const Range& range : ranges) {
-          append_u32(ranges_, column_count_);
-          append_u16(ranges_, static_cast<std::uint16_t>(range.members.size()));
-          append_u16(ranges_, range.era_mask);
-          ++range_count_;
+          _appendU32(_ranges, _columnCount);
+          _appendU16(_ranges, static_cast<std::uint16_t>(range.members.size()));
+          _appendU16(_ranges, range.eraMask);
+          ++_rangeCount;
           for (const Member& m : range.members) {
-            append_u32(columns_, intern(m.name));
-            columns_.push_back(static_cast<unsigned char>(m.type));
-            columns_.push_back(m.bits);
-            columns_.push_back(
-              static_cast<unsigned char>((m.is_signed ? 1 : 0) | (m.is_id ? 2 : 0) | (m.is_relation ? 4 : 0) | (
+            _appendU32(_columns, _intern(m.name));
+            _columns.push_back(static_cast<unsigned char>(m.type));
+            _columns.push_back(m.bits);
+            _columns.push_back(
+              static_cast<unsigned char>((m.isSigned ? 1 : 0) | (m.isId ? 2 : 0) | (m.isRelation ? 4 : 0) | (
                 m.noninline ? 8 : 0)));
-            columns_.push_back(m.locale_count);
-            append_u16(columns_, m.array_len);
-            append_u16(columns_, 0);
-            ++column_count_;
+            _columns.push_back(m.localeCount);
+            _appendU16(_columns, m.arrayLen);
+            _appendU16(_columns, 0);
+            ++_columnCount;
           }
         }
-        ++table_count_;
+        ++_tableCount;
       }
 
       std::vector<unsigned char> finish() const {
         std::vector<unsigned char> out;
-        append_u32(out, blob::magic);
-        append_u32(out, blob::format_version);
-        append_u32(out, table_count_);
-        append_u32(out, range_count_);
-        append_u32(out, column_count_);
-        append_u32(out, static_cast<std::uint32_t>(pool_.size()));
-        out.push_back(static_cast<unsigned char>(targets.size()));
+        _appendU32(out, blob::Magic);
+        _appendU32(out, blob::FormatVersion);
+        _appendU32(out, _tableCount);
+        _appendU32(out, _rangeCount);
+        _appendU32(out, _columnCount);
+        _appendU32(out, static_cast<std::uint32_t>(_pool.size()));
+        out.push_back(static_cast<unsigned char>(Targets.size()));
         out.insert(out.end(), 3, 0);
-        for (const ClientVersion v : targets) {
-          append_u16(out, v.major);
-          append_u16(out, v.minor);
-          append_u16(out, v.patch);
-          append_u16(out, 0);
-          append_u32(out, v.build);
+        for (const ClientVersion v : Targets) {
+          _appendU16(out, v.major);
+          _appendU16(out, v.minor);
+          _appendU16(out, v.patch);
+          _appendU16(out, 0);
+          _appendU32(out, v.build);
         }
-        out.insert(out.end(), tables_.begin(), tables_.end());
-        out.insert(out.end(), ranges_.begin(), ranges_.end());
-        out.insert(out.end(), columns_.begin(), columns_.end());
-        out.insert(out.end(), pool_.begin(), pool_.end());
+        out.insert(out.end(), _tables.begin(), _tables.end());
+        out.insert(out.end(), _ranges.begin(), _ranges.end());
+        out.insert(out.end(), _columns.begin(), _columns.end());
+        out.insert(out.end(), _pool.begin(), _pool.end());
         return out;
       }
 
     private:
-      static void append_u16(std::vector<unsigned char>& out, std::uint16_t v) {
+      static void _appendU16(std::vector<unsigned char>& out, std::uint16_t v) {
         out.push_back(static_cast<unsigned char>(v & 0xFF));
         out.push_back(static_cast<unsigned char>(v >> 8));
       }
 
-      static void append_u32(std::vector<unsigned char>& out, std::uint32_t v) {
+      static void _appendU32(std::vector<unsigned char>& out, std::uint32_t v) {
         for (int shift = 0; shift < 32; shift += 8) out.push_back(static_cast<unsigned char>((v >> shift) & 0xFF));
       }
 
-      std::uint32_t intern(const std::string& text) {
-        const auto [at, fresh] = interned_.try_emplace(text, static_cast<std::uint32_t>(pool_.size()));
+      std::uint32_t _intern(const std::string& text) {
+        const auto [at, fresh] = _interned.try_emplace(text, static_cast<std::uint32_t>(_pool.size()));
         if (fresh) {
-          pool_.insert(pool_.end(), text.begin(), text.end());
-          pool_.push_back(0);
+          _pool.insert(_pool.end(), text.begin(), text.end());
+          _pool.push_back(0);
         }
         return at->second;
       }
 
-      std::vector<unsigned char> pool_{0}; /**< Offset 0 = "". */
-      std::map<std::string, std::uint32_t> interned_{{"", 0}};
-      std::vector<unsigned char> tables_;
-      std::vector<unsigned char> ranges_;
-      std::vector<unsigned char> columns_;
-      std::uint32_t table_count_ = 0;
-      std::uint32_t range_count_ = 0;
-      std::uint32_t column_count_ = 0;
+      std::vector<unsigned char> _pool{0}; /**< Offset 0 = "". */
+      std::map<std::string, std::uint32_t> _interned{{"", 0}};
+      std::vector<unsigned char> _tables;
+      std::vector<unsigned char> _ranges;
+      std::vector<unsigned char> _columns;
+      std::uint32_t _tableCount = 0;
+      std::uint32_t _rangeCount = 0;
+      std::uint32_t _columnCount = 0;
     };
   }
 
-  Result<SchemaCatalog> SchemaCatalog::from_dbd_dir(const std::filesystem::path& definitions) {
+  Result<SchemaCatalog> SchemaCatalog::fromDbdDir(const std::filesystem::path& definitions) {
     std::error_code ec;
     std::filesystem::directory_iterator it{definitions, ec};
     if (ec)
-      return make_error(ErrorCode::IoError, "cannot read WoWDBDefs definitions directory: " + definitions.string());
+      return makeError(ErrorCode::IoError, "cannot read WoWDBDefs definitions directory: " + definitions.string());
 
     // dbdgen walks sorted(*.dbd); the blob writer wants name-sorted tables
     // anyway, so collect and sort by IDENTIFIER name.
@@ -610,7 +610,7 @@ namespace wowlib::db {
       if (table == "Item-sparse") // dbdgen's IDENT_RENAMES
         table = "ItemSparseLegacy";
       const bool identifier = !table.empty() && !(table.front() >= '0' && table.front() <= '9') && std::ranges::all_of(
-        table, ident_char);
+        table, identChar);
       if (!identifier) continue;
       files.emplace_back(std::move(table), entry.path());
     }
@@ -622,16 +622,16 @@ namespace wowlib::db {
       if (!in) continue;
       std::ostringstream buffer;
       buffer << in.rdbuf();
-      const auto def = parse_dbd(buffer.str());
+      const auto def = parseDbd(buffer.str());
       if (!def) continue; // dbdgen warns and skips; the loader skips silently
 
       // Per-target member lists, then collapse() consecutive identical ones.
       std::vector<Range> ranges;
-      for (std::size_t era = 0; era < targets.size(); ++era) {
-        const Build build = build_of(targets[era]);
-        const VersionBlock* block = def->block_for(build);
+      for (std::size_t era = 0; era < Targets.size(); ++era) {
+        const Build build = buildOf(Targets[era]);
+        const VersionBlock* block = def->blockFor(build);
         if (!block) continue;
-        auto members = members_for(*def, *block, build);
+        auto members = membersFor(*def, *block, build);
         if (!members) {
           ranges.clear(); // any era error drops the table, like dbdgen
           break;
@@ -639,25 +639,25 @@ namespace wowlib::db {
         const auto same = [&](const Range& range) {
           return range.members.size() == members->size() && std::ranges::equal(
             range.members, *members, [](const Member& a, const Member& b) {
-              return a.same_shape(b);
+              return a.sameShape(b);
             });
         };
         if (!ranges.empty() && same(ranges.back()))
-          ranges.back().era_mask |= static_cast<std::uint16_t>(1u << era);
+          ranges.back().eraMask |= static_cast<std::uint16_t>(1u << era);
         else
           ranges.push_back(Range{static_cast<std::uint16_t>(1u << era), std::move(*members)});
       }
       if (ranges.empty()) continue;
       const std::string disk = table == "ItemSparseLegacy" ? "Item-sparse" : table;
-      writer.add_table(table, disk, ranges);
+      writer.addTable(table, disk, ranges);
     }
 
     auto bytes = writer.finish();
     const blob::View view{bytes};
-    if (!view.valid() || view.table_count() == 0)
-      return make_error(ErrorCode::SchemaBlobInvalid,
+    if (!view.valid() || view.tableCount() == 0)
+      return makeError(ErrorCode::SchemaBlobInvalid,
                         "no WoWDBDefs definition in " + definitions.string() + " produced a usable schema");
-    return from_blob(std::move(bytes));
+    return fromBlob(std::move(bytes));
   }
 }
 

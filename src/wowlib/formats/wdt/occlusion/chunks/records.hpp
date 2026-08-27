@@ -15,10 +15,10 @@ namespace wowlib::formats::wdt::occlusion::chunks {
         and where its 545 int16 values sit inside the MAOH payload.)")
     ]] OcclusionIndex {
     [[=welder::doc("The tile x coordinate.")]]
-    std::uint16_t tile_x = 0;
+    std::uint16_t tileX = 0;
 
     [[=welder::doc("The tile y coordinate.")]]
-    std::uint16_t tile_y = 0;
+    std::uint16_t tileY = 0;
 
     [[=welder::doc(
       "Byte offset of this tile's heightmap inside the MAOH payload. "

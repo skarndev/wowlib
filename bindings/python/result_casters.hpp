@@ -5,7 +5,7 @@
     convertible, which is also what satisfies welder's bindability gate:
 
     - `Result<T>` (std::expected): unwraps to T on success; on failure throws
-      wowlib::result_error, which the module's exception translator maps onto the
+      wowlib::ResultError, which the module's exception translator maps onto the
       reflection-generated hierarchy (wowlib.Error base, one class per ErrorCode).
     - `FileBuffer` (std::vector<std::byte>): converts to/from Python `bytes`.
     - `std::span<const std::byte>`: accepts `bytes` arguments (copied for the
@@ -29,10 +29,10 @@ namespace wowlib
 {
   /** The C++ carrier a Result caster throws for the error branch; the module
       registers a translator mapping it onto the generated exception hierarchy. */
-  struct result_error : std::runtime_error
+  struct ResultError : std::runtime_error
   {
-    explicit result_error(Error e)
-      : std::runtime_error(std::string{to_string(e.code)} + ": " + e.message)
+    explicit ResultError(Error e)
+      : std::runtime_error(std::string{toString(e.code)} + ": " + e.message)
       , error(std::move(e))
     {
     }
@@ -56,7 +56,7 @@ namespace nanobind::detail
                            cleanup_list* cleanup)
     {
       if (!result)
-        throw wowlib::result_error(std::move(result.error()));
+        throw wowlib::ResultError(std::move(result.error()));
       return Caster::from_cpp(std::move(*result), policy, cleanup);
     }
 
@@ -64,7 +64,7 @@ namespace nanobind::detail
                            cleanup_list* cleanup)
     {
       if (!result)
-        throw wowlib::result_error(result.error());
+        throw wowlib::ResultError(result.error());
       return Caster::from_cpp(*result, policy, cleanup);
     }
   };
@@ -79,7 +79,7 @@ namespace nanobind::detail
     static handle from_cpp(const wowlib::Result<void>& result, rv_policy, cleanup_list*)
     {
       if (!result)
-        throw wowlib::result_error(result.error());
+        throw wowlib::ResultError(result.error());
       return none().release();
     }
   };
@@ -125,7 +125,7 @@ namespace nanobind::detail
     // convenience (the facade's read() overloads spell out BinaryIO in typing).
     bool from_python(handle src, uint8_t, cleanup_list*) noexcept
     {
-      if (copy_buffer(src.ptr()))
+      if (copyBuffer(src.ptr()))
         return true;
       PyErr_Clear();
       // file-like: something with a .read() returning a bytes-like object
@@ -141,7 +141,7 @@ namespace nanobind::detail
         PyErr_Clear();
         return false;
       }
-      const bool ok = copy_buffer(data.ptr());
+      const bool ok = copyBuffer(data.ptr());
       if (!ok)
         PyErr_Clear();
       return ok;
@@ -149,7 +149,7 @@ namespace nanobind::detail
 
     // Copy a bytes-like object's contents into `storage` via the buffer
     // protocol; false (with the Python error set) when it is not bytes-like.
-    bool copy_buffer(PyObject* obj) noexcept
+    bool copyBuffer(PyObject* obj) noexcept
     {
       Py_buffer view;
       if (PyObject_GetBuffer(obj, &view, PyBUF_SIMPLE) != 0)

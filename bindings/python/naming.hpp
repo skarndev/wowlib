@@ -30,7 +30,7 @@ namespace wowlib_py
       Inherits welder's @c snake_case styling and overrides only the three
       transforms that would otherwise mangle client-canonical type names, keeping
       them byte-for-byte identical to their C++ identifiers. */
-  struct wowlib_python_naming : welder::naming::snake_case
+  struct WowlibPythonNaming : welder::naming::snake_case
   {
     /** @brief Bind class/struct identifiers verbatim (no CapWords normalization). */
     static consteval std::string transform_class(std::meta::info e)
@@ -51,5 +51,5 @@ namespace wowlib_py
     }
   };
 
-  static_assert(welder::naming::name_style<wowlib_python_naming>);
+  static_assert(welder::naming::name_style<WowlibPythonNaming>);
 }

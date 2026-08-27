@@ -30,17 +30,17 @@ using namespace wowlib::fs;
 TEST_CASE("7.3.5: every shipped DB2 parses structurally (WDC1)",
           "[integration][db]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::legion_client(),
-                                    .build = versions::legion.build});
+  auto storage = CascStorage::open({.clientRoot = tests::legionClient(),
+                                    .build = versions::Legion.build});
   REQUIRE(storage.has_value());
 
   tests::ImageStats stats;
-  tests::sweep_db2_images(*storage, *listfile, csv, stats);
+  tests::sweepDb2Images(*storage, *listfile, csv, stats);
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.parsed == stats.present);
   CHECK(stats.present >= 300);
@@ -49,29 +49,29 @@ TEST_CASE("7.3.5: every shipped DB2 parses structurally (WDC1)",
 TEST_CASE("7.3.5: representative tables decode and round-trip (WDC1)",
           "[integration][db]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::legion_client(),
-                                    .build = versions::legion.build});
+  auto storage = CascStorage::open({.clientRoot = tests::legionClient(),
+                                    .build = versions::Legion.build});
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
   const auto sweep = [&]<typename Tbl>(std::string_view name) {
-    tests::sweep_table_casc<Tbl>(*storage, *listfile, name, stats,
-                                 /*byte_perfect=*/false);
+    tests::sweepTableCasc<Tbl>(*storage, *listfile, name, stats,
+                                 /*bytePerfect=*/false);
   };
-  sweep.template operator()<db::tables::Map<versions::legion>>("Map");
-  sweep.template operator()<db::tables::ChrRaces<versions::legion>>("ChrRaces");
-  sweep.template operator()<db::tables::CreatureModelData<versions::legion>>(
+  sweep.template operator()<db::tables::Map<versions::Legion>>("Map");
+  sweep.template operator()<db::tables::ChrRaces<versions::Legion>>("ChrRaces");
+  sweep.template operator()<db::tables::CreatureModelData<versions::Legion>>(
     "CreatureModelData");
-  sweep.template operator()<db::tables::CreatureDisplayInfoExtra<versions::legion>>(
+  sweep.template operator()<db::tables::CreatureDisplayInfoExtra<versions::Legion>>(
     "CreatureDisplayInfoExtra");
-  sweep.template operator()<db::tables::SoundKit<versions::legion>>("SoundKit");
-  sweep.template operator()<db::tables::ManifestInterfaceData<versions::legion>>(
+  sweep.template operator()<db::tables::SoundKit<versions::Legion>>("SoundKit");
+  sweep.template operator()<db::tables::ManifestInterfaceData<versions::Legion>>(
     "ManifestInterfaceData");
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 4);
 }
@@ -80,21 +80,21 @@ TEST_CASE("7.3.5: representative tables decode and round-trip (WDC1)",
 TEST_CASE("7.3.5: the FULL DB2 corpus decodes and round-trips (WDC1)",
           "[integration][db][full-corpus]")
 {
-  const auto csv = tests::require_listfile();
+  const auto csv = tests::requireListfile();
   auto listfile = CsvListfile::load(csv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::legion_client(),
-                                    .build = versions::legion.build});
+  auto storage = CascStorage::open({.clientRoot = tests::legionClient(),
+                                    .build = versions::Legion.build});
   REQUIRE(storage.has_value());
 
   tests::CorpusStats stats;
-#  define X(Name)                                                        \
-  tests::sweep_table_casc<db::tables::Name<versions::legion>>(        \
-    *storage, *listfile, #Name, stats, /*byte_perfect=*/false);
-  WOWLIB_DB_TABLES_LEGION(X)
-#  undef X
+#  define x(Name)                                                        \
+  tests::sweepTableCasc<db::tables::Name<versions::Legion>>(        \
+    *storage, *listfile, #Name, stats, /*bytePerfect=*/false);
+  WOWLIB_DB_TABLES_LEGION(x)
+#  undef x
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 300);
 }

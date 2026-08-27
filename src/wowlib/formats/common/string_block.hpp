@@ -48,8 +48,8 @@ namespace wowlib::formats {
         @return nothing; every byte pattern decodes. */
     [[=welder::mark::exclude]]
     Result<void> read(std::span<const std::byte> payload) {
-      entries_.clear();
-      blob_size_ = static_cast<std::uint32_t>(payload.size());
+      _entries.clear();
+      _blobSize = static_cast<std::uint32_t>(payload.size());
       const auto* bytes = reinterpret_cast<const char*>(payload.data());
       for (std::size_t pos = 0; pos < payload.size();) {
         if (bytes[pos] == '\0') {
@@ -58,7 +58,7 @@ namespace wowlib::formats {
         }
         std::size_t end = pos;
         while (end < payload.size() && bytes[end] != '\0') ++end;
-        entries_.push_back({static_cast<std::uint32_t>(pos), std::string{bytes + pos, end - pos}});
+        _entries.push_back({static_cast<std::uint32_t>(pos), std::string{bytes + pos, end - pos}});
         pos = end + 1;
       }
       return {};
@@ -72,8 +72,8 @@ namespace wowlib::formats {
     [[=welder::mark::exclude]]
     Result<void> write(FileBuffer& out) const {
       const std::size_t base = out.size();
-      out.resize(base + blob_size_); // value-initialized: zero fill
-      for (const Entry& entry : entries_)
+      out.resize(base + _blobSize); // value-initialized: zero fill
+      for (const Entry& entry : _entries)
         std::memcpy(out.data() + base + entry.offset, entry.value.data(), entry.value.size());
       return {};
     }
@@ -85,8 +85,8 @@ namespace wowlib::formats {
         "suffix)")]]
     std::string_view at(std::uint32_t offset [[=welder::doc("byte offset into the on-disk blob")]]) const {
       // entries are ordered by offset: find the last one starting at or before
-      const auto after = std::ranges::upper_bound(entries_, offset, {}, &Entry::offset);
-      if (after == entries_.begin()) return {};
+      const auto after = std::ranges::upper_bound(_entries, offset, {}, &Entry::offset);
+      if (after == _entries.begin()) return {};
       const Entry& entry = *std::prev(after);
       const std::uint32_t delta = offset - entry.offset;
       if (delta >= entry.value.size()) return {};
@@ -99,9 +99,9 @@ namespace wowlib::formats {
     std::uint32_t add(std::string_view string
       [[=welder::doc("the string to append (no embedded zero "
         "bytes)")]]) {
-      const std::uint32_t offset = blob_size_;
-      entries_.push_back({offset, std::string{string}});
-      blob_size_ += static_cast<std::uint32_t>(string.size()) + 1;
+      const std::uint32_t offset = _blobSize;
+      _entries.push_back({offset, std::string{string}});
+      _blobSize += static_cast<std::uint32_t>(string.size()) + 1;
       return offset;
     }
 
@@ -109,25 +109,25 @@ namespace wowlib::formats {
     [[=welder::doc("The decoded entries, in blob order."),
       =welder::returns("the (offset, value) entries")]]
     const std::vector<Entry>& entries() const {
-      return entries_;
+      return _entries;
     }
 
     [[nodiscard]]
     [[=welder::getter, =welder::doc("Whether the on-disk blob holds any bytes.")
     ]]
     bool empty() const {
-      return blob_size_ == 0;
+      return _blobSize == 0;
     }
 
     [[=welder::getter,
       =welder::doc("The on-disk blob size in bytes, trailing padding included.")
     ]]
     std::size_t size() const {
-      return blob_size_;
+      return _blobSize;
     }
 
   private:
-    std::vector<Entry> entries_; /**< Decoded strings, ordered by offset. */
-    std::uint32_t blob_size_ = 0; /**< On-disk blob size, padding included. */
+    std::vector<Entry> _entries; /**< Decoded strings, ordered by offset. */
+    std::uint32_t _blobSize = 0; /**< On-disk blob size, padding included. */
   };
 }

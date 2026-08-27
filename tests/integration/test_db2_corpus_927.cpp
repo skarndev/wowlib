@@ -29,7 +29,7 @@ namespace
 {
   // The dbfilesclient/*.db2 paths, read straight from the listfile CSV (the
   // public CsvListfile API resolves single paths but does not enumerate).
-  std::vector<std::string> db2_paths(const std::filesystem::path& csv)
+  std::vector<std::string> db2Paths(const std::filesystem::path& csv)
   {
     std::vector<std::string> out;
     std::ifstream in{csv};
@@ -55,72 +55,72 @@ namespace
 TEST_CASE("9.2.7: every DB2 in the corpus is a WDC3 that parses structurally",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
-  int wdc3 = 0, parsed = 0, other_magic = 0, encrypted_files = 0;
-  std::vector<std::string> parse_failures;
-  for (const std::string& path : db2_paths(listfile_csv))
+  int wdc3 = 0, parsed = 0, otherMagic = 0, encryptedFiles = 0;
+  std::vector<std::string> parseFailures;
+  for (const std::string& path : db2Paths(listfileCsv))
   {
-    const auto fdid = listfile->path_to_fdid(path);
+    const auto fdid = listfile->pathToFdid(path);
     if (!fdid)
       continue;
-    const auto data = storage->read_file(FileKey{*fdid});
+    const auto data = storage->readFile(FileKey{*fdid});
     if (!data || data->size() < 4)
       continue;
     std::uint32_t magic = 0;
     std::memcpy(&magic, data->data(), 4);
-    if (magic != db::wdc::wdc3_magic)
+    if (magic != db::wdc::Wdc3Magic)
     {
-      ++other_magic;
+      ++otherMagic;
       continue;
     }
     ++wdc3;
     const auto img = db::wdc::WdcImage::parse(*data);
     if (!img)
     {
-      if (parse_failures.size() < 20)
-        parse_failures.push_back(path + ": " + img.error().message);
+      if (parseFailures.size() < 20)
+        parseFailures.push_back(path + ": " + img.error().message);
       continue;
     }
     ++parsed;
     if (std::ranges::any_of(img->sections, [](const auto& s) { return s.encrypted; }))
-      ++encrypted_files;
+      ++encryptedFiles;
   }
 
   INFO("parse failures:\n" << [&] {
     std::string s;
-    for (const auto& f : parse_failures) s += f + '\n';
+    for (const auto& f : parseFailures) s += f + '\n';
     return s;
   }());
-  CHECK(other_magic == 0);          // the 9.2.7 corpus is 100% WDC3
+  CHECK(otherMagic == 0);          // the 9.2.7 corpus is 100% WDC3
   CHECK(wdc3 >= 800);               // ~835 locally readable
   CHECK(parsed == wdc3);            // every one parses
-  CHECK(encrypted_files >= 100);    // ~138 carry encrypted sections
+  CHECK(encryptedFiles >= 100);    // ~138 carry encrypted sections
 }
 
 TEST_CASE("9.2.7: ManifestInterfaceData decodes with resolved strings",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
-  const auto fdid = listfile->path_to_fdid("dbfilesclient/manifestinterfacedata.db2");
+  const auto fdid = listfile->pathToFdid("dbfilesclient/manifestinterfacedata.db2");
   REQUIRE(fdid.has_value());
-  const auto data = storage->read_file(FileKey{*fdid});
+  const auto data = storage->readFile(FileKey{*fdid});
   REQUIRE(data.has_value());
 
-  db::tables::ManifestInterfaceData<versions::shadowlands> manifest;
+  db::tables::ManifestInterfaceData<versions::Shadowlands> manifest;
   REQUIRE(manifest.read(*data).has_value());
-  CHECK(manifest.fully_decoded());
+  CHECK(manifest.fullyDecoded());
   CHECK(manifest.records.size() > 50'000);
 
   // id 21 is the intro logo — its path+name is stable and cross-checkable
@@ -135,21 +135,21 @@ TEST_CASE("9.2.7: ManifestInterfaceData decodes with resolved strings",
 TEST_CASE("9.2.7: ChrRaces decodes fully (compression kinds, arrays)",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
-  const auto fdid = listfile->path_to_fdid("dbfilesclient/chrraces.db2");
+  const auto fdid = listfile->pathToFdid("dbfilesclient/chrraces.db2");
   REQUIRE(fdid.has_value());
-  const auto data = storage->read_file(FileKey{*fdid});
+  const auto data = storage->readFile(FileKey{*fdid});
   REQUIRE(data.has_value());
 
-  db::tables::ChrRaces<versions::shadowlands> races;
+  db::tables::ChrRaces<versions::Shadowlands> races;
   REQUIRE(races.read(*data).has_value());
-  CHECK(races.fully_decoded());
+  CHECK(races.fullyDecoded());
   // 9.2.7 ships well over 20 playable + internal races.
   CHECK(races.records.size() >= 20);
 }
@@ -157,35 +157,35 @@ TEST_CASE("9.2.7: ChrRaces decodes fully (compression kinds, arrays)",
 TEST_CASE("9.2.7: Spell (sparse/offset-map) decodes inline strings by id",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
-  const auto fdid = listfile->path_to_fdid("dbfilesclient/spell.db2");
+  const auto fdid = listfile->pathToFdid("dbfilesclient/spell.db2");
   REQUIRE(fdid.has_value());
-  const auto data = storage->read_file(FileKey{*fdid});
+  const auto data = storage->readFile(FileKey{*fdid});
   REQUIRE(data.has_value());
 
   // spell.db2 is sparse (flag 0x05) with 40 encrypted sections + one large
   // unencrypted section of inline null-terminated description strings.
-  db::tables::Spell<versions::shadowlands> spells;
+  db::tables::Spell<versions::Shadowlands> spells;
   REQUIRE(spells.read(*data).has_value());
   CHECK(spells.records.size() > 50'000);
-  CHECK_FALSE(spells.encrypted_sections().empty());
+  CHECK_FALSE(spells.encryptedSections().empty());
 
-  const auto by_id = [&](std::uint32_t id) {
+  const auto byId = [&](std::uint32_t id) {
     return std::ranges::find_if(spells.records, [&](const auto& r) {
       return static_cast<std::uint32_t>(r.id) == id;
     });
   };
-  const auto instakill = by_id(5);
+  const auto instakill = byId(5);
   REQUIRE(instakill != spells.records.end());
   CHECK(instakill->description.starts_with("Instantly Kills the target."));
   // Spell 133 is Fireball — its description is stable across builds.
-  const auto fireball = by_id(133);
+  const auto fireball = byId(133);
   REQUIRE(fireball != spells.records.end());
   CHECK(fireball->description.find("fiery ball") != std::string::npos);
 }
@@ -193,20 +193,20 @@ TEST_CASE("9.2.7: Spell (sparse/offset-map) decodes inline strings by id",
 TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
   // spellname.db2 is encrypted in the WoWCircle repack (survey 2026-07-29).
-  const auto fdid = listfile->path_to_fdid("dbfilesclient/spellname.db2");
+  const auto fdid = listfile->pathToFdid("dbfilesclient/spellname.db2");
   REQUIRE(fdid.has_value());
-  const auto data = storage->read_file(FileKey{*fdid});
+  const auto data = storage->readFile(FileKey{*fdid});
   REQUIRE(data.has_value());
 
-  db::tables::SpellName<versions::shadowlands> spells;
+  db::tables::SpellName<versions::Shadowlands> spells;
   REQUIRE(spells.read(*data).has_value());  // read succeeds despite encryption
 
   // Multi-section string resolution: a WDC2+ string reference measures the
@@ -221,10 +221,10 @@ TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
   REQUIRE(fireball != spells.records.end());
   CHECK(fireball->name == "Fireball");
 
-  if (!spells.encrypted_sections().empty())
+  if (!spells.encryptedSections().empty())
   {
-    CHECK_FALSE(spells.fully_decoded());
-    CHECK(spells.encrypted_sections().front().key_hash != 0);
+    CHECK_FALSE(spells.fullyDecoded());
+    CHECK(spells.encryptedSections().front().keyHash != 0);
     // An encrypted table can't be re-encoded (its encrypted records share the
     // file layout) — write() re-emits the original image VERBATIM so the
     // encrypted sections stay intact.
@@ -238,65 +238,65 @@ TEST_CASE("9.2.7: an encrypted table reports its sections and omits their rows",
 TEST_CASE("9.2.7: key-flagged sections that decrypted are decoded, not skipped",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
-  // location.db2 has two sections that carry a tact_key_hash but whose records
+  // location.db2 has two sections that carry a tactKeyHash but whose records
   // arrived non-zero (the storage held the key). A section is only undecodable
   // when its records are zero-filled, so these decode normally — skipping on the
   // key flag alone would have dropped ~100k rows.
-  const auto fdid = listfile->path_to_fdid("dbfilesclient/location.db2");
+  const auto fdid = listfile->pathToFdid("dbfilesclient/location.db2");
   REQUIRE(fdid.has_value());
-  const auto data = storage->read_file(FileKey{*fdid});
+  const auto data = storage->readFile(FileKey{*fdid});
   REQUIRE(data.has_value());
 
-  db::tables::Location<versions::shadowlands> location;
+  db::tables::Location<versions::Shadowlands> location;
   REQUIRE(location.read(*data).has_value());
-  CHECK(location.fully_decoded());
-  CHECK(location.encrypted_sections().empty());
+  CHECK(location.fullyDecoded());
+  CHECK(location.encryptedSections().empty());
   CHECK(location.records.size() > 100'000);
 }
 
 TEST_CASE("9.2.7: TACT key registration is accepted by the CASC storage",
           "[integration][db]")
 {
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
   // A well-formed key registers; the community list format imports cleanly.
   const std::array<std::byte, 16> key{};
-  CHECK(storage->add_encryption_key(0xFA505078126ACB3EULL, key).has_value());
-  CHECK(storage->import_keys(
+  CHECK(storage->addEncryptionKey(0xFA505078126ACB3EULL, key).has_value());
+  CHECK(storage->importKeys(
               "FA505078126ACB3E BDC51862ABED79B2A3A4EF1B3556EBD3\n").has_value());
 }
 
 TEST_CASE("9.2.7: a keyless table preserves verbatim, or drops to plaintext",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
   // soundkit.db2 has keyless (undecryptable, zero-filled) sections in this
   // repack, so some rows are missing from the decode.
-  const auto fdid = listfile->path_to_fdid("dbfilesclient/soundkit.db2");
+  const auto fdid = listfile->pathToFdid("dbfilesclient/soundkit.db2");
   REQUIRE(fdid.has_value());
-  const auto data = storage->read_file(FileKey{*fdid});
+  const auto data = storage->readFile(FileKey{*fdid});
   REQUIRE(data.has_value());
 
-  db::tables::SoundKit<versions::shadowlands> sound;
+  db::tables::SoundKit<versions::Shadowlands> sound;
   REQUIRE(sound.read(*data).has_value());
-  if (sound.fully_decoded())
+  if (sound.fullyDecoded())
     return;  // this repack happened to have the keys — nothing to demonstrate
-  const std::size_t decoded_rows = sound.records.size();
+  const std::size_t decodedRows = sound.records.size();
 
   // Preserve (the default): the original image, byte for byte.
   const auto preserved = sound.write(db::EncryptedPolicy::Preserve);
@@ -307,20 +307,20 @@ TEST_CASE("9.2.7: a keyless table preserves verbatim, or drops to plaintext",
   // Drop: a plain WDC3 of just the decoded rows — no key needed to load it.
   const auto dropped = sound.write(db::EncryptedPolicy::Drop);
   REQUIRE(dropped.has_value());
-  db::tables::SoundKit<versions::shadowlands> reread;
+  db::tables::SoundKit<versions::Shadowlands> reread;
   REQUIRE(reread.read(*dropped).has_value());
-  CHECK(reread.fully_decoded());                 // the rewrite carries no encryption
-  CHECK(reread.encrypted_sections().empty());
-  CHECK(reread.records.size() == decoded_rows);  // exactly the rows we had
+  CHECK(reread.fullyDecoded());                 // the rewrite carries no encryption
+  CHECK(reread.encryptedSections().empty());
+  CHECK(reread.records.size() == decodedRows);  // exactly the rows we had
 }
 
 TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
           "[integration][db]")
 {
-  const auto listfile_csv = tests::require_listfile();
-  auto listfile = CsvListfile::load(listfile_csv);
+  const auto listfileCsv = tests::requireListfile();
+  auto listfile = CsvListfile::load(listfileCsv);
   REQUIRE(listfile.has_value());
-  auto storage = CascStorage::open({.client_root = tests::casc_client(),
+  auto storage = CascStorage::open({.clientRoot = tests::cascClient(),
                                     .build = 45745});
   REQUIRE(storage.has_value());
 
@@ -329,39 +329,39 @@ TEST_CASE("9.2.7: WDC3 write is a semantic round-trip (decode == re-decode)",
   // duplicate rows into copy entries, which can reorder a multi-section table).
   // The write reuses each column's original compression scheme, so an equal
   // re-decode also proves the pallet / common / bitpacked-signed / array
-  // encoders round-trip. `max_pct` guards that the re-encode stays near
+  // encoders round-trip. `maxPct` guards that the re-encode stays near
   // Blizzard's size (compression reproduced, not exploded).
-  const auto check = [&](std::string_view path, auto table, std::size_t max_pct) {
-    const auto fdid = listfile->path_to_fdid(path);
+  const auto check = [&](std::string_view path, auto table, std::size_t maxPct) {
+    const auto fdid = listfile->pathToFdid(path);
     REQUIRE(fdid.has_value());
-    const auto data = storage->read_file(FileKey{*fdid});
+    const auto data = storage->readFile(FileKey{*fdid});
     REQUIRE(data.has_value());
 
     REQUIRE(table.read(*data).has_value());
-    REQUIRE(table.fully_decoded());
+    REQUIRE(table.fullyDecoded());
     const auto written = table.write();
     REQUIRE(written.has_value());
     CHECK(std::memcmp(written->data(), "WDC3", 4) == 0);
-    CHECK(written->size() * 100 <= data->size() * max_pct);
+    CHECK(written->size() * 100 <= data->size() * maxPct);
 
     decltype(table) reread;
     REQUIRE(reread.read(*written).has_value());
     REQUIRE(reread.records.size() == table.records.size());
-    const auto by_id = [](const auto& a, const auto& b) { return a.id < b.id; };
-    std::ranges::sort(table.records, by_id);
-    std::ranges::sort(reread.records, by_id);
+    const auto byId = [](const auto& a, const auto& b) { return a.id < b.id; };
+    std::ranges::sort(table.records, byId);
+    std::ranges::sort(reread.records, byId);
     CHECK(reread.records == table.records);
   };
 
   check("dbfilesclient/manifestinterfacedata.db2",
-        db::tables::ManifestInterfaceData<versions::shadowlands>{}, 105);
-  check("dbfilesclient/chrraces.db2", db::tables::ChrRaces<versions::shadowlands>{}, 105);
+        db::tables::ManifestInterfaceData<versions::Shadowlands>{}, 105);
+  check("dbfilesclient/chrraces.db2", db::tables::ChrRaces<versions::Shadowlands>{}, 105);
   // CreatureModelData is pallet-heavy (21 pallet + 1 pallet-array of floats);
   // reproducing the pallet keeps it at ~Blizzard size instead of ~2x.
   check("dbfilesclient/creaturemodeldata.db2",
-        db::tables::CreatureModelData<versions::shadowlands>{}, 110);
+        db::tables::CreatureModelData<versions::Shadowlands>{}, 110);
   // CreatureDisplayInfoExtra exercises common-data compression and an INLINE id
   // (3 sections); it must decode-equal by id and stay near Blizzard's size.
   check("dbfilesclient/creaturedisplayinfoextra.db2",
-        db::tables::CreatureDisplayInfoExtra<versions::shadowlands>{}, 105);
+        db::tables::CreatureDisplayInfoExtra<versions::Shadowlands>{}, 105);
 }

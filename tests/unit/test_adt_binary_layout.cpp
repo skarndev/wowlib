@@ -37,11 +37,11 @@ TEST_CASE("ADT alpha codec round-trips the uncompressed encodings", "[adt][alpha
 
   SECTION("8-bit is exact")
   {
-    const wowlib::formats::adt::detail::AlphaMapCodec codec{AlphaFormat::highres_8bit};
+    const wowlib::formats::adt::detail::AlphaMapCodec codec{AlphaFormat::Highres8Bit};
     std::vector<std::byte> encoded;
     codec.encode(map, /*compressed=*/false, encoded);
     REQUIRE(encoded.size() == 4096);
-    const auto decoded = codec.decode(encoded, /*compressed=*/false, /*fix_edges=*/false);
+    const auto decoded = codec.decode(encoded, /*compressed=*/false, /*fixEdges=*/false);
     CHECK(decoded == map);
   }
 
@@ -51,21 +51,21 @@ TEST_CASE("ADT alpha codec round-trips the uncompressed encodings", "[adt][alpha
     std::vector<std::uint8_t> quantized(4096);
     for (std::size_t i = 0; i < map.size(); ++i)
       quantized[i] = static_cast<std::uint8_t>((map[i] >> 4) * 0x11);
-    const wowlib::formats::adt::detail::AlphaMapCodec codec{AlphaFormat::lowres_4bit};
+    const wowlib::formats::adt::detail::AlphaMapCodec codec{AlphaFormat::Lowres4Bit};
     std::vector<std::byte> encoded;
     codec.encode(quantized, /*compressed=*/false, encoded);
     REQUIRE(encoded.size() == 2048);
-    const auto decoded = codec.decode(encoded, /*compressed=*/false, /*fix_edges=*/false);
+    const auto decoded = codec.decode(encoded, /*compressed=*/false, /*fixEdges=*/false);
     CHECK(decoded == quantized);
   }
 
   SECTION("RLE decodes what it encoded")
   {
     // compression is independent of the bit depth; the format is irrelevant here.
-    const wowlib::formats::adt::detail::AlphaMapCodec codec{AlphaFormat::highres_8bit};
+    const wowlib::formats::adt::detail::AlphaMapCodec codec{AlphaFormat::Highres8Bit};
     std::vector<std::byte> encoded;
     codec.encode(map, /*compressed=*/true, encoded);
-    const auto decoded = codec.decode(encoded, /*compressed=*/true, /*fix_edges=*/false);
+    const auto decoded = codec.decode(encoded, /*compressed=*/true, /*fixEdges=*/false);
     CHECK(decoded == map);
   }
 }
@@ -74,39 +74,39 @@ TEST_CASE("ADT alpha codec round-trips the uncompressed encodings", "[adt][alpha
 // header/MCIN offsets are stamped and the chunk decodes back equal.
 TEST_CASE("A synthetic WotLK ADT round-trips through a buffer", "[adt][roundtrip]")
 {
-  ADT<versions::wotlk> a;
-  a.alpha_format = AlphaFormat::highres_8bit;  // 8-bit is lossless (4-bit quantizes)
-  a.model_filenames.add("world\\model.m2");
-  a.model_name_offsets.push_back(0);
-  a.chunks.assign(256, formats::adt::MapChunk<versions::wotlk>{});
+  ADT<versions::Wotlk> a;
+  a.alphaFormat = AlphaFormat::Highres8Bit;  // 8-bit is lossless (4-bit quantizes)
+  a.modelFilenames.add("world\\model.m2");
+  a.modelNameOffsets.push_back(0);
+  a.chunks.assign(256, formats::adt::MapChunk<versions::Wotlk>{});
   for (auto& chunk : a.chunks)
   {
     chunk.heights.assign(145, 1.5f);
     chunk.normals.assign(145, chunks::MCNREntry{{0, 127, 0}});
-    chunk.header.index_x = 3;
+    chunk.header.indexX = 3;
   }
   // one textured chunk with a blended second layer + alpha map
   a.chunks[0].layers = {chunks::SMLayer{}, chunks::SMLayer{}};
-  a.chunks[0].layers[1].flags = static_cast<std::uint32_t>(chunks::LayerFlags::use_alpha_map);
-  a.chunks[0].alpha_maps.assign(2, {});
-  a.chunks[0].alpha_maps[1].assign(4096, 128);
+  a.chunks[0].layers[1].flags = static_cast<std::uint32_t>(chunks::LayerFlags::UseAlphaMap);
+  a.chunks[0].alphaMaps.assign(2, {});
+  a.chunks[0].alphaMaps[1].assign(4096, 128);
 
-  const auto buf = a.write_file(FileKind::monolithic, a.alpha_format);
+  const auto buf = a.writeFile(FileKind::Monolithic, a.alphaFormat);
   REQUIRE(buf.has_value());
 
-  ADT<versions::wotlk> b;
-  b.alpha_format = a.alpha_format;
-  REQUIRE(b.parse_file(*buf, FileKind::monolithic).has_value());
+  ADT<versions::Wotlk> b;
+  b.alphaFormat = a.alphaFormat;
+  REQUIRE(b.parse_file(*buf, FileKind::Monolithic).has_value());
 
   REQUIRE(b.chunks.size() == 256);
   CHECK(b.chunks[0].heights.size() == 145);
   CHECK(b.chunks[0].heights[0] == 1.5f);
   CHECK(b.chunks[0].layers.size() == 2);
-  REQUIRE(b.chunks[0].alpha_maps.size() == 2);
-  CHECK(b.chunks[0].alpha_maps[1] == a.chunks[0].alpha_maps[1]);
-  CHECK(b.model_filenames.entries().size() == 1);
-  CHECK(b.chunks[0].header.index_x == 3);
+  REQUIRE(b.chunks[0].alphaMaps.size() == 2);
+  CHECK(b.chunks[0].alphaMaps[1] == a.chunks[0].alphaMaps[1]);
+  CHECK(b.modelFilenames.entries().size() == 1);
+  CHECK(b.chunks[0].header.indexX == 3);
   // the derived MHDR/MCNK offsets are re-derived on write and normalized to 0
   // on read, so a valid re-parse (above) is what proves the stamping worked.
-  CHECK(b.header.ofs_mcin == 0);
+  CHECK(b.header.ofsMcin == 0);
 }

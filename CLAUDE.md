@@ -41,6 +41,7 @@ These are presented roughly in order:
 | Topic | File |
 |---|---|
 | C++ conventions (no free functions for domain ops, ranges + monadic expected, no C-style casts, full Doxygen) | .claude/context/cpp-conventions.md |
+| C++ naming convention (camelCase sweep 2026-08-27, exemptions, protocol names, Python-surface coupling) | .claude/context/naming-convention.md |
 | Classic clients (flavor axis, build-keyed format lineage, install detection) | .claude/context/classic-versioning.md |
 | Filesystem gateway architecture, thread-safety, doc/annotation policy | .claude/context/filesystem-architecture.md |
 | Formats subsystem (chunk framework, versioned entities, round-trip guarantee, bindings, new-format recipe) | .claude/context/formats-architecture.md |

@@ -14,7 +14,7 @@
     determined by three facts per column: the member's byte OFFSET, its value
     KIND, and its element STRIDE. Those are data, not code. So the bridge now
     derives a static ColumnAccess table per record (consteval, from the same
-    reflection schema_of() uses) and hands it to a shared non-templated core;
+    reflection schemaOf() uses) and hands it to a shared non-templated core;
     what remains per record is that table plus a handful of one-line vector
     thunks (clear/reserve/add/at/clone) nothing can erase, because only they
     know sizeof(Record).
@@ -61,15 +61,15 @@ namespace wowlib::db {
         where it lives, what it is, and how its array elements stride. */
     struct ColumnAccess {
       std::uint32_t offset = 0; /**< Member byte offset inside Record. */
-      std::uint32_t flags_offset = 0; /**< LocStr only: byte offset of .flags. */
-      std::uint16_t elem_stride = 0; /**< Bytes between array elements. */
+      std::uint32_t flagsOffset = 0; /**< LocStr only: byte offset of .flags. */
+      std::uint16_t elemStride = 0; /**< Bytes between array elements. */
       AccessKind kind = AccessKind::U32; /**< The element's storage kind. */
     };
 
     /** The AccessKind of element type @a E (consteval; bool is rejected by
-        classify_member long before this runs). */
+        classifyMember long before this runs). */
     template <typename E>
-    consteval AccessKind access_kind_of() {
+    consteval AccessKind accessKindOf() {
       if constexpr (std::same_as<E, float>) return AccessKind::F32;
       else if constexpr (std::same_as<E, std::string>) return AccessKind::Str;
       else if constexpr (std::signed_integral<E>) {
@@ -92,31 +92,31 @@ namespace wowlib::db {
 
     /** The byte offset of @a Struct's member named @a name (consteval). */
     template <typename Struct>
-    consteval std::uint32_t member_offset(std::string_view name) {
+    consteval std::uint32_t memberOffset(std::string_view name) {
       for (auto m : std::meta::nonstatic_data_members_of(^^Struct, std::meta::access_context::unchecked()))
         if (std::meta::identifier_of(m) == name) return static_cast<std::uint32_t>(std::meta::offset_of(m).bytes);
       return 0;
     }
 
     /** The per-column access table of @a Record: one ColumnAccess per member,
-        declaration order — the same 1:1 correspondence schema_of() rests on. */
+        declaration order — the same 1:1 correspondence schemaOf() rests on. */
     template <typename Record>
-    consteval auto column_access_of() {
+    consteval auto columnAccessOf() {
       std::vector<ColumnAccess> out;
-      static constexpr auto members = record_members<Record>();
-      template for (constexpr auto m : members) {
+      static constexpr auto Members = recordMembers<Record>();
+      template for (constexpr auto m : Members) {
         using M = [:std::meta::type_of(m):];
-        using E = typename element_traits<M>::element;
+        using E = typename ElementTraits<M>::Element;
         ColumnAccess a{};
         a.offset = static_cast<std::uint32_t>(std::meta::offset_of(m).bytes);
-        if constexpr (locstring_traits<M>::value) {
+        if constexpr (LocstringTraits<M>::Value) {
           a.kind = AccessKind::LocStr;
-          a.elem_stride = sizeof(std::string);
-          a.flags_offset = a.offset + member_offset<M>("flags");
+          a.elemStride = sizeof(std::string);
+          a.flagsOffset = a.offset + memberOffset<M>("flags");
         }
         else {
-          a.kind = access_kind_of<E>();
-          a.elem_stride = sizeof(E);
+          a.kind = accessKindOf<E>();
+          a.elemStride = sizeof(E);
         }
         out.push_back(a);
       }
@@ -129,7 +129,7 @@ namespace wowlib::db {
         feed is compiled once in record_bridge.cpp. */
     struct RecordOps {
       std::span<const ColumnAccess> columns; /**< Per-column access facts. */
-      std::size_t id_column = SIZE_MAX; /**< Index of the $id$ column, or SIZE_MAX. */
+      std::size_t idColumn = SIZE_MAX; /**< Index of the $id$ column, or SIZE_MAX. */
 
       void (*clear)(void*) = nullptr;
       void (*reserve)(void*, std::size_t) = nullptr;
@@ -137,20 +137,20 @@ namespace wowlib::db {
       std::size_t (*size)(const void*) = nullptr;
       std::byte* (*at)(void*, std::size_t) = nullptr; /**< &vec[i], as bytes. */
       const std::byte* (*cat)(const void*, std::size_t) = nullptr;
-      void (*clone_push)(void*, std::size_t) = nullptr; /**< push_back(vec[src]). */
+      void (*clonePush)(void*, std::size_t) = nullptr; /**< push_back(vec[src]). */
       // The three below serve the binding-side live record views (a mutable
       // sequence over the typed vector, erased the same way the sink is).
-      void (*push_copy)(void*, const void*) = nullptr; /**< push_back(*src). */
-      void (*assign_at)(void*, std::size_t, const void*) = nullptr; /**< vec[i] = *src. */
-      void (*erase_at)(void*, std::size_t) = nullptr; /**< vec.erase(begin+i). */
+      void (*pushCopy)(void*, const void*) = nullptr; /**< push_back(*src). */
+      void (*assignAt)(void*, std::size_t, const void*) = nullptr; /**< vec[i] = *src. */
+      void (*eraseAt)(void*, std::size_t) = nullptr; /**< vec.erase(begin+i). */
     };
 
     /** The $id$ column index of @a Record (consteval), or SIZE_MAX. */
     template <typename Record>
-    consteval std::size_t id_column_of() {
+    consteval std::size_t idColumnOf() {
       std::size_t i = 0;
-      for (const Column& col : schema_of<Record>()) {
-        if (col.is_id) return i;
+      for (const Column& col : schemaOf<Record>()) {
+        if (col.isId) return i;
         ++i;
       }
       return SIZE_MAX;
@@ -158,9 +158,9 @@ namespace wowlib::db {
 
     /** The RecordOps instance of @a Record — the entire per-record residue. */
     template <typename Record>
-    inline constexpr RecordOps record_ops{
-      column_access_of<Record>(),
-      id_column_of<Record>(),
+    inline constexpr RecordOps RecordOpsFor{
+      columnAccessOf<Record>(),
+      idColumnOf<Record>(),
       [](void* v) { static_cast<std::vector<Record>*>(v)->clear(); },
       [](void* v, std::size_t n) {
         static_cast<std::vector<Record>*>(v)->reserve(n);
@@ -204,28 +204,28 @@ namespace wowlib::db {
   public:
     template <typename Record>
     explicit ErasedRecordSink(std::vector<Record>& records)
-      : vec_{&records}, ops_{&detail::record_ops<Record>} {}
+      : _vec{&records}, _ops{&detail::RecordOpsFor<Record>} {}
 
-    /** From pre-erased parts (TableCore's path — it holds exactly these). */
-    ErasedRecordSink(void* records_vec, const detail::RecordOps* ops)
-      : vec_{records_vec}, ops_{ops} {}
+    /** from pre-erased parts (TableCore's path — it holds exactly these). */
+    ErasedRecordSink(void* recordsVec, const detail::RecordOps* ops)
+      : _vec{recordsVec}, _ops{ops} {}
 
     void clear() override;
     void reserve(std::size_t n) override;
     std::size_t add() override;
     std::size_t size() const override;
-    std::uint32_t id_of(std::size_t record) const override;
+    std::uint32_t idOf(std::size_t record) const override;
 
-    void set_int(std::size_t record, std::size_t column, std::size_t element, std::int64_t value) override;
-    void set_float(std::size_t record, std::size_t column, std::size_t element, float value) override;
-    void set_string(std::size_t record, std::size_t column, std::size_t element, std::string_view value) override;
+    void setInt(std::size_t record, std::size_t column, std::size_t element, std::int64_t value) override;
+    void setFloat(std::size_t record, std::size_t column, std::size_t element, float value) override;
+    void setString(std::size_t record, std::size_t column, std::size_t element, std::string_view value) override;
 
-    void clone_with_id(std::size_t src, std::uint32_t new_id) override;
-    std::size_t find_by_id(std::uint32_t id) const override;
+    void cloneWithId(std::size_t src, std::uint32_t newId) override;
+    std::size_t findById(std::uint32_t id) const override;
 
   private:
-    void* vec_;
-    const detail::RecordOps* ops_;
+    void* _vec;
+    const detail::RecordOps* _ops;
   };
 
   /** RecordSource over a const std::vector<Record>& — the encode source.
@@ -234,21 +234,21 @@ namespace wowlib::db {
   public:
     template <typename Record>
     explicit ErasedRecordSource(const std::vector<Record>& records)
-      : vec_{&records}, ops_{&detail::record_ops<Record>} {}
+      : _vec{&records}, _ops{&detail::RecordOpsFor<Record>} {}
 
-    /** From pre-erased parts (TableCore's path). */
-    ErasedRecordSource(const void* records_vec, const detail::RecordOps* ops)
-      : vec_{records_vec}, ops_{ops} {}
+    /** from pre-erased parts (TableCore's path). */
+    ErasedRecordSource(const void* recordsVec, const detail::RecordOps* ops)
+      : _vec{recordsVec}, _ops{ops} {}
 
     std::size_t size() const override;
-    std::uint32_t id_of(std::size_t record) const override;
+    std::uint32_t idOf(std::size_t record) const override;
 
-    std::int64_t get_int(std::size_t record, std::size_t column, std::size_t element) const override;
-    std::uint32_t get_slot(std::size_t record, std::size_t column, std::size_t element) const override;
-    std::string_view get_string(std::size_t record, std::size_t column, std::size_t element) const override;
+    std::int64_t getInt(std::size_t record, std::size_t column, std::size_t element) const override;
+    std::uint32_t getSlot(std::size_t record, std::size_t column, std::size_t element) const override;
+    std::string_view getString(std::size_t record, std::size_t column, std::size_t element) const override;
 
   private:
-    const void* vec_;
-    const detail::RecordOps* ops_;
+    const void* _vec;
+    const detail::RecordOps* _ops;
   };
 }

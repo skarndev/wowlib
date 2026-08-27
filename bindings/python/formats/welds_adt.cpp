@@ -4,9 +4,9 @@
     serial tail; see gen_adt.cpp for the C# twin of this split).
 
     weld_type per DISTINCT concrete, never weld_namespace: a namespace weld
-    instantiates one bind_namespace specialization whose members_of bakes
+    instantiates one bind_namespace specialization whose membersOf bakes
     from an arbitrary TU (the db shards learned this) — explicit types keyed
-    on the concrete never merge. The X-macro tables in adt_ranges.hpp are
+    on the concrete never merge. The x-macro tables in adt_ranges.hpp are
     the single source of truth for which aliases exist. */
 
 #include <nanobind/nanobind.h>
@@ -49,18 +49,18 @@ namespace wowlib_py::formats
     }
   }
 
-  void register_adt_welds(::nanobind::module_& root)
+  void registerAdtWelds(::nanobind::module_& root)
   {
     using W = ::welder::welder<::welder::rods::nanobind::rod<>,
-                               wowlib_py::wowlib_python_naming>;
+                               wowlib_py::WowlibPythonNaming>;
     ::nanobind::module_ m0 = submodule(submodule(root, "formats"), "adt");
 
-#define X(S, v) W::weld_type<::wowlib::formats::adt::ADT##S>(m0, "ADT" #S);
-    WOWLIB_ADT_RANGES_ASSEMBLY(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::adt::ADT##S>(m0, "ADT" #S);
+    WOWLIB_ADT_RANGES_ASSEMBLY(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::adt::MapChunk##S>(m0, "MapChunk" #S);
-    WOWLIB_ADT_RANGES_MAPCHUNK(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::adt::MapChunk##S>(m0, "MapChunk" #S);
+    WOWLIB_ADT_RANGES_MAPCHUNK(x)
+#undef x
   }
 }

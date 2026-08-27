@@ -22,13 +22,13 @@ namespace wowlib::formats::wdt::fogs::chunks {
     std::array<float, 3> intensity{};
 
     [[=welder::doc("Unknown; 0 to 5000 in shipped files.")]]
-    float unk_18 = 0;
+    float unk18 = 0;
 
     [[=welder::doc("Position, in server coordinates.")]]
     C3Vector position{};
 
     [[=welder::doc("Unknown; 0 in files, set to 1.0 on loading.")]]
-    float unk_28 = 0;
+    float unk28 = 0;
 
     [[=welder::doc("Rotation quaternion.")]]
     C4Vector rotation{};
@@ -38,7 +38,7 @@ namespace wowlib::formats::wdt::fogs::chunks {
 
     [[=welder::doc(
       "Animation periods, used to derive the animation coefficients.")]]
-    std::array<std::int32_t, 4> animation_periods{};
+    std::array<std::int32_t, 4> animationPeriods{};
 
     [[=welder::doc("Flags.")]]
     std::uint32_t flags = 0;
@@ -46,11 +46,11 @@ namespace wowlib::formats::wdt::fogs::chunks {
     [[=welder::doc(
       "FileDataID of the volume model (one M2Batch only); 0 falls back "
       "to spells/errorcube.m2.")]]
-    std::uint32_t model_fdid = 0;
+    std::uint32_t modelFdid = 0;
 
     [[=welder::doc("Fog level, 0 to 2 (inclusive against the client's "
       "volumeFogLevel setting).")]]
-    std::uint32_t fog_level = 0;
+    std::uint32_t fogLevel = 0;
 
     [[=welder::doc("Globally unique fog id.")]]
     std::uint32_t id = 0;
@@ -65,17 +65,17 @@ namespace wowlib::formats::wdt::fogs::chunks {
         "extra data for a VFOG entry, matched by fog id.")
     ]] VolumetricFogExtra {
     [[=welder::doc("Unknown; defaults to 1.")]]
-    std::uint32_t unk_0 = 1;
+    std::uint32_t unk0 = 1;
 
     [[=welder::doc(
       "Unknown floats; the first three carry values, the rest are 1.")]]
-    std::array<float, 16> unk_1{};
+    std::array<float, 16> unk1{};
 
     [[=welder::doc("The VFOG entry this record extends (its id field).")]]
-    std::uint32_t fog_id = 0;
+    std::uint32_t fogId = 0;
 
     [[=welder::doc("Unknown; defaults to 0.")]]
-    std::array<std::uint32_t, 6> unk_3{};
+    std::array<std::uint32_t, 6> unk3{};
   };
 
   static_assert(sizeof(VolumetricFogExtra) == 0x60);

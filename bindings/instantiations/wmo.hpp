@@ -10,7 +10,7 @@
     to suppress its own re-instantiation. The matrix rows live in
     wmo_matrix.inl, expanded here as declarations and in the .cpp as
     definitions from the SAME spelling, driven by the same
-    WOWLIB_WMO_FOR_EACH_VERSION X-macro the welded aliases use — neither
+    WOWLIB_WMO_FOR_EACH_VERSION x-macro the welded aliases use — neither
     the two sides nor the version list can drift. */
 
 #include <wowlib/formats/wmo/wmo.hpp>

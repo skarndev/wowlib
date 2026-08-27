@@ -25,10 +25,10 @@ namespace
   // supports: id, string, localized string, float, int array, narrow ints.
   struct TestRecord
   {
-    static constexpr ClientVersion version = versions::wotlk;
-    static constexpr std::string_view table_name = "UnitTest";
+    static constexpr ClientVersion Version = versions::Wotlk;
+    static constexpr std::string_view TableName = "UnitTest";
 
-    [[=db::id]]
+    [[=db::Id]]
     std::uint32_t id = 0;
 
     std::string name;
@@ -47,23 +47,23 @@ namespace
   };
 
   // 4 (id) + 4 (name) + 36 (8 slots + flags) + 4 (scale) + 8 (flags[2]) + 1 + 2
-  constexpr std::size_t test_stride = 59;
-  static_assert(db::record_stride<TestRecord>() == test_stride);
-  static_assert(db::field_slot_count<TestRecord>() == 1 + 1 + 9 + 1 + 2 + 1 + 1);
-  static_assert(db::string_slot_count<TestRecord>() == 1 + 8);
+  constexpr std::size_t TestStride = 59;
+  static_assert(db::recordStride<TestRecord>() == TestStride);
+  static_assert(db::fieldSlotCount<TestRecord>() == 1 + 1 + 9 + 1 + 2 + 1 + 1);
+  static_assert(db::stringSlotCount<TestRecord>() == 1 + 8);
 
-  constexpr auto test_schema = db::schema_of<TestRecord>();
-  static_assert(test_schema.size() == 7);
-  static_assert(test_schema[0].is_id && test_schema[0].type == db::ColumnType::Int
-                && test_schema[0].bits == 32 && !test_schema[0].is_signed);
-  static_assert(test_schema[0].name_view() == "id");
-  static_assert(test_schema[1].type == db::ColumnType::String);
-  static_assert(test_schema[2].type == db::ColumnType::LocString
-                && test_schema[2].locale_count == 8);
-  static_assert(test_schema[3].type == db::ColumnType::Float);
-  static_assert(test_schema[4].type == db::ColumnType::Int && test_schema[4].array_len == 2);
-  static_assert(test_schema[5].bits == 8 && !test_schema[5].is_signed);
-  static_assert(test_schema[6].bits == 16 && test_schema[6].is_signed);
+  constexpr auto TestSchema = db::schemaOf<TestRecord>();
+  static_assert(TestSchema.size() == 7);
+  static_assert(TestSchema[0].isId && TestSchema[0].type == db::ColumnType::Int
+                && TestSchema[0].bits == 32 && !TestSchema[0].isSigned);
+  static_assert(TestSchema[0].nameView() == "id");
+  static_assert(TestSchema[1].type == db::ColumnType::String);
+  static_assert(TestSchema[2].type == db::ColumnType::LocString
+                && TestSchema[2].localeCount == 8);
+  static_assert(TestSchema[3].type == db::ColumnType::Float);
+  static_assert(TestSchema[4].type == db::ColumnType::Int && TestSchema[4].arrayLen == 2);
+  static_assert(TestSchema[5].bits == 8 && !TestSchema[5].isSigned);
+  static_assert(TestSchema[6].bits == 16 && TestSchema[6].isSigned);
 
   /// Append a trivially-copyable value to a byte image under construction.
   template <typename T>
@@ -74,14 +74,14 @@ namespace
   }
 
   /// A synthetic two-record WDBC image with the block "\0Azeroth\0Kalimdor\0".
-  std::vector<std::byte> make_image()
+  std::vector<std::byte> makeImage()
   {
     const std::string block{"\0Azeroth\0Kalimdor\0", 18};
     std::vector<std::byte> image;
-    append(image, db::wdbc_magic);
-    append(image, std::uint32_t{2});                     // record_count
-    append(image, db::field_slot_count<TestRecord>());   // field_count
-    append(image, std::uint32_t{test_stride});           // record_size
+    append(image, db::WdbcMagic);
+    append(image, std::uint32_t{2});                     // recordCount
+    append(image, db::fieldSlotCount<TestRecord>());   // fieldCount
+    append(image, std::uint32_t{TestStride});           // recordSize
     append(image, static_cast<std::uint32_t>(block.size()));
 
     // record 1: "Azeroth", enUS title "Kalimdor", assorted values
@@ -118,7 +118,7 @@ namespace
 
 TEST_CASE("db: WDBC decode reads every column shape", "[db]")
 {
-  const auto image = make_image();
+  const auto image = makeImage();
   db::Table<TestRecord> table;
   REQUIRE(table.read(image).has_value());
 
@@ -146,7 +146,7 @@ TEST_CASE("db: WDBC decode reads every column shape", "[db]")
 
 TEST_CASE("db: unmodified WDBC writes back byte-identically", "[db]")
 {
-  const auto image = make_image();
+  const auto image = makeImage();
   db::Table<TestRecord> table;
   REQUIRE(table.read(image).has_value());
 
@@ -162,15 +162,15 @@ TEST_CASE("db: duplicate string-block entries keep their distinct offsets", "[db
   // would collapse both references onto the first copy.
   const std::string block{"\0Foo\0Foo\0", 9};
   std::vector<std::byte> image;
-  append(image, db::wdbc_magic);
+  append(image, db::WdbcMagic);
   append(image, std::uint32_t{2});
-  append(image, db::field_slot_count<TestRecord>());
-  append(image, std::uint32_t{test_stride});
+  append(image, db::fieldSlotCount<TestRecord>());
+  append(image, std::uint32_t{TestStride});
   append(image, static_cast<std::uint32_t>(block.size()));
-  for (std::uint32_t name_offset : {1u, 5u})
+  for (std::uint32_t nameOffset : {1u, 5u})
   {
     append(image, std::uint32_t{1});
-    append(image, name_offset);
+    append(image, nameOffset);
     for (int slot = 0; slot < 9; ++slot)
       append(image, std::uint32_t{0});
     append(image, 0.0f);
@@ -195,7 +195,7 @@ TEST_CASE("db: duplicate string-block entries keep their distinct offsets", "[db
 
 TEST_CASE("db: modified and added strings dedup then append", "[db]")
 {
-  const auto image = make_image();
+  const auto image = makeImage();
   db::Table<TestRecord> table;
   REQUIRE(table.read(image).has_value());
 
@@ -215,17 +215,17 @@ TEST_CASE("db: modified and added strings dedup then append", "[db]")
   CHECK(reread.records == table.records);
 
   // "Outland" was appended once, past the original block's end.
-  std::uint32_t outland_offset_first = 0;
-  std::uint32_t outland_offset_extra = 0;
-  std::memcpy(&outland_offset_first, written->data() + 20 + 4, 4);
-  std::memcpy(&outland_offset_extra, written->data() + 20 + 2 * test_stride + 4, 4);
-  CHECK(outland_offset_first == 18);
-  CHECK(outland_offset_extra == outland_offset_first);
+  std::uint32_t outlandOffsetFirst = 0;
+  std::uint32_t outlandOffsetExtra = 0;
+  std::memcpy(&outlandOffsetFirst, written->data() + 20 + 4, 4);
+  std::memcpy(&outlandOffsetExtra, written->data() + 20 + 2 * TestStride + 4, 4);
+  CHECK(outlandOffsetFirst == 18);
+  CHECK(outlandOffsetExtra == outlandOffsetFirst);
 
   // "Azeroth" resolved to the original entry, not a new copy.
-  std::uint32_t azeroth_offset = 0;
-  std::memcpy(&azeroth_offset, written->data() + 20 + test_stride + 4 + 4 + 4, 4);
-  CHECK(azeroth_offset == 1);
+  std::uint32_t azerothOffset = 0;
+  std::memcpy(&azerothOffset, written->data() + 20 + TestStride + 4 + 4 + 4, 4);
+  CHECK(azerothOffset == 1);
 }
 
 TEST_CASE("db: fresh tables derive their header and seed the string block", "[db]")
@@ -242,10 +242,10 @@ TEST_CASE("db: fresh tables derive their header and seed the string block", "[db
 
   db::WdbcHeader header;
   std::memcpy(&header, written->data(), sizeof header);
-  CHECK(header.record_count == 1);
-  CHECK(header.field_count == db::field_slot_count<TestRecord>());
-  CHECK(header.record_size == test_stride);
-  CHECK((*written)[sizeof header + test_stride] == std::byte{0});  // leading zero byte
+  CHECK(header.recordCount == 1);
+  CHECK(header.fieldCount == db::fieldSlotCount<TestRecord>());
+  CHECK(header.recordSize == TestStride);
+  CHECK((*written)[sizeof header + TestStride] == std::byte{0});  // leading zero byte
 
   db::Table<TestRecord> reread;
   REQUIRE(reread.read(*written).has_value());
@@ -256,7 +256,7 @@ TEST_CASE("db: fresh tables derive their header and seed the string block", "[db
 
 TEST_CASE("db: malformed images error with the right codes", "[db]")
 {
-  const auto image = make_image();
+  const auto image = makeImage();
 
   SECTION("unknown magic")
   {
@@ -271,7 +271,7 @@ TEST_CASE("db: malformed images error with the right codes", "[db]")
   SECTION("record_size disagrees with the schema")
   {
     auto bad = image;
-    const std::uint32_t wrong = test_stride + 4;
+    const std::uint32_t wrong = TestStride + 4;
     std::memcpy(bad.data() + 12, &wrong, 4);
     db::Table<TestRecord> table;
     const auto r = table.read(bad);
@@ -300,14 +300,14 @@ TEST_CASE("db: malformed images error with the right codes", "[db]")
 
 TEST_CASE("db: locale slots without a column reject writes", "[db]")
 {
-  db::LocString8 vanilla_column;
-  const auto r = vanilla_column.set(Locale::ruRU, "нет");
+  db::LocString8 vanillaColumn;
+  const auto r = vanillaColumn.set(Locale::ruRU, "нет");
   REQUIRE_FALSE(r.has_value());
   CHECK(r.error().code == ErrorCode::NotSupported);
 
-  db::LocString16 tbc_column;
-  REQUIRE(tbc_column.set(Locale::ruRU, "да").has_value());
-  CHECK(tbc_column.at(Locale::ruRU) == "да");
+  db::LocString16 tbcColumn;
+  REQUIRE(tbcColumn.set(Locale::ruRU, "да").has_value());
+  CHECK(tbcColumn.at(Locale::ruRU) == "да");
 }
 
 TEST_CASE("db: the WDC3 bit reader extracts fields at arbitrary bit offsets", "[db]")
@@ -338,7 +338,7 @@ namespace
 {
   // Sign extension is applied to the signed compression kind; verify the helper
   // indirectly via a bit read + manual extension mirroring the engine.
-  std::int64_t sign_extend(std::uint64_t raw, std::size_t bits)
+  std::int64_t signExtend(std::uint64_t raw, std::size_t bits)
   {
     const std::uint64_t sign = std::uint64_t{1} << (bits - 1);
     if (raw & sign)
@@ -350,10 +350,10 @@ namespace
 TEST_CASE("db: WDC3 signed field bit extension", "[db]")
 {
   // 6-bit value 0x3F = -1; 0x20 = -32; 0x1F = 31.
-  CHECK(sign_extend(0x3F, 6) == -1);
-  CHECK(sign_extend(0x20, 6) == -32);
-  CHECK(sign_extend(0x1F, 6) == 31);
-  CHECK(sign_extend(0x00, 6) == 0);
+  CHECK(signExtend(0x3F, 6) == -1);
+  CHECK(signExtend(0x20, 6) == -32);
+  CHECK(signExtend(0x1F, 6) == 31);
+  CHECK(signExtend(0x00, 6) == 0);
 }
 
 namespace
@@ -362,10 +362,10 @@ namespace
   // and narrow ints — the mix a canonical write must round-trip.
   struct WdcRecord
   {
-    static constexpr ClientVersion version = versions::shadowlands;
-    static constexpr std::string_view table_name = "WdcUnitTest";
+    static constexpr ClientVersion Version = versions::Shadowlands;
+    static constexpr std::string_view TableName = "WdcUnitTest";
 
-    [[=db::id, =db::noninline]]
+    [[=db::Id, =db::Noninline]]
     std::int32_t id = 0;
 
     std::string name;
@@ -394,11 +394,11 @@ TEST_CASE("db: a fresh WDC3 table writes and semantically round-trips", "[db]")
 
   db::Table<WdcRecord> reread;
   REQUIRE(reread.read(*written).has_value());
-  CHECK(reread.fully_decoded());
+  CHECK(reread.fullyDecoded());
   REQUIRE(reread.records.size() == 3);
   CHECK(reread.records == table.records);
 
-  // Non-inline id came back through the id_list; a signed negative survived.
+  // Non-inline id came back through the idList; a signed negative survived.
   CHECK(reread.records[0].id == 100);
   CHECK(reread.records[0].bias == -7);
   CHECK(reread.records[1].flags[2] == 65535);
@@ -410,10 +410,10 @@ namespace
   // must shrink rather than store at full 4-byte width.
   struct WdcSmallRecord
   {
-    static constexpr ClientVersion version = versions::shadowlands;
-    static constexpr std::string_view table_name = "WdcSmall";
+    static constexpr ClientVersion Version = versions::Shadowlands;
+    static constexpr std::string_view TableName = "WdcSmall";
 
-    [[=db::id, =db::noninline]]
+    [[=db::Id, =db::Noninline]]
     std::int32_t id = 0;
 
     std::uint32_t value = 0;
@@ -425,13 +425,13 @@ namespace
 namespace
 {
   // A BfA+ record whose id is INLINE ($id$ without $noninline$): the writer must
-  // keep it as a record field with flag 0x00, not move it to an id_list.
+  // keep it as a record field with flag 0x00, not move it to an idList.
   struct WdcInlineIdRecord
   {
-    static constexpr ClientVersion version = versions::shadowlands;
-    static constexpr std::string_view table_name = "WdcInlineId";
+    static constexpr ClientVersion Version = versions::Shadowlands;
+    static constexpr std::string_view TableName = "WdcInlineId";
 
-    [[=db::id]]
+    [[=db::Id]]
     std::int32_t id = 0;
 
     std::int32_t value = 0;
@@ -453,10 +453,10 @@ TEST_CASE("db: WDC3 write keeps an inline id in the record, not an id_list", "[d
 
   db::wdc::Wdc3Header header;
   std::memcpy(&header, written->data(), sizeof header);
-  CHECK((header.flags & db::wdc::wdc_flag_noninline_id) == 0);  // id stays inline
+  CHECK((header.flags & db::wdc::WdcFlagNoninlineId) == 0);  // id stays inline
   db::wdc::Wdc3SectionHeader section;
   std::memcpy(&section, written->data() + sizeof header, sizeof section);
-  CHECK(section.id_list_size == 0);  // no id_list for an inline id
+  CHECK(section.idListSize == 0);  // no idList for an inline id
 
   db::Table<WdcInlineIdRecord> reread;
   REQUIRE(reread.read(*written).has_value());
@@ -494,8 +494,8 @@ TEST_CASE("db: WDC3 write re-derives a copy table for duplicate-except-id rows",
   db::wdc::Wdc3SectionHeader section;
   std::memcpy(&section, written->data() + sizeof header, sizeof section);
   // Two distinct rows are kept; ids 20 and 40 become copies of id 10.
-  CHECK(header.record_count == 2);
-  CHECK(section.copy_table_count == 2);
+  CHECK(header.recordCount == 2);
+  CHECK(section.copyTableCount == 2);
 
   db::Table<WdcRecord> reread;
   REQUIRE(reread.read(*written).has_value());
@@ -522,8 +522,8 @@ TEST_CASE("db: WDC3 write bitpacks integer columns to their needed width", "[db]
   db::wdc::Wdc3Header header;
   std::memcpy(&header, written->data(), sizeof header);
   // Values 1..3 need 2 bits, not the declared 32 — a bitpacked record is 1 byte.
-  CHECK(header.field_count == 1);        // the id is non-inline (id_list)
-  CHECK(header.record_size == 1);
+  CHECK(header.fieldCount == 1);        // the id is non-inline (idList)
+  CHECK(header.recordSize == 1);
 
   db::Table<WdcSmallRecord> reread;
   REQUIRE(reread.read(*written).has_value());
@@ -536,10 +536,10 @@ namespace
   // LocString), so its WDB2 record stride is small and easy to hand-build.
   struct CataRecord
   {
-    static constexpr ClientVersion version = versions::cata;
-    static constexpr std::string_view table_name = "CataUnitTest";
+    static constexpr ClientVersion Version = versions::Cata;
+    static constexpr std::string_view TableName = "CataUnitTest";
 
-    [[=db::id]]
+    [[=db::Id]]
     std::uint32_t id = 0;
 
     std::string name;
@@ -549,26 +549,26 @@ namespace
     bool operator==(const CataRecord&) const = default;
   };
 
-  constexpr std::size_t cata_stride = 4 + 4 + 4;
-  static_assert(db::record_stride<CataRecord>() == cata_stride);
+  constexpr std::size_t CataStride = 4 + 4 + 4;
+  static_assert(db::recordStride<CataRecord>() == CataStride);
 
-  /// A WDB2 image with no id-index block (max_id == 0) and no copy table.
-  std::vector<std::byte> make_wdb2_plain()
+  /// A WDB2 image with no id-index block (maxId == 0) and no copy table.
+  std::vector<std::byte> makeWdb2Plain()
   {
     const std::string block{"\0Ironforge\0", 11};
     std::vector<std::byte> image;
-    append(image, db::wdb2_magic);
-    append(image, std::uint32_t{2});                     // record_count
-    append(image, db::field_slot_count<CataRecord>());   // field_count
-    append(image, std::uint32_t{cata_stride});           // record_size
-    append(image, static_cast<std::uint32_t>(block.size()));  // string_block_size
-    append(image, std::uint32_t{0xABCD1234});            // table_hash
+    append(image, db::Wdb2Magic);
+    append(image, std::uint32_t{2});                     // recordCount
+    append(image, db::fieldSlotCount<CataRecord>());   // fieldCount
+    append(image, std::uint32_t{CataStride});           // recordSize
+    append(image, static_cast<std::uint32_t>(block.size()));  // stringBlockSize
+    append(image, std::uint32_t{0xABCD1234});            // tableHash
     append(image, std::uint32_t{15595});                 // build
     append(image, std::uint32_t{0});                     // timestamp
-    append(image, std::uint32_t{0});                     // min_id
-    append(image, std::uint32_t{0});                     // max_id -> no index block
+    append(image, std::uint32_t{0});                     // minId
+    append(image, std::uint32_t{0});                     // maxId -> no index block
     append(image, std::uint32_t{0});                     // locale
-    append(image, std::uint32_t{0});                     // copy_table_size
+    append(image, std::uint32_t{0});                     // copyTableSize
 
     append(image, std::uint32_t{10});   // id
     append(image, std::uint32_t{1});    // name -> "Ironforge"
@@ -582,24 +582,24 @@ namespace
     return image;
   }
 
-  /// A WDB2 image WITH an id-index block (max_id != 0) and a copy table.
-  std::vector<std::byte> make_wdb2_indexed()
+  /// A WDB2 image WITH an id-index block (maxId != 0) and a copy table.
+  std::vector<std::byte> makeWdb2Indexed()
   {
     const std::string block{"\0Ironforge\0", 11};
-    const std::uint32_t min_id = 10, max_id = 11;  // 2 ids -> 2 index entries
+    const std::uint32_t minId = 10, maxId = 11;  // 2 ids -> 2 index entries
     std::vector<std::byte> image;
-    append(image, db::wdb2_magic);
+    append(image, db::Wdb2Magic);
     append(image, std::uint32_t{2});
-    append(image, db::field_slot_count<CataRecord>());
-    append(image, std::uint32_t{cata_stride});
+    append(image, db::fieldSlotCount<CataRecord>());
+    append(image, std::uint32_t{CataStride});
     append(image, static_cast<std::uint32_t>(block.size()));
     append(image, std::uint32_t{0xABCD1234});
     append(image, std::uint32_t{15595});
     append(image, std::uint32_t{0});
-    append(image, min_id);
-    append(image, max_id);
+    append(image, minId);
+    append(image, maxId);
     append(image, std::uint32_t{0});
-    append(image, std::uint32_t{8});  // copy_table_size -> one {id,id} pair
+    append(image, std::uint32_t{8});  // copyTableSize -> one {id,id} pair
 
     // id-index block: int32 indices[2] then int16 string_lengths[2] (6B/id)
     append(image, std::int32_t{0});
@@ -617,7 +617,7 @@ namespace
     for (char c : block)
       image.push_back(static_cast<std::byte>(c));
 
-    // copy table: {new_id, copied_id}
+    // copy table: {newId, copied_id}
     append(image, std::uint32_t{12});
     append(image, std::uint32_t{10});
     return image;
@@ -626,7 +626,7 @@ namespace
 
 TEST_CASE("db: WDB2 without an index block decodes and round-trips", "[db]")
 {
-  const auto image = make_wdb2_plain();
+  const auto image = makeWdb2Plain();
   db::Table<CataRecord> table;
   REQUIRE(table.read(image).has_value());
 
@@ -646,7 +646,7 @@ TEST_CASE("db: WDB2 without an index block decodes and round-trips", "[db]")
 
 TEST_CASE("db: WDB2 with index and copy blocks round-trips them verbatim", "[db]")
 {
-  const auto image = make_wdb2_indexed();
+  const auto image = makeWdb2Indexed();
   db::Table<CataRecord> table;
   REQUIRE(table.read(image).has_value());
 
@@ -663,7 +663,7 @@ TEST_CASE("db: WDB2 in-place record edits re-encode; index rebuild rejected", "[
 {
   SECTION("editing an indexed table's record values keeps the index verbatim")
   {
-    const auto image = make_wdb2_indexed();
+    const auto image = makeWdb2Indexed();
     db::Table<CataRecord> table;
     REQUIRE(table.read(image).has_value());
     table.records[1].value = 4242;
@@ -677,7 +677,7 @@ TEST_CASE("db: WDB2 in-place record edits re-encode; index rebuild rejected", "[
 
   SECTION("adding a record to an indexed table errors (index cannot be rebuilt)")
   {
-    const auto image = make_wdb2_indexed();
+    const auto image = makeWdb2Indexed();
     db::Table<CataRecord> table;
     REQUIRE(table.read(image).has_value());
     table.records.push_back(CataRecord{.id = 30, .name = "Darnassus", .value = 7});
@@ -693,26 +693,26 @@ TEST_CASE("db: a fresh Cata table writes WDB2, a fresh WotLK table writes WDBC",
 {
   db::Table<CataRecord> cata;
   cata.records.push_back(CataRecord{.id = 1, .name = "Stormwind", .value = 5});
-  const auto cata_bytes = cata.write();
-  REQUIRE(cata_bytes.has_value());
-  REQUIRE(cata_bytes->size() >= 4);
-  CHECK(std::memcmp(cata_bytes->data(), "WDB2", 4) == 0);
+  const auto cataBytes = cata.write();
+  REQUIRE(cataBytes.has_value());
+  REQUIRE(cataBytes->size() >= 4);
+  CHECK(std::memcmp(cataBytes->data(), "WDB2", 4) == 0);
 
   db::Wdb2Header header;
-  std::memcpy(&header, cata_bytes->data(), sizeof header);
-  CHECK(header.build == versions::cata.build);
-  CHECK(header.record_count == 1);
-  CHECK(header.max_id == 0);  // fresh tables emit no index block
+  std::memcpy(&header, cataBytes->data(), sizeof header);
+  CHECK(header.build == versions::Cata.build);
+  CHECK(header.recordCount == 1);
+  CHECK(header.maxId == 0);  // fresh tables emit no index block
 
   db::Table<CataRecord> reread;
-  REQUIRE(reread.read(*cata_bytes).has_value());
+  REQUIRE(reread.read(*cataBytes).has_value());
   CHECK(reread.records == cata.records);
 
   db::Table<TestRecord> wotlk;  // TestRecord::version is wotlk
   wotlk.records.push_back(TestRecord{.id = 1, .name = "x"});
-  const auto wotlk_bytes = wotlk.write();
-  REQUIRE(wotlk_bytes.has_value());
-  CHECK(std::memcmp(wotlk_bytes->data(), "WDBC", 4) == 0);
+  const auto wotlkBytes = wotlk.write();
+  REQUIRE(wotlkBytes.has_value());
+  CHECK(std::memcmp(wotlkBytes->data(), "WDBC", 4) == 0);
 }
 
 namespace
@@ -722,10 +722,10 @@ namespace
   // Bitpacked + flags 0x01) and arrays.
   struct Wdc1Record
   {
-    static constexpr ClientVersion version = versions::legion;
-    static constexpr std::string_view table_name = "Wdc1UnitTest";
+    static constexpr ClientVersion Version = versions::Legion;
+    static constexpr std::string_view TableName = "Wdc1UnitTest";
 
-    [[=db::id, =db::noninline]]
+    [[=db::Id, =db::Noninline]]
     std::int32_t id = 0;
 
     std::string name;
@@ -740,10 +740,10 @@ namespace
   // 10.2.5.52432 takeover) — the only window whose fresh format is WDC4.
   struct Wdc4Record
   {
-    static constexpr ClientVersion version = ClientVersion{10, 1, 7, 50000};
-    static constexpr std::string_view table_name = "Wdc4UnitTest";
+    static constexpr ClientVersion Version = ClientVersion{10, 1, 7, 50000};
+    static constexpr std::string_view TableName = "Wdc4UnitTest";
 
-    [[=db::id, =db::noninline]]
+    [[=db::Id, =db::Noninline]]
     std::int32_t id = 0;
 
     std::string name;
@@ -756,10 +756,10 @@ namespace
   // schema string ahead of the WDC3-shaped header).
   struct Wdc5Record
   {
-    static constexpr ClientVersion version = versions::dragonflight;
-    static constexpr std::string_view table_name = "Wdc5UnitTest";
+    static constexpr ClientVersion Version = versions::Dragonflight;
+    static constexpr std::string_view TableName = "Wdc5UnitTest";
 
-    [[=db::id, =db::noninline]]
+    [[=db::Id, =db::Noninline]]
     std::int32_t id = 0;
 
     std::string name;
@@ -773,15 +773,15 @@ namespace
   // foreign keys, still present in WDC3+).
   struct WdcRelationRecord
   {
-    static constexpr ClientVersion version = versions::shadowlands;
-    static constexpr std::string_view table_name = "WdcRelationUnitTest";
+    static constexpr ClientVersion Version = versions::Shadowlands;
+    static constexpr std::string_view TableName = "WdcRelationUnitTest";
 
-    [[=db::id, =db::noninline]]
+    [[=db::Id, =db::Noninline]]
     std::int32_t id = 0;
 
     std::uint32_t value = 0;
 
-    [[=db::relation, =db::noninline]]
+    [[=db::Relation, =db::Noninline]]
     std::uint32_t owner = 0;
 
     bool operator==(const WdcRelationRecord&) const = default;
@@ -803,12 +803,12 @@ TEST_CASE("db: a fresh Legion table writes WDC1 and semantically round-trips", "
 
   db::wdc::Wdc1Header header;
   std::memcpy(&header, written->data(), sizeof header);
-  CHECK(header.record_count == 2);
-  CHECK(header.field_count == 4);  // the non-inline id is not a stored column
-  CHECK((header.flags & db::wdc::wdc_flag_noninline_id) != 0);
-  CHECK(header.id_list_size == 8);
-  CHECK(header.min_id == 3);
-  CHECK(header.max_id == 9);
+  CHECK(header.recordCount == 2);
+  CHECK(header.fieldCount == 4);  // the non-inline id is not a stored column
+  CHECK((header.flags & db::wdc::WdcFlagNoninlineId) != 0);
+  CHECK(header.idListSize == 8);
+  CHECK(header.minId == 3);
+  CHECK(header.maxId == 9);
 
   db::Table<Wdc1Record> reread;
   REQUIRE(reread.read(*written).has_value());
@@ -820,27 +820,27 @@ TEST_CASE("db: fresh 10.1 tables write WDC4, fresh 10.2.7 tables write WDC5", "[
   db::Table<Wdc4Record> wdc4;
   wdc4.records.push_back(Wdc4Record{.id = 1, .name = "a", .value = 10});
   wdc4.records.push_back(Wdc4Record{.id = 2, .name = "b", .value = 4000000000u});
-  const auto wdc4_bytes = wdc4.write();
-  REQUIRE(wdc4_bytes.has_value());
-  CHECK(std::memcmp(wdc4_bytes->data(), "WDC4", 4) == 0);
-  db::Table<Wdc4Record> wdc4_reread;
-  REQUIRE(wdc4_reread.read(*wdc4_bytes).has_value());
-  CHECK(wdc4_reread.records == wdc4.records);
+  const auto wdc4Bytes = wdc4.write();
+  REQUIRE(wdc4Bytes.has_value());
+  CHECK(std::memcmp(wdc4Bytes->data(), "WDC4", 4) == 0);
+  db::Table<Wdc4Record> wdc4Reread;
+  REQUIRE(wdc4Reread.read(*wdc4Bytes).has_value());
+  CHECK(wdc4Reread.records == wdc4.records);
 
   db::Table<Wdc5Record> wdc5;
   wdc5.records.push_back(Wdc5Record{.id = 5, .name = "five", .value = -5});
   wdc5.records.push_back(Wdc5Record{.id = 6, .name = "six", .value = 6});
-  const auto wdc5_bytes = wdc5.write();
-  REQUIRE(wdc5_bytes.has_value());
-  REQUIRE(wdc5_bytes->size() >= 4 + sizeof(db::wdc::Wdc5HeaderPrefix));
-  CHECK(std::memcmp(wdc5_bytes->data(), "WDC5", 4) == 0);
-  // The fresh prefix: version_num 5, blank schema string.
+  const auto wdc5Bytes = wdc5.write();
+  REQUIRE(wdc5Bytes.has_value());
+  REQUIRE(wdc5Bytes->size() >= 4 + sizeof(db::wdc::Wdc5HeaderPrefix));
+  CHECK(std::memcmp(wdc5Bytes->data(), "WDC5", 4) == 0);
+  // The fresh prefix: versionNum 5, blank schema string.
   db::wdc::Wdc5HeaderPrefix prefix;
-  std::memcpy(&prefix, wdc5_bytes->data() + 4, sizeof prefix);
-  CHECK(prefix.version_num == 5);
-  db::Table<Wdc5Record> wdc5_reread;
-  REQUIRE(wdc5_reread.read(*wdc5_bytes).has_value());
-  CHECK(wdc5_reread.records == wdc5.records);
+  std::memcpy(&prefix, wdc5Bytes->data() + 4, sizeof prefix);
+  CHECK(prefix.versionNum == 5);
+  db::Table<Wdc5Record> wdc5Reread;
+  REQUIRE(wdc5Reread.read(*wdc5Bytes).has_value());
+  CHECK(wdc5Reread.records == wdc5.records);
 }
 
 TEST_CASE("db: a non-inline relation column round-trips through the relationship map",
@@ -857,10 +857,10 @@ TEST_CASE("db: a non-inline relation column round-trips through the relationship
 
   db::wdc::Wdc3Header header;
   std::memcpy(&header, written->data(), sizeof header);
-  CHECK(header.lookup_column_count == 1);
+  CHECK(header.lookupColumnCount == 1);
   db::wdc::Wdc3SectionHeader section;
   std::memcpy(&section, written->data() + sizeof header, sizeof section);
-  CHECK(section.relationship_data_size == 12 + 3 * 8);
+  CHECK(section.relationshipDataSize == 12 + 3 * 8);
 
   db::Table<WdcRelationRecord> reread;
   REQUIRE(reread.read(*written).has_value());
@@ -870,7 +870,7 @@ TEST_CASE("db: a non-inline relation column round-trips through the relationship
 namespace
 {
   /** Whether any finding of @a report anchors at @a path. */
-  bool reports_path(const formats::ValidationReport& report, std::string_view path)
+  bool reportsPath(const formats::ValidationReport& report, std::string_view path)
   {
     return std::ranges::any_of(report.issues(), [&](const formats::ValidationIssue& issue) {
       return issue.path == path;
@@ -899,7 +899,7 @@ TEST_CASE("db: validate() guards the contracts the record types cannot",
   SECTION("localized slots are checked too")
   {
     record.title.values[2] = std::string("bad\0", 4);
-    CHECK(reports_path(table.validate(), "records[0].title[2]"));
+    CHECK(reportsPath(table.validate(), "records[0].title[2]"));
   }
 
   SECTION("duplicate ids are rejected when the table has a key")
@@ -917,7 +917,7 @@ TEST_CASE("db: validate() guards the contracts the record types cannot",
   SECTION("ensure_valid folds findings into an InvalidEntityState error")
   {
     table.records.emplace_back().id = 1;
-    const auto result = table.ensure_valid();
+    const auto result = table.ensureValid();
     REQUIRE_FALSE(result.has_value());
     CHECK(result.error().code == ErrorCode::InvalidEntityState);
   }
@@ -930,24 +930,24 @@ TEST_CASE("dyn: the column store round-trips the typed image byte-identically",
   // column-store table instead: cell values must match the typed reads, and
   // the write-back must be byte-perfect — the parity that lets DynTable
   // replace the generated types in front of the unchanged codecs.
-  const auto image = make_image();
-  const db::TableSchema schema{"UnitTest", "UnitTest", test_schema};
-  db::DynTable table = db::DynTable::from_schema(schema, versions::wotlk);
+  const auto image = makeImage();
+  const db::TableSchema schema{"UnitTest", "UnitTest", TestSchema};
+  db::DynTable table = db::DynTable::fromSchema(schema, versions::Wotlk);
   REQUIRE(table.read(image).has_value());
 
-  REQUIRE(table.row_count() == 2);
-  CHECK(table.get_int(0, 0).value() == 1);
-  CHECK(table.get_string(0, 1).value() == "Azeroth");
-  CHECK(table.get_string(0, 2, 0).value() == "Kalimdor");
-  CHECK(table.get_string(1, 2, 0).value() == "eroth");
-  CHECK(table.locstring_flags(0, 2).value() == 0xFF01);
-  CHECK(table.get_float(0, 3).value() == 1.5f);
-  CHECK(table.get_int(0, 4, 0).value() == 3);
-  CHECK(table.get_int(0, 4, 1).value() == 4);
-  CHECK(table.get_int(0, 5).value() == 7);
-  CHECK(table.get_int(0, 6).value() == -5);
-  CHECK(table.get_int(1, 6).value() == 600);
-  CHECK(table.find_by_id(2).value() == 1);
+  REQUIRE(table.rowCount() == 2);
+  CHECK(table.getInt(0, 0).value() == 1);
+  CHECK(table.getString(0, 1).value() == "Azeroth");
+  CHECK(table.getString(0, 2, 0).value() == "Kalimdor");
+  CHECK(table.getString(1, 2, 0).value() == "eroth");
+  CHECK(table.locstringFlags(0, 2).value() == 0xFF01);
+  CHECK(table.getFloat(0, 3).value() == 1.5f);
+  CHECK(table.getInt(0, 4, 0).value() == 3);
+  CHECK(table.getInt(0, 4, 1).value() == 4);
+  CHECK(table.getInt(0, 5).value() == 7);
+  CHECK(table.getInt(0, 6).value() == -5);
+  CHECK(table.getInt(1, 6).value() == 600);
+  CHECK(table.findById(2).value() == 1);
 
   const auto written = table.write();
   REQUIRE(written.has_value());
@@ -956,53 +956,53 @@ TEST_CASE("dyn: the column store round-trips the typed image byte-identically",
 
   SECTION("strict accessors reject kind and range misuse")
   {
-    CHECK(table.get_int(0, 1).error().code == ErrorCode::SchemaMismatch);
-    CHECK(table.get_float(0, 0).error().code == ErrorCode::SchemaMismatch);
-    CHECK(table.get_int(2, 0).error().code == ErrorCode::OffsetOutOfBounds);
-    CHECK(table.get_int(0, 4, 2).error().code == ErrorCode::OffsetOutOfBounds);
+    CHECK(table.getInt(0, 1).error().code == ErrorCode::SchemaMismatch);
+    CHECK(table.getFloat(0, 0).error().code == ErrorCode::SchemaMismatch);
+    CHECK(table.getInt(2, 0).error().code == ErrorCode::OffsetOutOfBounds);
+    CHECK(table.getInt(0, 4, 2).error().code == ErrorCode::OffsetOutOfBounds);
   }
 
   SECTION("zero-copy pod views type the raw column buffers")
   {
-    const auto ids = table.pod_column(0);
+    const auto ids = table.podColumn(0);
     REQUIRE(ids.has_value());
-    CHECK(ids->elem_bytes == 4);
-    CHECK(ids->elems_per_row == 1);
-    CHECK_FALSE(ids->is_signed);
+    CHECK(ids->elemBytes == 4);
+    CHECK(ids->elemsPerRow == 1);
+    CHECK_FALSE(ids->isSigned);
     CHECK(ids->bytes.size() == 2 * 4);
-    const auto arr = table.pod_column(4);
+    const auto arr = table.podColumn(4);
     REQUIRE(arr.has_value());
-    CHECK(arr->elems_per_row == 2);
-    CHECK(table.pod_column(1).error().code == ErrorCode::SchemaMismatch);
+    CHECK(arr->elemsPerRow == 2);
+    CHECK(table.podColumn(1).error().code == ErrorCode::SchemaMismatch);
   }
 
   SECTION("mutating a cell survives a write/read cycle")
   {
-    REQUIRE(table.set_int(1, 6, -321).has_value());
-    REQUIRE(table.set_string(0, 1, "Northrend").has_value());
+    REQUIRE(table.setInt(1, 6, -321).has_value());
+    REQUIRE(table.setString(0, 1, "Northrend").has_value());
     const auto rewritten = table.write();
     REQUIRE(rewritten.has_value());
-    db::DynTable back = db::DynTable::from_schema(schema, versions::wotlk);
+    db::DynTable back = db::DynTable::fromSchema(schema, versions::Wotlk);
     REQUIRE(back.read(*rewritten).has_value());
-    CHECK(back.get_int(1, 6).value() == -321);
-    CHECK(back.get_string(0, 1).value() == "Northrend");
+    CHECK(back.getInt(1, 6).value() == -321);
+    CHECK(back.getString(0, 1).value() == "Northrend");
   }
 }
 
 TEST_CASE("dyn: copies re-wire the core at their own storage", "[db][dyn]")
 {
-  const auto image = make_image();
-  const db::TableSchema schema{"UnitTest", "UnitTest", test_schema};
-  db::DynTable original = db::DynTable::from_schema(schema, versions::wotlk);
+  const auto image = makeImage();
+  const db::TableSchema schema{"UnitTest", "UnitTest", TestSchema};
+  db::DynTable original = db::DynTable::fromSchema(schema, versions::Wotlk);
   REQUIRE(original.read(image).has_value());
 
   db::DynTable copy{original};
-  REQUIRE(copy.set_int(0, 0, 77).has_value());
-  CHECK(copy.get_int(0, 0).value() == 77);
-  CHECK(original.get_int(0, 0).value() == 1); // untouched — deep copy
+  REQUIRE(copy.setInt(0, 0, 77).has_value());
+  CHECK(copy.getInt(0, 0).value() == 77);
+  CHECK(original.getInt(0, 0).value() == 1); // untouched — deep copy
   const auto written = copy.write();          // writes COPY's rows, not original's
   REQUIRE(written.has_value());
-  db::DynTable back = db::DynTable::from_schema(schema, versions::wotlk);
+  db::DynTable back = db::DynTable::fromSchema(schema, versions::Wotlk);
   REQUIRE(back.read(*written).has_value());
-  CHECK(back.get_int(0, 0).value() == 77);
+  CHECK(back.getInt(0, 0).value() == 77);
 }

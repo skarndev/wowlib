@@ -29,64 +29,64 @@ namespace
       report a hundred bogus failures, so the sweeps skip instead.
       @param storage the client's MPQ chain.
       @return true when the databases match the targeted 5.4.8 layouts. */
-  bool databases_are_5_4(fs::MpqStorage& storage)
+  bool databasesAre54(fs::MpqStorage& storage)
   {
-    const auto data = storage.read_file(FileKey{"DBFilesClient/AreaTable.dbc"});
+    const auto data = storage.readFile(FileKey{"DBFilesClient/AreaTable.dbc"});
     if (!data || data->size() < 20)
       return false;
-    std::uint32_t record_size = 0;
-    std::memcpy(&record_size, data->data() + 12, sizeof record_size);
-    return record_size == 120;
+    std::uint32_t recordSize = 0;
+    std::memcpy(&recordSize, data->data() + 12, sizeof recordSize);
+    return recordSize == 120;
   }
 }
 
 TEST_CASE("5.4.8: the full DBC/DB2 corpus decodes and round-trips byte-perfectly",
           "[integration][db]")
 {
-  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::mop_client()),
-                                  .version = versions::mop,
-                                  .locale = tests::mop_locale()});
+  auto opened = MpqStorage::open({.dataDir = tests::dataDir(tests::mopClient()),
+                                  .version = versions::Mop,
+                                  .locale = tests::mopLocale()});
   REQUIRE(opened.has_value());
-  if (!databases_are_5_4(*opened))
+  if (!databasesAre54(*opened))
     SKIP("this 5.4.8 install ships 5.0.x-era client databases (AreaTable is "
          "112 bytes, the pre-5.1 layout) — dbdgen targets 5.4.8.18414");
 
   tests::CorpusStats stats;
-#define X(Name) \
-  tests::sweep_table_mixed<db::tables::Name<versions::mop>>(*opened, #Name, stats);
-  WOWLIB_DB_TABLES_MOP(X)
-#undef X
+#define x(Name) \
+  tests::sweepTableMixed<db::tables::Name<versions::Mop>>(*opened, #Name, stats);
+  WOWLIB_DB_TABLES_MOP(x)
+#undef x
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 250);  // 5.4.8 ships ~330 client databases
 }
 
 TEST_CASE("5.4.8: Map.dbc spot checks against known truth", "[integration][db]")
 {
-  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::mop_client()),
-                                  .version = versions::mop,
-                                  .locale = tests::mop_locale()});
+  auto opened = MpqStorage::open({.dataDir = tests::dataDir(tests::mopClient()),
+                                  .version = versions::Mop,
+                                  .locale = tests::mopLocale()});
   REQUIRE(opened.has_value());
 
-  if (!databases_are_5_4(*opened))
+  if (!databasesAre54(*opened))
     SKIP("this 5.4.8 install ships 5.0.x-era client databases");
 
-  const auto data = opened->read_file(FileKey{"DBFilesClient/Map.dbc"});
+  const auto data = opened->readFile(FileKey{"DBFilesClient/Map.dbc"});
   REQUIRE(data.has_value());
-  db::tables::Map<versions::mop> map;
+  db::tables::Map<versions::Mop> map;
   REQUIRE(map.read(*data).has_value());
 
-  const auto by_id = [&](std::int32_t id) {
+  const auto byId = [&](std::int32_t id) {
     return std::ranges::find_if(map.records, [&](const auto& r) { return r.id == id; });
   };
 
-  const auto azeroth = by_id(0);
+  const auto azeroth = byId(0);
   REQUIRE(azeroth != map.records.end());
   CHECK(azeroth->directory == "Azeroth");
 
   // The Pandaria continent is MoP content — absent from any Cata client.
-  const auto pandaria = by_id(870);
+  const auto pandaria = byId(870);
   REQUIRE(pandaria != map.records.end());
   CHECK(pandaria->directory == "HawaiiMainLand");
 }

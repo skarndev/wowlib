@@ -54,7 +54,7 @@ namespace wowlib::audit::detail {
       @param stage  which stage failed.
       @param error  the failure diagnostic.
       @return @a report, moved. */
-  inline RoundtripReport fail_with(RoundtripReport& report, std::string stage, std::string error) {
+  inline RoundtripReport failWith(RoundtripReport& report, std::string stage, std::string error) {
     report.ok = false;
     report.stage = std::move(stage);
     report.error = std::move(error);
@@ -69,12 +69,12 @@ namespace wowlib::audit::detail {
       @param stage  the stage label for a genuine read failure.
       @param result the filesystem read result.
       @return the outcome to return early, or nullopt when the bytes are usable. */
-  inline std::optional<RoundtripReport> classify_read(RoundtripReport& report,
+  inline std::optional<RoundtripReport> classifyRead(RoundtripReport& report,
                                                       std::string stage,
                                                       const Result<FileBuffer>& result) {
     if (!result) {
       if (result.error().code == ErrorCode::EncryptedContent) return skipped("encrypted");
-      return fail_with(report, std::move(stage), result.error().message);
+      return failWith(report, std::move(stage), result.error().message);
     }
     if (result->empty()) return skipped("empty-file");
     return std::nullopt;
@@ -84,11 +84,11 @@ namespace wowlib::audit::detail {
       one fourcc spelling per occurrence.
       @param report the report accumulating the sweep.
       @param extras the entity's chunk bookkeeping. */
-  inline void tally_unknown(RoundtripReport& report,
+  inline void tallyUnknown(RoundtripReport& report,
                             const formats::ChunkExtras& extras,
-                            formats::FourCCEndian endian = formats::FourCCEndian::reversed) {
+                            formats::FourCCEndian endian = formats::FourCCEndian::Reversed) {
     for (const formats::UnknownChunk& unknown : extras.unknown)
-      report.unknown_chunks.push_back(formats::fourcc_to_string(unknown.fourcc, endian));
+      report.unknownChunks.push_back(formats::fourccToString(unknown.fourcc, endian));
   }
 
   /** Run one file's driver, converting any escaping exception into a failed
@@ -115,7 +115,7 @@ namespace wowlib::audit::detail {
       @param original  the reference bytes.
       @param rewritten the bytes to compare.
       @return the description, or nullopt when identical. */
-  inline std::optional<std::string> first_divergence(const FileBuffer& original, const FileBuffer& rewritten) {
+  inline std::optional<std::string> firstDivergence(const FileBuffer& original, const FileBuffer& rewritten) {
     if (original == rewritten) return std::nullopt;
 
     const std::size_t common = std::min(original.size(), rewritten.size());
@@ -127,11 +127,11 @@ namespace wowlib::audit::detail {
   /** The first byte divergence between an original chunk stream and its
       rewrite, located within the enclosing chunk — the byte-perfect
       guarantee's debugging lens (ported from the round-trip tests'
-      require_identical).
+      requireIdentical).
       @param original  the reference bytes.
       @param rewritten the bytes to compare.
       @return the description, or nullopt when identical. */
-  inline std::optional<std::string> first_divergence_chunked(const FileBuffer& original, const FileBuffer& rewritten) {
+  inline std::optional<std::string> firstDivergenceChunked(const FileBuffer& original, const FileBuffer& rewritten) {
     if (original == rewritten) return std::nullopt;
 
     const std::size_t common = std::min(original.size(), rewritten.size());
@@ -146,7 +146,7 @@ namespace wowlib::audit::detail {
       std::memcpy(&fourcc, original.data() + pos, 4);
       std::memcpy(&size, original.data() + pos + 4, 4);
       if (at < pos + 8 + size) {
-        inside = formats::fourcc_to_string(fourcc);
+        inside = formats::fourccToString(fourcc);
         break;
       }
       pos += 8 + size;
@@ -163,25 +163,25 @@ namespace wowlib::audit::detail {
       @param f the functor to invoke.
       @return whether @a v matched a targeted release (f ran). */
   template <typename F>
-  bool with_version(const ClientVersion v, F&& f) {
+  bool withVersion(const ClientVersion v, F&& f) {
     bool matched = false;
-    const auto try_one = [&]<ClientVersion V>() {
+    const auto tryOne = [&]<ClientVersion V>() {
       if (!matched && v == V) {
         matched = true;
         f.template operator()<V>();
       }
     };
-    try_one.template operator()<versions::vanilla>();
-    try_one.template operator()<versions::tbc>();
-    try_one.template operator()<versions::wotlk>();
-    try_one.template operator()<versions::cata>();
-    try_one.template operator()<versions::mop>();
-    try_one.template operator()<versions::wod>();
-    try_one.template operator()<versions::legion>();
-    try_one.template operator()<versions::bfa>();
-    try_one.template operator()<versions::shadowlands>();
-    try_one.template operator()<versions::dragonflight>();
-    try_one.template operator()<versions::tww>();
+    tryOne.template operator()<versions::Vanilla>();
+    tryOne.template operator()<versions::Tbc>();
+    tryOne.template operator()<versions::Wotlk>();
+    tryOne.template operator()<versions::Cata>();
+    tryOne.template operator()<versions::Mop>();
+    tryOne.template operator()<versions::Wod>();
+    tryOne.template operator()<versions::Legion>();
+    tryOne.template operator()<versions::Bfa>();
+    tryOne.template operator()<versions::Shadowlands>();
+    tryOne.template operator()<versions::Dragonflight>();
+    tryOne.template operator()<versions::Tww>();
     return matched;
   }
 
@@ -190,7 +190,7 @@ namespace wowlib::audit::detail {
       @param grid the format's `*_versions` array.
       @param v    the version to look for.
       @return true when the format instantiates for @a v. */
-  constexpr bool version_supported(std::span<const ClientVersion> grid, const ClientVersion v) {
+  constexpr bool versionSupported(std::span<const ClientVersion> grid, const ClientVersion v) {
     for (const ClientVersion& g : grid)
       if (g == v) return true;
     return false;
@@ -199,7 +199,7 @@ namespace wowlib::audit::detail {
   /** The dispatch-failure outcome for a version outside the targeted releases.
       @param v the unrecognized version.
       @return the failed report. */
-  inline RoundtripReport unrecognized_version(const ClientVersion v) {
+  inline RoundtripReport unrecognizedVersion(const ClientVersion v) {
     return failed("dispatch", std::format(
                     "unrecognized client version {}.{}.{} (build {}) — not one of " "the targeted releases", v.major,
                     v.minor, v.patch, v.build));

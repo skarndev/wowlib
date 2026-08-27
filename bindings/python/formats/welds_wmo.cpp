@@ -4,9 +4,9 @@
     serial tail; see gen_wmo.cpp for the C# twin of this split).
 
     weld_type per DISTINCT concrete, never weld_namespace: a namespace weld
-    instantiates one bind_namespace specialization whose members_of bakes
+    instantiates one bind_namespace specialization whose membersOf bakes
     from an arbitrary TU (the db shards learned this) — explicit types keyed
-    on the concrete never merge. The X-macro tables in wmo_ranges.hpp are
+    on the concrete never merge. The x-macro tables in wmo_ranges.hpp are
     the single source of truth for which aliases exist. */
 
 #include <nanobind/nanobind.h>
@@ -49,33 +49,33 @@ namespace wowlib_py::formats
     }
   }
 
-  void register_wmo_welds(::nanobind::module_& root)
+  void registerWmoWelds(::nanobind::module_& root)
   {
     using W = ::welder::welder<::welder::rods::nanobind::rod<>,
-                               wowlib_py::wowlib_python_naming>;
+                               wowlib_py::WowlibPythonNaming>;
     ::nanobind::module_ m0 = submodule(submodule(submodule(root, "formats"), "wmo"), "root");
     ::nanobind::module_ m1 = submodule(submodule(submodule(root, "formats"), "wmo"), "group");
     ::nanobind::module_ m2 = submodule(submodule(submodule(submodule(root, "formats"), "wmo"), "group"), "chunks");
     ::nanobind::module_ m3 = submodule(submodule(root, "formats"), "wmo");
 
-#define X(S, v) W::weld_type<::wowlib::formats::wmo::root::WMORoot##S>(m0, "WMORoot" #S);
-    WOWLIB_WMO_RANGES_ROOT(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wmo::root::WMORoot##S>(m0, "WMORoot" #S);
+    WOWLIB_WMO_RANGES_ROOT(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wmo::group::WMOGroupBody##S>(m1, "WMOGroupBody" #S); W::weld_type<::wowlib::formats::wmo::group::WMOGroup##S>(m1, "WMOGroup" #S);
-    WOWLIB_WMO_RANGES_GROUP(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wmo::group::WMOGroupBody##S>(m1, "WMOGroupBody" #S); W::weld_type<::wowlib::formats::wmo::group::WMOGroup##S>(m1, "WMOGroup" #S);
+    WOWLIB_WMO_RANGES_GROUP(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOGroupHeader##S>(m2, "WMOGroupHeader" #S);
-    WOWLIB_WMO_RANGES_GROUP_HEADER(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOGroupHeader##S>(m2, "WMOGroupHeader" #S);
+    WOWLIB_WMO_RANGES_GROUP_HEADER(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOBatch##S>(m2, "WMOBatch" #S);
-    WOWLIB_WMO_RANGES_BATCH(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wmo::group::chunks::WMOBatch##S>(m2, "WMOBatch" #S);
+    WOWLIB_WMO_RANGES_BATCH(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wmo::WMO##S>(m3, "WMO" #S);
-    WOWLIB_WMO_RANGES_ASSEMBLY(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wmo::WMO##S>(m3, "WMO" #S);
+    WOWLIB_WMO_RANGES_ASSEMBLY(x)
+#undef x
   }
 }

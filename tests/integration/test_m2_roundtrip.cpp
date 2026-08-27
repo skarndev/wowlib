@@ -28,9 +28,9 @@ namespace
       client data — bit-preserved by the round-trip — do not read as
       divergence. */
   template <typename T>
-  std::optional<std::string> diff_value(const T& a, const T& b)
+  std::optional<std::string> diffValue(const T& a, const T& b)
   {
-    if constexpr (formats::detail::is_vector_v<T>)
+    if constexpr (formats::detail::IsVectorV<T>)
     {
       using U = typename T::value_type;
       if (a.size() != b.size())
@@ -45,7 +45,7 @@ namespace
       else
       {
         for (std::size_t i = 0; i < a.size(); ++i)
-          if (auto d = diff_value(a[i], b[i]))
+          if (auto d = diffValue(a[i], b[i]))
             return std::format("[{}]{}", i, *d);
         return std::nullopt;
       }
@@ -58,12 +58,12 @@ namespace
     }
     else if constexpr (InlineRecordMember<T>)
     {
-      static constexpr auto members = formats::detail::members_of<T>();
+      static constexpr auto Members = formats::detail::membersOf<T>();
       std::optional<std::string> out;
-      template for (constexpr auto m : members)
+      template for (constexpr auto m : Members)
       {
         if (!out)
-          if (auto d = diff_value(a.[:m:], b.[:m:]))
+          if (auto d = diffValue(a.[:m:], b.[:m:]))
             out = std::format(".{}{}", std::meta::identifier_of(m), *d);
       }
       return out;
@@ -82,7 +82,7 @@ namespace
       those back, and require decoded equality — the offset-format guarantee
       (no byte-perfect promise; see m2-architecture notes). */
   template <ClientVersion V>
-  void roundtrip_m2(fs::FileSystem& fs, const FileKey& key, const std::string& label)
+  void roundtripM2(fs::FileSystem& fs, const FileKey& key, const std::string& label)
   {
     INFO(label);
 
@@ -92,75 +92,75 @@ namespace
       INFO((r ? std::string{} : r.error().message));
       REQUIRE(r.has_value());
     }
-    CHECK(model.root.magic == md20_magic);
+    CHECK(model.root.magic == Md20Magic);
     // a freshly read, unmodified client model passes validation with zero
     // errors (warnings are allowed - they mark states real files ship)
-    if (const auto valid = model.ensure_valid(); !valid)
+    if (const auto valid = model.ensureValid(); !valid)
       FAIL(std::format("{}: {}", label, valid.error().message));
-    constexpr auto era = m2_format_version_range(V);
-    CHECK(model.root.format_version >= era.first);
-    CHECK(model.root.format_version <= era.second);
+    constexpr auto era = m2FormatVersionRange(V);
+    CHECK(model.root.formatVersion >= era.first);
+    CHECK(model.root.formatVersion <= era.second);
     // pre-WotLK models embed their skin profiles in the MD20 body; only the
     // external-.skin era carries a separate `skins` assembly to reconcile.
     if constexpr (requires { model.skins; })
-      CHECK(model.root.num_skin_profiles == model.skins.size());
+      CHECK(model.root.numSkinProfiles == model.skins.size());
 
     // skel-based models keep the external-data gating sequences in the
     // skeleton, and their bone/attachment blocks round-trip separately
-    const auto* gate_sequences = &model.root.sequences;
-    bool has_skel = false;
+    const auto* gateSequences = &model.root.sequences;
+    bool hasSkel = false;
     if constexpr (requires { model.chunks; })
     {
-      has_skel = !model.chunks.skeleton_fdid.empty() && model.chunks.skeleton_fdid.front() != 0;
-      if (has_skel)
-        gate_sequences = &model.skel.sequence_block.sequences;
+      hasSkel = !model.chunks.skeletonFdid.empty() && model.chunks.skeletonFdid.front() != 0;
+      if (hasSkel)
+        gateSequences = &model.skel.sequenceBlock.sequences;
     }
 
     // rewrite an offset entity, splitting external sequences out per index,
     // then parse it back resolving those buffers
-    const auto resplit_roundtrip = [&](const auto& entity, auto& reparsed,
+    const auto resplitRoundtrip = [&](const auto& entity, auto& reparsed,
                                        const char* what) -> void {
-      std::map<std::size_t, FileBuffer> anim_out;
+      std::map<std::size_t, FileBuffer> animOut;
       OffsetWriteContext wctx;
-      wctx.sequence_sink = [&](std::size_t i) -> FileBuffer* {
-        if (i >= gate_sequences->size())
+      wctx.sequenceSink = [&](std::size_t i) -> FileBuffer* {
+        if (i >= gateSequences->size())
           return nullptr;
-        const auto& s = (*gate_sequences)[i];
-        if (!s.owns_anim_file())
+        const auto& s = (*gateSequences)[i];
+        if (!s.ownsAnimFile())
           return nullptr;
-        return &anim_out[i];
+        return &animOut[i];
       };
       const auto rewritten = entity.write(wctx);
       REQUIRE(rewritten.has_value());
-      const std::span<const std::byte> rewritten_span{*rewritten};
+      const std::span<const std::byte> rewrittenSpan{*rewritten};
       OffsetReadContext rctx;
-      rctx.sequence_base = [&](std::size_t i) -> std::span<const std::byte> {
-        const auto it = anim_out.find(i);
-        if (it == anim_out.end())
-          return rewritten_span;
+      rctx.sequenceBase = [&](std::size_t i) -> std::span<const std::byte> {
+        const auto it = animOut.find(i);
+        if (it == animOut.end())
+          return rewrittenSpan;
         return std::span<const std::byte>{it->second};
       };
       {
-        const auto r = reparsed.read(rewritten_span, rctx);
+        const auto r = reparsed.read(rewrittenSpan, rctx);
         INFO(label << " (" << what << "): " << (r ? std::string{} : r.error().message));
         REQUIRE(r.has_value());
       }
-      if (auto d = diff_value(reparsed, entity))
+      if (auto d = diffValue(reparsed, entity))
         FAIL(std::format("{} ({}): reparse diverges at {}", label, what, *d));
     };
 
     M2Root<V> reparsed;
-    resplit_roundtrip(model.root, reparsed, "body");
+    resplitRoundtrip(model.root, reparsed, "body");
 
     if constexpr (requires { model.skel; })
-      if (has_skel)
+      if (hasSkel)
       {
-        SkelBones<V> bones_back;
-        resplit_roundtrip(model.skel.bone_block, bones_back, "SKB1");
-        SkelAttachments<V> attachments_back;
-        resplit_roundtrip(model.skel.attachment_block, attachments_back, "SKA1");
-        SkelSequences<V> sequences_back;
-        resplit_roundtrip(model.skel.sequence_block, sequences_back, "SKS1");
+        SkelBones<V> bonesBack;
+        resplitRoundtrip(model.skel.boneBlock, bonesBack, "SKB1");
+        SkelAttachments<V> attachmentsBack;
+        resplitRoundtrip(model.skel.attachmentBlock, attachmentsBack, "SKA1");
+        SkelSequences<V> sequencesBack;
+        resplitRoundtrip(model.skel.sequenceBlock, sequencesBack, "SKS1");
       }
 
     // every external skin re-reads equal, too (pre-WotLK skins are embedded in
@@ -168,11 +168,11 @@ namespace
     if constexpr (requires { model.skins; })
       for (std::size_t i = 0; i < model.skins.size(); ++i)
       {
-        const auto skin_bytes = model.skins[i].write();
-        REQUIRE(skin_bytes.has_value());
-        Skin<V> skin_back;
-        REQUIRE(skin_back.read(std::span<const std::byte>{*skin_bytes}).has_value());
-        if (auto d = diff_value(skin_back, model.skins[i]))
+        const auto skinBytes = model.skins[i].write();
+        REQUIRE(skinBytes.has_value());
+        Skin<V> skinBack;
+        REQUIRE(skinBack.read(std::span<const std::byte>{*skinBytes}).has_value());
+        if (auto d = diffValue(skinBack, model.skins[i]))
           FAIL(std::format("{} (skin {}): reparse diverges at {}", label, i, *d));
       }
   }
@@ -181,8 +181,8 @@ namespace
 TEST_CASE("3.3.5a M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  auto fs = fs::FileSystem::open({.client_path = tests::mpq_client(),
-                                  .version = versions::wotlk});
+  auto fs = fs::FileSystem::open({.clientPath = tests::mpqClient(),
+                                  .version = versions::Wotlk});
   REQUIRE(fs.has_value());
 
   // curated spread: static doodads, creatures with external .anim sets,
@@ -213,7 +213,7 @@ TEST_CASE("3.3.5a M2s re-read equal after a canonical rewrite",
       WARN("not in client, skipped: " + path);
       continue;
     }
-    roundtrip_m2<versions::wotlk>(*fs, FileKey{path}, path);
+    roundtripM2<versions::Wotlk>(*fs, FileKey{path}, path);
     ++verified;
   }
   CHECK(verified >= 6);
@@ -222,9 +222,9 @@ TEST_CASE("3.3.5a M2s re-read equal after a canonical rewrite",
 TEST_CASE("1.12.2 M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  auto fs = fs::FileSystem::open({.client_path = tests::vanilla_client(),
-                                  .version = versions::vanilla,
-                                  .locale = tests::vanilla_locale()});
+  auto fs = fs::FileSystem::open({.clientPath = tests::vanillaClient(),
+                                  .version = versions::Vanilla,
+                                  .locale = tests::vanillaLocale()});
   REQUIRE(fs.has_value());
 
   // vanilla creatures, characters and world doodads (skins embedded in the MD20,
@@ -249,7 +249,7 @@ TEST_CASE("1.12.2 M2s re-read equal after a canonical rewrite",
       WARN("not in client, skipped: " + path);
       continue;
     }
-    roundtrip_m2<versions::vanilla>(*fs, FileKey{path}, path);
+    roundtripM2<versions::Vanilla>(*fs, FileKey{path}, path);
     ++verified;
   }
   CHECK(verified >= 4);
@@ -258,9 +258,9 @@ TEST_CASE("1.12.2 M2s re-read equal after a canonical rewrite",
 TEST_CASE("2.4.3 M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  auto fs = fs::FileSystem::open({.client_path = tests::tbc_client(),
-                                  .version = versions::tbc,
-                                  .locale = tests::tbc_locale()});
+  auto fs = fs::FileSystem::open({.clientPath = tests::tbcClient(),
+                                  .version = versions::Tbc,
+                                  .locale = tests::tbcLocale()});
   REQUIRE(fs.has_value());
 
   // vanilla creatures/characters plus TBC's new playable races (Blood Elf,
@@ -285,7 +285,7 @@ TEST_CASE("2.4.3 M2s re-read equal after a canonical rewrite",
       WARN("not in client, skipped: " + path);
       continue;
     }
-    roundtrip_m2<versions::tbc>(*fs, FileKey{path}, path);
+    roundtripM2<versions::Tbc>(*fs, FileKey{path}, path);
     ++verified;
   }
   CHECK(verified >= 4);
@@ -294,11 +294,11 @@ TEST_CASE("2.4.3 M2s re-read equal after a canonical rewrite",
 TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
           "[integration][formats][m2]")
 {
-  const auto listfile = tests::require_listfile();
+  const auto listfile = tests::requireListfile();
 
-  auto fs = fs::FileSystem::open({.client_path = tests::casc_client(),
-                                  .version = versions::shadowlands,
-                                  .listfile_csv = listfile});
+  auto fs = fs::FileSystem::open({.clientPath = tests::cascClient(),
+                                  .version = versions::Shadowlands,
+                                  .listfileCsv = listfile});
   REQUIRE(fs.has_value());
 
   // sample models from the community listfile
@@ -328,7 +328,7 @@ TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
 
   // curated skel-based candidates go first (characters, and a parent-skel
   // child: lightforgeddraeneimale shares draeneimale_hd's satellites)
-  const std::vector<std::string> skel_candidates{
+  const std::vector<std::string> skelCandidates{
     "character/human/male/humanmale.m2",
     "character/bloodelf/female/bloodelffemale.m2",
     "character/lightforgeddraenei/male/lightforgeddraeneimale.m2",
@@ -336,10 +336,10 @@ TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
   };
 
   int verified = 0;
-  std::vector<std::string> skel_verified;
+  std::vector<std::string> skelVerified;
   int unreadable = 0;
   const auto process = [&](const FileKey& key, const std::string& path) {
-    const auto bytes = fs->read_file(key);
+    const auto bytes = fs->readFile(key);
     if (!bytes)
     {
       ++unreadable;  // encrypted or absent from this install
@@ -350,49 +350,49 @@ TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
     // the chunked shell itself keeps the chunk-framework byte-perfect
     // guarantee (MD21 preserved verbatim on a plain shell round-trip)
     std::uint32_t lead = 0;
-    bool has_skel = false;
+    bool hasSkel = false;
     if (bytes->size() >= 4)
       std::memcpy(&lead, bytes->data(), 4);
-    if (lead != md20_magic)
+    if (lead != Md20Magic)
     {
-      M2ChunkedFile<versions::shadowlands> shell;
+      M2ChunkedFile<versions::Shadowlands> shell;
       {
         const auto r = shell.read(std::span<const std::byte>{*bytes});
         INFO(path << ": " << (r ? std::string{} : r.error().message));
         REQUIRE(r.has_value());
       }
-      const auto shell_bytes = shell.write();
-      REQUIRE(shell_bytes.has_value());
+      const auto shellBytes = shell.write();
+      REQUIRE(shellBytes.has_value());
       // The typed offset-entity chunks (EXP2/PABC/PSBC/PGD1) re-encode
       // canonically, so byte-identity only holds while they are absent;
       // with them present the guarantee is semantic, like the body's.
-      const bool re_encoded = !shell.extended_particles2.empty()
-                              || !shell.parent_sequence_blacklist.empty()
-                              || !shell.parent_sequence_bounds.empty()
-                              || !shell.particle_geoset_data.empty();
-      if (!re_encoded)
+      const bool reEncoded = !shell.extendedParticles2.empty()
+                              || !shell.parentSequenceBlacklist.empty()
+                              || !shell.parentSequenceBounds.empty()
+                              || !shell.particleGeosetData.empty();
+      if (!reEncoded)
       {
-        if (*shell_bytes != *bytes)
+        if (*shellBytes != *bytes)
           FAIL(std::format("{}: shell rewrite is not byte-identical ({} vs {} bytes)", path,
-                           shell_bytes->size(), bytes->size()));
+                           shellBytes->size(), bytes->size()));
       }
       else
       {
-        M2ChunkedFile<versions::shadowlands> shell_back;
-        REQUIRE(shell_back.read(std::span<const std::byte>{*shell_bytes}).has_value());
-        if (auto d = diff_value(shell_back, shell))
+        M2ChunkedFile<versions::Shadowlands> shellBack;
+        REQUIRE(shellBack.read(std::span<const std::byte>{*shellBytes}).has_value());
+        if (auto d = diffValue(shellBack, shell))
           FAIL(std::format("{}: shell reparse diverges at {}", path, *d));
       }
-      has_skel = !shell.skeleton_fdid.empty() && shell.skeleton_fdid.front() != 0;
+      hasSkel = !shell.skeletonFdid.empty() && shell.skeletonFdid.front() != 0;
     }
 
-    roundtrip_m2<versions::shadowlands>(*fs, key, path);
+    roundtripM2<versions::Shadowlands>(*fs, key, path);
     ++verified;
-    if (has_skel)
-      skel_verified.push_back(path);
+    if (hasSkel)
+      skelVerified.push_back(path);
   };
 
-  for (const auto& path : skel_candidates)
+  for (const auto& path : skelCandidates)
   {
     if (!fs->exists(path))
     {
@@ -407,11 +407,11 @@ TEST_CASE("9.2.7 M2s re-read equal after a canonical rewrite",
       break;
     process(FileKey{path, FileDataID{fdid}}, path);
   }
-  std::string skel_list;
-  for (const auto& p : skel_verified)
-    skel_list += "\n  " + p;
+  std::string skelList;
+  for (const auto& p : skelVerified)
+    skelList += "\n  " + p;
   WARN(std::format("9.2.7 sample: {} verified ({} skel-based:{}), {} unreadable", verified,
-                   skel_verified.size(), skel_list, unreadable));
+                   skelVerified.size(), skelList, unreadable));
   CHECK(verified >= 15);
-  CHECK(!skel_verified.empty());
+  CHECK(!skelVerified.empty());
 }

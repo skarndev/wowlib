@@ -22,48 +22,48 @@ using namespace wowlib::fs;
 TEST_CASE("4.3.4: the full DBC/DB2 corpus decodes and round-trips byte-perfectly",
           "[integration][db]")
 {
-  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::cata_client()),
-                                  .version = versions::cata,
-                                  .locale = tests::cata_locale()});
+  auto opened = MpqStorage::open({.dataDir = tests::dataDir(tests::cataClient()),
+                                  .version = versions::Cata,
+                                  .locale = tests::cataLocale()});
   REQUIRE(opened.has_value());
 
   tests::CorpusStats stats;
-#define X(Name) \
-  tests::sweep_table_mixed<db::tables::Name<versions::cata>>(*opened, #Name, stats);
-  WOWLIB_DB_TABLES_CATA(X)
-#undef X
+#define x(Name) \
+  tests::sweepTableMixed<db::tables::Name<versions::Cata>>(*opened, #Name, stats);
+  WOWLIB_DB_TABLES_CATA(x)
+#undef x
 
-  INFO(tests::join_failures(stats));
+  INFO(tests::joinFailures(stats));
   CHECK(stats.failures.empty());
   CHECK(stats.present >= 200);  // 4.3.4 ships ~300 client databases
 }
 
 TEST_CASE("4.3.4: Map.dbc spot checks against known truth", "[integration][db]")
 {
-  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::cata_client()),
-                                  .version = versions::cata,
-                                  .locale = tests::cata_locale()});
+  auto opened = MpqStorage::open({.dataDir = tests::dataDir(tests::cataClient()),
+                                  .version = versions::Cata,
+                                  .locale = tests::cataLocale()});
   REQUIRE(opened.has_value());
 
-  const auto data = opened->read_file(FileKey{"DBFilesClient/Map.dbc"});
+  const auto data = opened->readFile(FileKey{"DBFilesClient/Map.dbc"});
   REQUIRE(data.has_value());
-  db::tables::Map<versions::cata> map;
+  db::tables::Map<versions::Cata> map;
   REQUIRE(map.read(*data).has_value());
 
-  const auto by_id = [&](std::int32_t id) {
+  const auto byId = [&](std::int32_t id) {
     return std::ranges::find_if(map.records, [&](const auto& r) { return r.id == id; });
   };
 
-  const auto azeroth = by_id(0);
+  const auto azeroth = byId(0);
   REQUIRE(azeroth != map.records.end());
   CHECK(azeroth->directory == "Azeroth");
 
-  const auto northrend = by_id(571);
+  const auto northrend = byId(571);
   REQUIRE(northrend != map.records.end());
   CHECK(northrend->directory == "Northrend");
 
   // Deepholm is Cataclysm content — present here, absent from any 3.3.5a Map.
-  const auto deepholm = by_id(646);
+  const auto deepholm = byId(646);
   REQUIRE(deepholm != map.records.end());
   CHECK(deepholm->directory == "Deephome");
 }
@@ -71,15 +71,15 @@ TEST_CASE("4.3.4: Map.dbc spot checks against known truth", "[integration][db]")
 TEST_CASE("4.3.4: Item.db2 (WDB2) decodes through the update chain",
           "[integration][db]")
 {
-  auto opened = MpqStorage::open({.data_dir = tests::data_dir(tests::cata_client()),
-                                  .version = versions::cata,
-                                  .locale = tests::cata_locale()});
+  auto opened = MpqStorage::open({.dataDir = tests::dataDir(tests::cataClient()),
+                                  .version = versions::Cata,
+                                  .locale = tests::cataLocale()});
   REQUIRE(opened.has_value());
 
-  const auto data = opened->read_file(FileKey{"DBFilesClient/Item.db2"});
+  const auto data = opened->readFile(FileKey{"DBFilesClient/Item.db2"});
   REQUIRE(data.has_value());
 
-  db::tables::Item<versions::cata> items;
+  db::tables::Item<versions::Cata> items;
   REQUIRE(items.read(*data).has_value());
   CHECK(items.records.size() > 40'000);  // 4.3.4 knows ~70k items
 

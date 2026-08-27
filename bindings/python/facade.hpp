@@ -9,7 +9,7 @@
     gets native inheritance and @c isinstance for free. What Python still needs, and
     what this header supplies, is a version-keyed constructor: @c for_version() is a
     set of native overloads attached to the family base — one @c Literal overload
-    per @c Expansion (so mypy narrows @c Literal[Expansion.X] to the concrete class)
+    per @c Expansion (so mypy narrows @c Literal[Expansion.x] to the concrete class)
     plus a runtime @c Expansion → @c AnyX fallback.
 
     The helpers are format-agnostic and templated on the family template @c F, so a
@@ -42,15 +42,15 @@ namespace wowlib_py
   namespace nb = nanobind;
 
   /** Every @c Expansion enumerator, materialized once for the template-for walks. */
-  constexpr auto expansion_enumerators =
+  constexpr auto ExpansionEnumerators =
     std::define_static_array(std::meta::enumerators_of(^^wowlib::Expansion));
 
   /** The same enumerators as runtime VALUES — the erased facade helpers walk
       this instead of instantiating a template-for per family. */
-  inline constexpr auto expansion_values = [] {
-    std::array<wowlib::Expansion, expansion_enumerators.size()> out{};
+  inline constexpr auto ExpansionValues = [] {
+    std::array<wowlib::Expansion, ExpansionEnumerators.size()> out{};
     std::size_t i = 0;
-    template for (constexpr auto e : expansion_enumerators)
+    template for (constexpr auto e : ExpansionEnumerators)
       out[i++] = [:e:];
     return out;
   }();
@@ -70,45 +70,45 @@ namespace wowlib_py
       class per canonical version range (see version_range.hpp), and every
       facade spelling goes through the same suffix derivation the welded
       alias tables are checked against. */
-  inline std::string concrete_name(std::string_view base, wowlib::Expansion x,
+  inline std::string concreteName(std::string_view base, wowlib::Expansion x,
                                    std::span<const wowlib::ClientVersion> pivots,
                                    std::span<const wowlib::ClientVersion> grid)
   {
     const wowlib::ClientVersion canonical =
-      wowlib::formats::canonical_version(wowlib::to_client_version(x), pivots, grid);
-    return std::string{base} + wowlib::formats::range_suffix(canonical, pivots, grid);
+      wowlib::formats::canonicalVersion(wowlib::toClientVersion(x), pivots, grid);
+    return std::string{base} + wowlib::formats::rangeSuffix(canonical, pivots, grid);
   }
 
-  /** @brief Whether family @p F instantiates for expansion @p X.
+  /** @brief Whether family @p F instantiates for expansion @p x.
 
       Constrained families exclude early eras (Skin is WotLK+, M2ChunkedFile and
       Skeleton are Legion+); naming an excluded specialization inside the
       requires-expression is a substitution failure, not an error. Every
       facade walk guards on this so subset families skip the missing
       expansions instead of tripping their constraints. */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
-  concept family_has = requires { typename F<wowlib::to_client_version(X)>; };
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
+  concept FamilyHas = requires { typename F<wowlib::toClientVersion(x)>; };
 
   /** @brief The concrete (canonical) instantiation family @p F maps expansion
-      @p X to, as a nested typedef. Function templates that need it in their
+      @p x to, as a nested typedef. Function templates that need it in their
       SIGNATURE must go through this indirection: spelling the canonicalizing
       alias there directly trips gcc 16's "sorry, unimplemented: mangling
-      view_convert_expr" (the span-converting canonical_version call cannot be
+      view_convert_expr" (the span-converting canonicalVersion call cannot be
       mangled as a dependent expression). */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
-  struct concrete_of
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
+  struct ConcreteOf
   {
-    using type = F<wowlib::to_client_version(X)>;
+    using Type = F<wowlib::toClientVersion(x)>;
   };
 
-  /** @brief A bare, default-constructed @c F instance for expansion @p X.
+  /** @brief A bare, default-constructed @c F instance for expansion @p x.
 
       Hoisted out of the @c for_version loop bodies: gcc 16 refuses to instantiate
       @c F<...> from inside a lambda expanded within a @c template @c for. */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
-  nb::object make_one()
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
+  nb::object makeOne()
   {
-    return nb::cast(F<wowlib::to_client_version(X)>{});
+    return nb::cast(F<wowlib::toClientVersion(x)>{});
   }
 
   /** @brief One family's (expansion → registered class) rows — the runtime
@@ -122,8 +122,8 @@ namespace wowlib_py
 
   /** @brief Attach the erased @c for_version fallback: dispatch @p expansion
       through @p eras (shared, heap-kept) to its class object. */
-  inline void def_for_version_fallback_erased(
-    nb::handle base, std::string_view base_name,
+  inline void defForVersionFallbackErased(
+    nb::handle base, std::string_view baseName,
     std::shared_ptr<std::vector<FamilyEra>> eras)
   {
     nb::cpp_function(
@@ -136,7 +136,7 @@ namespace wowlib_py
       },
       nb::name("for_version"), nb::scope(base), nb::arg("expansion"),
       nb::sig(persist("def for_version(expansion: wowlib.Expansion) -> Any"
-                      + std::string{base_name})));
+                      + std::string{baseName})));
   }
 
   /** @brief Attach the @c ClientVersion overload of @c for_version: the axis
@@ -144,18 +144,18 @@ namespace wowlib_py
 
       @c Expansion is the CONTENT axis and cannot express "Cataclysm Classic",
       whose files are War Within-era; a full @c ClientVersion can, because
-      @c canonical_version places it by build (see version_range.hpp). One
+      @c canonicalVersion places it by build (see version_range.hpp). One
       erased closure per family: the requested version is canonicalized and
       matched against the ranges' canonicals, so a Classic version lands on the
       very class its retail counterpart does.
 
       @param base      the welded family base to receive the static method.
-      @param base_name the base's Python name, for the @c AnyX return spelling.
+      @param baseName the base's Python name, for the @c AnyX return spelling.
       @param eras      the family's (expansion → class) rows, shared/heap-kept.
       @param pivots    the family's canonicalization pivots (static storage).
       @param grid      the family's release grid (static storage). */
-  inline void def_for_version_client_version_erased(
-    nb::handle base, std::string_view base_name,
+  inline void defForVersionClientVersionErased(
+    nb::handle base, std::string_view baseName,
     std::shared_ptr<std::vector<FamilyEra>> eras,
     std::span<const wowlib::ClientVersion> pivots,
     std::span<const wowlib::ClientVersion> grid)
@@ -164,13 +164,13 @@ namespace wowlib_py
       [eras = std::move(eras), pivots, grid](wowlib::ClientVersion version) -> nb::object
       {
         // An era-subset family (Skin is WotLK+, Skeleton Legion+) has no class
-        // for versions below its grid; canonical_version would silently floor
+        // for versions below its grid; canonicalVersion would silently floor
         // them onto its first entry, so reject them instead.
-        if (version.format_lineage() < grid.front())
+        if (version.formatLineage() < grid.front())
           throw nb::value_error("no wowlib instantiation for that client version");
 
         const wowlib::ClientVersion canonical =
-          wowlib::formats::canonical_version(version, pivots, grid);
+          wowlib::formats::canonicalVersion(version, pivots, grid);
         for (const FamilyEra& fe : *eras)
           if (fe.canonical == canonical)
             return fe.type();
@@ -178,10 +178,10 @@ namespace wowlib_py
       },
       nb::name("for_version"), nb::scope(base), nb::arg("version"),
       nb::sig(persist("def for_version(version: wowlib.ClientVersion) -> Any"
-                      + std::string{base_name})));
+                      + std::string{baseName})));
   }
 
-  /** @brief The type-erased body of @ref def_for_version_overload.
+  /** @brief The type-erased body of @ref defForVersionOverload.
 
       Nothing here is type-specific at all: constructing the concrete class is
       CALLING its registered type object, the expansion it matches and the
@@ -189,7 +189,7 @@ namespace wowlib_py
       (family, expansion) overload in the module — nanobind's `func_create`
       instantiates once, and no per-era factory (`nb::cast` of a fresh value,
       with its caster machinery) is ever emitted. */
-  inline void def_for_version_overload_erased(nb::handle base,
+  inline void defForVersionOverloadErased(nb::handle base,
                                               wowlib::Expansion x,
                                               nb::handle type,
                                               const char* signature)
@@ -206,25 +206,25 @@ namespace wowlib_py
   }
 
   /** @brief The Literal-overload signature text of expansion @p x. */
-  inline const char* for_version_sig(std::string_view base_name, wowlib::Expansion x,
+  inline const char* forVersionSig(std::string_view baseName, wowlib::Expansion x,
                                      std::span<const wowlib::ClientVersion> pivots,
                                      std::span<const wowlib::ClientVersion> grid)
   {
     return persist("def for_version(expansion: typing.Literal[wowlib.Expansion."
-                   + std::string{wowlib::enum_name(x)} + "]) -> "
-                   + concrete_name(base_name, x, pivots, grid));
+                   + std::string{wowlib::enumName(x)} + "]) -> "
+                   + concreteName(baseName, x, pivots, grid));
   }
 
-  /** @brief Attach one @c for_version Literal overload (@p X → its range's
+  /** @brief Attach one @c for_version Literal overload (@p x → its range's
       concrete class; several Literals may share one class). */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X>
-  void def_for_version_overload(nb::handle base, std::string_view base_name,
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x>
+  void defForVersionOverload(nb::handle base, std::string_view baseName,
                                 std::span<const wowlib::ClientVersion> pivots,
                                 std::span<const wowlib::ClientVersion> grid)
   {
-    def_for_version_overload_erased(
-      base, X, nb::type<typename concrete_of<F, X>::type>(),
-      for_version_sig(base_name, X, pivots, grid));
+    defForVersionOverloadErased(
+      base, x, nb::type<typename ConcreteOf<F, x>::Type>(),
+      forVersionSig(baseName, x, pivots, grid));
   }
 
   /** @brief Attach @c for_version to a family @p base.
@@ -235,39 +235,39 @@ namespace wowlib_py
 
       @tparam F the family class template.
       @param base the welded family base to receive the static method.
-      @param base_name the base's Python name, used to spell the @c concrete/@c AnyX
+      @param baseName the base's Python name, used to spell the @c concrete/@c AnyX
              return types in the generated signatures.
       @param pivots the family's canonicalization pivots (boundaries header).
       @param grid   the family's release grid (full or era subset). */
   template <template <wowlib::ClientVersion> class F>
-  void def_for_version(nb::handle base, std::string_view base_name,
+  void defForVersion(nb::handle base, std::string_view baseName,
                        std::span<const wowlib::ClientVersion> pivots,
                        std::span<const wowlib::ClientVersion> grid)
   {
     auto eras = std::make_shared<std::vector<FamilyEra>>();
-    template for (constexpr auto e : expansion_enumerators)
-      if constexpr (family_has<F, ([:e:])>)
+    template for (constexpr auto e : ExpansionEnumerators)
+      if constexpr (FamilyHas<F, ([:e:])>)
       {
-        constexpr wowlib::Expansion X = [:e:];
-        nb::object type = nb::borrow(nb::type<typename concrete_of<F, X>::type>());
-        def_for_version_overload_erased(base, X, type,
-                                        for_version_sig(base_name, X, pivots, grid));
+        constexpr wowlib::Expansion x = [:e:];
+        nb::object type = nb::borrow(nb::type<typename ConcreteOf<F, x>::Type>());
+        defForVersionOverloadErased(base, x, type,
+                                        forVersionSig(baseName, x, pivots, grid));
         eras->push_back(FamilyEra{
-          X, wowlib::formats::canonical_version(wowlib::to_client_version(X), pivots, grid),
+          x, wowlib::formats::canonicalVersion(wowlib::toClientVersion(x), pivots, grid),
           std::move(type)});
       }
-    def_for_version_client_version_erased(base, base_name, eras, pivots, grid);
-    def_for_version_fallback_erased(base, base_name, std::move(eras));
+    defForVersionClientVersionErased(base, baseName, eras, pivots, grid);
+    defForVersionFallbackErased(base, baseName, std::move(eras));
   }
 
-  /** @brief Run @p fn against @p self cast to concrete @c F<X>, if it is one.
-      @return true when @p self was an @c F<X> and @p fn ran. */
-  template <template <wowlib::ClientVersion> class F, wowlib::Expansion X, typename Fn>
-  bool family_try(nb::handle self, Fn&& fn)
+  /** @brief Run @p fn against @p self cast to concrete @c F<x>, if it is one.
+      @return true when @p self was an @c F<x> and @p fn ran. */
+  template <template <wowlib::ClientVersion> class F, wowlib::Expansion x, typename Fn>
+  bool familyTry(nb::handle self, Fn&& fn)
   {
-    if constexpr (family_has<F, X>)
+    if constexpr (FamilyHas<F, x>)
     {
-      using Concrete = typename concrete_of<F, X>::type;
+      using Concrete = typename ConcreteOf<F, x>::Type;
       if (nb::isinstance<Concrete>(self))
       {
         fn(nb::cast<Concrete&>(self));
@@ -277,28 +277,28 @@ namespace wowlib_py
     return false;
   }
 
-  /** @brief Dispatch @p fn to @p self's concrete @c F<X> via isinstance.
+  /** @brief Dispatch @p fn to @p self's concrete @c F<x> via isinstance.
 
       The format-agnostic twin of each facade TU's hand-written dispatcher, for
       verbs that need no per-version signature narrowing. Expansions sharing a
       canonical range resolve to the same class, so the first isinstance hit is
       the right one.
       @param self the instance the verb was called on.
-      @param base_name the family base name, for the type error.
+      @param baseName the family base name, for the type error.
       @param fn the callable to run against the concrete reference.
       @throws nanobind::type_error when @p self is not of this family. */
   template <template <wowlib::ClientVersion> class F, typename Fn>
-  void family_dispatch(nb::handle self, std::string_view base_name, Fn&& fn)
+  void familyDispatch(nb::handle self, std::string_view baseName, Fn&& fn)
   {
     bool done = false;
-    template for (constexpr auto e : expansion_enumerators)
+    template for (constexpr auto e : ExpansionEnumerators)
       if (!done)
-        done = family_try<F, ([:e:])>(self, fn);
+        done = familyTry<F, ([:e:])>(self, fn);
     if (!done)
-      throw nb::type_error(persist("expected a " + std::string{base_name} + " instance"));
+      throw nb::type_error(persist("expected a " + std::string{baseName} + " instance"));
   }
 
-  /** @brief Bind @c validate / @c ensure_valid on a family's abstract base.
+  /** @brief Bind @c validate / @c ensureValid on a family's abstract base.
 
       welder already binds both on every CONCRETE class (they are plain members
       of the entity), which is enough to CALL them. This adds them to the base
@@ -308,37 +308,37 @@ namespace wowlib_py
       same C++ method, so which wins does not matter.
       @tparam F the family class template.
       @param base the family's welded base handle.
-      @param base_name the family base name, e.g. @c "WMO". */
+      @param baseName the family base name, e.g. @c "WMO". */
   /** @brief Whether any of family @p F's concretes carries @c validate().
 
       Binary-struct families (@c WMOBatch, @c WDTHeader) and the entities that
       have no contracts of their own do not, so the verbs must not be bound for
       them — a base method that can only ever raise is worse than an absent one.
-      Lets every facade call @c def_validation_verbs unconditionally. */
+      Lets every facade call @c defValidationVerbs unconditionally. */
   template <template <wowlib::ClientVersion> class F>
-  consteval bool family_validates()
+  consteval bool familyValidates()
   {
     bool any = false;
-    template for (constexpr auto e : expansion_enumerators)
-      if constexpr (family_has<F, ([:e:])>)
-        if constexpr (requires(const typename concrete_of<F, ([:e:])>::type& x) { x.validate(); })
+    template for (constexpr auto e : ExpansionEnumerators)
+      if constexpr (FamilyHas<F, ([:e:])>)
+        if constexpr (requires(const typename ConcreteOf<F, ([:e:])>::Type& x) { x.validate(); })
           any = true;
     return any;
   }
 
   template <template <wowlib::ClientVersion> class F>
-  void def_validation_verbs(nb::handle base, std::string_view base_name)
+  void defValidationVerbs(nb::handle base, std::string_view baseName)
   {
-    if constexpr (!family_validates<F>())
+    if constexpr (!familyValidates<F>())
       return;
     else
     {
-    const char* name = persist(std::string{base_name});
+    const char* name = persist(std::string{baseName});
     nb::cpp_function(
       [name](nb::handle self)
       {
         wowlib::formats::ValidationReport report;
-        family_dispatch<F>(self, name, [&](auto& entity) { report = entity.validate(); });
+        familyDispatch<F>(self, name, [&](auto& entity) { report = entity.validate(); });
         return report;
       },
       nb::name("validate"), nb::scope(base), nb::is_method(),
@@ -353,10 +353,10 @@ namespace wowlib_py
     nb::cpp_function(
       [name](nb::handle self)
       {
-        family_dispatch<F>(self, name, [&](auto& entity)
+        familyDispatch<F>(self, name, [&](auto& entity)
         {
-          if (auto r = entity.ensure_valid(); !r)
-            throw wowlib::result_error(r.error());
+          if (auto r = entity.ensureValid(); !r)
+            throw wowlib::ResultError(r.error());
         });
       },
       nb::name("ensure_valid"), nb::scope(base), nb::is_method(),
@@ -371,11 +371,11 @@ namespace wowlib_py
   /** @brief Build the runtime @c AnyX union alias and bind it on @p module.
 
       Folds the family's concrete classes — @c WMOVanilla @c | @c WMOTbc @c | ...
-      — into a @c types.UnionType and binds it as @c module.Any<base_name>, so the
+      — into a @c types.UnionType and binds it as @c module.Any<baseName>, so the
       alias is a REAL, importable object (@c from @c wowlib.formats.wmo @c import
       @c AnyWMO works; usable in annotations and, on 3.10+, in @c isinstance) and
       not merely a stub-only name. It is derived from the same expansion walk and
-      @c concrete_name every other facade piece uses, so a new @c Expansion grows
+      @c concreteName every other facade piece uses, so a new @c Expansion grows
       the union automatically. Because the bound value is a @c types.UnionType,
       nanobind's stubgen renders it as @c "AnyX: @c TypeAlias @c = @c WMOVanilla @c
       | @c ..." on its own — no PATTERN_FILE entry, one fewer coupling point.
@@ -386,24 +386,24 @@ namespace wowlib_py
               deduplicates itself).
       @param module the submodule that owns the concrete classes and receives the
              alias (each family lives beside its own concretes).
-      @param base_name the family base name, e.g. @c "WMO" → binds @c AnyWMO.
+      @param baseName the family base name, e.g. @c "WMO" → binds @c AnyWMO.
       @param pivots the family's canonicalization pivots.
       @param grid   the family's release grid. */
   template <template <wowlib::ClientVersion> class F>
-  void def_any_alias(nb::module_ module, std::string_view base_name,
+  void defAnyAlias(nb::module_ module, std::string_view baseName,
                      std::span<const wowlib::ClientVersion> pivots,
                      std::span<const wowlib::ClientVersion> grid)
   {
     nb::object alias;
-    template for (constexpr auto e : expansion_enumerators)
+    template for (constexpr auto e : ExpansionEnumerators)
     {
-      if constexpr (family_has<F, ([:e:])>)
+      if constexpr (FamilyHas<F, ([:e:])>)
       {
         nb::object concrete =
-          module.attr(concrete_name(base_name, [:e:], pivots, grid).c_str());
+          module.attr(concreteName(baseName, [:e:], pivots, grid).c_str());
         alias = alias.is_valid() ? nb::object(alias | concrete) : concrete;
       }
     }
-    module.attr(("Any" + std::string{base_name}).c_str()) = alias;
+    module.attr(("Any" + std::string{baseName}).c_str()) = alias;
   }
 }

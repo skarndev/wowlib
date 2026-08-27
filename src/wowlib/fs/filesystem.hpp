@@ -33,7 +33,7 @@ namespace wowlib::fs {
 
   /** The first FileDataID handed to project files by default — far above
       Blizzard's ~6-7M so future official content never collides. */
-  inline constexpr FileDataID default_custom_fdid_start{1'000'000'000};
+  inline constexpr FileDataID DefaultCustomFdidStart{1'000'000'000};
 
   struct [[
       =welder::weld,
@@ -48,7 +48,7 @@ namespace wowlib::fs {
     ]] FileSystemSettings {
     [[=welder::doc(
       "The client installation root (the directory containing Data/).")]]
-    const std::filesystem::path client_path;
+    const std::filesystem::path clientPath;
 
     [[=welder::doc(
       "The client version; selects the storage backend and MPQ chain.")]]
@@ -62,19 +62,19 @@ namespace wowlib::fs {
     [[=welder::doc(R"(
         The project-directory overlay: the ultimate patch, where new files are
         added. Optional.)")]]
-    const std::optional<std::filesystem::path> project_directory{};
+    const std::optional<std::filesystem::path> projectDirectory{};
 
     [[=welder::doc(R"(
         The working listfile CSV ('fileDataId;filepath'): read for path<->FileDataID
         resolution and appended to when new files are added. Effectively mandatory
         for modern CASC clients — without it files can only be requested by
         FileDataID.)")]]
-    const std::optional<std::filesystem::path> listfile_csv{};
+    const std::optional<std::filesystem::path> listfileCsv{};
 
     [[=welder::doc(R"(
         First FileDataID handed to files added to the project; keep far above
         Blizzard's ~6-7M so future official content never collides.)")]]
-    const FileDataID custom_fdid_start{default_custom_fdid_start};
+    const FileDataID customFdidStart{DefaultCustomFdidStart};
 
     [[=welder::doc(R"(
         TACT product code for CASC storages ('wow', 'wow_classic_era', 'wowt',
@@ -83,7 +83,7 @@ namespace wowlib::fs {
         install; set it explicitly for PTR, beta and one-off products
         ('wow_classic_titan'), or let ClientInstall.detect read the exact code
         off the installation.)")]]
-    const std::optional<std::string> casc_product{};
+    const std::optional<std::string> cascProduct{};
 
     [[=welder::doc(R"(
         Settings for a client whose version is read off the installation itself
@@ -102,11 +102,11 @@ namespace wowlib::fs {
       =welder::returns("the settings, or the error ClientInstall.detect raised")
     ]]
     static Result<FileSystemSettings> detect(
-      std::filesystem::path client_path [[=welder::doc("the installation directory holding Data/")]],
+      std::filesystem::path clientPath [[=welder::doc("the installation directory holding Data/")]],
       Locale locale [[=welder::doc("client locale")]] = Locale::enUS,
-      std::optional<std::filesystem::path> project_directory [[=welder::doc("the project-directory overlay")]] = {},
-      std::optional<std::filesystem::path> listfile_csv [[=welder::doc("the working listfile CSV")]] = {},
-      FileDataID custom_fdid_start [[=welder::doc("first FileDataID for added files")]] = default_custom_fdid_start);
+      std::optional<std::filesystem::path> projectDirectory [[=welder::doc("the project-directory overlay")]] = {},
+      std::optional<std::filesystem::path> listfileCsv [[=welder::doc("the working listfile CSV")]] = {},
+      FileDataID customFdidStart [[=welder::doc("first FileDataID for added files")]] = DefaultCustomFdidStart);
   };
 
   class [[
@@ -163,20 +163,20 @@ namespace wowlib::fs {
         code: whichever half the key carries (path, FileDataID or both), the
         backend uses what it can address and the listfile fills the gap.)"),
       =welder::returns("the file bytes")]]
-    Result<FileBuffer> read_file(
+    Result<FileBuffer> readFile(
       const FileKey& key [[=welder::doc("the file identity (path, id, or both)")
       ]]);
 
     [[=welder::doc("Read a file by client-internal path."),
       =welder::returns("the file bytes")]]
-    Result<FileBuffer> read_file(std::string_view path [[=welder::doc("the client-internal file path")]]) {
-      return read_file(FileKey{path});
+    Result<FileBuffer> readFile(std::string_view path [[=welder::doc("the client-internal file path")]]) {
+      return readFile(FileKey{path});
     }
 
     [[=welder::doc("Read a file by FileDataID."),
       =welder::returns("the file bytes")]]
-    Result<FileBuffer> read_file(FileDataID fdid [[=welder::doc("the numeric file identifier")]]) {
-      return read_file(FileKey{fdid});
+    Result<FileBuffer> readFile(FileDataID fdid [[=welder::doc("the numeric file identifier")]]) {
+      return readFile(FileKey{fdid});
     }
 
     [[=welder::doc("Whether a file is reachable in the overlay or the storage.")
@@ -207,7 +207,7 @@ namespace wowlib::fs {
         deduplicated and sorted; the project-directory overlay is not
         included.)"),
       =welder::returns("the sorted canonical paths")]]
-    Result<std::vector<std::string>> enumerate_paths();
+    Result<std::vector<std::string>> enumeratePaths();
 
     [[=welder::doc(R"(
         Fill the missing half of a key (path or FileDataID) from the listfile,
@@ -222,7 +222,7 @@ namespace wowlib::fs {
         new paths get a custom FileDataID, persisted in the working listfile.)")
       ,
       =welder::returns("the file's FileDataID (0 on MPQ-era clients)")]]
-    Result<FileDataID> add_file(
+    Result<FileDataID> addFile(
       std::string_view path [[=welder::doc(
         "the client-internal path of the file")]],
       std::span<const std::byte> content [[=welder::doc("the file contents")]]);
@@ -231,27 +231,27 @@ namespace wowlib::fs {
         decrypt content behind them — including the encrypted sections of a .db2,
         which then decode normally instead of being reported encrypted. Takes the
         community "KeyName KeyHex" per-line text format.
-        @param key_list the newline-separated key list.
+        @param keyList the newline-separated key list.
         @return nothing, or NotSupported on an MPQ client, or a backend error. */
     [[=welder::doc(
         "Register TACT encryption keys (CASC only) from the community "
         "'KeyName KeyHex' per-line text, so encrypted .db2 sections "
         "decrypt and decode."),
       =welder::returns("nothing; raises on an MPQ client or a malformed list")]]
-    Result<void> import_keys(std::string_view key_list [[=welder::doc("newline-separated 'KeyName KeyHex' lines")]]) {
-      if (auto* casc = std::get_if<CascFileSystem>(&_impl)) return casc->backend().import_keys(key_list);
-      return make_error(ErrorCode::NotSupported, "TACT encryption keys apply only to CASC (WoD+) clients");
+    Result<void> importKeys(std::string_view keyList [[=welder::doc("newline-separated 'KeyName KeyHex' lines")]]) {
+      if (auto* casc = std::get_if<CascFileSystem>(&_impl)) return casc->backend().importKeys(keyList);
+      return makeError(ErrorCode::NotSupported, "TACT encryption keys apply only to CASC (WoD+) clients");
     }
 
     /** Register one TACT encryption key (CASC clients only). C++-only; scripting
-        callers use import_keys with the text format.
-        @param key_name the 64-bit key lookup (a section's tact_key_hash).
+        callers use importKeys with the text format.
+        @param keyName the 64-bit key lookup (a section's tactKeyHash).
         @param key      the 16-byte key.
         @return nothing, or NotSupported on an MPQ client, or a backend error. */
     [[=welder::mark::exclude]]
-    Result<void> add_encryption_key(std::uint64_t key_name, std::span<const std::byte, 16> key) {
-      if (auto* casc = std::get_if<CascFileSystem>(&_impl)) return casc->backend().add_encryption_key(key_name, key);
-      return make_error(ErrorCode::NotSupported, "TACT encryption keys apply only to CASC (WoD+) clients");
+    Result<void> addEncryptionKey(std::uint64_t keyName, std::span<const std::byte, 16> key) {
+      if (auto* casc = std::get_if<CascFileSystem>(&_impl)) return casc->backend().addEncryptionKey(keyName, key);
+      return makeError(ErrorCode::NotSupported, "TACT encryption keys apply only to CASC (WoD+) clients");
     }
 
     [[=welder::getter,
@@ -306,7 +306,7 @@ namespace wowlib::fs {
       =welder::doc(
         "Whether the filesystem still holds its storage (false after "
         "close()).")]]
-    bool is_open() const {
+    bool isOpen() const {
       return !std::holds_alternative<std::monostate>(_impl);
     }
 

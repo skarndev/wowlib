@@ -4,9 +4,9 @@
     serial tail; see gen_wdt.cpp for the C# twin of this split).
 
     weld_type per DISTINCT concrete, never weld_namespace: a namespace weld
-    instantiates one bind_namespace specialization whose members_of bakes
+    instantiates one bind_namespace specialization whose membersOf bakes
     from an arbitrary TU (the db shards learned this) — explicit types keyed
-    on the concrete never merge. The X-macro tables in wdt_ranges.hpp are
+    on the concrete never merge. The x-macro tables in wdt_ranges.hpp are
     the single source of truth for which aliases exist. */
 
 #include <nanobind/nanobind.h>
@@ -49,10 +49,10 @@ namespace wowlib_py::formats
     }
   }
 
-  void register_wdt_welds(::nanobind::module_& root)
+  void registerWdtWelds(::nanobind::module_& root)
   {
     using W = ::welder::welder<::welder::rods::nanobind::rod<>,
-                               wowlib_py::wowlib_python_naming>;
+                               wowlib_py::WowlibPythonNaming>;
     ::nanobind::module_ m0 = submodule(submodule(submodule(root, "formats"), "wdt"), "root");
     ::nanobind::module_ m1 = submodule(submodule(submodule(submodule(root, "formats"), "wdt"), "root"), "chunks");
     ::nanobind::module_ m2 = submodule(submodule(submodule(root, "formats"), "wdt"), "occlusion");
@@ -61,32 +61,32 @@ namespace wowlib_py::formats
     ::nanobind::module_ m5 = submodule(submodule(submodule(root, "formats"), "wdt"), "mpv");
     ::nanobind::module_ m6 = submodule(submodule(root, "formats"), "wdt");
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdt::root::WDTRoot##S>(m0, "WDTRoot" #S);
-    WOWLIB_WDT_RANGES_ROOT(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdt::root::WDTRoot##S>(m0, "WDTRoot" #S);
+    WOWLIB_WDT_RANGES_ROOT(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdt::root::chunks::WDTHeader##S>(m1, "WDTHeader" #S);
-    WOWLIB_WDT_RANGES_HEADER(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdt::root::chunks::WDTHeader##S>(m1, "WDTHeader" #S);
+    WOWLIB_WDT_RANGES_HEADER(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdt::occlusion::WDTOcclusion##S>(m2, "WDTOcclusion" #S);
-    WOWLIB_WDT_RANGES_OCCLUSION(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdt::occlusion::WDTOcclusion##S>(m2, "WDTOcclusion" #S);
+    WOWLIB_WDT_RANGES_OCCLUSION(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdt::lights::WDTLights##S>(m3, "WDTLights" #S);
-    WOWLIB_WDT_RANGES_LIGHTS(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdt::lights::WDTLights##S>(m3, "WDTLights" #S);
+    WOWLIB_WDT_RANGES_LIGHTS(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdt::fogs::WDTFogs##S>(m4, "WDTFogs" #S);
-    WOWLIB_WDT_RANGES_FOGS(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdt::fogs::WDTFogs##S>(m4, "WDTFogs" #S);
+    WOWLIB_WDT_RANGES_FOGS(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdt::mpv::WDTParticulates##S>(m5, "WDTParticulates" #S);
-    WOWLIB_WDT_RANGES_MPV(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdt::mpv::WDTParticulates##S>(m5, "WDTParticulates" #S);
+    WOWLIB_WDT_RANGES_MPV(x)
+#undef x
 
-#define X(S, v) W::weld_type<::wowlib::formats::wdt::WDT##S>(m6, "WDT" #S);
-    WOWLIB_WDT_RANGES_ASSEMBLY(X)
-#undef X
+#define x(S, v) W::weld_type<::wowlib::formats::wdt::WDT##S>(m6, "WDT" #S);
+    WOWLIB_WDT_RANGES_ASSEMBLY(x)
+#undef x
   }
 }

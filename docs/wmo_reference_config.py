@@ -140,8 +140,8 @@ def _chunk_order(side_key: str) -> list[str]:
     table), so fields render in stream order rather than trait-flatten order."""
     if side_key not in _ORDER_CACHE:
         txt = (ROOT_HPP if side_key == "root" else GROUP_HPP).read_text(encoding="utf-8")
-        m = re.search(r"chunk_order\s*=\s*\{(.*?)\}", txt, re.DOTALL)
-        _ORDER_CACHE[side_key] = re.findall(r'four_cc\("([^"]+)"\)', m.group(1)) if m else []
+        m = re.search(r"ChunkOrder\s*=\s*\{(.*?)\}", txt, re.DOTALL)
+        _ORDER_CACHE[side_key] = re.findall(r'fourCc\("([^"]+)"\)', m.group(1)) if m else []
     return _ORDER_CACHE[side_key]
 
 

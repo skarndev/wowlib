@@ -7,7 +7,7 @@
 
 namespace wowlib_py
 {
-  wowlib::FileBuffer to_buffer(nb::handle src)
+  wowlib::FileBuffer toBuffer(nb::handle src)
   {
     const auto grab = [](PyObject* obj, wowlib::FileBuffer& out) -> bool
     {
@@ -38,7 +38,7 @@ namespace wowlib_py
     throw nb::type_error("expected bytes, a bytes-like object, or a binary file-like");
   }
 
-  nb::bytes to_pybytes(const wowlib::FileBuffer& buffer)
+  nb::bytes toPybytes(const wowlib::FileBuffer& buffer)
   {
     return nb::bytes(reinterpret_cast<const char*>(buffer.data()), buffer.size());
   }

@@ -13,7 +13,7 @@
     struct MapRow
     {
       static constexpr ClientVersion version = versions::wotlk;
-      static constexpr std::string_view table_name = "Map";
+      static constexpr std::string_view TableName = "Map";
       std::int32_t id = 0;
       std::string directory;   // any subset of the DBD's columns, by name
     };
@@ -30,7 +30,7 @@
     locale count). A mismatch aborts compilation with a thrown diagnostic
     naming what disagreed. Member ROLES (id/relation/noninline) are not
     validated — the blob's full schema drives the codecs; the struct is only
-    a projection over it. `write_back` is consteval-gated to structs covering
+    a projection over it. `writeBack` is consteval-gated to structs covering
     EVERY column (a projection cannot author a lossless table).
 
     Requires an `embedded`-capable build (`WOWLIB_DB_SCHEMA` embedded/both);
@@ -63,65 +63,65 @@ namespace wowlib::db {
     /** The blob, again, for CONSTANT EVALUATION in consumer TUs (the runtime
         catalog's copy lives inside schema_catalog.cpp). Same file, same
         bytes; consteval-only use. */
-    inline constexpr unsigned char typed_schema_blob[] = {
+    inline constexpr unsigned char TypedSchemaBlob[] = {
 #embed <wowlib_schema.wdbs>
     };
 
     /** The consteval-validation failure carrier: throwing it inside constant
         evaluation aborts compilation with the message in the diagnostic. */
-    struct typed_mismatch {
+    struct TypedMismatch {
       const char* message;
     };
 
     /** The blob's column list for (@a table, @a version)'s era, as
         blob-global column indexes [first, first+count), or a thrown
-        @ref typed_mismatch. */
-    consteval blob::RangeEntry typed_range_of(std::string_view table, ClientVersion version) {
-      const blob::View view{std::span<const unsigned char>{typed_schema_blob}};
-      const auto at = view.find_table(table);
-      if (!at) throw typed_mismatch{"the schema blob knows no table of this name"};
+        @ref TypedMismatch. */
+    consteval blob::RangeEntry typedRangeOf(std::string_view table, ClientVersion version) {
+      const blob::View view{std::span<const unsigned char>{TypedSchemaBlob}};
+      const auto at = view.findTable(table);
+      if (!at) throw TypedMismatch{"the schema blob knows no table of this name"};
       std::size_t era = SIZE_MAX;
-      for (std::size_t i = 0; i < view.era_count(); ++i)
+      for (std::size_t i = 0; i < view.eraCount(); ++i)
         if (view.era(i).major == version.major) era = i;
       if (era == SIZE_MAX)
-        throw typed_mismatch{"no targeted era shares the struct's major version"};
+        throw TypedMismatch{"no targeted era shares the struct's major version"};
       const blob::TableEntry entry = view.table(*at);
-      for (std::size_t r = 0; r < entry.range_count; ++r) {
-        const blob::RangeEntry range = view.range(entry.first_range + r);
-        if (range.era_mask & (std::uint16_t{1} << era)) return range;
+      for (std::size_t r = 0; r < entry.rangeCount; ++r) {
+        const blob::RangeEntry range = view.range(entry.firstRange + r);
+        if (range.eraMask & (std::uint16_t{1} << era)) return range;
       }
-      throw typed_mismatch{"the table has no schema range covering the struct's era"};
+      throw TypedMismatch{"the table has no schema range covering the struct's era"};
     }
 
     /** The era-schema column index whose name is @a name, or a thrown
-        @ref typed_mismatch. */
-    consteval std::size_t typed_column_index(std::string_view table, ClientVersion version, std::string_view name) {
-      const blob::View view{std::span<const unsigned char>{typed_schema_blob}};
-      const blob::RangeEntry range = typed_range_of(table, version);
-      for (std::size_t c = 0; c < range.column_count; ++c)
-        if (view.copy_string_at(view.column(range.first_column + c).name_off) == name) return c;
-      throw typed_mismatch{"the era's schema has no column with this member's name"};
+        @ref TypedMismatch. */
+    consteval std::size_t typedColumnIndex(std::string_view table, ClientVersion version, std::string_view name) {
+      const blob::View view{std::span<const unsigned char>{TypedSchemaBlob}};
+      const blob::RangeEntry range = typedRangeOf(table, version);
+      for (std::size_t c = 0; c < range.columnCount; ++c)
+        if (view.copyStringAt(view.column(range.firstColumn + c).nameOff) == name) return c;
+      throw TypedMismatch{"the era's schema has no column with this member's name"};
     }
 
     /** Validate @a Record against the blob (see the file note for the
         rules); also the projection builder's precondition. */
     template <typename Record>
-    consteval bool typed_validate() {
-      const blob::View view{std::span<const unsigned char>{typed_schema_blob}};
-      const blob::RangeEntry range = typed_range_of(Record::table_name, Record::version);
-      for (const Column& member : schema_of<Record>()) {
-        const std::size_t at = typed_column_index(Record::table_name, Record::version, member.name_view());
-        const blob::ColumnEntry col = view.column(range.first_column + at);
+    consteval bool typedValidate() {
+      const blob::View view{std::span<const unsigned char>{TypedSchemaBlob}};
+      const blob::RangeEntry range = typedRangeOf(Record::TableName, Record::Version);
+      for (const Column& member : schemaOf<Record>()) {
+        const std::size_t at = typedColumnIndex(Record::TableName, Record::Version, member.nameView());
+        const blob::ColumnEntry col = view.column(range.firstColumn + at);
         if (col.type != member.type)
-          throw typed_mismatch{
+          throw TypedMismatch{
             "the member's value class (Int/Float/String/" "LocString) differs from the DBD column's"
           };
-        if (member.type == ColumnType::Int && (col.bits != member.bits || col.is_signed != member.is_signed))
-          throw typed_mismatch{"the member's integer width or signedness " "differs from the DBD column's"};
-        if (col.array_len != member.array_len)
-          throw typed_mismatch{"the member's array length differs from the DBD column's"};
-        if (member.type == ColumnType::LocString && col.locale_count != member.locale_count)
-          throw typed_mismatch{"the member's LocString locale count differs " "from the DBD column's (wrong era?)"};
+        if (member.type == ColumnType::Int && (col.bits != member.bits || col.isSigned != member.isSigned))
+          throw TypedMismatch{"the member's integer width or signedness " "differs from the DBD column's"};
+        if (col.arrayLen != member.arrayLen)
+          throw TypedMismatch{"the member's array length differs from the DBD column's"};
+        if (member.type == ColumnType::LocString && col.localeCount != member.localeCount)
+          throw TypedMismatch{"the member's LocString locale count differs " "from the DBD column's (wrong era?)"};
       }
       return true;
     }
@@ -129,18 +129,18 @@ namespace wowlib::db {
     /** The projection map of @a Record: member position -> era-schema column
         index, as a static (never-dangling) array. */
     template <typename Record>
-    consteval auto typed_projection() {
+    consteval auto typedProjection() {
       std::vector<std::size_t> map;
-      for (const Column& member : schema_of<Record>())
-        map.push_back(typed_column_index(Record::table_name, Record::version, member.name_view()));
+      for (const Column& member : schemaOf<Record>())
+        map.push_back(typedColumnIndex(Record::TableName, Record::Version, member.nameView()));
       return std::define_static_array(map);
     }
 
     /** A compile-time string NTTP (the `column<"id">()` spelling). */
     template <std::size_t N>
-    struct fixed_string {
+    struct FixedString {
       char text[N] = {};
-      consteval fixed_string(const char (&s)[N]) { std::copy_n(s, N, text); }
+      consteval FixedString(const char (&s)[N]) { std::copy_n(s, N, text); }
       consteval std::string_view view() const { return {text, N - 1}; }
     };
   }
@@ -153,60 +153,60 @@ namespace wowlib::db {
                      subset of the table's era columns. */
   template <TableRecord Record>
   class TypedTable {
-    static_assert(detail::typed_validate<Record>());
+    static_assert(detail::typedValidate<Record>());
 
   public:
     /** Open the era-resolved generic table with an empty row set.
         @return the typed face, or the catalog's resolution error. */
     static Result<TypedTable> open() {
-      return DynTable::open(Record::table_name, Record::version).transform([](DynTable&& table) {
+      return DynTable::open(Record::TableName, Record::Version).transform([](DynTable&& table) {
         TypedTable out{};
-        out.table_ = std::move(table);
+        out._table = std::move(table);
         return out;
       });
     }
 
     /** The generic table under this face — decode/encode/validation and the
         generic cell accessors all live there; this class only TYPES rows. */
-    DynTable& table() { return table_; }
+    DynTable& table() { return _table; }
     /** @copydoc table */
-    const DynTable& table() const { return table_; }
+    const DynTable& table() const { return _table; }
 
     /** Decode a table file image (sugar for `table().read`). */
     Result<void> read(std::span<const std::byte> data) {
-      return table_.read(data);
+      return _table.read(data);
     }
 
     /** Serialize (sugar for `table().write`). */
     Result<FileBuffer> write(EncryptedPolicy policy = EncryptedPolicy::Preserve) const {
-      return table_.write(policy);
+      return _table.write(policy);
     }
 
     /** Materialize every row as a @a Record — the projection copies only
         the declared columns, row-major and contiguous (the hot-loop shape).
         @return the rows. */
     std::vector<Record> load() const {
-      std::vector < Record > out(table_.row_count());
+      std::vector < Record > out(_table.rowCount());
       ErasedRecordSink sink{out};
-      static constexpr auto schema = schema_of<Record>();
-      static constexpr auto projection = detail::typed_projection<Record>();
+      static constexpr auto Schema = schemaOf<Record>();
+      static constexpr auto Projection = detail::typedProjection<Record>();
       for (std::size_t r = 0; r < out.size(); ++r)
-        for (std::size_t m = 0; m < schema.size(); ++m) copy_cell_in(sink, r, m, projection[m], schema[m]);
+        for (std::size_t m = 0; m < Schema.size(); ++m) _copyCellIn(sink, r, m, Projection[m], Schema[m]);
       return out;
     }
 
     /** Replace the table's rows from @a records. Consteval-gated to FULL
         column coverage: a projection cannot author a lossless table.
         @param records the complete new row set. */
-    void write_back(const std::vector<Record>& records) requires(schema_of<Record>().size() == detail::typed_range_of(
-      Record::table_name, Record::version).column_count) {
-      table_.clear_rows();
+    void writeBack(const std::vector<Record>& records) requires(schemaOf<Record>().size() == detail::typedRangeOf(
+      Record::TableName, Record::Version).columnCount) {
+      _table.clearRows();
       const ErasedRecordSource source{records};
-      static constexpr auto schema = schema_of<Record>();
-      static constexpr auto projection = detail::typed_projection<Record>();
+      static constexpr auto Schema = schemaOf<Record>();
+      static constexpr auto Projection = detail::typedProjection<Record>();
       for (std::size_t r = 0; r < records.size(); ++r) {
-        table_.append_row();
-        for (std::size_t m = 0; m < schema.size(); ++m) copy_cell_out(source, r, m, projection[m], schema[m]);
+        _table.appendRow();
+        for (std::size_t m = 0; m < Schema.size(); ++m) _copyCellOut(source, r, m, Projection[m], Schema[m]);
       }
     }
 
@@ -215,20 +215,20 @@ namespace wowlib::db {
         until rows are added or removed.
         @tparam Name the member's name, e.g. `column<"id">()`.
         @return the live, read-only column span. */
-    template <detail::fixed_string Name>
+    template <detail::FixedString Name>
     auto column() const {
-      static constexpr auto members = detail::record_members<Record>();
+      static constexpr auto Members = detail::recordMembers<Record>();
       constexpr std::size_t index = []() consteval {
-        for (std::size_t i = 0; i < members.size(); ++i)
-          if (std::meta::identifier_of(members[i]) == Name.view()) return i;
-        throw detail::typed_mismatch{"no member of this record has that name"};
+        for (std::size_t i = 0; i < Members.size(); ++i)
+          if (std::meta::identifier_of(Members[i]) == Name.view()) return i;
+        throw detail::TypedMismatch{"no member of this record has that name"};
       }();
-      using F = [:std::meta::type_of(members[index]):];
+      using F = [:std::meta::type_of(Members[index]):];
       static_assert(std::is_arithmetic_v<F> && !std::is_same_v<F, bool>,
                     "column<\"name\">() serves scalar arithmetic columns; "
                     "load() or the generic accessors cover the rest");
-      static constexpr auto projection = detail::typed_projection<Record>();
-      const auto view = table_.pod_column(projection[index]);
+      static constexpr auto Projection = detail::typedProjection<Record>();
+      const auto view = _table.podColumn(Projection[index]);
       // add_const_t, not `const F`: gcc-16 drops a bare const applied to a
       // dependent splice alias (the span would come out span<F>).
       using CF = std::add_const_t<F>;
@@ -243,56 +243,56 @@ namespace wowlib::db {
     /** One generic-table cell into the typed sink (member @a m of row @a r,
         schema column @a col). The value() calls cannot fail: the validation
         proved every kind and every index. */
-    void copy_cell_in(ErasedRecordSink& sink,
+    void _copyCellIn(ErasedRecordSink& sink,
                       std::size_t r,
                       std::size_t m,
                       std::size_t col,
                       const Column& shape) const {
       switch (shape.type) {
       case ColumnType::Int:
-        for (std::size_t e = 0; e < shape.array_len; ++e) sink.set_int(r, m, e, table_.get_int(r, col, e).value());
+        for (std::size_t e = 0; e < shape.arrayLen; ++e) sink.setInt(r, m, e, _table.getInt(r, col, e).value());
         break;
       case ColumnType::Float:
-        for (std::size_t e = 0; e < shape.array_len; ++e) sink.set_float(r, m, e, table_.get_float(r, col, e).value());
+        for (std::size_t e = 0; e < shape.arrayLen; ++e) sink.setFloat(r, m, e, _table.getFloat(r, col, e).value());
         break;
       case ColumnType::String:
-        for (std::size_t e = 0; e < shape.array_len; ++e) sink.
-          set_string(r, m, e, table_.get_string(r, col, e).value());
+        for (std::size_t e = 0; e < shape.arrayLen; ++e) sink.
+          setString(r, m, e, _table.getString(r, col, e).value());
         break;
       case ColumnType::LocString:
-        for (std::size_t e = 0; e < shape.locale_count; ++e) sink.set_string(
-          r, m, e, table_.get_string(r, col, e).value());
-        sink.set_int(r, m, 0, table_.locstring_flags(r, col).value());
+        for (std::size_t e = 0; e < shape.localeCount; ++e) sink.setString(
+          r, m, e, _table.getString(r, col, e).value());
+        sink.setInt(r, m, 0, _table.locstringFlags(r, col).value());
         break;
       }
     }
 
     /** The mirror: one typed-source cell into the generic table. */
-    void copy_cell_out(const ErasedRecordSource& source,
+    void _copyCellOut(const ErasedRecordSource& source,
                        std::size_t r,
                        std::size_t m,
                        std::size_t col,
                        const Column& shape) {
       switch (shape.type) {
       case ColumnType::Int:
-        for (std::size_t e = 0; e < shape.array_len; ++e) table_.set_int(r, col, source.get_int(r, m, e), e).value();
+        for (std::size_t e = 0; e < shape.arrayLen; ++e) _table.setInt(r, col, source.getInt(r, m, e), e).value();
         break;
       case ColumnType::Float:
-        for (std::size_t e = 0; e < shape.array_len; ++e)
-          table_.set_float(r, col, std::bit_cast<float>(source.get_slot(r, m, e)), e).value();
+        for (std::size_t e = 0; e < shape.arrayLen; ++e)
+          _table.setFloat(r, col, std::bit_cast<float>(source.getSlot(r, m, e)), e).value();
         break;
       case ColumnType::String:
-        for (std::size_t e = 0; e < shape.array_len; ++e) table_.set_string(r, col, source.get_string(r, m, e), e).
+        for (std::size_t e = 0; e < shape.arrayLen; ++e) _table.setString(r, col, source.getString(r, m, e), e).
                                                                  value();
         break;
       case ColumnType::LocString:
-        for (std::size_t e = 0; e < shape.locale_count; ++e) table_.set_string(r, col, source.get_string(r, m, e), e).
+        for (std::size_t e = 0; e < shape.localeCount; ++e) _table.setString(r, col, source.getString(r, m, e), e).
                                                                     value();
-        table_.set_locstring_flags(r, col, static_cast<std::uint32_t>(source.get_int(r, m, 0))).value();
+        _table.setLocstringFlags(r, col, static_cast<std::uint32_t>(source.getInt(r, m, 0))).value();
         break;
       }
     }
 
-    DynTable table_{};
+    DynTable _table{};
   };
 }

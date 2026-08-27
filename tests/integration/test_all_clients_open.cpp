@@ -29,23 +29,23 @@ namespace
   };
 
   // Every release wowlib targets, by canonical install-directory name.
-  constexpr std::array installs{
-    Install{"1.12.1", versions::vanilla},
-    Install{"1.12.2", versions::vanilla},
-    Install{"2.4.3", versions::tbc},
-    Install{"3.3.5a", versions::wotlk},
-    Install{"4.3.4", versions::cata},
-    Install{"5.4.8", versions::mop},
-    Install{"6.2.3", versions::wod},
-    Install{"6.2.4", versions::wod},
-    Install{"7.3.5", versions::legion},
-    Install{"8.3.7", versions::bfa},
-    Install{"9.2.7", versions::shadowlands},
-    Install{"10.2.7", versions::dragonflight},
-    Install{"11.2.7", versions::tww},
+  constexpr std::array Installs{
+    Install{"1.12.1", versions::Vanilla},
+    Install{"1.12.2", versions::Vanilla},
+    Install{"2.4.3", versions::Tbc},
+    Install{"3.3.5a", versions::Wotlk},
+    Install{"4.3.4", versions::Cata},
+    Install{"5.4.8", versions::Mop},
+    Install{"6.2.3", versions::Wod},
+    Install{"6.2.4", versions::Wod},
+    Install{"7.3.5", versions::Legion},
+    Install{"8.3.7", versions::Bfa},
+    Install{"9.2.7", versions::Shadowlands},
+    Install{"10.2.7", versions::Dragonflight},
+    Install{"11.2.7", versions::Tww},
   };
 
-  fsys::path fresh_project(std::string_view name)
+  fsys::path freshProject(std::string_view name)
   {
     const auto root = fsys::temp_directory_path() / "wowlib-tests" / "sweep" / name;
     fsys::remove_all(root);
@@ -56,10 +56,10 @@ namespace
 TEST_CASE("every installed client opens and serves a probe read",
           "[integration][sweep]")
 {
-  const auto clients = tests::require_clients_dir();
-  const auto listfile = tests::env_path("WOWLIB_TEST_LISTFILE");
+  const auto clients = tests::requireClientsDir();
+  const auto listfile = tests::envPath("WOWLIB_TEST_LISTFILE");
 
-  for (const auto& install : installs)
+  for (const auto& install : Installs)
   {
     const auto root = clients / install.dir;
     if (!fsys::is_directory(root))
@@ -67,53 +67,53 @@ TEST_CASE("every installed client opens and serves a probe read",
 
     DYNAMIC_SECTION(install.dir)
     {
-      const bool mpq = install.version.storage_kind() == StorageKind::Mpq;
-      const auto data = tests::data_dir(root);
+      const bool mpq = install.version.storageKind() == StorageKind::Mpq;
+      const auto data = tests::dataDir(root);
 
       // CASC repacks carry locale-tagged content too; fall back to enUS when
       // the data dir exposes no locale subdirectory.
-      const auto locale = tests::find_locale(data).value_or(Locale::enUS);
+      const auto locale = tests::findLocale(data).value_or(Locale::enUS);
 
       // The listfile is what makes a modern CASC storage path-addressable; the
       // suite runs against a disposable copy since registrations append to it.
-      std::optional<fsys::path> working_listfile{};
+      std::optional<fsys::path> workingListfile{};
       if (!mpq && listfile)
       {
-        working_listfile = fsys::temp_directory_path() / "wowlib-tests" /
+        workingListfile = fsys::temp_directory_path() / "wowlib-tests" /
                            "sweep" / (std::string{install.dir} + "-listfile.csv");
-        fsys::create_directories(working_listfile->parent_path());
-        fsys::copy_file(*listfile, *working_listfile,
+        fsys::create_directories(workingListfile->parent_path());
+        fsys::copy_file(*listfile, *workingListfile,
                         fsys::copy_options::overwrite_existing);
       }
 
-      auto fs = FileSystem::open({.client_path = root,
+      auto fs = FileSystem::open({.clientPath = root,
                                   .version = install.version,
                                   .locale = locale,
-                                  .project_directory = fresh_project(install.dir),
-                                  .listfile_csv = working_listfile});
+                                  .projectDirectory = freshProject(install.dir),
+                                  .listfileCsv = workingListfile});
       // UNSCOPED_INFO: a scoped INFO inside the if would die before the
       // assertion below ever fired.
       if (!fs.has_value())
         UNSCOPED_INFO(std::format("open failed: {} (native {:#x})",
-                                  fs.error().message, fs.error().native_error));
+                                  fs.error().message, fs.error().nativeError));
       REQUIRE(fs.has_value());
-      CHECK(fs->kind() == install.version.storage_kind());
+      CHECK(fs->kind() == install.version.storageKind());
 
       if (mpq)
       {
         // Present in every MPQ-era client, with a stable magic to assert on.
-        const auto dbc = fs->read_file("DBFilesClient/Map.dbc");
+        const auto dbc = fs->readFile("DBFilesClient/Map.dbc");
         if (!dbc.has_value())
           UNSCOPED_INFO("probe read failed: " + dbc.error().message);
         REQUIRE(dbc.has_value());
         REQUIRE(dbc->size() >= 4);
         CHECK(std::memcmp(dbc->data(), "WDBC", 4) == 0);
       }
-      else if (install.version >= versions::legion && working_listfile)
+      else if (install.version >= versions::Legion && workingListfile)
       {
         // FileDataIDs only entered the CASC root manifest with Legion; the WoD
         // root is name-hash keyed, so 6.x stays an open-only smoke check.
-        CHECK(fs->read_file("dbfilesclient/map.db2").has_value());
+        CHECK(fs->readFile("dbfilesclient/map.db2").has_value());
       }
     }
   }

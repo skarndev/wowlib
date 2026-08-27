@@ -77,25 +77,25 @@ namespace wowlib::formats::wmo::group {
     // One struct per availability range; members keep their chunk/since/doc/marks
     // (read off the declaring class, so flattening preserves them). Members are in
     // canonical order within a trait for readability; the serialization order is
-    // the entity's chunk_order table, not the flatten order.
+    // the entity's ChunkOrder table, not the flatten order.
 
-    /** Cata+ (4.0) group-body chunks. */
+    /** cata+ (4.0) group-body chunks. */
     struct GroupBodyCata {
       [[
         =chunk("MORB"),
         =since(builds::Cata),
-        =formats::optional,
-        =formats::count_matches("batches"),
+        =formats::Optional,
+        =formats::countMatches("batches"),
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Triangle-strip batch overrides (MORB, Cata+); same count as
                         MOBA.)")]]
-      std::vector<RenderBatchOverride> batch_overrides;
+      std::vector<RenderBatchOverride> batchOverrides;
 
       [[
         =chunk("MOTA"),
         =since(builds::Cata),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(R"(Tangent arrays (MOTA, Cata+); offset-based layout, kept
                         opaque.)")]]
       ChunkBlob tangents;
@@ -103,10 +103,10 @@ namespace wowlib::formats::wmo::group {
       [[
         =chunk("MOBS"),
         =since(builds::Cata),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Shadow batches (MOBS, Cata+).")]]
-      std::vector<ShadowBatch> shadow_batches;
+      std::vector<ShadowBatch> shadowBatches;
     };
 
     /** MoP+ (5.0) group-body chunks. */
@@ -114,14 +114,14 @@ namespace wowlib::formats::wmo::group {
       [[
         =chunk("MDAL"),
         =since(builds::MoP),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Ambient color override (MDAL, MoP+); a single color in
                         practice, replacing the header ambient. wowdev dates it
                         to WoD but flags that unverified — a 5.4.8 corpus sweep
                         found 421 of these, while sampled Cata and WotLK groups
                         carry none.)")]]
-      std::vector<CArgb> ambient_color_override;
+      std::vector<CArgb> ambientColorOverride;
     };
 
     /** WoD+ (6.0) group-body chunks. */
@@ -129,39 +129,39 @@ namespace wowlib::formats::wmo::group {
       [[
         =chunk("MOPL"),
         =since(builds::WoD),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Terrain-cutting planes (MOPL, WoD+); requires the
                         can_cut_terrain flag, at most 32.)")]]
-      std::vector<C4Plane> terrain_cut_planes;
+      std::vector<C4Plane> terrainCutPlanes;
     };
 
-    /** Legion+ (7.0.1) group-body chunks. */
+    /** legion+ (7.0.1) group-body chunks. */
     struct GroupBodyLegion {
       [[
         =chunk("MOPB"),
         =since(builds::Legion_Alpha),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(R"(Prepass batches (MOPB, Legion+); undocumented 24-byte
                         records, kept opaque.)")]]
-      ChunkBlob prepass_batches;
+      ChunkBlob prepassBatches;
 
       [[
         =chunk("MOLS"),
         =since(builds::Legion_Alpha),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(
           R"(Spot lights (MOLS, Legion+); undocumented 56-byte records,
                         kept opaque.)")]]
-      ChunkBlob spot_lights;
+      ChunkBlob spotLights;
 
       [[
         =chunk("MOLP"),
         =since(builds::Legion_Alpha),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Point lights (MOLP, Legion+).")]]
-      std::vector<PointLight> point_lights;
+      std::vector<PointLight> pointLights;
     };
 
     /** 8.1+ group-body light-set chunks. */
@@ -169,39 +169,39 @@ namespace wowlib::formats::wmo::group {
       [[
         =chunk("MLSS"),
         =since(builds::BfA_TidesOfVengeance),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Spot-light sets (MLSS, 8.1+): (first, count) ranges into MOLS
                         per doodad set.)")]]
-      std::vector<LightSet> spot_light_sets;
+      std::vector<LightSet> spotLightSets;
 
       [[
         =chunk("MLSP"),
         =since(builds::BfA_TidesOfVengeance),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Point-light sets (MLSP, 8.1+): (first, count) ranges into
                         MOLP per doodad set.)")]]
-      std::vector<LightSet> point_light_sets;
+      std::vector<LightSet> pointLightSets;
 
       [[
         =chunk("MLSK"),
         =since(builds::BfA_TidesOfVengeance),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(R"(Point-light animation sets (MLSK, 8.1+): (first, count)
                         ranges into MOP2.)")]]
-      std::vector<LightSet> point_light_anim_sets;
+      std::vector<LightSet> pointLightAnimSets;
 
       [[
         =chunk("MOP2"),
         =since(builds::BfA_TidesOfVengeance),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Animated point lights (MOP2, 8.1+).")]]
-      std::vector<PointLightAnim> point_light_anims;
+      std::vector<PointLightAnim> pointLightAnims;
     };
 
     /** 8.3+ group-body chunks. */
@@ -209,11 +209,11 @@ namespace wowlib::formats::wmo::group {
       [[
         =chunk("MPVR"),
         =since(builds::BfA_VisionsOfNzoth_33775),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           "Particulate volume references (MPVR, 8.3+) into the root's MPVD.")]]
-      std::vector<std::uint16_t> particulate_refs;
+      std::vector<std::uint16_t> particulateRefs;
     };
 
     /** 9.0+ group-body chunks (large-mesh indices and the volume/light refs). */
@@ -221,56 +221,56 @@ namespace wowlib::formats::wmo::group {
       [[
         =chunk("MOVX"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
-        =formats::count_multiple_of(3),
+        =formats::Optional,
+        =formats::countMultipleOf(3),
         =formats::indexes("vertices"),
         =welder::mark::no_reassign,
         =welder::doc(
           R"(32-bit triangle vertex indices (MOVX, ~9.0+; the large-mesh
                         MOVI replacement).)")]]
-      std::vector<std::uint32_t> large_indices;
+      std::vector<std::uint32_t> largeIndices;
 
       [[
         =chunk("MAVR"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
-        =formats::indexes_in_root("ambient_volumes"),
+        =formats::Optional,
+        =formats::indexesInRoot("ambientVolumes"),
         =welder::mark::no_reassign,
         =welder::doc(
           "Ambient volume references (MAVR, 9.0+) into the root's MAVD.")]]
-      std::vector<std::uint16_t> ambient_volume_refs;
+      std::vector<std::uint16_t> ambientVolumeRefs;
 
       [[
         =chunk("MBVR"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
-        =formats::indexes_in_root("ambient_box_volumes"),
+        =formats::Optional,
+        =formats::indexesInRoot("ambientBoxVolumes"),
         =welder::mark::no_reassign,
         =welder::doc("Box volume references (MBVR, 9.0+) into the root's MBVD.")
       ]]
-      std::vector<std::uint16_t> box_volume_refs;
+      std::vector<std::uint16_t> boxVolumeRefs;
 
       [[
         =chunk("MFVR"),
         =since(builds::SL_Alpha_33978),
-        =formats::optional,
-        =formats::indexes_in_root("fogs"),
+        =formats::Optional,
+        =formats::indexesInRoot("fogs"),
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Fog volume references (MFVR, 9.0+) into the root's MFOG and
                         MFED.)")]]
-      std::vector<std::uint16_t> fog_volume_refs;
+      std::vector<std::uint16_t> fogVolumeRefs;
 
       [[
           =chunk("MNLR"),
           =since(builds::SL_Alpha_33978),
-          =formats::optional,
-          =formats::indexes_in_root("new_lights"),
+          =formats::Optional,
+          =formats::indexesInRoot("newLights"),
           =welder::mark::no_reassign,
           =welder::doc(
             "New-light references (MNLR, 9.0+) into the root's MNLD.")]
       ]
-      std::vector<std::uint16_t> new_light_refs;
+      std::vector<std::uint16_t> newLightRefs;
     };
 
     /** 10.0+ (Dragonflight) group-body query chunks. */
@@ -278,18 +278,18 @@ namespace wowlib::formats::wmo::group {
       [[
           =chunk("MOGX"),
           =since(builds::DF_Alpha),
-          =formats::optional,
+          =formats::Optional,
           =welder::mark::no_reassign,
           =welder::doc(
             R"(Query face start (MOGX, 10.0+): the base subtracted from a
                         polygon index into MOQG. A single value in practice.)")]
       ]
-      std::vector<std::uint32_t> query_face_start;
+      std::vector<std::uint32_t> queryFaceStart;
 
       [[
         =chunk("MPY2"),
         =since(builds::DF_Alpha),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           "Per-triangle material info v2 (MPY2, 10.0+; replaces MOPY).")]]
@@ -298,12 +298,12 @@ namespace wowlib::formats::wmo::group {
       [[
         =chunk("MOQG"),
         =since(builds::DF_Alpha),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Per-polygon ground types (MOQG, 10.0+), indexed by polygon
                         index minus the MOGX base.)")]]
-      std::vector<std::uint32_t> query_faces;
+      std::vector<std::uint32_t> queryFaces;
     };
   }
 
@@ -333,36 +333,36 @@ namespace wowlib::formats::wmo::group {
       ]] WMOGroupBody
       : ChunkedFile<WMOGroupBody<V>>,
         WMOGroupBodyBase,
-        slot<V, builds::Cata, GroupBodyCata>,
-        slot<V, builds::MoP, GroupBodyMop>,
-        slot<V, builds::WoD, GroupBodyWod>,
-        slot<V, builds::Legion_Alpha, GroupBodyLegion>,
-        slot<V, builds::BfA_TidesOfVengeance, GroupBody81>,
-        slot<V, builds::BfA_VisionsOfNzoth_33775, GroupBody83>,
-        slot<V, builds::SL_Alpha_33978, GroupBody90>,
-        slot<V, builds::DF_Alpha, GroupBody100> {
-      static constexpr ClientVersion version = V;
+        Slot<V, builds::Cata, GroupBodyCata>,
+        Slot<V, builds::MoP, GroupBodyMop>,
+        Slot<V, builds::WoD, GroupBodyWod>,
+        Slot<V, builds::Legion_Alpha, GroupBodyLegion>,
+        Slot<V, builds::BfA_TidesOfVengeance, GroupBody81>,
+        Slot<V, builds::BfA_VisionsOfNzoth_33775, GroupBody83>,
+        Slot<V, builds::SL_Alpha_33978, GroupBody90>,
+        Slot<V, builds::DF_Alpha, GroupBody100> {
+      static constexpr ClientVersion Version = V;
 
       [[
-        =formats::header,
+        =formats::Header,
         =welder::doc("The group header leading the MOGP payload.")]]
       SMOGroupHeader<V> header{};
 
-      // NOT count_matches("indices", 3): a 9.0+ large-mesh group carries its
+      // NOT countMatches("indices", 3): a 9.0+ large-mesh group carries its
       // indices in MOVX instead, leaving MOVI empty — the poly/face
       // relationship is checked against whichever list is active, in
-      // validate_extra.
+      // validateExtra.
       [[
         =chunk("MOPY"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Per-triangle material info (MOPY).")]]
       std::vector<SMOPoly> polys;
 
       [[
         =chunk("MOVI"),
-        =formats::optional,
-        =formats::count_multiple_of(3),
+        =formats::Optional,
+        =formats::countMultipleOf(3),
         =formats::indexes("vertices"),
         =welder::mark::no_reassign,
         =welder::doc("Triangle vertex indices (MOVI), three per triangle.")]]
@@ -370,24 +370,24 @@ namespace wowlib::formats::wmo::group {
 
       [[
         =chunk("MOVT"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Vertices (MOVT).")]]
       std::vector<C3Vector> vertices;
 
       [[
         =chunk("MONR"),
-        =formats::optional,
-        =formats::count_matches("vertices"),
+        =formats::Optional,
+        =formats::countMatches("vertices"),
         =welder::mark::no_reassign,
         =welder::doc("Normals (MONR).")]]
       std::vector<C3Vector> normals;
 
       [[
         =chunk("MOTV"),
-        =formats::optional,
+        =formats::Optional,
         =repeats(4),
-        =formats::count_matches("vertices"),
+        =formats::countMatches("vertices"),
         =welder::mark::only(welder::lang::py),
         =welder::doc(
           R"(Texture-coordinate sets (MOTV), up to four; the active count
@@ -401,66 +401,66 @@ namespace wowlib::formats::wmo::group {
 
       [[
         =chunk("MOBA"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Render batches (MOBA).")]]
       std::vector<SMOBatch<V>> batches;
 
       [[
         =chunk("MOLR"),
-        =formats::optional,
-        =formats::indexes_in_root("lights"),
+        =formats::Optional,
+        =formats::indexesInRoot("lights"),
         =welder::mark::no_reassign,
         =welder::doc("Light references into the root's MOLT (MOLR).")]]
-      std::vector<std::uint16_t> light_refs;
+      std::vector<std::uint16_t> lightRefs;
 
       [[
         =chunk("MODR"),
-        =formats::optional,
-        =formats::indexes_in_root("doodad_defs"),
+        =formats::Optional,
+        =formats::indexesInRoot("doodadDefs"),
         =welder::mark::no_reassign,
         =welder::doc("Doodad references into the root's MODD (MODR).")]]
-      std::vector<std::uint16_t> doodad_refs;
+      std::vector<std::uint16_t> doodadRefs;
 
       [[
         =chunk("MOBN"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Collision BSP nodes (MOBN).")]]
-      std::vector<CAaBspNode> bsp_nodes;
+      std::vector<CAaBspNode> bspNodes;
 
       [[
         =chunk("MOBR"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("BSP face indices (MOBR).")]]
-      std::vector<std::uint16_t> bsp_face_indices;
+      std::vector<std::uint16_t> bspFaceIndices;
 
       [[
         =chunk("MOCV"),
-        =formats::optional,
+        =formats::Optional,
         =repeats(2),
-        =formats::count_matches("vertices"),
+        =formats::countMatches("vertices"),
         =welder::mark::only(welder::lang::py),
         =welder::doc(
           R"(Vertex-color layers (MOCV), up to two; the active count is
                         driven by the group flags (has_vertex_colors, has_two_mocv).
                         Binds as a list of the filled layers, by value.)")]]
-      Repeated<std::vector<CImVector>, 2> vertex_colors;
+      Repeated<std::vector<CImVector>, 2> vertexColors;
 
       [[
         =chunk("MOC2"),
-        =formats::optional,
-        =formats::count_matches("vertices"),
+        =formats::Optional,
+        =formats::countMatches("vertices"),
         =welder::mark::no_reassign,
         =welder::doc(
           R"(Second vertex-color-like weights (MOC2), used by the parallax
                         and shader-23 materials.)")]]
-      std::vector<CImVector> vertex_colors2;
+      std::vector<CImVector> vertexColors2;
 
       [[
         =chunk("MLIQ"),
-        =formats::optional,
+        =formats::Optional,
         =welder::doc(
           R"(Liquid data (MLIQ): a vertex grid and tile-flag grid with a
                         base position and material id.)")]]
@@ -468,54 +468,54 @@ namespace wowlib::formats::wmo::group {
 
       [[
         =chunk("MORI"),
-        =formats::optional,
+        =formats::Optional,
         =welder::mark::no_reassign,
         =welder::doc("Triangle-strip indices (MORI).")]]
-      std::vector<std::uint16_t> trans_batch_indices;
+      std::vector<std::uint16_t> transBatchIndices;
 
       /** The canonical chunk-stream order the serializer emits a fresh entity in —
           decoupled from the by-trait flatten order of the version bases. Lists every
-          chunk member exactly once (checked at compile time by write_order). The
+          chunk member exactly once (checked at compile time by writeOrder). The
           header (MOGP prelude) is written ahead of the stream, so it is not listed.
 
           v14-alpha-only subchunks (MOLM/MOLD, MOIN, lightmap MOLV, MPB*) predate the
           supported range; anything else unmodeled round-trips via ChunkExtras. */
-      static constexpr std::array chunk_order = {
-        four_cc("MOGX"),
-        four_cc("MOPY"),
-        four_cc("MPY2"),
-        four_cc("MOVI"),
-        four_cc("MOVX"),
-        four_cc("MOVT"),
-        four_cc("MONR"),
-        four_cc("MOTV"),
-        four_cc("MOBA"),
-        four_cc("MOQG"),
-        four_cc("MOLR"),
-        four_cc("MODR"),
-        four_cc("MOBN"),
-        four_cc("MOBR"),
-        four_cc("MOCV"),
-        four_cc("MOC2"),
-        four_cc("MLIQ"),
-        four_cc("MORI"),
-        four_cc("MORB"),
-        four_cc("MOTA"),
-        four_cc("MOBS"),
-        four_cc("MDAL"),
-        four_cc("MOPL"),
-        four_cc("MOPB"),
-        four_cc("MOLS"),
-        four_cc("MOLP"),
-        four_cc("MLSS"),
-        four_cc("MLSP"),
-        four_cc("MLSK"),
-        four_cc("MOP2"),
-        four_cc("MPVR"),
-        four_cc("MAVR"),
-        four_cc("MBVR"),
-        four_cc("MFVR"),
-        four_cc("MNLR"),
+      static constexpr std::array ChunkOrder = {
+        fourCc("MOGX"),
+        fourCc("MOPY"),
+        fourCc("MPY2"),
+        fourCc("MOVI"),
+        fourCc("MOVX"),
+        fourCc("MOVT"),
+        fourCc("MONR"),
+        fourCc("MOTV"),
+        fourCc("MOBA"),
+        fourCc("MOQG"),
+        fourCc("MOLR"),
+        fourCc("MODR"),
+        fourCc("MOBN"),
+        fourCc("MOBR"),
+        fourCc("MOCV"),
+        fourCc("MOC2"),
+        fourCc("MLIQ"),
+        fourCc("MORI"),
+        fourCc("MORB"),
+        fourCc("MOTA"),
+        fourCc("MOBS"),
+        fourCc("MDAL"),
+        fourCc("MOPL"),
+        fourCc("MOPB"),
+        fourCc("MOLS"),
+        fourCc("MOLP"),
+        fourCc("MLSS"),
+        fourCc("MLSP"),
+        fourCc("MLSK"),
+        fourCc("MOP2"),
+        fourCc("MPVR"),
+        fourCc("MAVR"),
+        fourCc("MBVR"),
+        fourCc("MFVR"),
+        fourCc("MNLR"),
       };
 
       /** The number of triangle vertex indices the group's batches and BSP
@@ -524,128 +524,128 @@ namespace wowlib::formats::wmo::group {
           @return the active index count. */
       [[=welder::mark::exclude]]
       std::size_t active_index_count() const {
-        if constexpr (requires { this->large_indices; })
-          if (!this->large_indices.empty())
-            return this->large_indices.size();
+        if constexpr (requires { this->largeIndices; })
+          if (!this->largeIndices.empty())
+            return this->largeIndices.size();
         return indices.size();
       }
 
-      /** Validation hook (see detail::validate_entity): the group contracts
+      /** Validation hook (see detail::validateEntity): the group contracts
           the annotations cannot express — render-batch and BSP index ranges,
           light-set ranges, header-flag/chunk-presence coherence and the MLIQ
           grid arithmetic. Cross-entity contracts (references into the root)
           are the assembly's validate().
           @param report the report findings land in. */
       [[=welder::mark::exclude]]
-      void validate_extra(ValidationReport& report) const {
-        const std::size_t index_count = active_index_count();
+      void validateExtra(ValidationReport& report) const {
+        const std::size_t indexCount = active_index_count();
 
         // one per-triangle record per three indices, against whichever index
         // list is active (MOVI, or MOVX on a large mesh)
-        const auto per_triangle = [&](const auto& records,
+        const auto perTriangle = [&](const auto& records,
                                       std::string_view what) {
-          if (!records.empty() && records.size() * 3 != index_count)
-            report.add_error(std::string{what},
+          if (!records.empty() && records.size() * 3 != indexCount)
+            report.addError(std::string{what},
                              std::format(
                                "count {} x 3 != the {} active triangle indices",
-                               records.size(), index_count));
+                               records.size(), indexCount));
         };
-        per_triangle(polys, "polys");
+        perTriangle(polys, "polys");
         if constexpr (requires { this->polys2; })
-          per_triangle(this->polys2, "polys2");
+          perTriangle(this->polys2, "polys2");
 
-        // MOBA ranges: the client draws [start_index, start_index + count) and
-        // uploads vertices up to max_index
+        // MOBA ranges: the client draws [startIndex, startIndex + count) and
+        // uploads vertices up to maxIndex
         for (std::size_t i = 0; i < batches.size(); ++i) {
           const auto& batch = batches[i];
-          if (batch.start_index + batch.count > index_count)
-            report.add_error(std::format("batches[{}]", i),
+          if (batch.startIndex + batch.count > indexCount)
+            report.addError(std::format("batches[{}]", i),
                              std::format(
                                "index range [{}, {}) overruns the {} indices",
-                               batch.start_index,
-                               batch.start_index + batch.count,
-                               index_count));
-          if (batch.min_index > batch.max_index)
-            report.add_error(std::format("batches[{}]", i),
+                               batch.startIndex,
+                               batch.startIndex + batch.count,
+                               indexCount));
+          if (batch.minIndex > batch.maxIndex)
+            report.addError(std::format("batches[{}]", i),
                              std::format("min_index {} > max_index {}",
-                                         batch.min_index,
-                                         batch.max_index));
-          else if (!vertices.empty() && batch.max_index >= vertices.size())
-            report.add_error(std::format("batches[{}]", i),
+                                         batch.minIndex,
+                                         batch.maxIndex));
+          else if (!vertices.empty() && batch.maxIndex >= vertices.size())
+            report.addError(std::format("batches[{}]", i),
                              std::format(
                                "max_index {} out of range: {} vertices",
-                               batch.max_index, vertices.size()));
+                               batch.maxIndex, vertices.size()));
         }
 
         // the header's batch partition counts what MOBA holds
-        const std::size_t declared_batches = static_cast<std::size_t>(header.
-            trans_batch_count)
-          + header.int_batch_count + header.ext_batch_count;
-        if (declared_batches != batches.size())
-          report.add_error("header",
+        const std::size_t declaredBatches = static_cast<std::size_t>(header.
+            transBatchCount)
+          + header.intBatchCount + header.extBatchCount;
+        if (declaredBatches != batches.size())
+          report.addError("header",
                            std::format("batch counts {}+{}+{} != {} batches",
-                                       header.trans_batch_count,
-                                       header.int_batch_count,
-                                       header.ext_batch_count, batches.size()));
+                                       header.transBatchCount,
+                                       header.intBatchCount,
+                                       header.extBatchCount, batches.size()));
 
         // BSP: leaves reference faces through MOBR; children index MOBN
-        const std::size_t face_count = index_count / 3;
-        formats::detail::validate_index_elements(
-          bsp_face_indices, face_count, "bsp_face_indices",
+        const std::size_t faceCount = indexCount / 3;
+        formats::detail::validateIndexElements(
+          bspFaceIndices, faceCount, "bspFaceIndices",
           "faces", report);
-        for (std::size_t i = 0; i < bsp_nodes.size(); ++i) {
-          const auto& node = bsp_nodes[i];
-          for (const std::int16_t child : {node.neg_child, node.pos_child})
-            if (child != -1 && static_cast<std::size_t>(child) >= bsp_nodes.
+        for (std::size_t i = 0; i < bspNodes.size(); ++i) {
+          const auto& node = bspNodes[i];
+          for (const std::int16_t child : {node.negChild, node.posChild})
+            if (child != -1 && static_cast<std::size_t>(child) >= bspNodes.
               size())
-              report.add_error(std::format("bsp_nodes[{}]", i),
+              report.addError(std::format("bsp_nodes[{}]", i),
                                std::format("child {} out of range: {} nodes",
                                            child,
-                                           bsp_nodes.size()));
-          if (node.face_start + node.n_faces > bsp_face_indices.size())
-            report.add_error(std::format("bsp_nodes[{}]", i),
+                                           bspNodes.size()));
+          if (node.faceStart + node.nFaces > bspFaceIndices.size())
+            report.addError(std::format("bsp_nodes[{}]", i),
                              std::format(
                                "face range [{}, {}) overruns the {} face indices",
-                               node.face_start, node.face_start + node.n_faces,
-                               bsp_face_indices.size()));
+                               node.faceStart, node.faceStart + node.nFaces,
+                               bspFaceIndices.size()));
         }
 
-        // header flags vs chunk presence: the base has_vertex_colors flag with
+        // header flags vs chunk presence: the base HasVertexColors flag with
         // NO layer at all makes the client consume absent data (error); the
         // multi-layer flags fall short in real files (corpus: a BfA kultiras
-        // group ships has_two_mocv with a single layer), so a shortfall there
+        // group ships HasTwoMocv with a single layer), so a shortfall there
         // only warns
-        const auto flag_wants = [&](GroupFlags flag,
+        const auto flagWants = [&](GroupFlags flag,
                                     std::size_t have,
                                     std::size_t want,
                                     std::string_view what,
                                     ValidationSeverity severity) {
-          if (has_flag(header.flags, flag) && have < want)
+          if (hasFlag(header.flags, flag) && have < want)
             report.add(severity, std::string{what},
                        std::format(
                          "group flag {:#x} is set but only {} of {} {} present",
                          std::to_underlying(flag), have, want, what));
         };
-        flag_wants(GroupFlags::has_vertex_colors, vertex_colors.size(), 1,
-                   "vertex_colors",
-                   ValidationSeverity::error);
-        flag_wants(GroupFlags::has_two_mocv, vertex_colors.size(), 2,
-                   "vertex_colors",
-                   ValidationSeverity::warning);
-        flag_wants(GroupFlags::has_two_motv, texcoords.size(), 2, "texcoords",
-                   ValidationSeverity::warning);
-        flag_wants(GroupFlags::has_three_motv, texcoords.size(), 3, "texcoords",
-                   ValidationSeverity::warning);
-        if (!vertex_colors.empty() && !has_flag(
-          header.flags, GroupFlags::has_vertex_colors))
-          report.add_warning("vertex_colors",
+        flagWants(GroupFlags::HasVertexColors, vertexColors.size(), 1,
+                   "vertexColors",
+                   ValidationSeverity::Error);
+        flagWants(GroupFlags::HasTwoMocv, vertexColors.size(), 2,
+                   "vertexColors",
+                   ValidationSeverity::Warning);
+        flagWants(GroupFlags::HasTwoMotv, texcoords.size(), 2, "texcoords",
+                   ValidationSeverity::Warning);
+        flagWants(GroupFlags::HasThreeMotv, texcoords.size(), 3, "texcoords",
+                   ValidationSeverity::Warning);
+        if (!vertexColors.empty() && !hasFlag(
+          header.flags, GroupFlags::HasVertexColors))
+          report.addWarning("vertexColors",
                              "present but the has_vertex_colors group flag is clear");
 
         // MLIQ: the grids must match their declared dimensions, and the flag
         // decides whether the client reads the chunk at all
         if (!liquid.empty()) {
           const auto expect = [&](const auto& grid,
-                                  const C2iVector& dim,
+                                  const C2IVector& dim,
                                   std::string_view what) {
             const std::size_t cells =
               dim.x < 0 || dim.y < 0
@@ -653,58 +653,58 @@ namespace wowlib::formats::wmo::group {
                 : static_cast<std::size_t>(dim.x) * static_cast<std::size_t>(dim
                   .y);
             if (grid.size() != cells)
-              report.add_error(std::format("liquid.{}", what),
+              report.addError(std::format("liquid.{}", what),
                                std::format("count {} != {}x{} grid",
                                            grid.size(), dim.x, dim.y));
           };
-          expect(liquid.vertices, liquid.verts_dim, "vertices");
-          expect(liquid.tiles, liquid.tiles_dim, "tiles");
-          if (liquid.verts_dim.x != liquid.tiles_dim.x + 1
-            || liquid.verts_dim.y != liquid.tiles_dim.y + 1)
-            report.add_error("liquid",
+          expect(liquid.vertices, liquid.vertsDim, "vertices");
+          expect(liquid.tiles, liquid.tilesDim, "tiles");
+          if (liquid.vertsDim.x != liquid.tilesDim.x + 1
+            || liquid.vertsDim.y != liquid.tilesDim.y + 1)
+            report.addError("liquid",
                              std::format(
                                "vertex grid {}x{} is not one larger per axis than the "
                                "tile grid {}x{}",
-                               liquid.verts_dim.x, liquid.verts_dim.y,
-                               liquid.tiles_dim.x, liquid.tiles_dim.y));
-          if (!has_flag(header.flags, GroupFlags::has_liquid))
-            report.add_warning("liquid",
+                               liquid.vertsDim.x, liquid.vertsDim.y,
+                               liquid.tilesDim.x, liquid.tilesDim.y));
+          if (!hasFlag(header.flags, GroupFlags::HasLiquid))
+            report.addWarning("liquid",
                                "present but the has_liquid group flag is clear");
         }
 
         // WoD+ terrain-cut planes: the client caps them at 32 and gates on flags2
-        if constexpr (requires { this->terrain_cut_planes; }) {
-          if (this->terrain_cut_planes.size() > 32)
-            report.add_error("terrain_cut_planes",
+        if constexpr (requires { this->terrainCutPlanes; }) {
+          if (this->terrainCutPlanes.size() > 32)
+            report.addError("terrainCutPlanes",
                              std::format(
                                "{} planes exceed the client's cap of 32",
-                               this->terrain_cut_planes.size()));
-          if (!this->terrain_cut_planes.empty()
-            && !has_flag(header.flags2, GroupFlags2::can_cut_terrain))
-            report.add_warning("terrain_cut_planes",
+                               this->terrainCutPlanes.size()));
+          if (!this->terrainCutPlanes.empty()
+            && !hasFlag(header.flags2, GroupFlags2::CanCutTerrain))
+            report.addWarning("terrainCutPlanes",
                                "present but the can_cut_terrain flag2 is clear");
         }
 
         // 8.1+ light sets: (offset, count) ranges into their referenced chunks
-        if constexpr (requires { this->point_light_sets; }) {
-          const auto set_ranges = [&](const auto& sets,
+        if constexpr (requires { this->pointLightSets; }) {
+          const auto setRanges = [&](const auto& sets,
                                       const auto& target,
                                       std::string_view member,
                                       std::string_view what) {
             for (std::size_t i = 0; i < sets.size(); ++i)
               if (sets[i].offset + sets[i].count > target.size())
-                report.add_error(std::format("{}[{}]", member, i),
+                report.addError(std::format("{}[{}]", member, i),
                                  std::format(
                                    "range [{}, {}) overruns the {} {}",
                                    sets[i].offset,
                                    sets[i].offset + sets[i].count,
                                    target.size(), what));
           };
-          set_ranges(this->point_light_sets, this->point_lights,
-                     "point_light_sets",
+          setRanges(this->pointLightSets, this->pointLights,
+                     "pointLightSets",
                      "point lights");
-          set_ranges(this->point_light_anim_sets, this->point_light_anims,
-                     "point_light_anim_sets", "animated point lights");
+          setRanges(this->pointLightAnimSets, this->pointLightAnims,
+                     "pointLightAnimSets", "animated point lights");
         }
       }
     };
@@ -723,20 +723,20 @@ namespace wowlib::formats::wmo::group {
           the 3D model data for one unit of a world map object. See
           https://wowdev.wiki/WMO.)")
       ]] WMOGroup : ChunkedFile<WMOGroup<V>>, WMOGroupBase {
-      static constexpr ClientVersion version = V;
+      static constexpr ClientVersion Version = V;
 
       [[
         =chunk("MVER"),
-        =formats::expected_value(wmo_version_v17),
+        =formats::expectedValue(WmoVersionV17),
         =welder::doc("The WMO format version; 17 for every supported client.")]]
-      std::uint32_t mver = wmo_version_v17;
+      std::uint32_t mver = WmoVersionV17;
 
       [[
         =chunk("MOGP"),
-        =formats::container,
+        =formats::Container,
         =welder::doc("The MOGP container: group header and geometry.")]]
       // the raw sibling is intentional: WMOGroup and WMOGroupBody share
-      // wmo_group_pivots, so at a canonical V they are the same type the
+      // WmoGroupPivots, so at a canonical V they are the same type the
       // canonicalizing alias would name
       WMOGroupBody<V> body{};
     };
@@ -744,15 +744,15 @@ namespace wowlib::formats::wmo::group {
 
   /** The MOGP payload — the canonicalizing face of detail::WMOGroupBody:
       every client version maps to its range's first grid version
-      (wmo_group_pivots). */
+      (WmoGroupPivots). */
   template <ClientVersion V>
   using WMOGroupBody =
-  group::detail::WMOGroupBody<canonical_version(V, wmo_group_pivots,
-                                                wmo_versions)>;
+  group::detail::WMOGroupBody<canonicalVersion(V, WmoGroupPivots,
+                                                WmoVersions)>;
 
   /** One WMO group file — the canonicalizing face of detail::WMOGroup
       (same pivots as the body it contains). */
   template <ClientVersion V>
   using WMOGroup =
-  group::detail::WMOGroup<canonical_version(V, wmo_group_pivots, wmo_versions)>;
+  group::detail::WMOGroup<canonicalVersion(V, WmoGroupPivots, WmoVersions)>;
 }

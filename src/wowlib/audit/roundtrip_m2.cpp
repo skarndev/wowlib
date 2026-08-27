@@ -27,12 +27,12 @@ namespace {
       @param first  the buffers of the first write.
       @param second the buffers of the second write.
       @return a description of the first mismatch, or nullopt when equal. */
-  std::optional<std::string> compare_anim_captures(const std::map<std::size_t, FileBuffer>& first,
+  std::optional<std::string> compareAnimCaptures(const std::map<std::size_t, FileBuffer>& first,
                                                    const std::map<std::size_t, FileBuffer>& second) {
     for (const auto& [index, buffer] : first) {
       const auto it = second.find(index);
       if (it == second.end()) return std::format("anim {} missing from the rewrite", index);
-      if (auto divergence = audit::detail::first_divergence(buffer, it->second)) return std::format(
+      if (auto divergence = audit::detail::firstDivergence(buffer, it->second)) return std::format(
         "anim {}: {}", index, *divergence);
     }
     for (const auto& [index, buffer] : second)
@@ -47,90 +47,90 @@ namespace {
       @return the outcome (chunk-stream and skeleton unknown chunks tallied
               where the era has them). */
   template <ClientVersion V>
-  RoundtripReport roundtrip_m2(fs::FileSystem& fs, const std::string& path) {
+  RoundtripReport roundtripM2(fs::FileSystem& fs, const std::string& path) {
     RoundtripReport report;
 
     // Pre-classify the body bytes: classic clients ship zero-byte placeholder
     // models, and Legion+ content can sit behind unknown TACT keys — both are
     // skips. The assembly read below re-reads the body; that is cheap.
-    if (auto outcome = audit::detail::classify_read(report, "read", fs.read_file(FileKey{path}))) return *outcome;
+    if (auto outcome = audit::detail::classifyRead(report, "read", fs.readFile(FileKey{path}))) return *outcome;
 
     m2::M2 < V > model;
     if (auto r = model.read(fs, FileKey{path}); !r) {
       // Satellite files (.skin/.anim/.skel) can be individually encrypted.
       if (r.error().code == ErrorCode::EncryptedContent) return audit::detail::skipped("encrypted");
-      return audit::detail::fail_with(report, "read", r.error().message);
+      return audit::detail::failWith(report, "read", r.error().message);
     }
 
     // skel-based models keep the external-data gating sequences in the
     // skeleton, and their bone/attachment blocks round-trip separately
-    const auto* gate_sequences = &model.root.sequences;
-    bool has_skel = false;
+    const auto* gateSequences = &model.root.sequences;
+    bool hasSkel = false;
     if constexpr (requires { model.chunks; }) {
       // The M2 file family stores its chunk ids forward, unlike every other
       // chunk format — tally them unreversed (PFDC, not "CDFP").
-      audit::detail::tally_unknown(report, model.chunks, formats::FourCCEndian::forward);
-      has_skel = !model.chunks.skeleton_fdid.empty() && model.chunks.skeleton_fdid.front() != 0;
-      if (has_skel) {
-        gate_sequences = &model.skel.sequence_block.sequences;
-        audit::detail::tally_unknown(report, model.skel, formats::FourCCEndian::forward);
+      audit::detail::tallyUnknown(report, model.chunks, formats::FourCCEndian::Forward);
+      hasSkel = !model.chunks.skeletonFdid.empty() && model.chunks.skeletonFdid.front() != 0;
+      if (hasSkel) {
+        gateSequences = &model.skel.sequenceBlock.sequences;
+        audit::detail::tallyUnknown(report, model.skel, formats::FourCCEndian::Forward);
       }
     }
 
     // write an offset entity splitting external sequences out per index, parse
     // it back resolving those buffers, write again with a fresh capture, and
     // byte-compare both the entity images and the captured .anim buffers
-    const auto resplit_stability = [&](const auto& entity, const char* what) -> std::optional<RoundtripReport> {
+    const auto resplitStability = [&](const auto& entity, const char* what) -> std::optional<RoundtripReport> {
       using Entity = std::remove_cvref_t<decltype(entity)>;
 
-      const auto sink_into = [&](std::map<std::size_t, FileBuffer>& anim_out) {
-        return [&anim_out, gate_sequences](std::size_t i) -> FileBuffer* {
-          if (i >= gate_sequences->size()) return nullptr;
-          const auto& s = (*gate_sequences)[i];
-          if (!s.owns_anim_file()) return nullptr;
-          return &anim_out[i];
+      const auto sinkInto = [&](std::map<std::size_t, FileBuffer>& animOut) {
+        return [&animOut, gateSequences](std::size_t i) -> FileBuffer* {
+          if (i >= gateSequences->size()) return nullptr;
+          const auto& s = (*gateSequences)[i];
+          if (!s.ownsAnimFile()) return nullptr;
+          return &animOut[i];
         };
       };
 
-      std::map<std::size_t, FileBuffer> anims_first;
-      m2::OffsetWriteContext first_ctx;
-      first_ctx.sequence_sink = sink_into(anims_first);
-      const auto first = entity.write(first_ctx);
+      std::map<std::size_t, FileBuffer> animsFirst;
+      m2::OffsetWriteContext firstCtx;
+      firstCtx.sequenceSink = sinkInto(animsFirst);
+      const auto first = entity.write(firstCtx);
       if (!first)
-        return audit::detail::fail_with(report, std::format("{} write", what), first.error().message);
+        return audit::detail::failWith(report, std::format("{} write", what), first.error().message);
 
-      const std::span<const std::byte> first_span{*first};
-      m2::OffsetReadContext read_ctx;
-      read_ctx.sequence_base = [& ](std::size_t i) -> std::span<const std::byte> {
-        const auto it = anims_first.find(i);
-        if (it == anims_first.end()) return first_span;
+      const std::span<const std::byte> firstSpan{*first};
+      m2::OffsetReadContext readCtx;
+      readCtx.sequenceBase = [& ](std::size_t i) -> std::span<const std::byte> {
+        const auto it = animsFirst.find(i);
+        if (it == animsFirst.end()) return firstSpan;
         return std::span<const std::byte>{it->second};
       };
       Entity reparsed;
-      if (auto r = reparsed.read(first_span, read_ctx); !r)
-        return audit::detail::fail_with(report, std::format("{} reparse", what), r.error().message);
+      if (auto r = reparsed.read(firstSpan, readCtx); !r)
+        return audit::detail::failWith(report, std::format("{} reparse", what), r.error().message);
 
-      std::map<std::size_t, FileBuffer> anims_second;
-      m2::OffsetWriteContext second_ctx;
-      second_ctx.sequence_sink = sink_into(anims_second);
-      const auto second = reparsed.write(second_ctx);
+      std::map<std::size_t, FileBuffer> animsSecond;
+      m2::OffsetWriteContext secondCtx;
+      secondCtx.sequenceSink = sinkInto(animsSecond);
+      const auto second = reparsed.write(secondCtx);
       if (!second)
-        return audit::detail::fail_with(report, std::format("{} rewrite", what), second.error().message);
+        return audit::detail::failWith(report, std::format("{} rewrite", what), second.error().message);
 
-      if (auto divergence = audit::detail::first_divergence(*first, *second))
-        return audit::detail::fail_with(report, std::format("{} compare", what), *divergence);
-      if (auto mismatch = compare_anim_captures(anims_first, anims_second))
-        return audit::detail::fail_with(report, std::format("{} anim compare", what), *mismatch);
+      if (auto divergence = audit::detail::firstDivergence(*first, *second))
+        return audit::detail::failWith(report, std::format("{} compare", what), *divergence);
+      if (auto mismatch = compareAnimCaptures(animsFirst, animsSecond))
+        return audit::detail::failWith(report, std::format("{} anim compare", what), *mismatch);
       return std::nullopt;
     };
 
-    if (auto fail = resplit_stability(model.root, "body")) return *fail;
+    if (auto fail = resplitStability(model.root, "body")) return *fail;
 
     if constexpr (requires { model.skel; })
-      if (has_skel) {
-        if (auto fail = resplit_stability(model.skel.bone_block, "SKB1")) return *fail;
-        if (auto fail = resplit_stability(model.skel.attachment_block, "SKA1")) return *fail;
-        if (auto fail = resplit_stability(model.skel.sequence_block, "SKS1")) return *fail;
+      if (hasSkel) {
+        if (auto fail = resplitStability(model.skel.boneBlock, "SKB1")) return *fail;
+        if (auto fail = resplitStability(model.skel.attachmentBlock, "SKA1")) return *fail;
+        if (auto fail = resplitStability(model.skel.sequenceBlock, "SKS1")) return *fail;
       }
 
     // every external skin write-stabilizes too (pre-WotLK skins are embedded
@@ -140,15 +140,15 @@ namespace {
         using Skin = std::remove_cvref_t<decltype(model.skins[i])>;
         const auto first = model.skins[i].write();
         if (!first)
-          return audit::detail::fail_with(report, std::format("skin {} write", i), first.error().message);
+          return audit::detail::failWith(report, std::format("skin {} write", i), first.error().message);
         Skin reparsed;
         if (auto r = reparsed.read(std::span<const std::byte>{*first}); !r)
-          return audit::detail::fail_with(report, std::format("skin {} reparse", i), r.error().message);
+          return audit::detail::failWith(report, std::format("skin {} reparse", i), r.error().message);
         const auto second = reparsed.write();
         if (!second)
-          return audit::detail::fail_with(report, std::format("skin {} rewrite", i), second.error().message);
-        if (auto divergence = audit::detail::first_divergence(*first, *second))
-          return audit::detail::fail_with(report, std::format("skin {} compare", i), *divergence);
+          return audit::detail::failWith(report, std::format("skin {} rewrite", i), second.error().message);
+        if (auto divergence = audit::detail::firstDivergence(*first, *second))
+          return audit::detail::failWith(report, std::format("skin {} compare", i), *divergence);
       }
 
     return report;
@@ -158,12 +158,12 @@ namespace {
 namespace wowlib::audit::detail {
   RoundtripReport FormatDrivers::m2(fs::FileSystem& fs, const std::string& path, ClientVersion version) {
     RoundtripReport report = skipped("unsupported-version");
-    const bool matched = with_version(version, [&]<ClientVersion V>() {
-      if constexpr (version_supported(formats::m2::m2_versions, V)) report = guarded([&] {
-        return roundtrip_m2<V>(fs, path);
+    const bool matched = withVersion(version, [&]<ClientVersion V>() {
+      if constexpr (versionSupported(formats::m2::M2Versions, V)) report = guarded([&] {
+        return roundtripM2<V>(fs, path);
       });
     });
-    if (!matched) return unrecognized_version(version);
+    if (!matched) return unrecognizedVersion(version);
     return report;
   }
 }

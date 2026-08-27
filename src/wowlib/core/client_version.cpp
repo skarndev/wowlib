@@ -9,14 +9,14 @@
 namespace wowlib {
   std::ostream& operator<<(std::ostream& out, const ClientVersion& version) {
     out << version.major << '.' << version.minor << '.' << version.patch << '.' << version.build;
-    if (version.is_classic()) out << " (" << enum_name(version.flavor) << ')';
+    if (version.isClassic()) out << " (" << enumName(version.flavor) << ')';
     return out;
   }
 
   namespace {
     // CASC_LOCALE_* values from CascLib (CascPort.h); kept here so the public header
     // does not include CascLib.
-    constexpr std::array<std::pair<std::string_view, std::uint32_t>, 12> locale_table{
+    constexpr std::array<std::pair<std::string_view, std::uint32_t>, 12> LocaleTable{
       {
         {"enUS", 0x00000002},
         {"koKR", 0x00000004},
@@ -33,7 +33,7 @@ namespace wowlib {
       }
     };
 
-    constexpr std::size_t locale_index(Locale locale) {
+    constexpr std::size_t localeIndex(Locale locale) {
       switch (locale) {
       case Locale::enUS: return 0;
       case Locale::koKR: return 1;
@@ -52,11 +52,11 @@ namespace wowlib {
     }
   }
 
-  std::string_view locale_code(Locale locale) {
-    return locale_table[locale_index(locale)].first;
+  std::string_view localeCode(Locale locale) {
+    return LocaleTable[localeIndex(locale)].first;
   }
 
-  std::optional<Locale> locale_from_code(std::string_view code) {
+  std::optional<Locale> localeFromCode(std::string_view code) {
     constexpr std::array locales{
       Locale::enUS,
       Locale::koKR,
@@ -71,12 +71,12 @@ namespace wowlib {
       Locale::ptBR,
       Locale::itIT
     };
-    for (std::size_t i = 0; i < locale_table.size(); ++i)
-      if (locale_table[i].first == code) return locales[i];
+    for (std::size_t i = 0; i < LocaleTable.size(); ++i)
+      if (LocaleTable[i].first == code) return locales[i];
     return std::nullopt;
   }
 
-  std::uint32_t casc_locale_flag(Locale locale) {
-    return locale_table[locale_index(locale)].second;
+  std::uint32_t cascLocaleFlag(Locale locale) {
+    return LocaleTable[localeIndex(locale)].second;
   }
 }

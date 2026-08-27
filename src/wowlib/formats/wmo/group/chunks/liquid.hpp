@@ -64,7 +64,7 @@ namespace wowlib::formats::wmo::group::chunks {
 
     [[=welder::doc(
       "Water: flow-1 percentage. Magma/slime: low byte of int16 t.")]]
-    std::uint8_t flow1_pct = 0;
+    std::uint8_t flow1Pct = 0;
 
     [[=welder::doc("Water: filler. Magma/slime: high byte of int16 t.")]]
     std::uint8_t filler = 0;
@@ -76,11 +76,11 @@ namespace wowlib::formats::wmo::group::chunks {
     [[=welder::doc("Reinterpret this vertex under the magma/slime reading "
       "(int16 s, t texcoords). A pure byte reinterpretation; use "
       "it only when the group's liquid type is magma or slime.")]]
-    SMOMVert as_magma() const { return std::bit_cast<SMOMVert>(*this); }
+    SMOMVert asMagma() const { return std::bit_cast<SMOMVert>(*this); }
 
     [[=welder::doc("Overwrite this vertex's bytes from a magma/slime reading.")]
     ]
-    void set_magma(const SMOMVert& magma) {
+    void setMagma(const SMOMVert& magma) {
       *this = std::bit_cast<SMOLVert>(magma);
     }
   };
@@ -108,18 +108,18 @@ namespace wowlib::formats::wmo::group::chunks {
         vertices and tiles_dim.x*tiles_dim.y tile bytes.)")
     ]] MLIQData {
     [[=welder::doc("Vertex grid dimensions (xverts, yverts).")]]
-    C2iVector verts_dim{};
+    C2IVector vertsDim{};
 
     [[=welder::doc("Tile grid dimensions (xtiles, ytiles); one less than the "
       "vertex dimensions in each axis.")]]
-    C2iVector tiles_dim{};
+    C2IVector tilesDim{};
 
     [[=welder::doc("Grid origin in group space.")]]
-    C3Vector base_coords{};
+    C3Vector baseCoords{};
 
     [[=welder::doc("Liquid material id: an MOMT index, or a LiquidType id when "
       "the root's use_liquid_type_dbc_id flag is set.")]]
-    std::uint16_t material_id = 0;
+    std::uint16_t materialId = 0;
 
     [[=welder::doc("verts_dim.x * verts_dim.y liquid vertices, row-major."),
       =welder::mark::no_reassign]]
@@ -132,7 +132,7 @@ namespace wowlib::formats::wmo::group::chunks {
     /** The on-disk header size: four 4-byte ints, a 12-byte vector and a 2-byte
         material id, with no trailing padding — unlike sizeof(a natural struct),
         which would pad the material id up to a 4-byte boundary. */
-    static constexpr std::size_t header_size = 30;
+    static constexpr std::size_t HeaderSize = 30;
 
     /** Decode the MLIQ payload (the serializer's read hook). Reads the 30-byte
         header field-by-field, derives the two array lengths from it and copies
@@ -142,37 +142,37 @@ namespace wowlib::formats::wmo::group::chunks {
                 it describes; success otherwise. */
     [[=welder::mark::exclude]]
     Result<void> read(std::span<const std::byte> payload) {
-      if (payload.size() < header_size)
-        return make_error(ErrorCode::ChunkTruncated,
+      if (payload.size() < HeaderSize)
+        return makeError(ErrorCode::ChunkTruncated,
                           std::format("MLIQ header needs {} bytes, got {}",
-                                      header_size, payload.size()));
+                                      HeaderSize, payload.size()));
 
-      std::memcpy(&verts_dim, payload.data() + 0, sizeof verts_dim);
-      std::memcpy(&tiles_dim, payload.data() + 8, sizeof tiles_dim);
-      std::memcpy(&base_coords, payload.data() + 16, sizeof base_coords);
-      std::memcpy(&material_id, payload.data() + 28, sizeof material_id);
+      std::memcpy(&vertsDim, payload.data() + 0, sizeof vertsDim);
+      std::memcpy(&tilesDim, payload.data() + 8, sizeof tilesDim);
+      std::memcpy(&baseCoords, payload.data() + 16, sizeof baseCoords);
+      std::memcpy(&materialId, payload.data() + 28, sizeof materialId);
 
-      const std::size_t n_verts =
-        static_cast<std::size_t>(verts_dim.x) * static_cast<std::size_t>(
-          verts_dim.y);
-      const std::size_t n_tiles =
-        static_cast<std::size_t>(tiles_dim.x) * static_cast<std::size_t>(
-          tiles_dim.y);
+      const std::size_t nVerts =
+        static_cast<std::size_t>(vertsDim.x) * static_cast<std::size_t>(
+          vertsDim.y);
+      const std::size_t nTiles =
+        static_cast<std::size_t>(tilesDim.x) * static_cast<std::size_t>(
+          tilesDim.y);
       const std::size_t need =
-        header_size + n_verts * sizeof(SMOLVert) + n_tiles * sizeof(SMOLTile);
+        HeaderSize + nVerts * sizeof(SMOLVert) + nTiles * sizeof(SMOLTile);
       if (payload.size() < need)
-        return make_error(ErrorCode::ChunkTruncated,
+        return makeError(ErrorCode::ChunkTruncated,
                           std::format("MLIQ body needs {} bytes ({} verts, {} "
                                       "tiles), got {}",
-                                      need, n_verts, n_tiles, payload.size()));
+                                      need, nVerts, nTiles, payload.size()));
 
-      vertices.resize(n_verts);
-      std::memcpy(vertices.data(), payload.data() + header_size,
-                  n_verts * sizeof(SMOLVert));
-      tiles.resize(n_tiles);
+      vertices.resize(nVerts);
+      std::memcpy(vertices.data(), payload.data() + HeaderSize,
+                  nVerts * sizeof(SMOLVert));
+      tiles.resize(nTiles);
       std::memcpy(tiles.data(),
-                  payload.data() + header_size + n_verts * sizeof(SMOLVert),
-                  n_tiles * sizeof(SMOLTile));
+                  payload.data() + HeaderSize + nVerts * sizeof(SMOLVert),
+                  nTiles * sizeof(SMOLTile));
       return {};
     }
 
@@ -186,10 +186,10 @@ namespace wowlib::formats::wmo::group::chunks {
         const auto* b = reinterpret_cast<const std::byte*>(&field);
         out.insert(out.end(), b, b + sizeof field);
       };
-      put(verts_dim);
-      put(tiles_dim);
-      put(base_coords);
-      put(material_id);
+      put(vertsDim);
+      put(tilesDim);
+      put(baseCoords);
+      put(materialId);
 
       const auto* vb = reinterpret_cast<const std::byte*>(vertices.data());
       out.insert(out.end(), vb, vb + vertices.size() * sizeof(SMOLVert));

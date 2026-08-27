@@ -3,11 +3,11 @@
 /** @file
     @brief Per-RANGE welded alias tables for the WMO template surface.
 
-    Each family's X-macro lists one row per REAL content permutation —
-    X(Suffix, version) with the range's canonical grid version — and drives
+    Each family's x-macro lists one row per REAL content permutation —
+    x(Suffix, version) with the range's canonical grid version — and drives
     the welded aliases here plus the instantiation matrix in wmo_matrix.inl.
     Every table is consteval-checked against the family's pivots
-    (ranges_valid in wmo::detail below). Extending the version list means
+    (rangesValid in wmo::detail below). Extending the version list means
     revisiting the pivot lists in formats/wmo/boundaries.hpp; the checks then
     dictate the rows.
 
@@ -18,41 +18,41 @@
 
 #include <wowlib/formats/wmo/wmo.hpp>
 
-#define WOWLIB_WMO_RANGES_ROOT(X)                                                                  \
-  X(VanillaToWod, vanilla)                                                                         \
-  X(Legion, legion)                                                                                \
-  X(Bfa, bfa)                                                                                      \
-  X(ShadowlandsToDragonflight, shadowlands)                                                        \
-  X(TheWarWithin, tww)
+#define WOWLIB_WMO_RANGES_ROOT(x)                                                                  \
+  x(VanillaToWod, Vanilla)                                                                         \
+  x(Legion, Legion)                                                                                \
+  x(Bfa, Bfa)                                                                                      \
+  x(ShadowlandsToDragonflight, Shadowlands)                                                        \
+  x(TheWarWithin, Tww)
 
-#define WOWLIB_WMO_RANGES_GROUP(X)                                                                 \
-  X(VanillaToWotlk, vanilla)                                                                       \
-  X(Cata, cata)                                                                                    \
-  X(Mop, mop)                                                                                      \
-  X(Wod, wod)                                                                                      \
-  X(Legion, legion)                                                                                \
-  X(Bfa, bfa)                                                                                      \
-  X(Shadowlands, shadowlands)                                                                      \
-  X(DragonflightPlus, dragonflight)
+#define WOWLIB_WMO_RANGES_GROUP(x)                                                                 \
+  x(VanillaToWotlk, Vanilla)                                                                       \
+  x(Cata, Cata)                                                                                    \
+  x(Mop, Mop)                                                                                      \
+  x(Wod, Wod)                                                                                      \
+  x(Legion, Legion)                                                                                \
+  x(Bfa, Bfa)                                                                                      \
+  x(Shadowlands, Shadowlands)                                                                      \
+  x(DragonflightPlus, Dragonflight)
 
-#define WOWLIB_WMO_RANGES_GROUP_HEADER(X)                                                          \
-  X(VanillaToBfa, vanilla)                                                                         \
-  X(ShadowlandsPlus, shadowlands)
+#define WOWLIB_WMO_RANGES_GROUP_HEADER(x)                                                          \
+  x(VanillaToBfa, Vanilla)                                                                         \
+  x(ShadowlandsPlus, Shadowlands)
 
-#define WOWLIB_WMO_RANGES_BATCH(X)                                                                 \
-  X(VanillaToWod, vanilla)                                                                         \
-  X(LegionPlus, legion)
+#define WOWLIB_WMO_RANGES_BATCH(x)                                                                 \
+  x(VanillaToWod, Vanilla)                                                                         \
+  x(LegionPlus, Legion)
 
-#define WOWLIB_WMO_RANGES_ASSEMBLY(X)                                                              \
-  X(VanillaToWotlk, vanilla)                                                                       \
-  X(Cata, cata)                                                                                    \
-  X(Mop, mop)                                                                                      \
-  X(Wod, wod)                                                                                      \
-  X(Legion, legion)                                                                                \
-  X(Bfa, bfa)                                                                                      \
-  X(Shadowlands, shadowlands)                                                                      \
-  X(Dragonflight, dragonflight)                                                                    \
-  X(TheWarWithin, tww)
+#define WOWLIB_WMO_RANGES_ASSEMBLY(x)                                                              \
+  x(VanillaToWotlk, Vanilla)                                                                       \
+  x(Cata, Cata)                                                                                    \
+  x(Mop, Mop)                                                                                      \
+  x(Wod, Wod)                                                                                      \
+  x(Legion, Legion)                                                                                \
+  x(Bfa, Bfa)                                                                                      \
+  x(Shadowlands, Shadowlands)                                                                      \
+  x(Dragonflight, Dragonflight)                                                                    \
+  x(TheWarWithin, Tww)
 
 // The bindings surface for the versioned templates: welder welds a
 // class-template instantiation through a namespace-scope alias, whose
@@ -97,26 +97,26 @@ namespace wowlib::formats::wmo
   namespace detail
   {
     // Range-table validation: every family's rows must exactly enumerate the
-    // distinct canonicals of the grid, with the suffix range_suffix derives.
+    // distinct canonicals of the grid, with the suffix rangeSuffix derives.
 #define WOWLIB_WMO_RANGE_ROW(Suffix, version_)                                                     \
   ::wowlib::formats::RangeRow{#Suffix, ::wowlib::versions::version_},
 
-    inline constexpr std::array wmo_root_rows{WOWLIB_WMO_RANGES_ROOT(WOWLIB_WMO_RANGE_ROW)};
-    static_assert(ranges_valid(wmo_root_rows, wmo_root_pivots, wmo_versions),
+    inline constexpr std::array WmoRootRows{WOWLIB_WMO_RANGES_ROOT(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(rangesValid(WmoRootRows, WmoRootPivots, WmoVersions),
                   "WOWLIB_WMO_RANGES_ROOT drifted from wmo_root_pivots");
-    inline constexpr std::array wmo_group_rows{WOWLIB_WMO_RANGES_GROUP(WOWLIB_WMO_RANGE_ROW)};
-    static_assert(ranges_valid(wmo_group_rows, wmo_group_pivots, wmo_versions),
+    inline constexpr std::array WmoGroupRows{WOWLIB_WMO_RANGES_GROUP(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(rangesValid(WmoGroupRows, WmoGroupPivots, WmoVersions),
                   "WOWLIB_WMO_RANGES_GROUP drifted from wmo_group_pivots");
-    inline constexpr std::array wmo_group_header_rows{
+    inline constexpr std::array WmoGroupHeaderRows{
       WOWLIB_WMO_RANGES_GROUP_HEADER(WOWLIB_WMO_RANGE_ROW)};
-    static_assert(ranges_valid(wmo_group_header_rows, wmo_group_header_pivots, wmo_versions),
+    static_assert(rangesValid(WmoGroupHeaderRows, WmoGroupHeaderPivots, WmoVersions),
                   "WOWLIB_WMO_RANGES_GROUP_HEADER drifted from wmo_group_header_pivots");
-    inline constexpr std::array wmo_batch_rows{WOWLIB_WMO_RANGES_BATCH(WOWLIB_WMO_RANGE_ROW)};
-    static_assert(ranges_valid(wmo_batch_rows, wmo_batch_pivots, wmo_versions),
+    inline constexpr std::array WmoBatchRows{WOWLIB_WMO_RANGES_BATCH(WOWLIB_WMO_RANGE_ROW)};
+    static_assert(rangesValid(WmoBatchRows, WmoBatchPivots, WmoVersions),
                   "WOWLIB_WMO_RANGES_BATCH drifted from wmo_batch_pivots");
-    inline constexpr std::array wmo_assembly_rows{
+    inline constexpr std::array WmoAssemblyRows{
       WOWLIB_WMO_RANGES_ASSEMBLY(WOWLIB_WMO_RANGE_ROW)};
-    static_assert(ranges_valid(wmo_assembly_rows, wmo_assembly_pivots, wmo_versions),
+    static_assert(rangesValid(WmoAssemblyRows, WmoAssemblyPivots, WmoVersions),
                   "WOWLIB_WMO_RANGES_ASSEMBLY drifted from wmo_assembly_pivots");
 #undef WOWLIB_WMO_RANGE_ROW
   }
