@@ -96,7 +96,7 @@ TEST_CASE("A synthetic WotLK ADT round-trips through a buffer", "[adt][roundtrip
 
   ADT<versions::Wotlk> b;
   b.alphaFormat = a.alphaFormat;
-  REQUIRE(b.parse_file(*buf, FileKind::Monolithic).has_value());
+  REQUIRE(b.parseFile(*buf, FileKind::Monolithic).has_value());
 
   REQUIRE(b.chunks.size() == 256);
   CHECK(b.chunks[0].heights.size() == 145);

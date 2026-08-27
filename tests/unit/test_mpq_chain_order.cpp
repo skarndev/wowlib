@@ -35,7 +35,7 @@ namespace
     }
 
     // A loose-file folder standing in for an archive of that name.
-    void add_dir(std::string_view relative)
+    void addDir(std::string_view relative)
     {
       fsys::create_directories(root / relative);
     }
@@ -147,7 +147,7 @@ TEST_CASE("directory-backed patches join the chain and sort like archives",
   data.add("common.MPQ");
   data.add("enUS/locale-enUS.MPQ");
   data.add("patch.MPQ");
-  data.add_dir("patch-4.MPQ");   // a loose-file folder in place of an archive
+  data.addDir("patch-4.MPQ");   // a loose-file folder in place of an archive
   data.add("patch-9.MPQ");
 
   const auto chain =

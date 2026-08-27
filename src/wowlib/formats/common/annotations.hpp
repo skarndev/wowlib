@@ -208,7 +208,7 @@ namespace wowlib::formats {
       (PVMI/PVPD/PVBD) are the motivating cases. Interleaving with other
       repeating chunks round-trips through the journal; fresh entities emit a
       member's elements consecutively unless the entity resequences its
-      journal (see writeEntity's resequenced_journal hook). */
+      journal (see writeEntity's resequencedJournal hook). */
   inline constexpr detail::RepeatingSpec Repeating{};
 
   /** Mark an offset-entity member (a nested `std::vector<std::vector<T>>`,

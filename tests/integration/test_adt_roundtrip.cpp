@@ -122,7 +122,7 @@ namespace
     adt::ADT<V> b;
     b.alphaFormat = af;
     {
-      const auto r = b.parse_file(*buf, adt::FileKind::Monolithic);
+      const auto r = b.parseFile(*buf, adt::FileKind::Monolithic);
       INFO((r ? std::string{} : r.error().message));
       REQUIRE(r.has_value());
     }
@@ -160,7 +160,7 @@ namespace
     {
       const auto buf = a.writeFile(kind, af);
       REQUIRE(buf.has_value());
-      const auto r = b.parse_file(*buf, kind);
+      const auto r = b.parseFile(*buf, kind);
       INFO((r ? std::string{} : r.error().message));
       REQUIRE(r.has_value());
     }

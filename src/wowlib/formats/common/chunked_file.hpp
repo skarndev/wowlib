@@ -363,7 +363,7 @@ namespace wowlib::formats {
 
       /** Emit a chunk header with a placeholder size.
           @param fourcc the chunk id, in disk layout.
-          @return the placeholder's buffer position, for end_chunk(). */
+          @return the placeholder's buffer position, for endChunk(). */
       std::size_t beginChunk(std::uint32_t fourcc) {
         append(&fourcc, sizeof fourcc);
         const std::size_t sizeAt = _out.size();
@@ -375,7 +375,7 @@ namespace wowlib::formats {
       /** Backpatch the size of the chunk opened at @a sizeAt with the byte
           count appended since.
           @param sizeAt the value beginChunk() returned. */
-      void end_chunk(std::size_t sizeAt) {
+      void endChunk(std::size_t sizeAt) {
         const auto size = static_cast<std::uint32_t>(_out.size() - sizeAt - sizeof(std::uint32_t));
         std::memcpy(_out.data() + sizeAt, &size, sizeof size);
       }
@@ -508,15 +508,15 @@ namespace wowlib::formats {
       const std::size_t imageStart = out.size();
 
       // Journal resequencing: an entity may declare
-      //   Result<std::optional<std::vector<JournalEntry>>> resequenced_journal() const
+      //   Result<std::optional<std::vector<JournalEntry>>> resequencedJournal() const
       // to replace the replay order for THIS write — nullopt keeps the stored
       // journal. WDL uses it to interleave its per-tile repeating chunks
       // (MARE/MAHO) once tiles were added or removed, where the stored journal
       // no longer matches the entity's content.
       std::vector<JournalEntry> resequenced;
       std::span<const JournalEntry> journal{entity.journal};
-      if constexpr (requires { entity.resequenced_journal(); }) {
-        auto r = entity.resequenced_journal();
+      if constexpr (requires { entity.resequencedJournal(); }) {
+        auto r = entity.resequencedJournal();
         if (!r) return std::unexpected{r.error()};
         if (*r) {
           resequenced = std::move(**r);
@@ -550,17 +550,17 @@ namespace wowlib::formats {
                 if (auto r = detail::writeValue(entity.[:m:][occurrence], out); !r) return r;
               }
               else if (auto r = detail::writeValue(entity.[:m:], out); !r) return r;
-              writer.end_chunk(sizeAt);
+              writer.endChunk(sizeAt);
               // Derived-field stamping: an entity may declare
-              //   void patch_chunk(std::uint32_t fourcc, std::span<std::byte>) const
+              //   void patchChunk(std::uint32_t fourcc, std::span<std::byte>) const
               // to overwrite binary fields whose source of truth is other
               // members (e.g. WMORoot stamping the MOHD counts from its
               // vectors). The hook sees the finished payload in place, so
               // write() stays const and entity state is untouched.
               if constexpr (requires {
-                entity.patch_chunk(std::uint32_t{}, std::span<std::byte>{});
+                entity.patchChunk(std::uint32_t{}, std::span<std::byte>{});
               })
-                entity.patch_chunk(spec->magic, std::span<std::byte>{
+                entity.patchChunk(spec->magic, std::span<std::byte>{
                                      out.data() + sizeAt + sizeof(std::uint32_t),
                                      out.size() - sizeAt - sizeof(std::uint32_t)
                                    });
@@ -580,7 +580,7 @@ namespace wowlib::formats {
           const UnknownChunk& u = entity.unknown[entry.occurrence];
           const std::size_t sizeAt = writer.beginChunk(u.fourcc);
           writer.append(u.bytes.data(), u.bytes.size());
-          writer.end_chunk(sizeAt);
+          writer.endChunk(sizeAt);
         }
         else if (auto r = emit(entry.member, entry.occurrence); !r) return r;
       }
@@ -613,23 +613,23 @@ namespace wowlib::formats {
       writer.append(entity.trailing.data(), entity.trailing.size());
 
       // Whole-image stamping: an entity may declare
-      //   Result<void> patch_file(std::span<std::byte>) const
+      //   Result<void> patchFile(std::span<std::byte>) const
       // to overwrite binary fields whose source of truth is the finished LAYOUT —
-      // fields patch_chunk cannot serve because they reference bytes written
+      // fields patchChunk cannot serve because they reference bytes written
       // after their own chunk (WDL's MAOF table of absolute MARE offsets; the
       // ADT header offsets later). The hook sees this entity's complete
       // serialized image in place.
       if constexpr (requires(std::span<std::byte> image) {
-        { entity.patch_file(image) } -> std::same_as<Result<void>>;
+        { entity.patchFile(image) } -> std::same_as<Result<void>>;
       })
-        if (auto r = entity.patch_file(std::span<std::byte>{out.data() + imageStart, out.size() - imageStart}); !r)
+        if (auto r = entity.patchFile(std::span<std::byte>{out.data() + imageStart, out.size() - imageStart}); !r)
           return r;
       return {};
     }
 
     /** The flattened member index (a JournalEntry::member value) of the chunk
         member carrying @a magic, or -1 when no member does. For entity code
-        that builds journal entries by fourcc (resequenced_journal hooks).
+        that builds journal entries by fourcc (resequencedJournal hooks).
         @tparam E     the entity type.
         @param  magic the chunk id (see fourCc()). */
     template <typename E>
@@ -643,7 +643,7 @@ namespace wowlib::formats {
     /** The journal a FRESH write of @a entity would produce: one entry per
         engaged (or required) chunk member in canonical write order, repeated/
         repeating members expanded to one entry per element, no unknown-chunk
-        or trailing entries. The starting point for a resequenced_journal hook,
+        or trailing entries. The starting point for a resequencedJournal hook,
         which reorders it (and re-appends the preserved unknown chunks) before
         handing it to writeEntity.
         @param entity the entity to enumerate.

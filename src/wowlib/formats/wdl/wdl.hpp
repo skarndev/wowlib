@@ -10,8 +10,8 @@
     MAOC/MAOE record) follows. The per-tile chunks are `repeating` members —
     the i-th heightmap belongs to the i-th nonzero MAOF slot in row-major
     order — and two serializer hooks keep the offset machinery honest:
-    resequenced_journal() rebuilds the emission order (interleaving each
-    tile's chunks) once tiles were added or removed, and patch_file() stamps
+    resequencedJournal() rebuilds the emission order (interleaving each
+    tile's chunks) once tiles were added or removed, and patchFile() stamps
     the MAOF offsets into the finished image, so they are always derived,
     never stale. An entity read from a client and left unmodified rewrites
     byte-for-byte. */
@@ -365,7 +365,7 @@ namespace wowlib::formats::wdl {
 
       /** The canonical chunk-stream order the serializer emits a fresh entity
           in (see writeOrder); the per-tile interleave is produced by
-          resequenced_journal(), not this table. Lists every chunk member
+          resequencedJournal(), not this table. Lists every chunk member
           exactly once. */
       static constexpr std::array ChunkOrder = {
         fourCc("MVER"),
@@ -402,14 +402,14 @@ namespace wowlib::formats::wdl {
                         to oceanMasks), derived from the read file's chunk
                         interleave. Empty when there are no ocean masks.)"),
         =welder::returns("one heightmap ordinal per ocean mask")]]
-      std::vector<std::uint32_t> ocean_mask_tiles() const;
+      std::vector<std::uint32_t> oceanMaskTiles() const;
 
       /** Validation hook (see formats::detail::validateValue): the tile-table
           pairing invariants — the MAOF table's shape, and the ordinal pairing
           that makes the i-th nonzero slot own the i-th heightmap. These are
           the SAME contracts the write path must hold to lay out a rebuilt
           journal, so write() checks them through this hook rather than
-          restating them (see resequenced_journal).
+          restating them (see resequencedJournal).
           @param report the report findings land in. */
       [[=welder::mark::exclude]]
       void validateExtra(ValidationReport& report) const;
@@ -424,7 +424,7 @@ namespace wowlib::formats::wdl {
                   otherwise, or the validation error. */
       [[=welder::mark::exclude]]
       Result<std::optional<std::vector<JournalEntry>>>
-      resequenced_journal() const;
+      resequencedJournal() const;
 
       /** Serializer hook (see writeEntity): stamp the MAOF table in the
           finished image — the i-th nonzero slot receives the i-th MARE
@@ -432,7 +432,7 @@ namespace wowlib::formats::wdl {
           @param image this entity's complete serialized image.
           @return nothing, or the pairing-mismatch error. */
       [[=welder::mark::exclude]]
-      Result<void> patch_file(std::span<std::byte> image) const;
+      Result<void> patchFile(std::span<std::byte> image) const;
 
       [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc("Load the WDL from a client filesystem, replacing this "
@@ -468,7 +468,7 @@ namespace wowlib::formats::wdl {
 // instantiations; the bindings expand the full matrix in their own TUs.
 namespace wowlib::formats::wdl {
   template <ClientVersion V>
-  std::vector<std::uint32_t> detail::WDL<V>::ocean_mask_tiles() const {
+  std::vector<std::uint32_t> detail::WDL<V>::oceanMaskTiles() const {
     std::vector<std::uint32_t> out;
     if constexpr (requires { this->oceanMasks; }) {
       constexpr auto mareIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MARE"));
@@ -528,7 +528,7 @@ namespace wowlib::formats::wdl {
   }
 
   template <ClientVersion V>
-  Result<std::optional<std::vector<JournalEntry>>> detail::WDL<V>::resequenced_journal() const {
+  Result<std::optional<std::vector<JournalEntry>>> detail::WDL<V>::resequencedJournal() const {
     constexpr auto mareIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MARE"));
     constexpr auto mahoIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MAHO"));
     constexpr auto maoeIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MAOE"));
@@ -630,7 +630,7 @@ namespace wowlib::formats::wdl {
   }
 
   template <ClientVersion V>
-  Result<void> detail::WDL<V>::patch_file(std::span<std::byte> image) const {
+  Result<void> detail::WDL<V>::patchFile(std::span<std::byte> image) const {
     constexpr std::uint32_t maofCc = fourCc("MAOF");
     constexpr std::uint32_t mareCc = fourCc("MARE");
 

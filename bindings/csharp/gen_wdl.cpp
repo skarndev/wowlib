@@ -18,7 +18,7 @@
 
 namespace wowlib_cs
 {
-  void contribute_wdl(::welder::rods::csharp::document& doc)
+  void contributeWdl(::welder::rods::csharp::document& doc)
   {
     namespace wcs = ::welder::rods::csharp;
     using W = ::welder::welder<wcs::rod, wcs::dotnet>;

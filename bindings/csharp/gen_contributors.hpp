@@ -19,9 +19,9 @@ namespace welder::inline v0::rods::csharp
 
 namespace wowlib_cs
 {
-  void contribute_wmo(::welder::rods::csharp::document& doc);
-  void contribute_m2(::welder::rods::csharp::document& doc);
-  void contribute_adt(::welder::rods::csharp::document& doc);
-  void contribute_wdt(::welder::rods::csharp::document& doc);
-  void contribute_wdl(::welder::rods::csharp::document& doc);
+  void contributeWmo(::welder::rods::csharp::document& doc);
+  void contributeM2(::welder::rods::csharp::document& doc);
+  void contributeAdt(::welder::rods::csharp::document& doc);
+  void contributeWdt(::welder::rods::csharp::document& doc);
+  void contributeWdl(::welder::rods::csharp::document& doc);
 }

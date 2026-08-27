@@ -523,7 +523,7 @@ namespace wowlib::formats::wmo::group {
           otherwise.
           @return the active index count. */
       [[=welder::mark::exclude]]
-      std::size_t active_index_count() const {
+      std::size_t activeIndexCount() const {
         if constexpr (requires { this->largeIndices; })
           if (!this->largeIndices.empty())
             return this->largeIndices.size();
@@ -538,7 +538,7 @@ namespace wowlib::formats::wmo::group {
           @param report the report findings land in. */
       [[=welder::mark::exclude]]
       void validateExtra(ValidationReport& report) const {
-        const std::size_t indexCount = active_index_count();
+        const std::size_t indexCount = activeIndexCount();
 
         // one per-triangle record per three indices, against whichever index
         // list is active (MOVI, or MOVX on a large mesh)

@@ -484,7 +484,7 @@ namespace wowlib::formats::wmo::root {
           @param fourcc  the emitted chunk's id, in disk layout.
           @param payload the finished chunk payload, patched in place. */
       [[=welder::mark::exclude]]
-      void patch_chunk(std::uint32_t fourcc, std::span<std::byte> payload) const {
+      void patchChunk(std::uint32_t fourcc, std::span<std::byte> payload) const {
         if (fourcc != fourCc("MOHD") || payload.size() < sizeof(SMOHeader)) return;
         SMOHeader h;
         std::memcpy(&h, payload.data(), sizeof h);
@@ -497,7 +497,7 @@ namespace wowlib::formats::wmo::root {
       /** Validation hook (see detail::validateEntity): the root contracts the
           annotations cannot express — doodad-set/portal/visible-block ranges,
           string-block references and the doodad name/FileDataID resolution.
-          The MOHD counts patch_chunk derives (nGroups, nPortals,
+          The MOHD counts patchChunk derives (nGroups, nPortals,
           nDoodadSets) need no check — every write restamps them — and the
           counts real files ship stale (nTextures, nLights, nDoodadDefs,
           nDoodadNames; see SMOHeader) are deliberately not validated.

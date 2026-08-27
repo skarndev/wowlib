@@ -109,7 +109,7 @@ namespace {
 
     adt::ADT < V > reparsed;
     reparsed.alphaFormat = alpha;
-    if (auto r = reparsed.parse_file(*first, adt::FileKind::Monolithic); !r) return audit::detail::failWith(
+    if (auto r = reparsed.parseFile(*first, adt::FileKind::Monolithic); !r) return audit::detail::failWith(
       report, "reparse", r.error().message);
 
     const auto second = reparsed.writeFile(adt::FileKind::Monolithic, alpha);
@@ -152,7 +152,7 @@ namespace {
       auto first = tile.writeFile(kinds[i], alpha);
       if (!first)
         return audit::detail::failWith(report, std::format("write ({})", names[i]), first.error().message);
-      if (auto r = reparsed.parse_file(*first, kinds[i]); !r)
+      if (auto r = reparsed.parseFile(*first, kinds[i]); !r)
         return audit::detail::failWith(report, std::format("reparse ({})", names[i]), r.error().message);
       firsts[i] = std::move(*first);
     }

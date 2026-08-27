@@ -43,7 +43,7 @@ namespace wowlib::formats::wmo::root::chunks {
         "The MOHD root header: entity counts, ambient color, bounds and "
         "root-wide flags.")
     ]] SMOHeader {
-    // Three of the seven counts are DERIVED binary fields: WMORoot::patch_chunk
+    // Three of the seven counts are DERIVED binary fields: WMORoot::patchChunk
     // stamps nGroups/nPortals/nDoodadSets from the owning tables on write
     // and the bindings hide them — the containers are the single source of
     // truth (surveyed across both test clients: every file agrees). The other

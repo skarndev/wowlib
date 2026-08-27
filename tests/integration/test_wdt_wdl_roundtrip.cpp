@@ -191,7 +191,7 @@ namespace
     if constexpr (requires { entity.holes; })
       CHECK(entity.holes.size() == entity.heightmaps.size());
     if constexpr (requires { entity.oceanMasks; })
-      CHECK(entity.ocean_mask_tiles().size() == entity.oceanMasks.size());
+      CHECK(entity.oceanMaskTiles().size() == entity.oceanMasks.size());
 
     requireRoundtrip(entity, *raw, label, gUnknownHistogramWdl);
   }

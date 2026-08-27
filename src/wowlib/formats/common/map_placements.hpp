@@ -64,7 +64,7 @@ namespace wowlib::formats::common {
     ]] SMMapObjDef {
     [[=welder::doc(
       R"(The object: an MWID/MWMO name-table reference, or a FileDataID
-                      when flags has entry_is_fdid (Legion+). The WDT global-WMO
+                      when flags has EntryIsFdid (Legion+). The WDT global-WMO
                       record ignores it and uses the MWMO content.)")]]
     std::uint32_t nameId = 0;
 

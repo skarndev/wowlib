@@ -14,10 +14,10 @@
     chunks live in conditionally-inherited trait bases (adt::detail).
 
     Even though ADT is NOT a ChunkedFile (the MCNK stream needs a multi-arg
-    per-file read_from, merges across files, and routes chunks to different
+    per-file readFrom, merges across files, and routes chunks to different
     physical files on write — none of which the chunk engine expresses; see
     adt-architecture.md), the TILE-LEVEL chunks are uniform, so their members
-    carry `chunk()` + `inFile()` annotations and parse_file/writeFile are driven
+    carry `chunk()` + `inFile()` annotations and parseFile/writeFile are driven
     by reflection over them. MCNK and the derived MHDR/MCIN offset tables are the
     only hand-written cases.
 
@@ -351,7 +351,7 @@ namespace wowlib::formats::adt {
           @param kind which split file it is.
           @return a structural error or success. */
       [[=welder::mark::exclude]]
-      Result<void> parse_file(std::span<const std::byte> data, FileKind kind);
+      Result<void> parseFile(std::span<const std::byte> data, FileKind kind);
 
       /** Serialize one physical file of the tile (monolithic pre-Cata, or one of
           root/_tex0/_obj0), routing each `chunk()`-annotated member by its
@@ -363,14 +363,14 @@ namespace wowlib::formats::adt {
       Result<FileBuffer> writeFile(FileKind kind, AlphaFormat alpha) const;
 
     private:
-      /** Normalize every chunk's do_not_fix_alpha flag to set (we hold full 64x64
+      /** Normalize every chunk's DoNotFixAlphaMap flag to set (we hold full 64x64
           maps): called once after all of a tile's files are read. */
-      void normalize_chunks();
+      void normalizeChunks();
 
       /** Zero the MHDR chunk offsets after reading it: they describe an on-disk
           layout wowlib re-derives on write, so keeping them would make the
           semantic round-trip compare layout artifacts. Flags and MAMP stay. */
-      void _normalize_mhdr() {
+      void _normalizeMhdr() {
         header.ofsMcin = header.ofsMtex = header.ofsMmdx = header.ofsMmid = 0;
         header.ofsMwmo = header.ofsMwid = header.ofsMddf = header.ofsModf = 0;
         header.ofsMfbo = header.ofsMh2O = header.ofsMtxf = 0;
@@ -437,7 +437,7 @@ namespace wowlib::formats::adt {
 
   namespace detail {
     template <ClientVersion V>
-    void ADT<V>::normalize_chunks() {
+    void ADT<V>::normalizeChunks() {
       for (auto& chunk : chunks)
         chunk.header.flags |= std::to_underlying(MapChunkFlags::DoNotFixAlphaMap);
     }
@@ -508,7 +508,7 @@ namespace wowlib::formats::adt {
     }
 
     template <ClientVersion V>
-    Result<void> ADT<V>::parse_file(std::span<const std::byte> data, FileKind kind) {
+    Result<void> ADT<V>::parseFile(std::span<const std::byte> data, FileKind kind) {
       using Self = ADT<V>;
       static constexpr auto Members = formats::detail::membersOf<Self>();
 
@@ -525,10 +525,10 @@ namespace wowlib::formats::adt {
         pos += 8 + size;
 
         // MCNK is the one non-reflective chunk: 256 repeats, each a per-file
-        // portion merged into a MapChunk via read_from.
+        // portion merged into a MapChunk via readFrom.
         if (magic == fourCc("MCNK")) {
           if (chunks.size() < chunkIndex + 1) chunks.resize(chunkIndex + 1);
-          if (auto r = chunks[chunkIndex].read_from(payload, kind, alphaFormat); !r) return r;
+          if (auto r = chunks[chunkIndex].readFrom(payload, kind, alphaFormat); !r) return r;
           ++chunkIndex;
           continue;
         }
@@ -548,7 +548,7 @@ namespace wowlib::formats::adt {
               outcome = formats::detail::readValue(this->[:m:], payload, magic, pos, spec->endian);
               // the two members that need a post-read fix-up: MHDR's derived
               // offsets are zeroed, and MDID flips the texture-scheme flag.
-              if constexpr (std::meta::identifier_of(m) == "header") _normalize_mhdr();
+              if constexpr (std::meta::identifier_of(m) == "header") _normalizeMhdr();
               else if constexpr (std::meta::identifier_of(m) == "diffuseTextureIds")
                 if constexpr (requires { this->usesTextureFdids; }) this->usesTextureFdids = true;
             }
@@ -601,7 +601,7 @@ namespace wowlib::formats::adt {
         if (want == fourCc("MCNK")) {
           for (std::size_t i = 0; i < chunks.size() && i < 256; ++i) {
             const std::size_t at = _emitChunk(out, want, [&] {
-              if (auto r = chunks[i].write_to(out, kind, alpha); !r) err = r.error();
+              if (auto r = chunks[i].writeTo(out, kind, alpha); !r) err = r.error();
             });
             mcnkLoc[i] = {at, out.size() - (at + 8)};
           }
@@ -675,8 +675,8 @@ namespace wowlib::formats::adt {
         // The pre-Cata tile is a single monolithic .adt carrying every chunk.
         return fs.readFile(key).and_then([&](FileBuffer data) -> Result<void> {
           chunks.assign(256, adt::MapChunk<V>{});
-          if (auto r = parse_file(data, FileKind::Monolithic); !r) return r;
-          normalize_chunks();
+          if (auto r = parseFile(data, FileKind::Monolithic); !r) return r;
+          normalizeChunks();
           return {};
         });
       }
@@ -698,7 +698,7 @@ namespace wowlib::formats::adt {
         const auto rootData = fs.readFile(key);
         if (!rootData) return std::unexpected{rootData.error()};
         chunks.assign(256, adt::MapChunk<V>{});
-        if (auto r = parse_file(*rootData, FileKind::Root); !r) return r;
+        if (auto r = parseFile(*rootData, FileKind::Root); !r) return r;
 
         const auto load = [&](std::string_view suffix, FileKind fk) -> Result<void> {
           const FileKey k{sibling(suffix)};
@@ -706,7 +706,7 @@ namespace wowlib::formats::adt {
           const auto data = fs.readFile(k);
           if (!data)
             return makeError(data.error().code, std::format("{} split file: {}", suffix, data.error().message));
-          return parse_file(*data, fk);
+          return parseFile(*data, fk);
         };
         if (auto r = load("_tex0", FileKind::Tex0); !r) return r;
         if (auto r = load("_obj0", FileKind::Obj0); !r) return r;
@@ -722,7 +722,7 @@ namespace wowlib::formats::adt {
           keep("_lod", this->lodData);
         }
 
-        normalize_chunks();
+        normalizeChunks();
         return {};
       }
     }

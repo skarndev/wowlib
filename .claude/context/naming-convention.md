@@ -73,3 +73,19 @@ single-word Pascal (`Vanilla`, `Wotlk` — NOT `WotLK`, whose camel-split
 bindings/instantiations/*_ranges.hpp rows are `x(Suffix, Era)` — the second
 arg is the `versions::` constant (Pascal); the Suffix builds the welded alias
 (`ADTVanilla`) and is Python-facing.
+
+## The inspection has FALSE NEGATIVES (Nova parser blind spots)
+CppInconsistentNaming only reports what the ReSharper resolver successfully
+analyzed. In the version-slot entity headers (adt.hpp, map_chunk.hpp, m2.hpp —
+the files with class-type-NTTP template-ids, the same construct behind the
+`< V >` formatter bug) whole line ranges produce no analysis: run 1 flagged
+adt.hpp lines 299 and 386+ but NOTHING in 300–385, silently skipping
+`parse_file`, `normalize_chunks`, `_normalize_mhdr` (same class, neighbors
+flagged). casc_storage.cpp was skipped wholesale in run 1 and appeared in
+run 2. A grep-based residual pass (multiword snake declarations) found ~45
+survivors, renamed 2026-08-27. After ANY future inspection-driven sweep, run a
+grep pass too — zero warnings does NOT mean zero violations in these files.
+
+Additional protocol keep: SharedMutex's `lock`/`try_lock`/`unlock`/
+`lock_shared`/`try_lock_shared`/`unlock_shared` are the std Lockable /
+SharedLockable named requirements (std::shared_lock duck-types on them).

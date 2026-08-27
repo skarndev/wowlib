@@ -41,11 +41,11 @@ int main(int argc, char** argv)
 
   wcs::document doc = wcs::rod::begin_document(std::move(opts));
   wcs::rod::contribute_namespace<^^wowlib>(doc);
-  wowlib_cs::contribute_wmo(doc);
-  wowlib_cs::contribute_m2(doc);
-  wowlib_cs::contribute_adt(doc);
-  wowlib_cs::contribute_wdt(doc);
-  wowlib_cs::contribute_wdl(doc);
+  wowlib_cs::contributeWmo(doc);
+  wowlib_cs::contributeM2(doc);
+  wowlib_cs::contributeAdt(doc);
+  wowlib_cs::contributeWdt(doc);
+  wowlib_cs::contributeWdl(doc);
   wcs::rod::render_files(doc, argc > 1 ? argv[1] : "shim.cpp",
                          argc > 2 ? argv[2] : "Bindings.cs");
   return 0;

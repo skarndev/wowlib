@@ -94,7 +94,7 @@ namespace wowlib::db::wdc {
           // zeros); a key-flagged section with real bytes was decrypted by
           // the storage and decodes normally.
           if (sec.encrypted && db::detail::allZero(sec.records)) {
-            report_encrypted(sec, state);
+            reportEncrypted(sec, state);
             continue;
           }
           if (auto r = _decodeSection(sec); !r) return r;
@@ -108,7 +108,7 @@ namespace wowlib::db::wdc {
           for WDC3 the section's idList is the best available source).
           @param sec   the skipped section.
           @param state the preserved-state store. */
-      void report_encrypted(const WdcSection& sec, TableState& state) const {
+      void reportEncrypted(const WdcSection& sec, TableState& state) const {
         EncryptedSection report{.keyHash = sec.header.tactKeyHash, .recordCount = sec.header.recordCount};
         if (!sec.encryptedIds.empty()) report.ids = sec.encryptedIds;
         else {
@@ -141,8 +141,8 @@ namespace wowlib::db::wdc {
             _decodeRecord(rec, recordBytes, recordBlob, id);
           }
         }
-        apply_relationship(sec, first);
-        expand_copies(sec);
+        applyRelationship(sec, first);
+        expandCopies(sec);
         return {};
       }
 
@@ -165,7 +165,7 @@ namespace wowlib::db::wdc {
             return makeError(ErrorCode::TableTruncated,
                               std::format("{}: sparse record {} at {:#x} overruns the file", _info.name, r, offset));
           const std::size_t rec = _sink.add();
-          decode_sparse_record(rec, _img.file.subspan(offset, size), id);
+          decodeSparseRecord(rec, _img.file.subspan(offset, size), id);
         }
         return {};
       }
@@ -193,7 +193,7 @@ namespace wowlib::db::wdc {
       /** Decode one fixed-stride record: walk the schema, decoding every
           inline column element via its compression kind; the non-inline id
           column receives @a id, the non-inline relation column is left for
-          apply_relationship().
+          applyRelationship().
           @param rec         the sink record index.
           @param recordBytes the record's byte span.
           @param recordBlob the record's byte position inside the client
@@ -210,7 +210,7 @@ namespace wowlib::db::wdc {
           }
           else {
             for (std::uint16_t e = 0; e < col.arrayLen; ++e)
-              decode_inline_element(rec, f, col, e, colidx, recordBytes, recordBlob, id);
+              decodeInlineElement(rec, f, col, e, colidx, recordBytes, recordBlob, id);
             ++f;
           }
           ++colidx;
@@ -227,7 +227,7 @@ namespace wowlib::db::wdc {
           @param recordBytes the record's byte span.
           @param recordBlob the record's blob position (string base).
           @param id          the record's id (common-data lookups). */
-      void decode_inline_element(std::size_t rec,
+      void decodeInlineElement(std::size_t rec,
                                  std::size_t f,
                                  const Column& col,
                                  std::uint16_t e,
@@ -299,7 +299,7 @@ namespace wowlib::db::wdc {
           @param rec   the sink record index.
           @param bytes the record's byte span (offset-map located).
           @param id    the record's id (from the offset-map id list). */
-      void decode_sparse_record(std::size_t rec, std::span<const std::byte> bytes, std::uint32_t id) {
+      void decodeSparseRecord(std::size_t rec, std::span<const std::byte> bytes, std::uint32_t id) {
         std::size_t cursor = 0, colidx = 0;
         for (const Column& col : _info.schema) {
           if (col.noninline) {
@@ -339,7 +339,7 @@ namespace wowlib::db::wdc {
           WDC4+ flag 0x02 is set.
           @param sec   the section.
           @param first the sink index of the section's first record. */
-      void apply_relationship(const WdcSection& sec, std::size_t first) {
+      void applyRelationship(const WdcSection& sec, std::size_t first) {
         if (_relationCol == std::numeric_limits<std::size_t>::max() || sec.relationship.size() < 12) return;
         std::uint32_t num = 0;
         std::memcpy(&num, sec.relationship.data(), 4);
@@ -360,7 +360,7 @@ namespace wowlib::db::wdc {
       /** Materialize the section's copy table: each {newId, srcId} entry
           clones the already-decoded source record under the new id.
           @param sec the section. */
-      void expand_copies(const WdcSection& sec) {
+      void expandCopies(const WdcSection& sec) {
         for (std::size_t c = 0; c + 8 <= sec.copyTable.size(); c += 8) {
           std::uint32_t newId = 0, srcId = 0;
           std::memcpy(&newId, sec.copyTable.data() + c, 4);

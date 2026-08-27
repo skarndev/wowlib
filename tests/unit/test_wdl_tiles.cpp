@@ -280,7 +280,7 @@ TEST_CASE("ocean masks pair through the journal interleave", "[formats][wdl]")
   WdlSl wdl;
   REQUIRE(wdl.read(b).has_value());
   REQUIRE(wdl.oceanMasks.size() == 2);
-  CHECK(wdl.ocean_mask_tiles() == std::vector<std::uint32_t>{0, 2});
+  CHECK(wdl.oceanMaskTiles() == std::vector<std::uint32_t>{0, 2});
 
   // a content edit keeps the journal; the write replays the interleave
   const auto written = wdl.write();
@@ -300,7 +300,7 @@ TEST_CASE("ocean masks pair through the journal interleave", "[formats][wdl]")
   REQUIRE(rebuilt.has_value());
   WdlSl back;
   REQUIRE(back.read(*rebuilt).has_value());
-  CHECK(back.ocean_mask_tiles() == std::vector<std::uint32_t>{0, 2});
+  CHECK(back.oceanMaskTiles() == std::vector<std::uint32_t>{0, 2});
   const auto resequenced = chunkSequence(*rebuilt);
   const std::vector<std::uint32_t> expected2{
     fourCc("MVER"), fourCc("MAOF"), fourCc("MARE"), fourCc("MAOE"), fourCc("MAHO"),

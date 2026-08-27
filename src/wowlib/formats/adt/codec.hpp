@@ -72,9 +72,9 @@ namespace wowlib::formats::adt::detail {
     [[nodiscard]]
     std::vector<std::uint8_t> decode(std::span<const std::byte> src, bool compressed, bool fixEdges) const {
       std::vector<std::uint8_t> map;
-      if (compressed) decode_rle(src, map);
-      else if (_format == AlphaFormat::Highres8Bit) decode_8bit(src, map);
-      else decode_4bit(src, map);
+      if (compressed) decodeRle(src, map);
+      else if (_format == AlphaFormat::Highres8Bit) decode8Bit(src, map);
+      else decode4Bit(src, map);
       if (fixEdges) _fixLastRowCol(map);
       return map;
     }
@@ -85,16 +85,16 @@ namespace wowlib::formats::adt::detail {
         @param compressed whether to RLE-compress (MCLY flag 0x200).
         @param out        the destination byte buffer, appended to. */
     void encode(std::span<const std::uint8_t> map, bool compressed, std::vector<std::byte>& out) const {
-      if (compressed) encode_rle(map, out);
-      else if (_format == AlphaFormat::Highres8Bit) encode_8bit(map, out);
-      else encode_4bit(map, out);
+      if (compressed) encodeRle(map, out);
+      else if (_format == AlphaFormat::Highres8Bit) encode8Bit(map, out);
+      else encode4Bit(map, out);
     }
 
   protected:
     /** Decode a 2048-byte 4-bit map to 4096 texels (nibble * 0x11, LSB first).
         @param src the on-disk 4-bit bytes.
         @param out the decoded surface, resized to 4096. */
-    void decode_4bit(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
+    void decode4Bit(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
       out.resize(AlphaTexels);
       for (std::size_t i = 0; i < Alpha4BitBytes && i < src.size(); ++i) {
         const auto b = std::to_integer<std::uint8_t>(src[i]);
@@ -106,7 +106,7 @@ namespace wowlib::formats::adt::detail {
     /** Decode a 4096-byte 8-bit map (a straight copy).
         @param src the on-disk 8-bit bytes.
         @param out the decoded surface, resized to 4096. */
-    void decode_8bit(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
+    void decode8Bit(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
       out.resize(AlphaTexels);
       for (std::size_t i = 0; i < AlphaTexels && i < src.size(); ++i) out[i] = std::to_integer<std::uint8_t>(src[i]);
     }
@@ -115,7 +115,7 @@ namespace wowlib::formats::adt::detail {
         corrupt chunks that unpack past 4096 by stopping at the boundary.
         @param src the on-disk RLE bytes.
         @param out the decoded surface, resized to 4096. */
-    void decode_rle(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
+    void decodeRle(std::span<const std::byte> src, std::vector<std::uint8_t>& out) const {
       out.clear();
       out.reserve(AlphaTexels);
       std::size_t p = 0;
@@ -140,7 +140,7 @@ namespace wowlib::formats::adt::detail {
     /** Encode 4096 texels to a 2048-byte 4-bit map (texel >> 4).
         @param map the 4096-texel surface.
         @param out the destination buffer, appended to. */
-    void encode_4bit(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
+    void encode4Bit(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
       for (std::size_t i = 0; i < Alpha4BitBytes; ++i) {
         const auto lo = static_cast<std::uint8_t>(map[2 * i] >> 4);
         const auto hi = static_cast<std::uint8_t>(map[2 * i + 1] >> 4);
@@ -151,7 +151,7 @@ namespace wowlib::formats::adt::detail {
     /** Encode 4096 texels to a 4096-byte 8-bit map (a straight copy).
         @param map the 4096-texel surface.
         @param out the destination buffer, appended to. */
-    void encode_8bit(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
+    void encode8Bit(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
       for (std::uint8_t v : map) out.push_back(static_cast<std::byte>(v));
     }
 
@@ -161,7 +161,7 @@ namespace wowlib::formats::adt::detail {
         why ADT round-trip is semantic, not byte-identical.
         @param map the 4096-texel surface.
         @param out the destination buffer, appended to. */
-    void encode_rle(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
+    void encodeRle(std::span<const std::uint8_t> map, std::vector<std::byte>& out) const {
       for (std::size_t row = 0; row < AlphaDim; ++row) {
         const std::uint8_t* r = map.data() + row * AlphaDim;
         std::size_t i = 0;

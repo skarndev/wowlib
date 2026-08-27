@@ -251,7 +251,7 @@ namespace wowlib::formats::m2 {
           @param key  the model identity.
           @param main the model file bytes.
           @return nothing, or the first error. */
-      Result<void> _read_monolithic(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main) requires (V
+      Result<void> _readMonolithic(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main) requires (V
         >= M2PerSequenceTimelines);
 
       /** The Legion+ chunked read path — an orchestrator over the phase helpers
@@ -262,7 +262,7 @@ namespace wowlib::formats::m2 {
           @param key  the model identity.
           @param main the model file bytes.
           @return nothing, or the first error. */
-      Result<void> _read_chunked(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main) requires (V >=
+      Result<void> _readChunked(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main) requires (V >=
         M2ChunkedContainer);
 
       /** Load the referenced .skel into `skel` (skel-based models only — call
@@ -270,7 +270,7 @@ namespace wowlib::formats::m2 {
           in for the body's.
           @param fs the filesystem gateway.
           @return nothing, or the contextualized .skel error. */
-      Result<void> _load_skeleton(fs::FileSystem& fs) requires (V >= M2ChunkedContainer);
+      Result<void> _loadSkeleton(fs::FileSystem& fs) requires (V >= M2ChunkedContainer);
 
       /** Decode the MD20 body out of the MD21 image with FileDataID-based .anim
           resolution (falling back to name-based when the key resolves to a
@@ -280,7 +280,7 @@ namespace wowlib::formats::m2 {
           @param key      the model identity (for the .anim name fallback).
           @param hasSkel whether the model is skeleton-based.
           @return nothing, or the first error. */
-      Result<void> _read_chunked_body(fs::FileSystem& fs, const FileKey& key, bool hasSkel) requires (V >=
+      Result<void> _readChunkedBody(fs::FileSystem& fs, const FileKey& key, bool hasSkel) requires (V >=
         M2ChunkedContainer);
 
       /** Load the LOD views from SFID: the first numSkinProfiles entries are
@@ -288,19 +288,19 @@ namespace wowlib::formats::m2 {
           tolerated). Views append to `skins`, bands to `lodSkins`.
           @param fs the filesystem gateway.
           @return nothing, or the first error. */
-      Result<void> _read_chunked_skins(fs::FileSystem& fs) requires (V >= M2ChunkedContainer);
+      Result<void> _readChunkedSkins(fs::FileSystem& fs) requires (V >= M2ChunkedContainer);
 
       /** Load the .bone files (the skeleton's when skel-based) into `boneFiles`.
           @param fs       the filesystem gateway.
           @param hasSkel whether the .bone FileDataIDs come from the skeleton.
           @return nothing, or the first contextualized error. */
-      Result<void> _read_bone_files(fs::FileSystem& fs, bool hasSkel) requires (V >= M2ChunkedContainer);
+      Result<void> _readBoneFiles(fs::FileSystem& fs, bool hasSkel) requires (V >= M2ChunkedContainer);
 
       /** Bake the referenced .phys file into `phys` verbatim (inline PFDC stays
           a chunk on the stream); physics is optional, so a missing file degrades
           to empty rather than failing.
           @param fs the filesystem gateway. */
-      void _read_physics(fs::FileSystem& fs) requires (V >= M2ChunkedContainer);
+      void _readPhysics(fs::FileSystem& fs) requires (V >= M2ChunkedContainer);
 
       /** Serialize the MD20 body into a fresh image, routing each external
           sequence's per-sequence blocks into @a afm2Bufs sinks keyed by
@@ -320,7 +320,7 @@ namespace wowlib::formats::m2 {
           @param path  the resolved model path.
           @param paths the satellite naming conventions around @a path.
           @return nothing, or the first error. */
-      Result<void> _write_monolithic(fs::FileSystem& fs, const std::string& path, const SatellitePaths& paths) const
+      Result<void> _writeMonolithic(fs::FileSystem& fs, const std::string& path, const SatellitePaths& paths) const
         requires (V >= M2PerSequenceTimelines && V < M2ChunkedContainer);
 
       /** The Legion+ chunked write path: re-encode the body, write every
@@ -330,7 +330,7 @@ namespace wowlib::formats::m2 {
           @param path  the resolved model path.
           @param paths the satellite naming conventions around @a path.
           @return nothing, or the first error. */
-      Result<void> _write_chunked(fs::FileSystem& fs, const std::string& path, const SatellitePaths& paths) const
+      Result<void> _writeChunked(fs::FileSystem& fs, const std::string& path, const SatellitePaths& paths) const
         requires (V >= M2ChunkedContainer);
 
       /** Write the .bone files by conventional name.
@@ -338,7 +338,7 @@ namespace wowlib::formats::m2 {
           @param paths the satellite naming conventions.
           @return the allocated .bone FileDataIDs (parallel to boneFiles), or
                   the first error. */
-      Result<std::vector<std::uint32_t>> _write_bone_files(fs::FileSystem& fs, const SatellitePaths& paths) const
+      Result<std::vector<std::uint32_t>> _writeBoneFiles(fs::FileSystem& fs, const SatellitePaths& paths) const
         requires (V >= M2ChunkedContainer);
 
       /** Non-skel .anim write: one file per external sequence (AFM2-wrapped when
@@ -450,7 +450,7 @@ namespace wowlib::formats::m2 {
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_read_monolithic(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main)
+  Result<void> detail::M2<V>::_readMonolithic(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main)
     requires (V >= M2PerSequenceTimelines) {
     const FileKey resolved = fs.resolve(key);
     if (!resolved.path)
@@ -480,7 +480,7 @@ namespace wowlib::formats::m2 {
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_read_chunked(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main)
+  Result<void> detail::M2<V>::_readChunked(fs::FileSystem& fs, const FileKey& key, std::span<const std::byte> main)
     requires (V >= M2ChunkedContainer) {
     // 1. the chunk shell (MD21 transport blob + the reference/data chunks).
     if (auto r = this->chunks.read(main); !r) return r;
@@ -489,31 +489,31 @@ namespace wowlib::formats::m2 {
     //    AFID/BFID tables then stand in for the body's (which are empty).
     const bool hasSkel = _skeletonEngaged(this->chunks.skeletonFdid);
     if (hasSkel)
-      if (auto r = _load_skeleton(fs); !r) return r;
+      if (auto r = _loadSkeleton(fs); !r) return r;
 
     // 3. the MD20 body out of the MD21 image; the transport blob is spent once
-    //    decoded (the body's md21 span dies inside _read_chunked_body), so drop
+    //    decoded (the body's md21 span dies inside _readChunkedBody), so drop
     //    it now rather than keep a second whole-model image in memory —
     //    write() re-encodes root into a fresh stream.
-    if (auto r = _read_chunked_body(fs, key, hasSkel); !r) return r;
+    if (auto r = _readChunkedBody(fs, key, hasSkel); !r) return r;
     this->chunks.md21.bytes = {};
 
     // 4. the LOD views, then 5. the .bone files and 6. the (optional) physics
     //    blob — a monadic chain, so each phase runs only if the prior succeeded.
-    return _read_chunked_skins(fs).and_then([&] { return _read_bone_files(fs, hasSkel); }).transform([&] {
-      _read_physics(fs);
+    return _readChunkedSkins(fs).and_then([&] { return _readBoneFiles(fs, hasSkel); }).transform([&] {
+      _readPhysics(fs);
     });
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_load_skeleton(fs::FileSystem& fs) requires (V >= M2ChunkedContainer) {
+  Result<void> detail::M2<V>::_loadSkeleton(fs::FileSystem& fs) requires (V >= M2ChunkedContainer) {
     if (auto r = this->skel.read(fs, FileKey{FileDataID{this->chunks.skeletonFdid.front()}}); !r)
       return makeError(r.error().code, std::format(".skel: {}", r.error().message), r.error().nativeError);
     return {};
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_read_chunked_body(fs::FileSystem& fs, const FileKey& key, bool hasSkel) requires (V >=
+  Result<void> detail::M2<V>::_readChunkedBody(fs::FileSystem& fs, const FileKey& key, bool hasSkel) requires (V >=
     M2ChunkedContainer) {
     // name fallback for satellites without FileDataID entries
     std::optional<SatellitePaths> paths;
@@ -541,7 +541,7 @@ namespace wowlib::formats::m2 {
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_read_chunked_skins(fs::FileSystem& fs) requires (V >= M2ChunkedContainer) {
+  Result<void> detail::M2<V>::_readChunkedSkins(fs::FileSystem& fs) requires (V >= M2ChunkedContainer) {
     // the first numSkinProfiles SFID entries are the views, the rest the LOD
     // bands (real files occasionally truncate the LOD tail)
     if (this->chunks.skinFdids.size() < this->root.numSkinProfiles)
@@ -560,7 +560,7 @@ namespace wowlib::formats::m2 {
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_read_bone_files(fs::FileSystem& fs, bool hasSkel) requires (V >= M2ChunkedContainer) {
+  Result<void> detail::M2<V>::_readBoneFiles(fs::FileSystem& fs, bool hasSkel) requires (V >= M2ChunkedContainer) {
     const auto& bfids = hasSkel ? this->skel.effectiveBoneFdids() : this->chunks.boneFdids;
     for (const auto [i, fdid] : std::views::enumerate(bfids)) {
       if (fdid == 0) continue;
@@ -577,7 +577,7 @@ namespace wowlib::formats::m2 {
   }
 
   template <ClientVersion V>
-  void detail::M2<V>::_read_physics(fs::FileSystem& fs) requires (V >= M2ChunkedContainer) {
+  void detail::M2<V>::_readPhysics(fs::FileSystem& fs) requires (V >= M2ChunkedContainer) {
     if (!this->chunks.physFdid.empty() && this->chunks.physFdid.front() != 0)
       if (auto bytes = fs.readFile(FileKey{FileDataID{this->chunks.physFdid.front()}})) this->phys.bytes =
         std::move(*bytes);
@@ -603,7 +603,7 @@ namespace wowlib::formats::m2 {
       return _checkHeader(root.magic, root.formatVersion);
     }
     else if constexpr (V < M2ChunkedContainer) {
-      return _read_monolithic(fs, key, std::span<const std::byte>{*main});
+      return _readMonolithic(fs, key, std::span<const std::byte>{*main});
     }
     else {
       std::uint32_t lead = 0;
@@ -612,14 +612,14 @@ namespace wowlib::formats::m2 {
         // Legion clients still served leftover raw MD20 models; from BfA on
         // none exist, so a bare image under a BfA+ target is a mismatch, not
         // a fallback (M2ChunkedOnly).
-        if constexpr (V < M2ChunkedOnly) return _read_monolithic(fs, key, std::span<const std::byte>{*main});
+        if constexpr (V < M2ChunkedOnly) return _readMonolithic(fs, key, std::span<const std::byte>{*main});
         else
           return makeError(ErrorCode::FormatVersionMismatch,
                             "bare MD20 model under a BfA+ target — raw (unchunked) .m2 files "
                             "no longer exist from 8.0 on; if this is a Legion-era file, read "
                             "it with the legion target");
       }
-      return _read_chunked(fs, key, std::span<const std::byte>{*main});
+      return _readChunked(fs, key, std::span<const std::byte>{*main});
     }
   }
 
@@ -636,8 +636,8 @@ namespace wowlib::formats::m2 {
       if (auto r = fs.addFile(*resolved.path, *bytes); !r) return std::unexpected{r.error()};
       return {};
     }
-    else if constexpr (V < M2ChunkedContainer) return _write_monolithic(fs, *resolved.path, paths);
-    else return _write_chunked(fs, *resolved.path, paths);
+    else if constexpr (V < M2ChunkedContainer) return _writeMonolithic(fs, *resolved.path, paths);
+    else return _writeChunked(fs, *resolved.path, paths);
   }
 
   template <ClientVersion V>
@@ -660,7 +660,7 @@ namespace wowlib::formats::m2 {
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_write_monolithic(fs::FileSystem& fs,
+  Result<void> detail::M2<V>::_writeMonolithic(fs::FileSystem& fs,
                                                 const std::string& path,
                                                 const SatellitePaths& paths) const requires (V >=
     M2PerSequenceTimelines && V < M2ChunkedContainer) {
@@ -684,7 +684,7 @@ namespace wowlib::formats::m2 {
   }
 
   template <ClientVersion V>
-  Result<void> detail::M2<V>::_write_chunked(fs::FileSystem& fs,
+  Result<void> detail::M2<V>::_writeChunked(fs::FileSystem& fs,
                                              const std::string& path,
                                              const SatellitePaths& paths) const requires (V >= M2ChunkedContainer) {
     // the SAME engagement predicate the read path uses — a stored SKID of 0
@@ -704,7 +704,7 @@ namespace wowlib::formats::m2 {
     stream.md21.bytes = std::move(*bytes);
 
     // .bone files (their fdids land in the skeleton for skel-based models)
-    const auto boneFdids = _write_bone_files(fs, paths);
+    const auto boneFdids = _writeBoneFiles(fs, paths);
     if (!boneFdids) return std::unexpected{boneFdids.error()};
 
     // .anim files + (for skel models) the .skel; each records its fdids on the
@@ -730,7 +730,7 @@ namespace wowlib::formats::m2 {
 
   template <ClientVersion V>
   Result<std::vector<std::uint32_t>>
-  detail::M2<V>::_write_bone_files(fs::FileSystem& fs, const SatellitePaths& paths) const requires (V >=
+  detail::M2<V>::_writeBoneFiles(fs::FileSystem& fs, const SatellitePaths& paths) const requires (V >=
     M2ChunkedContainer) {
     std::vector<std::uint32_t> boneFdids;
     for (const auto [i, bone] : std::views::enumerate(this->boneFiles)) {

@@ -9,12 +9,12 @@
     size field) governs (MCAL/MCLQ/MCSH), a pre-Cata MCNR trailer of 13 undeclared
     padding bytes, and alpha maps in three on-disk encodings. Because a Cata+ tile
     splits one terrain chunk across the root, _tex0 and _obj0 split ADT files, the
-    reader/writer work on one physical FILE at a time (read_from / write_to),
+    reader/writer work on one physical FILE at a time (readFrom / writeTo),
     accumulating into the same MapChunk across files; a pre-Cata tile is one
     monolithic file carrying every sub-chunk.
 
     Its sub-chunk members still carry the same `chunk()` + `inFile()` annotations
-    the tile-level ADT chunks do, so read_from/write_to are REFLECTION-DRIVEN: a
+    the tile-level ADT chunks do, so readFrom/writeTo are REFLECTION-DRIVEN: a
     `template for` over the members matches the fourcc and routes by physical file.
     The UNIFORM sub-chunks (plain vectors / the SelfSerializing MCLQ) transfer
     through the chunk engine's readValue/writeValue; the ones that break the
@@ -252,11 +252,11 @@ namespace wowlib::formats::adt {
       static Result<void> read(Chunk& self, std::span<const std::byte> sub, const MapChunkReadCtx& ctx) {
         if (self.alphaMaps.size() != self.layers.size()) self.alphaMaps.resize(self.layers.size());
         const AlphaMapCodec codec{ctx.af};
-        for (auto&& [layer, out_map] : std::views::zip(self.layers, self.alphaMaps)) {
+        for (auto&& [layer, outMap] : std::views::zip(self.layers, self.alphaMaps)) {
           if (!hasFlag(layer.flags, LayerFlags::UseAlphaMap)) continue;
           if (layer.offsetInMcal > sub.size()) continue;
           const bool compressed = hasFlag(layer.flags, LayerFlags::AlphaMapCompressed);
-          out_map = codec.decode(sub.subspan(layer.offsetInMcal), compressed, ctx.fix);
+          outMap = codec.decode(sub.subspan(layer.offsetInMcal), compressed, ctx.fix);
         }
         return {};
       }
@@ -425,7 +425,7 @@ namespace wowlib::formats::adt {
 
       /** The canonical sub-chunk write order (excluding the references, which are
           the MCRF-vs-MCRD/MCRW special case, emitted last). Each physical file
-          emits the subset routed to it, in this order — see write_to. */
+          emits the subset routed to it, in this order — see writeTo. */
       static constexpr std::array SubChunkOrder{
         fourCc("MCVT"),
         fourCc("MCCV"),
@@ -559,7 +559,7 @@ namespace wowlib::formats::adt {
           @param af      the tile's alpha-map bit depth (supplied externally).
           @return a structural error or success. */
       [[=welder::mark::exclude]]
-      Result<void> read_from(std::span<const std::byte> payload, FileKind kind, AlphaFormat af);
+      Result<void> readFrom(std::span<const std::byte> payload, FileKind kind, AlphaFormat af);
 
       /** Append this chunk's portion for @a kind to @a out (the MCNK payload; the
           caller wraps the fourcc+size). Header-bearing files emit the 128-byte
@@ -569,7 +569,7 @@ namespace wowlib::formats::adt {
           @param af   the tile's alpha-map bit depth (supplied externally).
           @return a structural error or success. */
       [[=welder::mark::exclude]]
-      Result<void> write_to(FileBuffer& out, FileKind kind, AlphaFormat af) const;
+      Result<void> writeTo(FileBuffer& out, FileKind kind, AlphaFormat af) const;
 
       [[=welder::mark::exclude]]
       bool operator==(const MapChunk&) const = default;
@@ -612,7 +612,7 @@ namespace wowlib::formats::adt {
           @param kind     the physical file.
           @param emitted  the emitted-sub-chunk table to append to.
           @param n        the emitted count to advance. */
-      void _write_refs(FileBuffer& out,
+      void _writeRefs(FileBuffer& out,
                        std::size_t base,
                        FileKind kind,
                        std::span<Emitted> emitted,
@@ -644,7 +644,7 @@ namespace wowlib::formats::adt {
           header's nDoodadRefs marks the boundary).
           @param sub  the MCRF data (u32 indices).
           @param kind the physical file (the header count is only trusted with one). */
-      void _read_combined_refs(std::span<const std::byte> sub, FileKind kind) {
+      void _readCombinedRefs(std::span<const std::byte> sub, FileKind kind) {
         const std::size_t total = sub.size() / 4;
         const std::size_t nDd = std::min<std::size_t>(fileHasHeader(kind) ? header.nDoodadRefs : 0, total);
         doodadRefs.resize(nDd);
@@ -655,12 +655,12 @@ namespace wowlib::formats::adt {
 
       /** Stamp the derived MCNK header fields from the sub-chunks emitted here;
           fields not emitted keep their read value (so a split root preserves the
-          tex/obj-owned fields). The do_not_fix_alpha flag is left as-is: the ADT
+          tex/obj-owned fields). The DoNotFixAlphaMap flag is left as-is: the ADT
           reader normalizes it after every portion is in, so it is already correct.
           @param out     the destination buffer (the header sits at @a base).
           @param base    the MCNK payload start in @a out.
           @param emitted the sub-chunks emitted into this file. */
-      void _stamp_header(FileBuffer& out, std::size_t base, std::span<const Emitted> emitted) const {
+      void _stampHeader(FileBuffer& out, std::size_t base, std::span<const Emitted> emitted) const {
         SMChunk h;
         std::memcpy(&h, out.data() + base, sizeof(SMChunk));
         const bool highRes = hasFlag(h.flags, MapChunkFlags::HighResHoles);
@@ -719,7 +719,7 @@ namespace wowlib::formats::adt {
           @param declared the sub-chunk's own declared size.
           @param kind     the physical file (the header is only present with one).
           @return the corrected byte length. */
-      std::uint32_t _subchunk_length(std::uint32_t magic, std::uint32_t declared, FileKind kind) const {
+      std::uint32_t _subchunkLength(std::uint32_t magic, std::uint32_t declared, FileKind kind) const {
         if (magic == fourCc("MCNR") && declared <= 435) return 448;
         if (fileHasHeader(kind)) {
           // The header's size fields are authoritative for MCAL/MCLQ even when
@@ -745,7 +745,7 @@ namespace wowlib::formats::adt {
           round-trip compare layout artifacts. ofsHeight/ofsNormal are the 64-bit
           hole mask when HighResHoles is set, so they are preserved then.
           @param kind the physical file just read. */
-      void _clear_derived_on_read(FileKind kind) {
+      void _clearDerivedOnRead(FileKind kind) {
         for (auto& layer : layers) layer.offsetInMcal = 0;
         if (!fileHasHeader(kind)) return;
         if (!hasFlag(header.flags, MapChunkFlags::HighResHoles)) {
@@ -771,7 +771,7 @@ namespace wowlib::formats::adt {
 
   namespace detail {
     template <ClientVersion V>
-    Result<void> MapChunk<V>::read_from(std::span<const std::byte> payload, FileKind kind, AlphaFormat af) {
+    Result<void> MapChunk<V>::readFrom(std::span<const std::byte> payload, FileKind kind, AlphaFormat af) {
       using Self = MapChunk<V>;
       static constexpr auto Members = formats::detail::membersOf<Self>();
 
@@ -798,7 +798,7 @@ namespace wowlib::formats::adt {
         std::memcpy(&declared, payload.data() + pos + 4, 4);
         const std::size_t dataAt = pos + 8;
 
-        std::uint32_t effective = _subchunk_length(magic, declared, kind);
+        std::uint32_t effective = _subchunkLength(magic, declared, kind);
         if (dataAt + effective > payload.size()) effective = declared; // last resort: trust the declared size
         if (dataAt + effective > payload.size())
           return makeError(ErrorCode::ChunkTruncated,
@@ -809,7 +809,7 @@ namespace wowlib::formats::adt {
         // MCRF is the one sub-chunk mapping to two members (doodad + object refs,
         // split by the header count) — the MCNK analogue of ADT's special MCNK.
         if (magic == fourCc("MCRF")) {
-          _read_combined_refs(sub, kind);
+          _readCombinedRefs(sub, kind);
           continue;
         }
 
@@ -835,12 +835,12 @@ namespace wowlib::formats::adt {
         if (!outcome) return outcome;
       }
 
-      _clear_derived_on_read(kind);
+      _clearDerivedOnRead(kind);
       return {};
     }
 
     template <ClientVersion V>
-    Result<void> MapChunk<V>::write_to(FileBuffer& out, FileKind kind, AlphaFormat af) const {
+    Result<void> MapChunk<V>::writeTo(FileBuffer& out, FileKind kind, AlphaFormat af) const {
       using Self = MapChunk<V>;
       static constexpr auto Members = formats::detail::membersOf<Self>();
 
@@ -891,10 +891,10 @@ namespace wowlib::formats::adt {
       }
 
       // References are the era-shifting special (MCRF vs MCRD/MCRW), emitted last.
-      if (routesTo(InFile::Obj, kind)) _write_refs(out, base, kind, emitted, nEmitted);
+      if (routesTo(InFile::Obj, kind)) _writeRefs(out, base, kind, emitted, nEmitted);
 
       if (fileHasHeader(kind))
-        _stamp_header(out, base, std::span<const Emitted>{emitted.data(), nEmitted});
+        _stampHeader(out, base, std::span<const Emitted>{emitted.data(), nEmitted});
       return {};
     }
   }
