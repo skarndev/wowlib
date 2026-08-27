@@ -11,30 +11,26 @@ using namespace wowlib;
 using namespace wowlib::formats;
 using namespace wowlib::formats::wdl::chunks;
 
-namespace
-{
+namespace {
   using Wdl = wdl::WDL<versions::Wotlk>;
   using WdlSl = wdl::WDL<versions::Shadowlands>;
 
   // --- synthetic buffer building ---------------------------------------------
 
-  void putBytes(FileBuffer& b, const void* p, std::size_t n)
-  {
+  void putBytes(FileBuffer& b, const void* p, std::size_t n) {
     const auto* bytes = static_cast<const std::byte*>(p);
     b.insert(b.end(), bytes, bytes + n);
   }
 
-  void putChunk(FileBuffer& b, const char (&cc)[5], const void* payload, std::size_t n)
-  {
-    const std::uint32_t fourcc = fourCc(cc);
+  void putChunk(FileBuffer& b, const char (&cc)[5], const void* payload, std::size_t n) {
+    const std::uint32_t fourccMagic = fourcc(cc);
     const auto size = static_cast<std::uint32_t>(n);
-    putBytes(b, &fourcc, sizeof fourcc);
+    putBytes(b, &fourccMagic, sizeof fourccMagic);
     putBytes(b, &size, sizeof size);
     putBytes(b, payload, n);
   }
 
-  TileHeights heightsFilled(std::int16_t seed)
-  {
+  TileHeights heightsFilled(std::int16_t seed) {
     TileHeights h;
     for (std::size_t i = 0; i < h.outer.size(); ++i)
       h.outer[i] = static_cast<std::int16_t>(seed + static_cast<std::int16_t>(i));
@@ -45,8 +41,7 @@ namespace
 
   /** A WotLK-shaped WDL: MVER, empty object chunks, MAOF with @a slots
       nonzero markers, then per tile MARE+MAHO interleaved with real offsets. */
-  FileBuffer syntheticWdl(const std::vector<std::size_t>& slots)
-  {
+  FileBuffer syntheticWdl(const std::vector<std::size_t>& slots) {
     FileBuffer b;
     const std::uint32_t mver = wdl::WdlVersion18;
     putChunk(b, "MVER", &mver, sizeof mver);
@@ -58,14 +53,12 @@ namespace
     const std::size_t maofPayloadAt = b.size() + 8;
     const std::size_t tilesAt = maofPayloadAt + maof.size() * 4;
     std::size_t offset = tilesAt;
-    for (const std::size_t slot : slots)
-    {
+    for (const std::size_t slot : slots) {
       maof[slot] = static_cast<std::uint32_t>(offset);
       offset += 8 + sizeof(TileHeights) + 8 + sizeof(TileHoles);
     }
     putChunk(b, "MAOF", maof.data(), maof.size() * 4);
-    for (std::size_t i = 0; i < slots.size(); ++i)
-    {
+    for (std::size_t i = 0; i < slots.size(); ++i) {
       const TileHeights h = heightsFilled(static_cast<std::int16_t>(100 * (i + 1)));
       TileHoles holes;
       holes.rows[3] = static_cast<std::uint16_t>(1u << i);
@@ -75,16 +68,13 @@ namespace
     return b;
   }
 
-  std::vector<std::uint32_t> maofOf(std::span<const std::byte> image)
-  {
+  std::vector<std::uint32_t> maofOf(std::span<const std::byte> image) {
     std::size_t pos = 0;
-    while (image.size() - pos >= 8)
-    {
-      std::uint32_t fourcc = 0, size = 0;
-      std::memcpy(&fourcc, image.data() + pos, 4);
+    while (image.size() - pos >= 8) {
+      std::uint32_t fourccMagic = 0, size = 0;
+      std::memcpy(&fourccMagic, image.data() + pos, 4);
       std::memcpy(&size, image.data() + pos + 4, 4);
-      if (fourcc == fourCc("MAOF"))
-      {
+      if (fourccMagic == fourcc("MAOF")) {
         std::vector<std::uint32_t> out(size / 4);
         std::memcpy(out.data(), image.data() + pos + 8, size);
         return out;
@@ -94,12 +84,10 @@ namespace
     return {};
   }
 
-  std::vector<std::uint32_t> chunkSequence(std::span<const std::byte> image)
-  {
+  std::vector<std::uint32_t> chunkSequence(std::span<const std::byte> image) {
     std::vector<std::uint32_t> out;
     std::size_t pos = 0;
-    while (image.size() - pos >= 8)
-    {
+    while (image.size() - pos >= 8) {
       std::uint32_t fourcc = 0, size = 0;
       std::memcpy(&fourcc, image.data() + pos, 4);
       std::memcpy(&size, image.data() + pos + 4, 4);
@@ -110,8 +98,7 @@ namespace
   }
 }
 
-TEST_CASE("a WDL round-trips byte-perfectly and decodes its tiles", "[formats][wdl]")
-{
+TEST_CASE("a WDL round-trips byte-perfectly and decodes its tiles", "[formats][wdl]") {
   const FileBuffer data = syntheticWdl({100, 101, 200});
 
   Wdl wdl;
@@ -130,8 +117,7 @@ TEST_CASE("a WDL round-trips byte-perfectly and decodes its tiles", "[formats][w
   CHECK(*written == data);
 }
 
-TEST_CASE("adding a tile resequences the journal and restamps MAOF", "[formats][wdl]")
-{
+TEST_CASE("adding a tile resequences the journal and restamps MAOF", "[formats][wdl]") {
   const FileBuffer data = syntheticWdl({100, 200});
 
   Wdl wdl;
@@ -156,8 +142,8 @@ TEST_CASE("adding a tile resequences the journal and restamps MAOF", "[formats][
   // the emitted stream interleaves per tile: ... MAOF MARE MAHO MARE MAHO MARE MAHO
   const auto sequence = chunkSequence(*written);
   std::vector<std::uint32_t> tail(sequence.end() - 6, sequence.end());
-  CHECK(tail == std::vector<std::uint32_t>{fourCc("MARE"), fourCc("MAHO"), fourCc("MARE"),
-                                           fourCc("MAHO"), fourCc("MARE"), fourCc("MAHO")});
+  CHECK(tail == std::vector<std::uint32_t>{fourcc("MARE"), fourcc("MAHO"), fourcc("MARE"),
+        fourcc("MAHO"), fourcc("MARE"), fourcc("MAHO")});
 
   // the stamped offsets point at the MARE chunk headers, in slot order
   const auto maof = maofOf(*written);
@@ -167,19 +153,17 @@ TEST_CASE("adding a tile resequences the journal and restamps MAOF", "[formats][
     if (v != 0)
       nonzero.push_back(v);
   REQUIRE(nonzero.size() == 3);
-  for (const std::uint32_t at : nonzero)
-  {
-    std::uint32_t fourcc = 0;
-    std::memcpy(&fourcc, written->data() + at, 4);
-    CHECK(fourcc == fourCc("MARE"));
+  for (const std::uint32_t at : nonzero) {
+    std::uint32_t fourccMagic = 0;
+    std::memcpy(&fourccMagic, written->data() + at, 4);
+    CHECK(fourccMagic == fourcc("MARE"));
   }
   TileHeights second{};
   std::memcpy(&second, written->data() + nonzero[1] + 8, sizeof second);
   CHECK(second.outer[0] == 7);
 }
 
-TEST_CASE("a fresh WDL emits interleaved tiles from scratch", "[formats][wdl]")
-{
+TEST_CASE("a fresh WDL emits interleaved tiles from scratch", "[formats][wdl]") {
   Wdl wdl;
   wdl.tileOffsets.assign(64 * 64, 0);
   wdl.tileOffsets[42] = 1;
@@ -210,10 +194,8 @@ TEST_CASE("a fresh WDL emits interleaved tiles from scratch", "[formats][wdl]")
   CHECK(*again == *written);
 }
 
-TEST_CASE("tile-table pairing violations are diagnosed", "[formats][wdl]")
-{
-  SECTION("nonzero slots without heightmaps")
-  {
+TEST_CASE("tile-table pairing violations are diagnosed", "[formats][wdl]") {
+  SECTION("nonzero slots without heightmaps") {
     Wdl wdl;
     wdl.tileOffsets.assign(64 * 64, 0);
     wdl.tileOffsets[7] = 1;
@@ -221,8 +203,7 @@ TEST_CASE("tile-table pairing violations are diagnosed", "[formats][wdl]")
     REQUIRE_FALSE(written.has_value());
     CHECK(written.error().code == ErrorCode::InvalidEntityState);
   }
-  SECTION("a heightmap without a nonzero slot")
-  {
+  SECTION("a heightmap without a nonzero slot") {
     Wdl wdl;
     wdl.tileOffsets.assign(64 * 64, 0);
     wdl.heightmaps.push_back(heightsFilled(1));
@@ -230,8 +211,7 @@ TEST_CASE("tile-table pairing violations are diagnosed", "[formats][wdl]")
     REQUIRE_FALSE(written.has_value());
     CHECK(written.error().code == ErrorCode::InvalidEntityState);
   }
-  SECTION("a short MAOF table")
-  {
+  SECTION("a short MAOF table") {
     Wdl wdl;
     wdl.tileOffsets.assign(16, 1);
     wdl.heightmaps.assign(16, TileHeights{});
@@ -239,8 +219,7 @@ TEST_CASE("tile-table pairing violations are diagnosed", "[formats][wdl]")
     REQUIRE_FALSE(written.has_value());
     CHECK(written.error().code == ErrorCode::InvalidEntityState);
   }
-  SECTION("partial hole masks")
-  {
+  SECTION("partial hole masks") {
     Wdl wdl;
     wdl.tileOffsets.assign(64 * 64, 0);
     wdl.tileOffsets[1] = 1;
@@ -253,22 +232,19 @@ TEST_CASE("tile-table pairing violations are diagnosed", "[formats][wdl]")
   }
 }
 
-TEST_CASE("ocean masks pair through the journal interleave", "[formats][wdl]")
-{
+TEST_CASE("ocean masks pair through the journal interleave", "[formats][wdl]") {
   // build a Shadowlands-shaped stream: tile 0 and 2 carry MAOE, tile 1 does not
   FileBuffer b;
   const std::uint32_t mver = wdl::WdlVersion18;
   putChunk(b, "MVER", &mver, sizeof mver);
 
   std::vector<std::uint32_t> maof(64 * 64, 0);
-  maof[5] = maof[6] = maof[7] = 1;  // placeholder; values are restamped on write
+  maof[5] = maof[6] = maof[7] = 1; // placeholder; values are restamped on write
   putChunk(b, "MAOF", maof.data(), maof.size() * 4);
-  for (std::size_t i = 0; i < 3; ++i)
-  {
+  for (std::size_t i = 0; i < 3; ++i) {
     const TileHeights h = heightsFilled(static_cast<std::int16_t>(i + 1));
     putChunk(b, "MARE", &h, sizeof h);
-    if (i != 1)
-    {
+    if (i != 1) {
       TileOcean ocean;
       ocean.mask[0] = static_cast<std::uint8_t>(0xF0 + i);
       putChunk(b, "MAOE", &ocean, sizeof ocean);
@@ -287,8 +263,17 @@ TEST_CASE("ocean masks pair through the journal interleave", "[formats][wdl]")
   REQUIRE(written.has_value());
   const auto sequence = chunkSequence(*written);
   const std::vector<std::uint32_t> expected{
-    fourCc("MVER"), fourCc("MAOF"), fourCc("MARE"), fourCc("MAOE"), fourCc("MAHO"),
-    fourCc("MARE"), fourCc("MAHO"), fourCc("MARE"), fourCc("MAOE"), fourCc("MAHO")};
+    fourcc("MVER"),
+    fourcc("MAOF"),
+    fourcc("MARE"),
+    fourcc("MAOE"),
+    fourcc("MAHO"),
+    fourcc("MARE"),
+    fourcc("MAHO"),
+    fourcc("MARE"),
+    fourcc("MAOE"),
+    fourcc("MAHO")
+  };
   CHECK(sequence == expected);
 
   // adding a tile at the end rebuilds the journal but keeps the pairing
@@ -303,14 +288,23 @@ TEST_CASE("ocean masks pair through the journal interleave", "[formats][wdl]")
   CHECK(back.oceanMaskTiles() == std::vector<std::uint32_t>{0, 2});
   const auto resequenced = chunkSequence(*rebuilt);
   const std::vector<std::uint32_t> expected2{
-    fourCc("MVER"), fourCc("MAOF"), fourCc("MARE"), fourCc("MAOE"), fourCc("MAHO"),
-    fourCc("MARE"), fourCc("MAHO"), fourCc("MARE"), fourCc("MAOE"), fourCc("MAHO"),
-    fourCc("MARE"), fourCc("MAHO")};
+    fourcc("MVER"),
+    fourcc("MAOF"),
+    fourcc("MARE"),
+    fourcc("MAOE"),
+    fourcc("MAHO"),
+    fourcc("MARE"),
+    fourcc("MAHO"),
+    fourcc("MARE"),
+    fourcc("MAOE"),
+    fourcc("MAHO"),
+    fourcc("MARE"),
+    fourcc("MAHO")
+  };
   CHECK(resequenced == expected2);
 }
 
-TEST_CASE("a WDT root round-trips and gates its chunks by era", "[formats][wdt]")
-{
+TEST_CASE("a WDT root round-trips and gates its chunks by era", "[formats][wdt]") {
   using RootOld = wdt::root::WDTRoot<versions::Wotlk>;
 
   FileBuffer b;
@@ -338,8 +332,7 @@ TEST_CASE("a WDT root round-trips and gates its chunks by era", "[formats][wdt]"
 }
 
 TEST_CASE("repeated _mpv groups keep their interleave through the journal",
-          "[formats][wdt]")
-{
+          "[formats][wdt]") {
   using Mpv = wdt::mpv::WDTParticulates<versions::Shadowlands>;
 
   FileBuffer b;
@@ -350,8 +343,7 @@ TEST_CASE("repeated _mpv groups keep their interleave through the journal",
   point.unkC = 1.5f;
   wdt::mpv::chunks::ParticulateBounds bounds{};
   bounds.pointCount = 1;
-  for (int group = 0; group < 2; ++group)
-  {
+  for (int group = 0; group < 2; ++group) {
     putChunk(b, "PVMI", mi.data(), mi.size());
     putChunk(b, "PVPD", &point, sizeof point);
     putChunk(b, "PVBD", &bounds, sizeof bounds);

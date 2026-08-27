@@ -172,7 +172,7 @@ namespace wowlib::formats {
       @param endian disk layout of the code; reversed for all pre-Legion-M2 formats.
       @return the annotation payload. */
   consteval detail::ChunkSpec chunk(const char(&cc)[5], FourCCEndian endian = FourCCEndian::Reversed) {
-    return {fourCc(cc, endian), endian};
+    return {fourcc(cc, endian), endian};
   }
 
   /** Restrict a member to entity versions >= @a v (inclusive).

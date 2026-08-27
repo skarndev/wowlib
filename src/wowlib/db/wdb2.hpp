@@ -24,7 +24,7 @@
 
 namespace wowlib::db {
   /** The WDB2 magic as memcpy'd off the file front (the bytes "WDB2"). */
-  inline constexpr std::uint32_t Wdb2Magic = formats::fourCc("WDB2", formats::FourCCEndian::Forward);
+  inline constexpr std::uint32_t Wdb2Magic = formats::fourcc("WDB2", formats::FourCCEndian::Forward);
 
   /** The 48-byte WDB2 header (wowdev.wiki/DB2). */
   struct Wdb2Header {

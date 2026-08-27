@@ -205,24 +205,24 @@ namespace wowlib::formats::adt {
           the subset routed to it, in this order — see writeFile). MCIN and MCNK
           are positional placeholders the writer fills specially. */
       static constexpr std::array ChunkOrder{
-        fourCc("MVER"),
-        fourCc("MHDR"),
-        fourCc("MCIN"),
-        fourCc("MAMP"),
-        fourCc("MTEX"),
-        fourCc("MDID"),
-        fourCc("MHID"),
-        fourCc("MMDX"),
-        fourCc("MMID"),
-        fourCc("MWMO"),
-        fourCc("MWID"),
-        fourCc("MDDF"),
-        fourCc("MODF"),
-        fourCc("MH2O"),
-        fourCc("MCNK"),
-        fourCc("MFBO"),
-        fourCc("MTXF"),
-        fourCc("MTXP")
+        fourcc("MVER"),
+        fourcc("MHDR"),
+        fourcc("MCIN"),
+        fourcc("MAMP"),
+        fourcc("MTEX"),
+        fourcc("MDID"),
+        fourcc("MHID"),
+        fourcc("MMDX"),
+        fourcc("MMID"),
+        fourcc("MWMO"),
+        fourcc("MWID"),
+        fourcc("MDDF"),
+        fourcc("MODF"),
+        fourcc("MH2O"),
+        fourcc("MCNK"),
+        fourcc("MFBO"),
+        fourcc("MTXF"),
+        fourcc("MTXP")
       };
 
       [[=chunk("MVER"),
@@ -306,11 +306,11 @@ namespace wowlib::formats::adt {
           "depth (from the map's WDT) is supplied by the caller.")]]
       Result<void> read(fs::FileSystem& fs [[=welder::doc("the filesystem gateway")]],
                         const FileKey& key
-        [[=welder::doc("the tile identity (root .adt path and/or "
-          "FileDataID)")]],
+                        [[=welder::doc("the tile identity (root .adt path and/or "
+                          "FileDataID)")]],
                         AlphaFormat alpha
-        [[=welder::doc("the on-disk alpha-map bit depth for this tile's "
-          "map (from its WDT MPHD flags)")]]);
+                        [[=welder::doc("the on-disk alpha-map bit depth for this tile's "
+                          "map (from its WDT MPHD flags)")]]);
 
       [[=welder::mark::only(welder::lang::lua, wowlib::lang::Cs),
         =welder::doc(
@@ -396,8 +396,9 @@ namespace wowlib::formats::adt {
           if constexpr (requires { this->usesTextureFdids; }) return this->usesTextureFdids;
           else return false;
         }
-        else if constexpr (formats::detail::annotation<formats::detail::OptionalSpec, M>().has_value()) return !this->
-          [:M:].empty();
+        else if constexpr (formats::detail::annotation<formats::detail::OptionalSpec, M>().has_value())
+          return !this->
+                  [:M:].empty();
         else return true;
       }
 
@@ -467,14 +468,14 @@ namespace wowlib::formats::adt {
         for (std::size_t j = 0; j < chunk.layers.size(); ++j)
           if (chunk.layers[j].textureId >= textureCount)
             report.addError(std::format("layers[{}]", j),
-                             std::format("texture_id {} out of range: {} textures", chunk.layers[j].textureId,
-                                         textureCount));
+                            std::format("texture_id {} out of range: {} textures", chunk.layers[j].textureId,
+                                        textureCount));
 
         // the chunk's placement references index the TILE's tables
         formats::detail::validateIndexElements(chunk.doodadRefs, doodadPlacements.size(), "doodadRefs",
-                                                 "doodadPlacements", report);
+                                               "doodadPlacements", report);
         formats::detail::validateIndexElements(chunk.objectRefs, wmoPlacements.size(), "objectRefs",
-                                                 "wmoPlacements", report);
+                                               "wmoPlacements", report);
         report.prefixFrom(mark, std::format("chunks[{}]", i));
       }
 
@@ -482,22 +483,22 @@ namespace wowlib::formats::adt {
       // when its EntryIsFdid flag makes it a FileDataID the client loads
       // directly (Legion+) — then there is nothing local to resolve against.
       const auto checkPlacements = [&](const auto& placements,
-                                        auto fdidFlag,
-                                        const auto& offsets,
-                                        std::string_view what,
-                                        std::string_view table) {
+                                       auto fdidFlag,
+                                       const auto& offsets,
+                                       std::string_view what,
+                                       std::string_view table) {
         for (std::size_t i = 0; i < placements.size() && !report.full(); ++i) {
           if (hasFlag(placements[i].flags, fdidFlag)) continue;
           if (placements[i].nameId >= offsets.size())
             report.addError(std::format("{}[{}]", what, i),
-                             std::format("name_id {} out of range: {} holds {} entries", placements[i].nameId, table,
-                                         offsets.size()));
+                            std::format("name_id {} out of range: {} holds {} entries", placements[i].nameId, table,
+                                        offsets.size()));
         }
       };
       checkPlacements(doodadPlacements, common::DoodadDefFlags::EntryIsFdid, modelNameOffsets,
-                       "doodadPlacements", "modelNameOffsets");
+                      "doodadPlacements", "modelNameOffsets");
       checkPlacements(wmoPlacements, common::MapObjDefFlags::EntryIsFdid, wmoNameOffsets, "wmoPlacements",
-                       "wmoNameOffsets");
+                      "wmoNameOffsets");
 
       return report;
     }
@@ -520,13 +521,13 @@ namespace wowlib::formats::adt {
         std::memcpy(&size, data.data() + pos + 4, 4);
         if (size > data.size() - pos - 8)
           return makeError(ErrorCode::ChunkTruncated,
-                            std::format("ADT chunk {} at {:#x} overruns the file", fourccToString(magic), pos));
+                           std::format("ADT chunk {} at {:#x} overruns the file", fourccToString(magic), pos));
         const auto payload = data.subspan(pos + 8, size);
         pos += 8 + size;
 
         // MCNK is the one non-reflective chunk: 256 repeats, each a per-file
         // portion merged into a MapChunk via readFrom.
-        if (magic == fourCc("MCNK")) {
+        if (magic == fourcc("MCNK")) {
           if (chunks.size() < chunkIndex + 1) chunks.resize(chunkIndex + 1);
           if (auto r = chunks[chunkIndex].readFrom(payload, kind, alphaFormat); !r) return r;
           ++chunkIndex;
@@ -584,21 +585,21 @@ namespace wowlib::formats::adt {
       };
 
       for (const std::uint32_t want : ChunkOrder) {
-        if (want == fourCc("MVER")) {
+        if (want == fourcc("MVER")) {
           _emitChunk(out, want, [&] {
             const std::uint32_t v = AdtVersion18;
             _put(out, &v, 4);
           });
           continue;
         }
-        if (want == fourCc("MCIN")) {
+        if (want == fourcc("MCIN")) {
           if (mono)
             mcinAt = _emitChunk(out, want, [&] {
               out.insert(out.end(), 256 * 16, std::byte{0});
             });
           continue;
         }
-        if (want == fourCc("MCNK")) {
+        if (want == fourcc("MCNK")) {
           for (std::size_t i = 0; i < chunks.size() && i < 256; ++i) {
             const std::size_t at = _emitChunk(out, want, [&] {
               if (auto r = chunks[i].writeTo(out, kind, alpha); !r) err = r.error();
@@ -622,7 +623,7 @@ namespace wowlib::formats::adt {
                   if (auto r = formats::detail::writeValue(member, out); !r) err = r.error();
                 });
                 record(want, at);
-                if (want == fourCc("MHDR")) mhdrAt = at;
+                if (want == fourcc("MHDR")) mhdrAt = at;
               }
             }
           }
@@ -651,16 +652,16 @@ namespace wowlib::formats::adt {
         };
         MHDRData h = header;
         h.ofsMcin = mcinAt == 0 ? 0u : static_cast<std::uint32_t>(mcinAt - base);
-        h.ofsMtex = rel(fourCc("MTEX"));
-        h.ofsMmdx = rel(fourCc("MMDX"));
-        h.ofsMmid = rel(fourCc("MMID"));
-        h.ofsMwmo = rel(fourCc("MWMO"));
-        h.ofsMwid = rel(fourCc("MWID"));
-        h.ofsMddf = rel(fourCc("MDDF"));
-        h.ofsModf = rel(fourCc("MODF"));
-        h.ofsMfbo = rel(fourCc("MFBO"));
-        h.ofsMh2O = rel(fourCc("MH2O"));
-        h.ofsMtxf = rel(fourCc("MTXF"));
+        h.ofsMtex = rel(fourcc("MTEX"));
+        h.ofsMmdx = rel(fourcc("MMDX"));
+        h.ofsMmid = rel(fourcc("MMID"));
+        h.ofsMwmo = rel(fourcc("MWMO"));
+        h.ofsMwid = rel(fourcc("MWID"));
+        h.ofsMddf = rel(fourcc("MDDF"));
+        h.ofsModf = rel(fourcc("MODF"));
+        h.ofsMfbo = rel(fourcc("MFBO"));
+        h.ofsMh2O = rel(fourcc("MH2O"));
+        h.ofsMtxf = rel(fourcc("MTXF"));
         std::memcpy(out.data() + mhdrAt + 8, &h, sizeof(MHDRData));
       }
       return out;
@@ -755,7 +756,8 @@ namespace wowlib::formats::adt {
         // the root file keeps the bare "{stem}.adt" name
         if (auto r = writeFile(FileKind::Root, alpha).and_then([&](FileBuffer data) {
           return add(*resolved.path, data);
-        }); !r) return r;
+        }); !r)
+          return r;
         if (auto r = store(FileKind::Tex0, "_tex0"); !r) return r;
         if (auto r = store(FileKind::Obj0, "_obj0"); !r) return r;
         if constexpr (requires { this->obj1Data; }) {

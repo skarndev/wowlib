@@ -22,25 +22,24 @@ template <typename... Ts>
 constexpr bool AllTriviallyCopyable = (std::is_trivially_copyable_v<Ts> && ...);
 
 static_assert(AllTriviallyCopyable<SMOHeader, SMOMaterial, SMOGroupInfo, SMOPortal,
-                                     SMOPortalRef, SMOVisibleBlock, SMOLight, SMODoodadSet,
-                                     SMODoodadDef, SMOFog, SMOPoly, CAaBspNode,
-                                     SMOGroupHeader<versions::Wotlk>,
-                                     SMOGroupHeader<versions::Shadowlands>,
-                                     SMOBatch<versions::Wotlk>,
-                                     SMOBatch<versions::Shadowlands>>);
+                                   SMOPortalRef, SMOVisibleBlock, SMOLight, SMODoodadSet,
+                                   SMODoodadDef, SMOFog, SMOPoly, CAaBspNode,
+                                   SMOGroupHeader<versions::Wotlk>,
+                                   SMOGroupHeader<versions::Shadowlands>,
+                                   SMOBatch<versions::Wotlk>,
+                                   SMOBatch<versions::Shadowlands>>);
 
 static_assert(AllTriviallyCopyable<UVAnimation, GroupInfo2, PortalExtra, LightExtension,
-                                     NewLight, FogExtra, AmbientVolume, AmbientBoxVolume,
-                                     Poly2, RenderBatchOverride, ShadowBatch, PointLight,
-                                     LightSet, PointLightAnim>);
+                                   NewLight, FogExtra, AmbientVolume, AmbientBoxVolume,
+                                   Poly2, RenderBatchOverride, ShadowBatch, PointLight,
+                                   LightSet, PointLightAnim>);
 
 // MLIQ grid records are bulk-memcpy'd like the other binary structs; the water
 // and magma vertex readings share the same 8-byte layout (bit_cast reinterpret).
 static_assert(AllTriviallyCopyable<SMOLVert, SMOLTile, SMOMVert>);
 static_assert(sizeof(SMOLVert) == 8 && sizeof(SMOLTile) == 1 && sizeof(SMOMVert) == 8);
 
-TEST_CASE("binary offsets match the wowdev layout", "[formats][wmo]")
-{
+TEST_CASE("binary offsets match the wowdev layout", "[formats][wmo]") {
   STATIC_CHECK(offsetof(SMOHeader, ambientColor) == 0x1C);
   STATIC_CHECK(offsetof(SMOHeader, boundingBox) == 0x24);
   STATIC_CHECK(offsetof(SMOHeader, flags) == 0x3C);
@@ -84,32 +83,28 @@ TEST_CASE("binary offsets match the wowdev layout", "[formats][wmo]")
   STATIC_CHECK(offsetof(ShadowBatch, materialId) == 0x17);
 }
 
-TEST_CASE("doodad name/flags packing splits correctly", "[formats][wmo]")
-{
+TEST_CASE("doodad name/flags packing splits correctly", "[formats][wmo]") {
   SMODoodadDef def;
-  def.nameAndFlags = 0x01ABCDEF;  // AcceptProjTex + offset 0xABCDEF
+  def.nameAndFlags = 0x01ABCDEF; // AcceptProjTex + offset 0xABCDEF
   CHECK(def.nameIndex() == 0xABCDEF);
   CHECK(hasFlag(def.nameAndFlags, DoodadFlags::AcceptProjTex));
   CHECK_FALSE(hasFlag(def.nameAndFlags, DoodadFlags::InteriorLighting));
 }
 
-namespace
-{
-  void putChunk(FileBuffer& b, const char (&cc)[5], const void* payload, std::size_t n)
-  {
-    const std::uint32_t fourcc = fourCc(cc);
+namespace {
+  void putChunk(FileBuffer& b, const char (&cc)[5], const void* payload, std::size_t n) {
+    const std::uint32_t fourccMagic = fourcc(cc);
     const auto size = static_cast<std::uint32_t>(n);
     const auto* p = reinterpret_cast<const std::byte*>(payload);
-    b.insert(b.end(), reinterpret_cast<const std::byte*>(&fourcc),
-             reinterpret_cast<const std::byte*>(&fourcc) + 4);
+    b.insert(b.end(), reinterpret_cast<const std::byte*>(&fourccMagic),
+             reinterpret_cast<const std::byte*>(&fourccMagic) + 4);
     b.insert(b.end(), reinterpret_cast<const std::byte*>(&size),
              reinterpret_cast<const std::byte*>(&size) + 4);
     b.insert(b.end(), p, p + n);
   }
 }
 
-TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]")
-{
+TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]") {
   const std::uint32_t mver = 17;
 
   FileBuffer rootData;
@@ -158,8 +153,7 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
 }
 
 TEST_CASE("MLIQ liquid decodes its header-driven grid and round-trips",
-          "[formats][wmo]")
-{
+          "[formats][wmo]") {
   const std::uint32_t mver = 17;
 
   FileBuffer rootData;
@@ -182,12 +176,19 @@ TEST_CASE("MLIQ liquid decodes its header-driven grid and round-trips",
   put(tilesDim, sizeof tilesDim);
   put(baseCoords, sizeof baseCoords);
   put(&materialId, sizeof materialId);
-  REQUIRE(mliq.size() == 30);   // the unpadded on-disk header
-  struct RawVert { std::uint8_t a, b, c, d; float h; };
-  const RawVert verts[4]{{1, 2, 3, 0, 1.0f}, {4, 5, 6, 0, 2.0f},
-                         {7, 8, 9, 0, 3.0f}, {0, 0, 0, 0, 4.0f}};
+  REQUIRE(mliq.size() == 30); // the unpadded on-disk header
+  struct RawVert {
+    std::uint8_t a, b, c, d;
+    float h;
+  };
+  const RawVert verts[4]{
+    {1, 2, 3, 0, 1.0f},
+    {4, 5, 6, 0, 2.0f},
+    {7, 8, 9, 0, 3.0f},
+    {0, 0, 0, 0, 4.0f}
+  };
   put(verts, sizeof verts);
-  const std::uint8_t tile = 0xC1;   // shared | fishable | liquid type 1
+  const std::uint8_t tile = 0xC1; // shared | fishable | liquid type 1
   put(&tile, sizeof tile);
   REQUIRE(mliq.size() == 30 + 4 * 8 + 1);
 
@@ -235,16 +236,14 @@ TEST_CASE("MLIQ liquid decodes its header-driven grid and round-trips",
   CHECK(*assembled.groups[0].write() == groupData);
 }
 
-namespace
-{
+namespace {
   /** Whether a group body models MDAL — a named concept so the checks stay
       SFINAE-friendly inside Catch2's macros. */
   template <typename Body>
   concept ModelsMdal = requires(const Body& body) { body.ambientColorOverride; };
 }
 
-TEST_CASE("MDAL is a MoP chunk, not a WoD one", "[formats][wmo]")
-{
+TEST_CASE("MDAL is a MoP chunk, not a WoD one", "[formats][wmo]") {
   // wowdev dates MDAL to WoD but flags it "could have been added earlier";
   // a 5.4.8 corpus sweep found 421 of them, while 700 sampled Cata groups and
   // 400 WotLK groups carry none. The version gate follows the corpus.
@@ -256,7 +255,7 @@ TEST_CASE("MDAL is a MoP chunk, not a WoD one", "[formats][wmo]")
   // MoP must also be its own instantiation: were it still folded onto the Cata
   // one, the slot above would be evaluated at Cata and the chunk would vanish.
   STATIC_REQUIRE_FALSE(std::is_same_v<WMOGroupBody<versions::Mop>,
-                                      WMOGroupBody<versions::Cata>>);
+                       WMOGroupBody<versions::Cata>>);
 
   // and it parses into the member rather than landing in `unknown`
   FileBuffer body;

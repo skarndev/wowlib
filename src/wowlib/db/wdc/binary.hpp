@@ -29,16 +29,16 @@
 
 namespace wowlib::db::wdc {
   /** The WDC1 magic as memcpy'd off the file front (the bytes "WDC1"). */
-  inline constexpr std::uint32_t Wdc1Magic = formats::fourCc("WDC1", formats::FourCCEndian::Forward);
+  inline constexpr std::uint32_t Wdc1Magic = formats::fourcc("WDC1", formats::FourCCEndian::Forward);
 
   /** The WDC3 magic as memcpy'd off the file front (the bytes "WDC3"). */
-  inline constexpr std::uint32_t Wdc3Magic = formats::fourCc("WDC3", formats::FourCCEndian::Forward);
+  inline constexpr std::uint32_t Wdc3Magic = formats::fourcc("WDC3", formats::FourCCEndian::Forward);
 
   /** The WDC4 magic as memcpy'd off the file front (the bytes "WDC4"). */
-  inline constexpr std::uint32_t Wdc4Magic = formats::fourCc("WDC4", formats::FourCCEndian::Forward);
+  inline constexpr std::uint32_t Wdc4Magic = formats::fourcc("WDC4", formats::FourCCEndian::Forward);
 
   /** The WDC5 magic as memcpy'd off the file front (the bytes "WDC5"). */
-  inline constexpr std::uint32_t Wdc5Magic = formats::fourCc("WDC5", formats::FourCCEndian::Forward);
+  inline constexpr std::uint32_t Wdc5Magic = formats::fourcc("WDC5", formats::FourCCEndian::Forward);
 
   /** Whether @a magic names a format of the WDC family this codec speaks.
       @param magic the file's leading four bytes.

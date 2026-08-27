@@ -427,16 +427,16 @@ namespace wowlib::formats::adt {
           the MCRF-vs-MCRD/MCRW special case, emitted last). Each physical file
           emits the subset routed to it, in this order — see writeTo. */
       static constexpr std::array SubChunkOrder{
-        fourCc("MCVT"),
-        fourCc("MCCV"),
-        fourCc("MCLV"),
-        fourCc("MCNR"),
-        fourCc("MCLQ"),
-        fourCc("MCSE"),
-        fourCc("MCLY"),
-        fourCc("MCSH"),
-        fourCc("MCAL"),
-        fourCc("MCMT")
+        fourcc("MCVT"),
+        fourcc("MCCV"),
+        fourcc("MCLV"),
+        fourcc("MCNR"),
+        fourcc("MCLQ"),
+        fourcc("MCSE"),
+        fourcc("MCLY"),
+        fourcc("MCSH"),
+        fourcc("MCAL"),
+        fourcc("MCMT")
       };
 
       [[=welder::doc(
@@ -544,8 +544,8 @@ namespace wowlib::formats::adt {
         for (std::size_t i = 0; i < alphaMaps.size(); ++i)
           if (!alphaMaps[i].empty() && alphaMaps[i].size() != detail::AlphaTexels)
             report.addError(std::format("alphaMaps[{}]", i),
-                             std::format("decoded alpha map holds {} texels, not {}", alphaMaps[i].size(),
-                                         detail::AlphaTexels));
+                            std::format("decoded alpha map holds {} texels, not {}", alphaMaps[i].size(),
+                                        detail::AlphaTexels));
         if (!alphaMaps.empty() && !alphaMaps[0].empty())
           report.addWarning("alphaMaps[0]", "layer 0 is the opaque base layer; its alpha map is ignored");
       }
@@ -613,10 +613,10 @@ namespace wowlib::formats::adt {
           @param emitted  the emitted-sub-chunk table to append to.
           @param n        the emitted count to advance. */
       void _writeRefs(FileBuffer& out,
-                       std::size_t base,
-                       FileKind kind,
-                       std::span<Emitted> emitted,
-                       std::size_t& n) const {
+                      std::size_t base,
+                      FileKind kind,
+                      std::span<Emitted> emitted,
+                      std::size_t& n) const {
         const auto emit = [&](std::uint32_t magic, auto&& body) {
           const std::size_t before = out.size();
           const std::uint32_t ofs = _emitSubchunk(out, base, magic, body);
@@ -624,16 +624,16 @@ namespace wowlib::formats::adt {
         };
         if (kind != FileKind::Monolithic) {
           if (!doodadRefs.empty())
-            emit(fourCc("MCRD"), [&] {
+            emit(fourcc("MCRD"), [&] {
               appendBytes(out, doodadRefs.data(), doodadRefs.size() * 4);
             });
           if (!objectRefs.empty())
-            emit(fourCc("MCRW"), [&] {
+            emit(fourcc("MCRW"), [&] {
               appendBytes(out, objectRefs.data(), objectRefs.size() * 4);
             });
         }
         else if (!doodadRefs.empty() || !objectRefs.empty()) {
-          emit(fourCc("MCRF"), [&] {
+          emit(fourcc("MCRF"), [&] {
             appendBytes(out, doodadRefs.data(), doodadRefs.size() * 4);
             appendBytes(out, objectRefs.data(), objectRefs.size() * 4);
           });
@@ -675,37 +675,37 @@ namespace wowlib::formats::adt {
           return 0;
         };
 
-        if (auto o = ofs(fourCc("MCVT")); o && !highRes) h.ofsHeight = *o;
-        if (auto o = ofs(fourCc("MCNR")); o && !highRes) h.ofsNormal = *o;
-        if (auto o = ofs(fourCc("MCCV")); o) h.ofsMccv = *o;
-        if (auto o = ofs(fourCc("MCLV")); o) h.ofsMclv = *o;
-        if (auto o = ofs(fourCc("MCLY")); o) {
+        if (auto o = ofs(fourcc("MCVT")); o && !highRes) h.ofsHeight = *o;
+        if (auto o = ofs(fourcc("MCNR")); o && !highRes) h.ofsNormal = *o;
+        if (auto o = ofs(fourcc("MCCV")); o) h.ofsMccv = *o;
+        if (auto o = ofs(fourcc("MCLV")); o) h.ofsMclv = *o;
+        if (auto o = ofs(fourcc("MCLY")); o) {
           h.ofsLayer = *o;
           h.nLayers = static_cast<std::uint32_t>(layers.size());
         }
-        if (auto o = ofs(fourCc("MCAL")); o) {
+        if (auto o = ofs(fourcc("MCAL")); o) {
           h.ofsAlpha = *o;
-          h.sizeAlpha = sz(fourCc("MCAL"));
+          h.sizeAlpha = sz(fourcc("MCAL"));
         }
-        if (auto o = ofs(fourCc("MCSH")); o) {
+        if (auto o = ofs(fourcc("MCSH")); o) {
           h.ofsShadow = *o;
-          h.sizeShadow = sz(fourCc("MCSH"));
+          h.sizeShadow = sz(fourcc("MCSH"));
         }
-        if (auto o = ofs(fourCc("MCLQ")); o) {
+        if (auto o = ofs(fourcc("MCLQ")); o) {
           h.ofsLiquid = *o;
-          h.sizeLiquid = sz(fourCc("MCLQ"));
+          h.sizeLiquid = sz(fourcc("MCLQ"));
         }
-        if (auto o = ofs(fourCc("MCRF")); o) h.ofsRefs = *o;
-        if (ofs(fourCc("MCRF")) || ofs(fourCc("MCRD")) || ofs(fourCc("MCRW"))) {
+        if (auto o = ofs(fourcc("MCRF")); o) h.ofsRefs = *o;
+        if (ofs(fourcc("MCRF")) || ofs(fourcc("MCRD")) || ofs(fourcc("MCRW"))) {
           h.nDoodadRefs = static_cast<std::uint32_t>(doodadRefs.size());
           h.nMapObjRefs = static_cast<std::uint32_t>(objectRefs.size());
         }
-        if (auto o = ofs(fourCc("MCSE")); o) {
+        if (auto o = ofs(fourcc("MCSE")); o) {
           h.ofsSndEmitters = *o;
           using Entry = std::remove_cvref_t<decltype(soundEmitters )>::value_type;
           h.nSndEmitters = static_cast<std::uint32_t>(mcseRaw.empty()
-                                                          ? soundEmitters.size()
-                                                          : mcseRaw.size() / sizeof(Entry));
+                                                        ? soundEmitters.size()
+                                                        : mcseRaw.size() / sizeof(Entry));
         }
         std::memcpy(out.data() + base, &h, sizeof(SMChunk));
       }
@@ -720,18 +720,18 @@ namespace wowlib::formats::adt {
           @param kind     the physical file (the header is only present with one).
           @return the corrected byte length. */
       std::uint32_t _subchunkLength(std::uint32_t magic, std::uint32_t declared, FileKind kind) const {
-        if (magic == fourCc("MCNR") && declared <= 435) return 448;
+        if (magic == fourcc("MCNR") && declared <= 435) return 448;
         if (fileHasHeader(kind)) {
           // The header's size fields are authoritative for MCAL/MCLQ even when
           // they say "empty" (<= 8, header only): the vanilla map tool wrote
           // garbage declared sizes into empty sub-chunk headers (every
           // AhnQiraj MCAL with no alpha data declares -2048 — 243 tiles in
           // the 1.12.1 fleet audit).
-          if (magic == fourCc("MCAL") && header.sizeAlpha != 0)
+          if (magic == fourcc("MCAL") && header.sizeAlpha != 0)
             return header.sizeAlpha <= 8
                      ? 0
                      : header.sizeAlpha - 8;
-          if (magic == fourCc("MCLQ") && header.sizeLiquid != 0)
+          if (magic == fourcc("MCLQ") && header.sizeLiquid != 0)
             return header.sizeLiquid <= 8
                      ? 0
                      : header.sizeLiquid - 8;
@@ -779,7 +779,7 @@ namespace wowlib::formats::adt {
       if (fileHasHeader(kind)) {
         if (payload.size() < sizeof(SMChunk))
           return makeError(ErrorCode::ChunkTruncated,
-                            std::format("MCNK header needs {} bytes, got {}", sizeof(SMChunk), payload.size()));
+                           std::format("MCNK header needs {} bytes, got {}", sizeof(SMChunk), payload.size()));
         std::memcpy(&header, payload.data(), sizeof(SMChunk));
         pos = sizeof(SMChunk);
       }
@@ -802,13 +802,13 @@ namespace wowlib::formats::adt {
         if (dataAt + effective > payload.size()) effective = declared; // last resort: trust the declared size
         if (dataAt + effective > payload.size())
           return makeError(ErrorCode::ChunkTruncated,
-                            std::format("MCNK sub-chunk {} overruns the chunk", fourccToString(magic)));
+                           std::format("MCNK sub-chunk {} overruns the chunk", fourccToString(magic)));
         const auto sub = payload.subspan(dataAt, effective);
         pos = dataAt + effective;
 
         // MCRF is the one sub-chunk mapping to two members (doodad + object refs,
         // split by the header count) — the MCNK analogue of ADT's special MCNK.
-        if (magic == fourCc("MCRF")) {
+        if (magic == fourcc("MCRF")) {
           _readCombinedRefs(sub, kind);
           continue;
         }

@@ -156,13 +156,13 @@ namespace wowlib::formats::wdt::root {
           MAI2 (12.0.5+, Midnight) postdates the supported client range; it and
           any other unmodeled chunk round-trip through ChunkExtras::unknown. */
       static constexpr std::array ChunkOrder = {
-        fourCc("MVER"),
-        fourCc("MPHD"),
-        fourCc("MAIN"),
-        fourCc("MAID"),
-        fourCc("MWMO"),
-        fourCc("MODF"),
-        fourCc("MANM"),
+        fourcc("MVER"),
+        fourcc("MPHD"),
+        fourcc("MAIN"),
+        fourcc("MAID"),
+        fourcc("MWMO"),
+        fourcc("MODF"),
+        fourcc("MANM"),
       };
 
       /** Validation hook (see formats::detail::validateValue): the map-wide

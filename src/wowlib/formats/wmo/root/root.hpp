@@ -439,41 +439,41 @@ namespace wowlib::formats::wmo::root {
           MFOB (12.1+, Midnight) postdates the supported client range; it and any
           other unmodeled root chunk round-trip through ChunkExtras::unknown. */
       static constexpr std::array ChunkOrder = {
-        fourCc("MVER"),
-        fourCc("MOHD"),
-        fourCc("MOTX"),
-        fourCc("MOMT"),
-        fourCc("MOM3"),
-        fourCc("MOUV"),
-        fourCc("MOGN"),
-        fourCc("MOGI"),
-        fourCc("MOSB"),
-        fourCc("MOSI"),
-        fourCc("MOPV"),
-        fourCc("MOPT"),
-        fourCc("MOPR"),
-        fourCc("MOPE"),
-        fourCc("MOVV"),
-        fourCc("MOVB"),
-        fourCc("MOLT"),
-        fourCc("MOLV"),
-        fourCc("MODS"),
-        fourCc("MODN"),
-        fourCc("MODI"),
-        fourCc("MODD"),
-        fourCc("MFOG"),
-        fourCc("MCVP"),
-        fourCc("GFID"),
-        fourCc("MDDI"),
-        fourCc("MPVD"),
-        fourCc("MAVG"),
-        fourCc("MAVD"),
-        fourCc("MBVD"),
-        fourCc("MFED"),
-        fourCc("MGI2"),
-        fourCc("MNLD"),
-        fourCc("MDDL"),
-        fourCc("MOMX"),
+        fourcc("MVER"),
+        fourcc("MOHD"),
+        fourcc("MOTX"),
+        fourcc("MOMT"),
+        fourcc("MOM3"),
+        fourcc("MOUV"),
+        fourcc("MOGN"),
+        fourcc("MOGI"),
+        fourcc("MOSB"),
+        fourcc("MOSI"),
+        fourcc("MOPV"),
+        fourcc("MOPT"),
+        fourcc("MOPR"),
+        fourcc("MOPE"),
+        fourcc("MOVV"),
+        fourcc("MOVB"),
+        fourcc("MOLT"),
+        fourcc("MOLV"),
+        fourcc("MODS"),
+        fourcc("MODN"),
+        fourcc("MODI"),
+        fourcc("MODD"),
+        fourcc("MFOG"),
+        fourcc("MCVP"),
+        fourcc("GFID"),
+        fourcc("MDDI"),
+        fourcc("MPVD"),
+        fourcc("MAVG"),
+        fourcc("MAVD"),
+        fourcc("MBVD"),
+        fourcc("MFED"),
+        fourcc("MGI2"),
+        fourcc("MNLD"),
+        fourcc("MDDL"),
+        fourcc("MOMX"),
       };
 
       /** Serializer hook (see writeEntity): stamp the derived MOHD counts into
@@ -481,11 +481,11 @@ namespace wowlib::formats::wmo::root {
           nPortals and nDoodadSets from their vectors. The counts real client
           files disagree with their containers on (nTextures, nLights,
           nDoodadDefs, nDoodadNames) stay stored fields; see SMOHeader.
-          @param fourcc  the emitted chunk's id, in disk layout.
+          @param fourccMagic  the emitted chunk's id, in disk layout.
           @param payload the finished chunk payload, patched in place. */
       [[=welder::mark::exclude]]
-      void patchChunk(std::uint32_t fourcc, std::span<std::byte> payload) const {
-        if (fourcc != fourCc("MOHD") || payload.size() < sizeof(SMOHeader)) return;
+      void patchChunk(std::uint32_t fourccMagic, std::span<std::byte> payload) const {
+        if (fourccMagic != fourcc("MOHD") || payload.size() < sizeof(SMOHeader)) return;
         SMOHeader h;
         std::memcpy(&h, payload.data(), sizeof h);
         h.nGroups = static_cast<std::uint32_t>(groupInfos.size());
@@ -510,8 +510,8 @@ namespace wowlib::formats::wmo::root {
         for (std::size_t i = 0; i < doodadSets.size(); ++i)
           if (doodadSets[i].startIndex + doodadSets[i].count > doodadDefs.size())
             report.addError(std::format("doodad_sets[{}]", i),
-                             std::format("range [{}, {}) overruns the {} doodad placements", doodadSets[i].startIndex,
-                                         doodadSets[i].startIndex + doodadSets[i].count, doodadDefs.size()));
+                            std::format("range [{}, {}) overruns the {} doodad placements", doodadSets[i].startIndex,
+                                        doodadSets[i].startIndex + doodadSets[i].count, doodadDefs.size()));
 
         // MODD name references: MODN byte offsets pre-8.3, MODI indices once
         // the names block is gone (8.1/8.2 carry both - an engaged MODN marks
@@ -541,47 +541,47 @@ namespace wowlib::formats::wmo::root {
           }
           if (!resolvable && ++badNames <= maxReported)
             report.addError(std::format("doodadDefs[{}]", i),
-                             std::format("name reference {} does not resolve: {} count {}", name, space, bound));
+                            std::format("name reference {} does not resolve: {} count {}", name, space, bound));
         }
         if (badNames > maxReported)
           report.addError("doodadDefs", std::format(
-                             "... and {} more unresolvable name " "references", badNames - maxReported));
+                            "... and {} more unresolvable name " "references", badNames - maxReported));
 
         // MOPT: vertex ranges into MOPV
         for (std::size_t i = 0; i < portals.size(); ++i)
           if (portals[i].startVertex + portals[i].count > portalVertices.size())
             report.addError(std::format("portals[{}]", i),
-                             std::format("vertex range [{}, {}) overruns the {} portal vertices",
-                                         portals[i].startVertex, portals[i].startVertex + portals[i].count,
-                                         portalVertices.size()));
+                            std::format("vertex range [{}, {}) overruns the {} portal vertices",
+                                        portals[i].startVertex, portals[i].startVertex + portals[i].count,
+                                        portalVertices.size()));
 
         // MOPR: indices into MOPT and MOGI
         for (std::size_t i = 0; i < portalRefs.size(); ++i) {
           if (portalRefs[i].portalIndex >= portals.size())
             report.addError(std::format("portal_refs[{}]", i),
-                             std::format("portal_index {} out of range: {} portals", portalRefs[i].portalIndex,
-                                         portals.size()));
+                            std::format("portal_index {} out of range: {} portals", portalRefs[i].portalIndex,
+                                        portals.size()));
           if (portalRefs[i].groupIndex >= groupInfos.size())
             report.addError(std::format("portal_refs[{}]", i),
-                             std::format("group_index {} out of range: {} groups", portalRefs[i].groupIndex,
-                                         groupInfos.size()));
+                            std::format("group_index {} out of range: {} groups", portalRefs[i].groupIndex,
+                                        groupInfos.size()));
         }
 
         // MOVB: vertex ranges into MOVV
         for (std::size_t i = 0; i < visibleBlocks.size(); ++i)
           if (visibleBlocks[i].firstVertex + visibleBlocks[i].count > visibleBlockVertices.size())
             report.addError(std::format("visible_blocks[{}]", i), std::format(
-                               "vertex range [{}, {}) overruns the {} visible block " "vertices",
-                               visibleBlocks[i].firstVertex, visibleBlocks[i].firstVertex + visibleBlocks[i].count,
-                               visibleBlockVertices.size()));
+                              "vertex range [{}, {}) overruns the {} visible block " "vertices",
+                              visibleBlocks[i].firstVertex, visibleBlocks[i].firstVertex + visibleBlocks[i].count,
+                              visibleBlockVertices.size()));
 
         // MOGI: group-name offsets into MOGN (-1 marks the unnamed group)
         for (std::size_t i = 0; i < groupInfos.size(); ++i)
           if (groupInfos[i].nameOffset >= 0 && static_cast<std::size_t>(groupInfos[i].nameOffset) >= groupNames.
             size())
             report.addError(std::format("groupInfos[{}]", i),
-                             std::format("name offset {} out of range: {} blob bytes", groupInfos[i].nameOffset,
-                                         groupNames.size()));
+                            std::format("name offset {} out of range: {} blob bytes", groupInfos[i].nameOffset,
+                                        groupNames.size()));
 
         // MOMT texture references are MOTX byte offsets while the names block
         // is engaged (pre-8.1 always; 8.1/8.2 fallback mode). Only texture1
@@ -593,8 +593,8 @@ namespace wowlib::formats::wmo::root {
             for (std::size_t i = 0; i < materials.size(); ++i)
               if (materials[i].texture1 >= this->textures.size())
                 report.addError(std::format("materials[{}]", i),
-                                 std::format("texture_1 offset {} out of range: {} blob bytes", materials[i].texture1,
-                                             this->textures.size()));
+                                std::format("texture_1 offset {} out of range: {} blob bytes", materials[i].texture1,
+                                            this->textures.size()));
 
         // MOLV (9.1+): entries reference lights by index
         if constexpr (requires { this->lightExtensions; })
@@ -602,7 +602,7 @@ namespace wowlib::formats::wmo::root {
             if (const auto index = this->lightExtensions[i].lightIndex; index < 0 || static_cast<std::size_t>(index)
               >= lights.size())
               report.addError(std::format("light_extensions[{}]", i),
-                               std::format("light_index {} out of range: {} lights", index, lights.size()));
+                              std::format("light_index {} out of range: {} lights", index, lights.size()));
       }
     };
   }

@@ -90,7 +90,7 @@ namespace wowlib::formats::wdt::fogs {
 
       /** The canonical chunk-stream order the serializer emits a fresh entity
           in (see writeOrder). Lists every chunk member exactly once. */
-      static constexpr std::array ChunkOrder = {fourCc("MVER"), fourCc("VFOG"), fourCc("VFEX"),};
+      static constexpr std::array ChunkOrder = {fourcc("MVER"), fourcc("VFOG"), fourcc("VFEX"),};
     };
   }
 

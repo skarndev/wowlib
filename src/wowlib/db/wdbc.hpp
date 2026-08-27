@@ -22,7 +22,7 @@
 
 namespace wowlib::db {
   /** The WDBC magic as memcpy'd off the file front (the bytes "WDBC"). */
-  inline constexpr std::uint32_t WdbcMagic = formats::fourCc("WDBC", formats::FourCCEndian::Forward);
+  inline constexpr std::uint32_t WdbcMagic = formats::fourcc("WDBC", formats::FourCCEndian::Forward);
 
   /** The 20-byte WDBC header (wowdev.wiki/DBC). */
   struct WdbcHeader {

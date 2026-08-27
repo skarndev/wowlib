@@ -30,7 +30,7 @@ namespace wowlib::formats {
       @param cc     the four-character code as written on wowdev.wiki, e.g. "MVER".
       @param endian how the code is laid out on disk.
       @return the comparison value. */
-  constexpr std::uint32_t fourCc(const char (&cc)[5], FourCCEndian endian = FourCCEndian::Reversed) {
+  constexpr std::uint32_t fourcc(const char (&cc)[5], FourCCEndian endian = FourCCEndian::Reversed) {
     const auto b = [&](std::size_t i) {
       return static_cast<std::uint32_t>(cc[i]);
     };

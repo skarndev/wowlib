@@ -42,7 +42,7 @@
 namespace wowlib::formats::blp {
   /** The BLP2 magic: the literal bytes "BLP2" (a forward FourCC, unlike the
       reversed chunk ids). */
-  inline constexpr std::uint32_t BlpMagic = fourCc("BLP2", FourCCEndian::Forward);
+  inline constexpr std::uint32_t BlpMagic = fourcc("BLP2", FourCCEndian::Forward);
   /** The BLP2 header version field; always 1 in every shipped client. */
   inline constexpr std::uint32_t BlpVersion1 = 1;
   /** The mip table capacity: a BLP addresses at most 16 levels. */

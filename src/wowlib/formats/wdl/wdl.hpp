@@ -368,29 +368,29 @@ namespace wowlib::formats::wdl {
           resequencedJournal(), not this table. Lists every chunk member
           exactly once. */
       static constexpr std::array ChunkOrder = {
-        fourCc("MVER"),
-        fourCc("MWMO"),
-        fourCc("MWID"),
-        fourCc("MODF"),
-        fourCc("MLDD"),
-        fourCc("MLDX"),
-        fourCc("MLDF"),
-        fourCc("MLDL"),
-        fourCc("MLDB"),
-        fourCc("MLMD"),
-        fourCc("MLMX"),
-        fourCc("MLMB"),
-        fourCc("MSSN"),
-        fourCc("MSSC"),
-        fourCc("MSSO"),
-        fourCc("MSSF"),
-        fourCc("MSLD"),
-        fourCc("MSLI"),
-        fourCc("MAOF"),
-        fourCc("MARE"),
-        fourCc("MAOC"),
-        fourCc("MAOE"),
-        fourCc("MAHO"),
+        fourcc("MVER"),
+        fourcc("MWMO"),
+        fourcc("MWID"),
+        fourcc("MODF"),
+        fourcc("MLDD"),
+        fourcc("MLDX"),
+        fourcc("MLDF"),
+        fourcc("MLDL"),
+        fourcc("MLDB"),
+        fourcc("MLMD"),
+        fourcc("MLMX"),
+        fourcc("MLMB"),
+        fourcc("MSSN"),
+        fourcc("MSSC"),
+        fourcc("MSSO"),
+        fourcc("MSSF"),
+        fourcc("MSLD"),
+        fourcc("MSLI"),
+        fourcc("MAOF"),
+        fourcc("MARE"),
+        fourcc("MAOC"),
+        fourcc("MAOE"),
+        fourcc("MAHO"),
       };
 
       /** The heightmap ordinal each ocean mask belongs to (parallel to
@@ -471,8 +471,8 @@ namespace wowlib::formats::wdl {
   std::vector<std::uint32_t> detail::WDL<V>::oceanMaskTiles() const {
     std::vector<std::uint32_t> out;
     if constexpr (requires { this->oceanMasks; }) {
-      constexpr auto mareIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MARE"));
-      constexpr auto maoeIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MAOE"));
+      constexpr auto mareIdx = formats::detail::chunkMemberIndex<WDL>(fourcc("MARE"));
+      constexpr auto maoeIdx = formats::detail::chunkMemberIndex<WDL>(fourcc("MAOE"));
       const std::size_t n = this->oceanMasks.size();
       if (n == 0) return out;
       out.reserve(n);
@@ -529,11 +529,11 @@ namespace wowlib::formats::wdl {
 
   template <ClientVersion V>
   Result<std::optional<std::vector<JournalEntry>>> detail::WDL<V>::resequencedJournal() const {
-    constexpr auto mareIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MARE"));
-    constexpr auto mahoIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MAHO"));
-    constexpr auto maoeIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MAOE"));
-    constexpr auto maocIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MAOC"));
-    constexpr auto maofIdx = formats::detail::chunkMemberIndex<WDL>(fourCc("MAOF"));
+    constexpr auto mareIdx = formats::detail::chunkMemberIndex<WDL>(fourcc("MARE"));
+    constexpr auto mahoIdx = formats::detail::chunkMemberIndex<WDL>(fourcc("MAHO"));
+    constexpr auto maoeIdx = formats::detail::chunkMemberIndex<WDL>(fourcc("MAOE"));
+    constexpr auto maocIdx = formats::detail::chunkMemberIndex<WDL>(fourcc("MAOC"));
+    constexpr auto maofIdx = formats::detail::chunkMemberIndex<WDL>(fourcc("MAOF"));
 
     const auto journalCount = [&](std::int32_t index) -> std::size_t {
       if (index < 0) return 0;
@@ -607,19 +607,19 @@ namespace wowlib::formats::wdl {
       }
     std::vector<JournalEntry> block;
     for (std::size_t tile = 0; tile < nTiles; ++tile) {
-      block.push_back({fourCc("MARE"), mareIdx, static_cast<std::uint32_t>(tile)});
+      block.push_back({fourcc("MARE"), mareIdx, static_cast<std::uint32_t>(tile)});
       for (const std::uint32_t occurrence : occlusionPerTile[tile]) block.push_back({
-        fourCc("MAOC"),
+        fourcc("MAOC"),
         maocIdx,
         occurrence
       });
       for (const std::uint32_t occurrence : oceanPerTile[tile]) block.push_back({
-        fourCc("MAOE"),
+        fourcc("MAOE"),
         maoeIdx,
         occurrence
       });
       if (tile < nHoles)
-        block.push_back({fourCc("MAHO"), mahoIdx, static_cast<std::uint32_t>(tile)});
+        block.push_back({fourcc("MAHO"), mahoIdx, static_cast<std::uint32_t>(tile)});
     }
     out.insert(out.begin() + static_cast<std::ptrdiff_t>(insertAt), block.begin(), block.end());
 
@@ -631,8 +631,8 @@ namespace wowlib::formats::wdl {
 
   template <ClientVersion V>
   Result<void> detail::WDL<V>::patchFile(std::span<std::byte> image) const {
-    constexpr std::uint32_t maofCc = fourCc("MAOF");
-    constexpr std::uint32_t mareCc = fourCc("MARE");
+    constexpr std::uint32_t maofCc = fourcc("MAOF");
+    constexpr std::uint32_t mareCc = fourcc("MARE");
 
     std::size_t maofPayload = image.size();
     std::uint32_t maofSize = 0;

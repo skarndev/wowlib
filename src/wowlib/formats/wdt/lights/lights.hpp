@@ -137,13 +137,13 @@ namespace wowlib::formats::wdt::lights {
       /** The canonical chunk-stream order the serializer emits a fresh entity
           in (see writeOrder). Lists every chunk member exactly once. */
       static constexpr std::array ChunkOrder = {
-        fourCc("MVER"),
-        fourCc("MPLT"),
-        fourCc("MPL2"),
-        fourCc("MPL3"),
-        fourCc("MSLT"),
-        fourCc("MTEX"),
-        fourCc("MLTA"),
+        fourcc("MVER"),
+        fourcc("MPLT"),
+        fourcc("MPL2"),
+        fourcc("MPL3"),
+        fourcc("MSLT"),
+        fourcc("MTEX"),
+        fourcc("MLTA"),
       };
     };
   }

@@ -95,7 +95,7 @@ namespace wowlib::formats::wdt::mpv {
           fresh MULTI-group entity emits each member's elements consecutively
           rather than the client's per-group interleave — entities read from a
           file replay their journal and keep it. */
-      static constexpr std::array ChunkOrder = {fourCc("MVER"), fourCc("PVMI"), fourCc("PVPD"), fourCc("PVBD"),};
+      static constexpr std::array ChunkOrder = {fourcc("MVER"), fourcc("PVMI"), fourcc("PVPD"), fourcc("PVBD"),};
     };
   }
 

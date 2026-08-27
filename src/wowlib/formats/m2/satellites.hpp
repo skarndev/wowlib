@@ -103,9 +103,9 @@ namespace wowlib::formats::m2 {
   class AnimCache {
   public:
     // .anim chunk ids, forward like all M2-family fourccs.
-    static constexpr std::uint32_t Afm2Magic = fourCc("AFM2", FourCCEndian::Forward);
-    static constexpr std::uint32_t AfsaMagic = fourCc("AFSA", FourCCEndian::Forward);
-    static constexpr std::uint32_t AfsbMagic = fourCc("AFSB", FourCCEndian::Forward);
+    static constexpr std::uint32_t Afm2Magic = fourcc("AFM2", FourCCEndian::Forward);
+    static constexpr std::uint32_t AfsaMagic = fourcc("AFSA", FourCCEndian::Forward);
+    static constexpr std::uint32_t AfsbMagic = fourcc("AFSB", FourCCEndian::Forward);
 
     /** The AFID FileDataID for sequence @a key, 0 when unlisted. */
     static std::uint32_t afidLookup(std::span<const chunked::record::AnimFileEntry> entries, SequenceKey key) {
