@@ -13,7 +13,7 @@ using wowlib::fs::CsvListfile;
 namespace
 {
   const std::filesystem::path Sample = tests::dataRoot() /
-                                       "Sample-listfile.csv";
+                                       "sample-listfile.csv";
 
   // The loaded CSV is the working database registrations write to, so tests
   // always operate on a disposable copy of the committed Sample.

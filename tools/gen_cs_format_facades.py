@@ -29,20 +29,25 @@ import re
 import sys
 from pathlib import Path
 
-# The era order (targets.py / core/client_version.hpp) and the PascalCase
-# method spellings (the Expansion enumerator names the class suffixes use).
+# The era order (targets.py / core/client_version.hpp), as
+# (versions:: constant as spelled in bindings/instantiations/*_ranges.hpp,
+# WoWLib.Expansion enumerator emitted into the generated C#). They differ only
+# for TWW. The left column is a lookup key into the ranges rows and is Pascal
+# since the 2026-08-27 naming sweep Pascal-cased the versions:: constants, so
+# it must track those headers; the right column is the public C# API surface
+# and must track wowlib::Expansion's enumerators in core/expansion.hpp.
 ERAS = [
-    ("vanilla", "Vanilla"),
-    ("tbc", "Tbc"),
-    ("wotlk", "Wotlk"),
-    ("cata", "Cata"),
-    ("mop", "Mop"),
-    ("wod", "Wod"),
-    ("legion", "Legion"),
-    ("bfa", "Bfa"),
-    ("shadowlands", "Shadowlands"),
-    ("dragonflight", "Dragonflight"),
-    ("tww", "TheWarWithin"),
+    ("Vanilla", "Vanilla"),
+    ("Tbc", "Tbc"),
+    ("Wotlk", "Wotlk"),
+    ("Cata", "Cata"),
+    ("Mop", "Mop"),
+    ("Wod", "Wod"),
+    ("Legion", "Legion"),
+    ("Bfa", "Bfa"),
+    ("Shadowlands", "Shadowlands"),
+    ("Dragonflight", "Dragonflight"),
+    ("Tww", "TheWarWithin"),
 ]
 ERA_INDEX = {era: i for i, (era, _) in enumerate(ERAS)}
 
@@ -144,10 +149,15 @@ ANIM_TIMELINE_DECL = """    /// <summary>The timing half every animation track s
 
 def ranges_of(text: str, macro: str) -> list[tuple[str, str]]:
     """The (suffix, first_era) rows of one X-macro table."""
-    block = re.search(rf"#define {macro}\(X\)(.*?)\n\n", text, re.S)
+    # The X-macro's parameter name is captured from the #define rather than
+    # hardcoded: the 2026-08-27 naming sweep lowercased it (X -> x) in every
+    # *_ranges.hpp and this parser silently stopped matching, breaking the C#
+    # facade generation. Reading it back keeps the two in sync by construction.
+    block = re.search(rf"#define {macro}\((\w+)\)(.*?)\n\n", text, re.S)
     if not block:
         raise SystemExit(f"gen_cs_format_facades: {macro} not found")
-    return re.findall(r"X\((\w+), (\w+)\)", block.group(1))
+    param = re.escape(block.group(1))
+    return re.findall(rf"{param}\((\w+), (\w+)\)", block.group(2))
 
 
 def main() -> int:

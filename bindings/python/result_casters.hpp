@@ -32,7 +32,7 @@ namespace wowlib
   struct ResultError : std::runtime_error
   {
     explicit ResultError(Error e)
-      : std::runtime_error(std::string{toString(e.code)} + ": " + e.message)
+      : std::runtime_error(std::string{to_string(e.code)} + ": " + e.message)
       , error(std::move(e))
     {
     }

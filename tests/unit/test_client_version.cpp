@@ -44,6 +44,6 @@ TEST_CASE("casc locale flags are single distinct bits", "[version]")
 
 TEST_CASE("error codes stringify via reflection", "[version][reflect]")
 {
-  STATIC_CHECK(toString(ErrorCode::FileNotFound) == "FileNotFound");
-  CHECK(toString(ErrorCode::EncryptedContent) == "EncryptedContent");
+  STATIC_CHECK(to_string(ErrorCode::FileNotFound) == "FileNotFound");
+  CHECK(to_string(ErrorCode::EncryptedContent) == "EncryptedContent");
 }

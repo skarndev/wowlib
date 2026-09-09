@@ -15,7 +15,7 @@
 
     @warning The two spellings must agree bit-for-bit: if the rod's slot is
     ever re-pointed (a second out-of-tree rod claiming slot 0), re-point this
-    constant with it, or every `cs` mark silently stops resolving. */
+    constant with it, or every `Cs` mark silently stops resolving. */
 
 namespace wowlib::lang {
   /** C#/.NET — the welder-csharp rod's identity (user-range slot 0), respelled

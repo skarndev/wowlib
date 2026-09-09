@@ -52,7 +52,7 @@ namespace wowlib {
   /** The enumerator spelling of @a code, obtained via reflection.
       @param code the error code.
       @return a static string, never dangling. */
-  constexpr std::string_view toString(ErrorCode code) {
+  constexpr std::string_view to_string(ErrorCode code) {
     return enumName(code);
   }
 
@@ -76,13 +76,13 @@ namespace wowlib {
       convenience. A rod that maps the error branch of a `Result<T>` onto its
       target language's exception channel — welder's C#/.NET rod does exactly
       that, since .NET has no result type — has to turn an arbitrary `E` into
-      message text, and looks for an ADL `toString(e)` first. Without this the
+      message text, and looks for an ADL `to_string(e)` first. Without this the
       C# bindings fail to build with a diagnostic naming the omission, rather
       than silently throwing exceptions that carry nothing.
       @param error the failure to render.
       @return `"<Code>: <message>"`, plus `" (native <n>)"` when non-zero. */
-  inline std::string toString(const Error& error) {
-    std::string out{toString(error.code)};
+  inline std::string to_string(const Error& error) {
+    std::string out{to_string(error.code)};
     out += ": ";
     out += error.message;
     if (error.nativeError != 0) {

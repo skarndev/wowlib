@@ -37,6 +37,12 @@ single-word Pascal (`Vanilla`, `Wotlk` — NOT `WotLK`, whose camel-split
     `identifier_of(m) == "transform_opaque_container"` string compare).
   - STL/metafunction protocol members kept Pascal instead: trait `value` →
     `Value`, `ConcreteOf::type` → `Type` (ours, renamed consistently).
+  - `wowlib::to_string(const Error&)` / `to_string(ErrorCode)` in
+    core/error.hpp: welder's C# rod renders an `expected`'s error type through
+    an ADL `to_string(e)` probe (`requires { to_string(e) }`), so camelCasing
+    the overload set made every C# shim TU fail its static_assert. The sweep
+    DID rename it and CI only caught it after the earlier C# errors cleared —
+    restored 2026-09-09. Python's casters call the same overload set.
 - **Welded protected lifetime surface**: `FileSystem::close()` / `isOpen()`
   stay un-prefixed — their identifiers ARE the Python (`close`, `is_open`)
   and C# (`Close`, `IsOpen`) names; `_close` would surface as `_close`.

@@ -58,7 +58,7 @@ These are presented roughly in order:
 | CI server, self-hosted runner & client installs layout | .claude/context/ci-server-notes.md |
 | Releasing (tag-driven PyPI wheels + multi-RID NuGet, version from git tag) | .claude/context/release-process.md |
 | Python/Lua bindings (welder rods, casters, naming) | .claude/context/bindings-notes.md |
-| C#/.NET bindings (welder-csharp extension, wowlib::lang::cs identity, shim sharding, build shape) | .claude/context/csharp-bindings.md |
+| C#/.NET bindings (welder-csharp extension, wowlib::lang::Cs identity, shim sharding, build shape) | .claude/context/csharp-bindings.md |
 | Documentation site (mkdocs-material guide + Python API via mkdocstrings + Doxygen C++ reference) | .claude/context/docs-site.md |
 
 # Important notes

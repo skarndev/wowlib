@@ -25,29 +25,29 @@
 
 namespace wowlib
 {
-  namespace [[=welder::weld_as(wowlib::lang::cs, "Database")]] db
+  namespace [[=welder::weld_as(wowlib::lang::Cs, "Database")]] db
   {
   }
-  namespace [[=welder::weld_as(wowlib::lang::cs, "Filesystem")]] fs
+  namespace [[=welder::weld_as(wowlib::lang::Cs, "Filesystem")]] fs
   {
   }
 }
 
 namespace wowlib::formats
 {
-  namespace [[=welder::weld_as(wowlib::lang::cs, "WMO")]] wmo
+  namespace [[=welder::weld_as(wowlib::lang::Cs, "WMO")]] wmo
   {
   }
-  namespace [[=welder::weld_as(wowlib::lang::cs, "ADT")]] adt
+  namespace [[=welder::weld_as(wowlib::lang::Cs, "ADT")]] adt
   {
   }
-  namespace [[=welder::weld_as(wowlib::lang::cs, "WDT")]] wdt
+  namespace [[=welder::weld_as(wowlib::lang::Cs, "WDT")]] wdt
   {
   }
-  namespace [[=welder::weld_as(wowlib::lang::cs, "WDL")]] wdl
+  namespace [[=welder::weld_as(wowlib::lang::Cs, "WDL")]] wdl
   {
   }
-  namespace [[=welder::weld_as(wowlib::lang::cs, "BLP")]] blp
+  namespace [[=welder::weld_as(wowlib::lang::Cs, "BLP")]] blp
   {
   }
 }

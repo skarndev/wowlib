@@ -37,6 +37,6 @@ TEST_CASE("expansion names stringify via reflection", "[expansion][reflect]")
 
 TEST_CASE("new chunk error codes stringify", "[expansion][error]")
 {
-  STATIC_CHECK(toString(ErrorCode::ChunkTruncated) == "ChunkTruncated");
-  STATIC_CHECK(toString(ErrorCode::UnsupportedClientVersion) == "UnsupportedClientVersion");
+  STATIC_CHECK(to_string(ErrorCode::ChunkTruncated) == "ChunkTruncated");
+  STATIC_CHECK(to_string(ErrorCode::UnsupportedClientVersion) == "UnsupportedClientVersion");
 }

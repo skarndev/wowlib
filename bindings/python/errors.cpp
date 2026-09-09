@@ -89,7 +89,7 @@ namespace wowlib_py
       nb::object instance = nb::steal(PyObject_CallFunction(cls, "s", e.error.message.c_str()));
       if (!instance.is_valid())
         return;
-      instance.attr("code") = nb::str(std::string{toString(e.error.code)}.c_str());
+      instance.attr("code") = nb::str(std::string{to_string(e.error.code)}.c_str());
       instance.attr("native_error") = nb::int_(e.error.nativeError);
       PyErr_SetObject(cls, instance.ptr());
     }

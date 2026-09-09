@@ -97,7 +97,7 @@ Four breaking (pre-1.0) surface changes, all four user-directed:
 
 
 Read when: touching `bindings/csharp/`, the `weld` annotations, or any
-`wowlib::lang::cs` site.
+`wowlib::lang::Cs` site.
 
 ## The rod is an out-of-tree welder extension now (2026-08)
 
@@ -109,13 +109,13 @@ populated first, its `if(NOT TARGET welder::headers)` guard uses our pin
 rather than fetching its own. The subproject defines
 `welder_csharp_generate_bindings()` globally — no `CMAKE_MODULE_PATH` dance.
 
-## Language identity: `wowlib::lang::cs`
+## Language identity: `wowlib::lang::Cs`
 
 welder's core no longer names C# (`welder::lang` holds only `py`/`lua`; the
 old `welder::lang::cs` spelling does not compile). The rod mints its identity
 from welder's open user range (`user_lang<WELDER_CSHARP_LANG_SLOT>`, default
 slot 0) as `welder::rods::csharp::cs`. wowlib **respells the same identity**
-in `src/wowlib/core/lang.hpp` as `wowlib::lang::cs` (`user_lang<0>`), so core
+in `src/wowlib/core/lang.hpp` as `wowlib::lang::Cs` (`user_lang<0>`), so core
 headers never include rod headers — they must parse in Python-only builds
 where welder-csharp is not even fetched. The two spellings must stay
 bit-for-bit equal: if the rod's slot is ever re-pointed, re-point ours.
@@ -127,11 +127,11 @@ mask means "all languages", any rod included. Only **marks** may name a
 language, and only where the reason is genuinely language-specific. The `cs`
 sites in the tree today:
 
-- `mark::only(welder::lang::lua, wowlib::lang::cs)` on the 12 per-version
+- `mark::only(welder::lang::lua, wowlib::lang::Cs)` on the 12 per-version
   `read`/`write` fs-I/O methods (WMO, M2, Skeleton, ADT, WDT, WDL). Python
   attaches an equivalent surface to the version-agnostic bases from
   hand-written glue; Lua and C# take the direct methods.
-- `weld_as(wowlib::lang::cs, ...)` on two C#-only naming collisions the rod
+- `weld_as(wowlib::lang::Cs, ...)` on two C#-only naming collisions the rod
   diagnoses at generation: `SMTextureColorGrading::_04` → `Unknown04` (leading
   underscore survives PascalCase and collides with the generated `_h_*`
   scaffolding namespace), and `SMOFog::Fog` → `FogBand` (CS0102: a nested type

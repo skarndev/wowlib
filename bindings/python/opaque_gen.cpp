@@ -47,7 +47,7 @@ namespace wowlib_py
       we return. */
   struct wowlib_opaque_naming : welder::naming::none
   {
-    /** Decimal render of @a n (constexpr std::toString is unavailable on gcc-16). */
+    /** Decimal render of @a n (constexpr std::to_string is unavailable on gcc-16). */
     static consteval std::string decimal(std::size_t n)
     {
       if (n == 0)
