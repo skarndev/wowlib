@@ -62,6 +62,13 @@ single-word Pascal (`Vanilla`, `Wotlk` — NOT `WotLK`, whose camel-split
   (`indexesInRoot("doodadPlacements")`, `countMatches("collisionTriangles", 3)`,
   `offsetAfter(...)`, `memberOffset(...)`). Grep quoted snake strings after
   any future member rename.
+- **docs/ scrapers regex the annotation VOCABULARY, not just members**:
+  `docs/validation_reference_impl.py` matched `count_matches(` /
+  `indexes_in_root(` etc. The sweep camelCased those annotation factories
+  (correctly), silently gutting the generated validation-contract table from
+  20 rows to 4; its `check()` guard then failed the docs build — but only once
+  the C# errors ahead of it cleared. Regexes updated 2026-09-09; grep
+  `docs/*.py` for snake_case identifiers after any rename.
 
 ## Consequences on the surfaces
 - Python callables/fields keep snake_case via welder's style; kwargs too since

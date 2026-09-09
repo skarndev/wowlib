@@ -43,7 +43,7 @@ FORMAT_ROOTS = [
 #: a reader should not need to know the annotation vocabulary to use the page.
 _CONTRACTS = [
     (
-        re.compile(r"count_matches\(\s*\"(\w+)\"\s*(?:,\s*(\d+)\s*)?\)"),
+        re.compile(r"countMatches\(\s*\"(\w+)\"\s*(?:,\s*(\d+)\s*)?\)"),
         lambda m: (
             f"one per `{m.group(1)}` entry"
             if not m.group(2)
@@ -51,11 +51,11 @@ _CONTRACTS = [
         ),
     ),
     (
-        re.compile(r"count_exactly\(\s*([\w:]+)\s*\)"),
+        re.compile(r"countExactly\(\s*([\w:]+)\s*\)"),
         lambda m: f"exactly `{m.group(1)}` entries",
     ),
     (
-        re.compile(r"count_multiple_of\(\s*(\d+)\s*\)"),
+        re.compile(r"countMultipleOf\(\s*(\d+)\s*\)"),
         lambda m: f"a multiple of {m.group(1)} entries",
     ),
     (
@@ -63,15 +63,15 @@ _CONTRACTS = [
         lambda m: f"every value indexes `{m.group(1)}`",
     ),
     (
-        re.compile(r"indexes_optional\(\s*\"(\w+)\"\s*\)"),
+        re.compile(r"indexesOptional\(\s*\"(\w+)\"\s*\)"),
         lambda m: f"every value indexes `{m.group(1)}` (or is the 'none' sentinel)",
     ),
     (
-        re.compile(r"indexes_in_root\(\s*\"(\w+)\"\s*\)"),
+        re.compile(r"indexesInRoot\(\s*\"(\w+)\"\s*\)"),
         lambda m: f"every value indexes the root's `{m.group(1)}`",
     ),
     (
-        re.compile(r"expected_value\(\s*([\w:]+)\s*\)"),
+        re.compile(r"expectedValue\(\s*([\w:]+)\s*\)"),
         lambda m: f"always `{m.group(1)}`",
     ),
     (re.compile(r"formats::nonempty|=\s*nonempty\b"), lambda m: "must not be empty"),
