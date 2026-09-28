@@ -87,6 +87,14 @@ bindings/instantiations/*_ranges.hpp rows are `x(Suffix, Era)` — the second
 arg is the `versions::` constant (Pascal); the Suffix builds the welded alias
 (`ADTVanilla`) and is Python-facing.
 
+## Client-gated Python tests are OUTSIDE hosted CI (5th sweep regression)
+`test_adt_facade.py` kept the pre-sweep `AlphaFormat.lowres_4bit` enumerator
+spelling for a month (fixed 2026-09-28): CI's `bindings` job runs pytest on a
+HOSTED runner where `WOWLIB_TEST_CLIENTS_DIR` is unset, so every client-gated
+Python test silently skips there — only the C++ `integration` job runs on the
+clients runner. After any rename, run `WOWLIB_TEST_CLIENTS_DIR=... pytest
+tests/python` locally; green hosted CI proves nothing about these tests.
+
 ## The inspection has FALSE NEGATIVES (Nova parser blind spots)
 CppInconsistentNaming only reports what the ReSharper resolver successfully
 analyzed. In the version-slot entity headers (adt.hpp, map_chunk.hpp, m2.hpp —

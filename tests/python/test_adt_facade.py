@@ -75,7 +75,7 @@ def test_mono_read_and_structural_invariants(wotlk_fs):
     a.read(
         wotlk_fs,
         wowlib.FileKey("World/Maps/Azeroth/Azeroth_37_23.adt"),
-        adt_mod.AlphaFormat.lowres_4bit,
+        adt_mod.AlphaFormat.Lowres4Bit,
     )
     assert len(a.chunks) == 256
     for c in a.chunks:
