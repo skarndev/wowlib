@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <utility>
 
 #include <welder/vocabulary.hpp>
 
@@ -18,6 +19,7 @@
 namespace wowlib::formats::adt::chunks {
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc(
         "Per-cell texture-layer flag bits (SMLayer.flags). The low 6 bits "
         "hold the animation rotation (0x7) and speed (0x38); see "
@@ -59,7 +61,7 @@ namespace wowlib::formats::adt::chunks {
 
     [[=welder::doc(
       "Flags; LayerFlags bits (the low 6 bits are animation rotation/speed).")]]
-    std::uint32_t flags = 0;
+    LayerFlags flags{};
 
     [[=welder::mark::exclude]] std::uint32_t offsetInMcal = 0;
 
@@ -72,11 +74,13 @@ namespace wowlib::formats::adt::chunks {
     [[=welder::getter, =welder::doc(
       "The animation direction in 45-degree steps (flag bits "
       "0x7).")]]
-    std::uint32_t animationRotation() const { return flags & 0x7; }
+    std::uint32_t animationRotation() const { return std::to_underlying(flags) & 0x7; }
 
     [[nodiscard]]
     [[=welder::getter, =welder::doc("The animation speed (flag bits 0x38).")]]
-    std::uint32_t animationSpeed() const { return (flags >> 3) & 0x7; }
+    std::uint32_t animationSpeed() const {
+      return (std::to_underlying(flags) >> 3) & 0x7;
+    }
 
     bool operator==(const SMLayer&) const = default;
   };

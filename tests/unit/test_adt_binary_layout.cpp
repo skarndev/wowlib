@@ -87,7 +87,7 @@ TEST_CASE("A synthetic WotLK ADT round-trips through a buffer", "[adt][roundtrip
   }
   // one textured chunk with a blended second layer + alpha map
   a.chunks[0].layers = {chunks::SMLayer{}, chunks::SMLayer{}};
-  a.chunks[0].layers[1].flags = static_cast<std::uint32_t>(chunks::LayerFlags::UseAlphaMap);
+  a.chunks[0].layers[1].flags = chunks::LayerFlags::UseAlphaMap;
   a.chunks[0].alphaMaps.assign(2, {});
   a.chunks[0].alphaMaps[1].assign(4096, 128);
 

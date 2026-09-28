@@ -20,6 +20,7 @@ namespace wowlib::formats::wmo::group::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Per-triangle flag bits (MOPY and MPY2).")
     ]] PolyFlags : std::uint8_t {
     Transition [[=
@@ -41,7 +42,7 @@ namespace wowlib::formats::wmo::group::chunks {
       =welder::doc("Per-triangle material info (MOPY).")
     ]] SMOPoly {
     [[=welder::doc("Triangle flags; PolyFlags bits.")]]
-    std::uint8_t flags = 0;
+    PolyFlags flags{};
 
     [[=welder::doc("Index into MOMT; 0xFF for collision-only faces.")]]
     std::uint8_t materialId = 0;

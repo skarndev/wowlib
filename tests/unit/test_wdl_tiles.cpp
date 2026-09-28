@@ -311,18 +311,19 @@ TEST_CASE("a WDT root round-trips and gates its chunks by era", "[formats][wdt]"
   const std::uint32_t mver = wdt::WdtVersion18;
   putChunk(b, "MVER", &mver, sizeof mver);
   wdt::root::chunks::SMMapHeader<versions::Wotlk> header{};
-  header.flags = 0x2;
+  header.flags = wdt::root::chunks::MapHeaderFlags{0x2};
   putChunk(b, "MPHD", &header, sizeof header);
   std::vector<wdt::root::chunks::SMAreaInfo> tiles(64 * 64);
-  tiles[64 * 32 + 32].flags = 0x1;
+  tiles[64 * 32 + 32].flags = wdt::root::chunks::AreaInfoFlags{0x1};
   putChunk(b, "MAIN", tiles.data(), tiles.size() * sizeof tiles[0]);
   putChunk(b, "MWMO", nullptr, 0);
 
   RootOld root;
   REQUIRE(root.read(b).has_value());
-  CHECK(root.header.flags == 0x2);
+  CHECK(root.header.flags == wdt::root::chunks::MapHeaderFlags{0x2});
   REQUIRE(root.tiles.size() == 64 * 64);
-  CHECK(root.tiles[64 * 32 + 32].flags == 0x1);
+  CHECK(root.tiles[64 * 32 + 32].flags
+        == wdt::root::chunks::AreaInfoFlags{0x1});
   CHECK(root.globalWmoName.empty());
   CHECK(root.globalWmo.empty());
 

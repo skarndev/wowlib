@@ -47,6 +47,7 @@ namespace wowlib::formats::m2::root {
   /** M2Root::globalFlags bits. */
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("M2 global flags: tilt behavior, the texture-combiner-combo "
         "gate, physics participation and exporter-era markers.")
     ]] GlobalFlags : std::uint32_t {
@@ -192,7 +193,7 @@ namespace wowlib::formats::m2::root {
     std::string name;
 
     [[=welder::doc("Global flags, see GlobalFlags.")]]
-    std::uint32_t globalFlags = 0;
+    GlobalFlags globalFlags{};
 
     [[=welder::mark::no_reassign,
       =welder::doc("Global-sequence loop lengths (timestamps).")]]

@@ -33,8 +33,12 @@ namespace {
       (0x80) is set, else 2048-byte 4-bit.
       @param mphdFlags the map's MPHD flags.
       @return the alpha format to pass to ADT read()/write(). */
-  adt::AlphaFormat alphaFormatOf(std::uint32_t mphdFlags) {
-    return (mphdFlags & 0x4) || (mphdFlags & 0x80) ? adt::AlphaFormat::Highres8Bit : adt::AlphaFormat::Lowres4Bit;
+  adt::AlphaFormat alphaFormatOf(wdt::root::chunks::MapHeaderFlags mphdFlags) {
+    using enum wdt::root::chunks::MapHeaderFlags;
+    return hasFlag(mphdFlags, AdtHasBigAlpha) ||
+           hasFlag(mphdFlags, AdtHasHeightTexturing)
+             ? adt::AlphaFormat::Highres8Bit
+             : adt::AlphaFormat::Lowres4Bit;
   }
 
   /** The map WDT sitting next to a tile: "world\\maps\\azeroth\\azeroth_32_48.adt"

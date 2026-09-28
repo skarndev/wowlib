@@ -49,6 +49,7 @@ namespace wowlib::formats::wmo::root::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Doodad placement flag bits, packed into the high byte of "
         "SMODoodadDef.name_and_flags.")
     ]] DoodadFlags : std::uint32_t {

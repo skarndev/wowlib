@@ -24,7 +24,7 @@ namespace wowlib::formats::wmo::root::chunks {
         "the group file's own header.")
     ]] SMOGroupInfo {
     [[=welder::doc("Group flags; the same GroupFlags bits as MOGP.")]]
-    std::uint32_t flags = 0;
+    group::chunks::GroupFlags flags{};
 
     [[=welder::doc("Group bounding box.")]]
     CAaBox boundingBox{};
@@ -42,7 +42,7 @@ namespace wowlib::formats::wmo::root::chunks {
         it overrides the older LOD-selection logic.)")
     ]] GroupInfo2 {
     [[=welder::doc("A copy of the group file's flags2; GroupFlags2 bits.")]]
-    std::uint32_t flags2 = 0;
+    group::chunks::GroupFlags2 flags2{};
 
     [[=welder::doc("Which LOD level this group belongs to.")]]
     std::uint32_t lodIndex = 0;

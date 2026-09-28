@@ -19,6 +19,7 @@ namespace wowlib::formats::wmo::root::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Root header flag bits (SMOHeader.flags).")
     ]] HeaderFlags : std::uint16_t {
     DoNotAttenuateVertices [[=
@@ -97,7 +98,7 @@ namespace wowlib::formats::wmo::root::chunks {
     CAaBox boundingBox{};
 
     [[=welder::doc("Root-wide flags; HeaderFlags bits.")]]
-    std::uint16_t flags = 0;
+    HeaderFlags flags{};
 
     [[=welder::doc(
       "Number of LOD levels including the base (Legion+; zero before).")]]

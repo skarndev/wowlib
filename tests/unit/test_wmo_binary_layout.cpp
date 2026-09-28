@@ -127,7 +127,7 @@ TEST_CASE("a handcrafted minimal WMO assembles and round-trips", "[formats][wmo]
   {
     FileBuffer body;
     SMOGroupHeader<versions::Wotlk> groupHeader;
-    groupHeader.flags = std::to_underlying(GroupFlags::Exterior);
+    groupHeader.flags = GroupFlags::Exterior;
     body.insert(body.end(), reinterpret_cast<const std::byte*>(&groupHeader),
                 reinterpret_cast<const std::byte*>(&groupHeader) + sizeof groupHeader);
     const C3Vector verts[3]{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
@@ -197,7 +197,7 @@ TEST_CASE("MLIQ liquid decodes its header-driven grid and round-trips",
   {
     FileBuffer body;
     SMOGroupHeader<versions::Wotlk> groupHeader;
-    groupHeader.flags = std::to_underlying(GroupFlags::HasLiquid);
+    groupHeader.flags = GroupFlags::HasLiquid;
     body.insert(body.end(), reinterpret_cast<const std::byte*>(&groupHeader),
                 reinterpret_cast<const std::byte*>(&groupHeader) + sizeof groupHeader);
     putChunk(body, "MLIQ", mliq.data(), mliq.size());

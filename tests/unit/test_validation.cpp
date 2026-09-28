@@ -21,7 +21,7 @@ namespace
     body.vertices = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}};
     body.normals = {{0, 0, 1}, {0, 0, 1}, {0, 0, 1}};
     body.indices = {0, 1, 2};
-    body.polys = {{.flags = 0x20, .materialId = 0}};
+    body.polys = {{.flags = group::chunks::PolyFlags{0x20}, .materialId = 0}};
     auto& batch = body.batches.emplace_back();
     batch.startIndex = 0;
     batch.count = 3;
@@ -113,7 +113,7 @@ TEST_CASE("validate: group hook - batches, BSP, flags", "[formats][wmo][validati
   CHECK(reports(bsp.validate(), "body.bsp_nodes[0]", "overruns the 1 face indices"));
 
   auto flags = smallGroup();
-  flags.body.header.flags = std::to_underlying(group::chunks::GroupFlags::HasVertexColors);
+  flags.body.header.flags = group::chunks::GroupFlags::HasVertexColors;
   CHECK(reports(flags.validate(), "body.vertexColors", "flag"));
 
   auto surplus = smallGroup();
@@ -279,7 +279,7 @@ TEST_CASE("validate: M2 bone hierarchy and alias chains", "[formats][m2][validat
   SECTION("an alias chain must reach a sequence that owns data")
   {
     auto root = smallRoot();
-    root.sequences[0].flags = 0x40;  // alias
+    root.sequences[0].flags = m2n::root::record::SequenceFlags::Alias;  // alias
     root.sequences[0].aliasNext = 0;
     CHECK(reports(root.validate(), "sequences[0]", "points at itself"));
 
@@ -405,7 +405,7 @@ TEST_CASE("validate: ADT tile-wide references", "[formats][adt][validation]")
                   "name_id 2 out of range: modelNameOffsets holds 0"));
 
     // ... unless the flag makes it a FileDataID the client loads directly
-    placement.flags = std::to_underlying(wowlib::formats::common::DoodadDefFlags::EntryIsFdid);
+    placement.flags = wowlib::formats::common::DoodadDefFlags::EntryIsFdid;
     CHECK(tile.validate().ok());
   }
 }

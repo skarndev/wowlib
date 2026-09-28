@@ -33,6 +33,7 @@ namespace wowlib::formats::m2::root::record {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc(
         "M2CompBone flags: parent-transform exemptions, billboarding "
         "and physics participation.")
@@ -68,7 +69,7 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
       std::int32_t keyBoneId = -1;
       [[=welder::doc("See BoneFlags.")]]
-      std::uint32_t flags = 0;
+      BoneFlags flags{};
       [[=welder::doc("Parent bone index, -1 for roots.")]]
       std::int16_t parentBone = -1;
       [[=welder::doc("Mesh part id.")]]
@@ -96,7 +97,7 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Key-bone-lookup back reference, -1 if none.")]]
       std::int32_t keyBoneId = -1;
       [[=welder::doc("See BoneFlags.")]]
-      std::uint32_t flags = 0;
+      BoneFlags flags{};
       [[=welder::doc("Parent bone index, -1 for roots.")]]
       std::int16_t parentBone = -1;
       [[=welder::doc("Mesh part id.")]]

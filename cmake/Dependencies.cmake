@@ -109,7 +109,7 @@ endif()
 # bind as snake_case Python keywords again after the naming-convention sweep).
 FetchContent_Declare(welder
   GIT_REPOSITORY https://github.com/skarndev/welder.git
-  GIT_TAG a97833d1d2ff5cd73519025c5c5ebae8238ffb7b)
+  GIT_TAG f2c4c7d22922b5e706e2df83b40cf8bd0174fcad)
 
 # --- welder-csharp (the C#/.NET rod, an out-of-tree welder extension) ---
 # Declared for every configure (declarations are free) but made available only
@@ -156,7 +156,7 @@ FetchContent_Declare(welder
 # — welder core resolves those through name_of, no rod feature involved.
 FetchContent_Declare(welder_csharp
   GIT_REPOSITORY https://github.com/skarndev/welder-csharp.git
-  GIT_TAG 49d1edd4389062fc354da25e31f68aae918ab74b)
+  GIT_TAG 1d812a5b50493ba3e1de63b876da633d0b2e429d)
 
 # --- stb_dxt (BLP DXT/BC compression; single public-domain header) ---
 # Pinned to the last commit that touched stb_dxt.h (2021-07-12); the URL_HASH

@@ -440,7 +440,7 @@ namespace wowlib::formats::adt {
     template <ClientVersion V>
     void ADT<V>::normalizeChunks() {
       for (auto& chunk : chunks)
-        chunk.header.flags |= std::to_underlying(MapChunkFlags::DoNotFixAlphaMap);
+        setFlag(chunk.header.flags, MapChunkFlags::DoNotFixAlphaMap);
     }
 
     template <ClientVersion V>

@@ -22,6 +22,7 @@ namespace wowlib::formats::wdt::root::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Map header flag bits (SMMapHeader.flags).")
     ]] MapHeaderFlags : std::uint32_t {
     UsesGlobalMapObj [[=welder::doc(
@@ -99,7 +100,7 @@ namespace wowlib::formats::wdt::root::chunks {
         "record is unused before 8.1.")
     ]] WOWLIB_EMPTY_BASES SMMapHeader<V> : WDTHeaderBase{
       [[=welder::doc("Map-wide flags; MapHeaderFlags bits.")]]
-      std::uint32_t flags = 0;
+      MapHeaderFlags flags{};
 
       [[=welder::doc(
         "A legacy value the WotLK-era client reads but does not use "
@@ -121,7 +122,7 @@ namespace wowlib::formats::wdt::root::chunks {
         "FileDataIDs (8.1+).")
     ]] WOWLIB_EMPTY_BASES SMMapHeader<V> : WDTHeaderBase{
       [[=welder::doc("Map-wide flags; MapHeaderFlags bits.")]]
-      std::uint32_t flags = 0;
+      MapHeaderFlags flags{};
 
       [[=welder::doc("FileDataID of the _lgt.wdt lights satellite, or 0.")]]
       std::uint32_t lgtFdid = 0;
@@ -166,6 +167,7 @@ namespace wowlib::formats::wdt::root::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Tile table flag bits (SMAreaInfo.flags).")
     ]] AreaInfoFlags : std::uint32_t {
     HasAdt [[=welder::doc("The tile has an ADT.")]] = 0x1,
@@ -182,7 +184,7 @@ namespace wowlib::formats::wdt::root::chunks {
         them in row-major order (y outer, x inner).)")
     ]] SMAreaInfo {
     [[=welder::doc("Tile flags; AreaInfoFlags bits.")]]
-    std::uint32_t flags = 0;
+    AreaInfoFlags flags{};
 
     [[=welder::doc("Runtime-only async load id; zero in files.")]]
     std::uint32_t asyncId = 0;

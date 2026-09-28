@@ -16,6 +16,7 @@
 namespace wowlib::formats::common {
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("WMO placement flag bits (SMMapObjDef.flags).")
     ]] MapObjDefFlags : std::uint16_t {
     Destroyable [[=welder::doc(
@@ -36,6 +37,7 @@ namespace wowlib::formats::common {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("M2 placement flag bits (SMDoodadDef.flags).")
     ]] DoodadDefFlags : std::uint16_t {
     Biodome [[=welder::doc(
@@ -85,7 +87,7 @@ namespace wowlib::formats::common {
     CAaBox extents{};
 
     [[=welder::doc("Flags; MapObjDefFlags bits.")]]
-    std::uint16_t flags = 0;
+    MapObjDefFlags flags{};
 
     [[=welder::doc(
       "The WMO doodad set shown by this instance (MODS index, or MWDR when "
@@ -128,7 +130,7 @@ namespace wowlib::formats::common {
     std::uint16_t scale = 1024;
 
     [[=welder::doc("Flags; DoodadDefFlags bits.")]]
-    std::uint16_t flags = 0;
+    DoodadDefFlags flags{};
   };
 
   static_assert(sizeof(SMDoodadDef) == 0x24);

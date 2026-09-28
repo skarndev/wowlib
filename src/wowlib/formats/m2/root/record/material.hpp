@@ -104,6 +104,7 @@ namespace wowlib::formats::m2::root::record {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("M2Material render flags.")
     ]] MaterialFlags : std::uint16_t {
     Unlit [[=welder::doc("No lighting.")]] = 0x1,
@@ -121,7 +122,7 @@ namespace wowlib::formats::m2::root::record {
         "blending mode (see M2/Rendering M2BLEND).")
     ]] M2Material {
     [[=welder::doc("See MaterialFlags.")]]
-    std::uint16_t flags = 0;
+    MaterialFlags flags{};
     [[=welder::doc("M2BLEND blending mode (see M2/Rendering).")]]
     std::uint16_t blendingMode = 0;
 

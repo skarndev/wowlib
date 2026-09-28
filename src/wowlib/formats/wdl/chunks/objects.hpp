@@ -37,7 +37,7 @@ namespace wowlib::formats::wdl::chunks {
     C3Vector rotation{};
 
     [[=welder::doc("Flags; MapObjDefFlags bits.")]]
-    std::uint16_t flags = 0;
+    common::MapObjDefFlags flags{};
 
     [[=welder::doc("The WMO doodad set shown by this instance.")]]
     std::uint16_t doodadSet = 0;

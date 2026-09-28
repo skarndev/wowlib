@@ -248,6 +248,12 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
   set(_wowlib_stub_merge_stamp ${CMAKE_CURRENT_BINARY_DIR}/db_stub_merge.stamp)
   add_custom_command(
     OUTPUT ${_wowlib_stub_merge_stamp}
+    # welder's sanitizer first: nanobind's stubgen leaves a forward
+    # `__str__ = __repr__` alias inside every enum.IntFlag class (the
+    # [[=welder::flags]] enums) that a strict mypy rejects as name-defined.
+    COMMAND ${CMAKE_COMMAND} -E env "${Python3_EXECUTABLE}"
+            ${welder_SOURCE_DIR}/tools/welder_stub_sanitizer.py
+            ${_wowlib_stubs}/wowlib
     COMMAND ${CMAKE_COMMAND} -E env "${Python3_EXECUTABLE}"
             ${PROJECT_SOURCE_DIR}/tools/merge_db_stub.py
             ${_wowlib_stubs}/wowlib "${WOWLIB_DB_PY_STUBS_DIR}"
@@ -256,6 +262,7 @@ exec \"${Python_EXECUTABLE}\" -S \"\$@\"
     DEPENDS ${_wowlib_stubs}/wowlib/db/__init__.pyi
             ${WOWLIB_DB_PY_STUB_FILES}
             ${PROJECT_SOURCE_DIR}/tools/merge_db_stub.py
+            ${welder_SOURCE_DIR}/tools/welder_stub_sanitizer.py
     COMMENT "Assembling typed db completion into wowlib/db/"
     VERBATIM)
   # ALL, and not optional: nanobind_add_stub makes wowlib_pyi_raw an ALL target,

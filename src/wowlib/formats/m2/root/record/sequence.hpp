@@ -7,6 +7,7 @@
     they memcpy straight out of their blocks. */
 
 #include <cstdint>
+#include <utility>
 
 #include <welder/vocabulary.hpp>
 
@@ -35,6 +36,7 @@ namespace wowlib::formats::m2::root::record {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("M2Sequence flags — the 0x20/0x40/0x130 combination decides "
         "where the sequence's track data lives (.m2 vs .anim file).")
     ]] SequenceFlags : std::uint32_t {
@@ -87,7 +89,7 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Character move speed during the sequence.")]]
       float movespeed = 0;
       [[=welder::doc("See SequenceFlags.")]]
-      std::uint32_t flags = 0;
+      SequenceFlags flags{};
       [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
       std::int16_t frequency = 0;
       [[=welder::doc("Unused alignment padding.")]]
@@ -108,13 +110,15 @@ namespace wowlib::formats::m2::root::record {
         "Files still carry stale array records for aliases "
         "(dead offsets, junk values), so they are never "
         "chased.")]]
-      constexpr bool isAlias() const { return (flags & 0x40u) != 0; }
+      constexpr bool isAlias() const {
+        return (std::to_underlying(flags) & 0x40u) != 0;
+      }
 
       [[=welder::doc("Whether this sequence owns an external .anim file: its "
         "data is low-priority (0x10/0x20/0x100 all clear) and "
         "it is no alias.")]]
       constexpr bool ownsAnimFile() const {
-        return sequenceDataExternal(flags) && !isAlias();
+        return sequenceDataExternal(std::to_underlying(flags)) && !isAlias();
       }
 
       bool operator==(const M2Sequence&) const = default;
@@ -136,7 +140,7 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Character move speed during the sequence.")]]
       float movespeed = 0;
       [[=welder::doc("See SequenceFlags.")]]
-      std::uint32_t flags = 0;
+      SequenceFlags flags{};
       [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
       std::int16_t frequency = 0;
       [[=welder::doc("Unused alignment padding.")]]
@@ -157,13 +161,15 @@ namespace wowlib::formats::m2::root::record {
         "Files still carry stale array records for aliases "
         "(dead offsets, junk values), so they are never "
         "chased.")]]
-      constexpr bool isAlias() const { return (flags & 0x40u) != 0; }
+      constexpr bool isAlias() const {
+        return (std::to_underlying(flags) & 0x40u) != 0;
+      }
 
       [[=welder::doc("Whether this sequence owns an external .anim file: its "
         "data is low-priority (0x10/0x20/0x100 all clear) and "
         "it is no alias.")]]
       constexpr bool ownsAnimFile() const {
-        return sequenceDataExternal(flags) && !isAlias();
+        return sequenceDataExternal(std::to_underlying(flags)) && !isAlias();
       }
 
       bool operator==(const M2Sequence&) const = default;
@@ -185,7 +191,7 @@ namespace wowlib::formats::m2::root::record {
       [[=welder::doc("Character move speed during the sequence.")]]
       float movespeed = 0;
       [[=welder::doc("See SequenceFlags.")]]
-      std::uint32_t flags = 0;
+      SequenceFlags flags{};
       [[=welder::doc("Playback probability weight (sums to 0x7FFF per id).")]]
       std::int16_t frequency = 0;
       [[=welder::doc("Unused alignment padding.")]]
@@ -208,13 +214,15 @@ namespace wowlib::formats::m2::root::record {
         "Files still carry stale array records for aliases "
         "(dead offsets, junk values), so they are never "
         "chased.")]]
-      constexpr bool isAlias() const { return (flags & 0x40u) != 0; }
+      constexpr bool isAlias() const {
+        return (std::to_underlying(flags) & 0x40u) != 0;
+      }
 
       [[=welder::doc("Whether this sequence owns an external .anim file: its "
         "data is low-priority (0x10/0x20/0x100 all clear) and "
         "it is no alias.")]]
       constexpr bool ownsAnimFile() const {
-        return sequenceDataExternal(flags) && !isAlias();
+        return sequenceDataExternal(std::to_underlying(flags)) && !isAlias();
       }
 
       bool operator==(const M2Sequence&) const = default;

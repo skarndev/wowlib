@@ -20,6 +20,7 @@ namespace wowlib::formats::wmo::group::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Group flag bits (MOGP and MOGI flags).")
     ]] GroupFlags : std::uint32_t {
     HasBsp [[=welder::doc("Has a collision BSP tree (MOBN/MOBR).")]] = 0x1,
@@ -74,6 +75,7 @@ namespace wowlib::formats::wmo::group::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Extended group flag bits (MOGP.flags2 and MGI2).")
     ]] GroupFlags2 : std::uint32_t {
     CanCutTerrain [[=
@@ -123,7 +125,7 @@ namespace wowlib::formats::wmo::group::chunks {
       std::uint32_t descriptiveGroupName = 0;
 
       [[=welder::doc("Group flags; GroupFlags bits.")]]
-      std::uint32_t flags = 0;
+      GroupFlags flags{};
 
       [[=welder::doc("Group bounding box.")]]
       CAaBox boundingBox{};
@@ -157,7 +159,7 @@ namespace wowlib::formats::wmo::group::chunks {
       std::uint32_t uniqueId = 0;
 
       [[=welder::doc("Extended flags (Cataclysm+); GroupFlags2 bits.")]]
-      std::uint32_t flags2 = 0;
+      GroupFlags2 flags2{};
 
       [[=welder::doc(
         "Unused up to 9.1.5 (becomes the split-group indices in 9.2+).")]]
@@ -181,7 +183,7 @@ namespace wowlib::formats::wmo::group::chunks {
       std::uint32_t descriptiveGroupName = 0;
 
       [[=welder::doc("Group flags; GroupFlags bits.")]]
-      std::uint32_t flags = 0;
+      GroupFlags flags{};
 
       [[=welder::doc("Group bounding box.")]]
       CAaBox boundingBox{};
@@ -215,7 +217,7 @@ namespace wowlib::formats::wmo::group::chunks {
       std::uint32_t uniqueId = 0;
 
       [[=welder::doc("Extended flags (Cataclysm+); GroupFlags2 bits.")]]
-      std::uint32_t flags2 = 0;
+      GroupFlags2 flags2{};
 
       [[=welder::doc(
         "Parent split group, or the first child (9.2+ split groups).")]]

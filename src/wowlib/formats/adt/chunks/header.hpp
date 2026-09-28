@@ -16,11 +16,13 @@
 
 #include <welder/vocabulary.hpp>
 
+#include <wowlib/formats/common/flags.hpp>
 #include <wowlib/formats/common/types.hpp>
 
 namespace wowlib::formats::adt::chunks {
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Per-cell MCNK header flag bits (SMChunk.flags).")
     ]] MapChunkFlags : std::uint32_t {
     HasMcsh [[=welder::doc("The cell has a baked shadow map (MCSH sub-chunk).")
@@ -61,7 +63,7 @@ namespace wowlib::formats::adt::chunks {
         on write, so they are not exposed. See https://wowdev.wiki/ADT/v18#MCNK_chunk.)")
     ]] SMChunk {
     [[=welder::doc("Flags; MapChunkFlags bits.")]]
-    std::uint32_t flags = 0;
+    MapChunkFlags flags{};
 
     [[=welder::doc("The cell's column index in the 16x16 grid (0-15).")]]
     std::uint32_t indexX = 0;
@@ -136,7 +138,7 @@ namespace wowlib::formats::adt::chunks {
     void setHolesHighRes(std::uint64_t holes) {
       ofsHeight = static_cast<std::uint32_t>(holes & 0xFFFFFFFF);
       ofsNormal = static_cast<std::uint32_t>(holes >> 32);
-      flags |= static_cast<std::uint32_t>(MapChunkFlags::HighResHoles);
+      setFlag(flags, MapChunkFlags::HighResHoles);
     }
 
     bool operator==(const SMChunk&) const = default;
@@ -146,6 +148,7 @@ namespace wowlib::formats::adt::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Tile header flag bits (MHDRData.flags).")
     ]] MapHeaderFlags : std::uint32_t {
     HasMfbo [[=welder::doc("The tile has a flying bounds chunk (MFBO).")]] = 0x1,
@@ -165,7 +168,7 @@ namespace wowlib::formats::adt::chunks {
         https://wowdev.wiki/ADT/v18#MHDR_chunk.)")
     ]] MHDRData {
     [[=welder::doc("Flags; MapHeaderFlags bits.")]]
-    std::uint32_t flags = 0;
+    MapHeaderFlags flags{};
 
     [[=welder::mark::exclude]] std::uint32_t ofsMcin = 0;
     [[=welder::mark::exclude]] std::uint32_t ofsMtex = 0;

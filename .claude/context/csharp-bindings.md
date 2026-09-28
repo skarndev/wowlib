@@ -1,5 +1,39 @@
 # C#/.NET bindings (welder-csharp rod)
 
+## 2026-09-28 (later): flag fields are their enums ([[=welder::flags]])
+
+- **welder f2c4c7d** added the core `[[=welder::flags]]` annotation (bitmask
+  enum semantic) + `welder::flags_enum()` reflect query: nanobind binds
+  `enum.IntFlag` (is_flag), pybind11 `"enum.IntFlag"` native_enum — combined
+  and UNDOCUMENTED bits convert instead of raising ValueError (the IntEnum
+  behavior, and the historical reason flag members were raw uints). The
+  array-interface descr also maps enum FIELDS to their underlying integer
+  dtype, so a struct gaining an enum member keeps its zero-copy numpy view.
+  **welder-csharp 1d812a5** stamps `[System.Flags]` on such enums.
+- wowlib: 17 `*Flags` enums annotated; 20 members retyped from
+  `std::uintN_t` to the enum (layout-identical — fixed underlying types,
+  trivially copyable, byte-identical round-trips). NOT retyped: packed
+  fields (SMODoodadDef.nameAndFlags, Poly2's u16 flags vs u8 PolyFlags,
+  CAaBspNode, batch flags — no enum or different width). flags.hpp gained
+  the enum-typed hasFlag overload + setFlag; arithmetic sites use
+  std::to_underlying. C++ has NO bitwise operators on the enums (an
+  operator in wowlib::formats is invisible to ADL from the chunks
+  namespaces; hasFlag/setFlag cover the call sites).
+- **Both stub generators leave IntFlag artifacts strict mypy rejects**
+  (nanobind: a forward `__str__ = __repr__` alias inside the enum class);
+  welder's tools/welder_stub_sanitizer.py normalizes them — wired into
+  bindings/CMakeLists' stub-merge step (and welder's own test gates).
+- **Local checkout trap (cost a debug cycle)**: build/csharp's cache pins
+  `FETCHCONTENT_SOURCE_DIR_WELDER_CSHARP=/Users/skarn/WoWModding/Projects/
+  welder-csharp` — the USER'S working tree, not the _deps checkout, and not
+  the Dependencies.cmake pin. After pushing rod changes, `git pull` that
+  tree (and ~/WoWModding/Projects/welder) or the generator silently builds
+  the old rod. The _deps/welder_csharp-src checkout there is vestigial.
+- Locked by tests/csharp/FlagsTests.cs and tests/python/test_flags.py
+  (IntFlag subclassing, enum-typed fields, unknown-bit round-trip, numpy
+  dtype of an enum field, [System.Flags] presence, AlphaFormat staying a
+  plain IntEnum).
+
 ## 2026-09-28: WMO Repeated<> slot accessors + the DB column-name contract
 
 - **User report (v0.0.10): MOCV missing in C#, MOC2 wrongly present on WotLK.**

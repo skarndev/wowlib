@@ -67,10 +67,13 @@ namespace
       maps when AdtHasBigAlpha (0x4) or AdtHasHeightTexturing (0x80) is set,
       else 2048-byte 4-bit. wowlib does not resolve this itself — the caller reads
       the WDT (as this test does) and passes the format to ADT read()/write(). */
-  adt::AlphaFormat alphaFormatOf(std::uint32_t mphdFlags)
+  adt::AlphaFormat alphaFormatOf(wdt::root::chunks::MapHeaderFlags mphdFlags)
   {
-    return (mphdFlags & 0x4) || (mphdFlags & 0x80) ? adt::AlphaFormat::Highres8Bit
-                                                     : adt::AlphaFormat::Lowres4Bit;
+    using enum wdt::root::chunks::MapHeaderFlags;
+    return hasFlag(mphdFlags, AdtHasBigAlpha)
+               || hasFlag(mphdFlags, AdtHasHeightTexturing)
+             ? adt::AlphaFormat::Highres8Bit
+             : adt::AlphaFormat::Lowres4Bit;
   }
 
   /** Structural invariants every decoded chunk must satisfy — a guard against a
@@ -201,7 +204,7 @@ TEST_CASE("3.3.5a ADTs re-read equal after a canonical rewrite",
     int tilesThisMap = 0;
     for (std::size_t i = 0; i < root.tiles.size() && tilesThisMap < 30; ++i)
     {
-      if (!(root.tiles[i].flags & 0x1))
+      if (!hasFlag(root.tiles[i].flags, wdt::root::chunks::AreaInfoFlags::HasAdt))
         continue;
       const std::size_t x = i % 64, y = i / 64;
       const std::string adt = std::format("World/Maps/{0}/{0}_{1}_{2}.adt", map, x, y);
@@ -241,7 +244,7 @@ TEST_CASE("1.12.2 ADTs re-read equal after a canonical rewrite",
     int tilesThisMap = 0;
     for (std::size_t i = 0; i < root.tiles.size() && tilesThisMap < 30; ++i)
     {
-      if (!(root.tiles[i].flags & 0x1))
+      if (!hasFlag(root.tiles[i].flags, wdt::root::chunks::AreaInfoFlags::HasAdt))
         continue;
       const std::size_t x = i % 64, y = i / 64;
       const std::string adt = std::format("World/Maps/{0}/{0}_{1}_{2}.adt", map, x, y);
@@ -282,7 +285,7 @@ TEST_CASE("2.4.3 ADTs re-read equal after a canonical rewrite",
     int tilesThisMap = 0;
     for (std::size_t i = 0; i < root.tiles.size() && tilesThisMap < 30; ++i)
     {
-      if (!(root.tiles[i].flags & 0x1))
+      if (!hasFlag(root.tiles[i].flags, wdt::root::chunks::AreaInfoFlags::HasAdt))
         continue;
       const std::size_t x = i % 64, y = i / 64;
       const std::string adt = std::format("World/Maps/{0}/{0}_{1}_{2}.adt", map, x, y);
@@ -325,7 +328,7 @@ TEST_CASE("9.2.7 split ADTs re-read equal after a canonical rewrite",
     int tilesThisMap = 0;
     for (std::size_t i = 0; i < root.tiles.size() && tilesThisMap < 30; ++i)
     {
-      if (!(root.tiles[i].flags & 0x1))
+      if (!hasFlag(root.tiles[i].flags, wdt::root::chunks::AreaInfoFlags::HasAdt))
         continue;
       const std::size_t x = i % 64, y = i / 64;
       const std::string adt = std::format("world/maps/{0}/{0}_{1}_{2}.adt", map, x, y);

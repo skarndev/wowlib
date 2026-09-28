@@ -74,7 +74,7 @@ TEST_CASE("MD20 header image sizes match the client eras", "[formats][m2]")
   CHECK(M2Root<Wo>{}.imageSize() == 304);
 
   M2Root<Tb> gated;
-  gated.globalFlags = 0x8;  // engages textureCombinerCombos
+  gated.globalFlags = root::GlobalFlags{0x8};  // engages textureCombinerCombos
   CHECK(gated.imageSize() == 332);
 }
 
@@ -109,12 +109,12 @@ TEST_CASE("a synthetic WotLK body round-trips semantically", "[formats][m2]")
 {
   M2Root<Wk> model;
   model.name = "unit_test_model";
-  model.globalFlags = 0;
+  model.globalFlags = {};
   model.globalLoops = {{1500}};
   M2Sequence<Wk> stand;
   stand.id = 0;
   stand.duration = 2000;
-  stand.flags = 0x20;  // data in .m2
+  stand.flags = SequenceFlags::DataInM2;
   model.sequences = {stand};
   model.sequenceLookups = {0};
 
@@ -129,7 +129,7 @@ TEST_CASE("a synthetic WotLK body round-trips semantically", "[formats][m2]")
 
   model.vertices.resize(3);
   model.textures = {{0, 0x3, "textures/unit_test.blp"}};
-  model.materials = {{0x10, 1}};
+  model.materials = {{MaterialFlags{0x10}, 1}};
   model.boneLookupTable = {0};
   model.textureLookupTable = {0};
   model.transparencyLookupTable = {0};

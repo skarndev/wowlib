@@ -19,6 +19,7 @@ namespace wowlib::formats::wmo::root::chunks {
 
   enum class [[
       =welder::weld,
+      =welder::flags,
       =welder::doc("Material flag bits (SMOMaterial.flags).")
     ]] MaterialFlags : std::uint32_t {
     Unlit [[=welder::doc("Disable lighting.")]] = 0x1,
@@ -40,7 +41,7 @@ namespace wowlib::formats::wmo::root::chunks {
         FileDataIDs after.)")
     ]] SMOMaterial {
     [[=welder::doc("Render flags; MaterialFlags bits.")]]
-    std::uint32_t flags = 0;
+    MaterialFlags flags{};
 
     [[=welder::doc("Index into the client's WMO shader table.")]]
     std::uint32_t shader = 0;
