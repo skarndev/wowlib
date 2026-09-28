@@ -9,15 +9,22 @@
   MOC2 was modeled always-present but is really a 10.0+ chunk (corpus: zero
   in 9,346 3.3.5a + 27,191 9.2.7 groups) — moved to the GroupBody100 trait.
   Fix for (1): a BARE-welded slot-accessor surface on WMOGroupBody —
-  texcoordSet{Count,''}/setTexcoordSet/appendTexcoordSet/clearTexcoordSets +
-  the vertexColorLayer* five — copies in/out exactly like the caster
-  (`Result<vector<T>>` / vector-by-value params, the M2 timeline pattern).
-  Identical across eras → hoists onto the family base. Python keeps the
-  members AND gains the accessors (bare weld convention: no language named
-  without a language-specific reason). A full py-vs-C# member diff found NO
-  other per-era gaps (only the known glue asymmetries: Python-only convert,
-  the only(lua,Cs) Read/Write). Locked by FamilySurfaceTests
-  GroupSlotChunksSurfaceOutsidePython / Moc2IsDragonflightOnward.
+  texcoordSetCount/texcoordSet/setTexcoordSet/appendTexcoordSet/
+  clearTexcoordSets + the vertexColorLayer* five. The GETTERS are ZERO-COPY
+  live views (user follow-up 2026-09-28): `vector<T>*` returns under
+  `[[=welder::return_policy(welder::rv::reference_internal)]]` — a slot's
+  vector object has a stable address in Repeated's array storage, so the
+  view is as safe as any vector member's; C# gets a nullable live
+  `Vector<T>` with `_owner` keepalive, Python the opaque wrapper or None.
+  Out-of-range is null/None, NOT a Result (`expected` cannot carry a
+  reference; a pointer return is the rod-blessed nullable-view spelling —
+  `handle_return_nullable`). Only set/append copy (data in is inherently a
+  copy). Identical across eras → hoists onto the family base. Python keeps
+  the members AND gains the accessors (bare weld convention). A full
+  py-vs-C# member diff found NO other per-era gaps (only the known glue
+  asymmetries: Python-only convert, the only(lua,Cs) Read/Write). Locked by
+  FamilySurfaceTests GroupSlotChunksSurfaceOutsidePython /
+  Moc2IsDragonflightOnward.
 - **DB2 "snake_case fields" (user report 2)**: the RUNTIME column names
   (Column.Name / ColumnIndex) are dbdgen's snake member spellings — the
   schema blob interns Member.name — and that is a DELIBERATE cross-release,
@@ -28,6 +35,20 @@
   pinned by `ColumnNamesKeepTheSnakeCaseContract` (xunit) +
   `test_column_names_keep_the_snake_case_contract` (pytest) and the CONTRACT
   note on dbdgen's `member_name()`.
+- **WDBS v2 + the WoWDBDefs alias (user follow-up 2026-09-28)**: snake
+  stays CANONICAL (Python's dynamic record attrs `row.map_name` and the
+  typed-record reflection matching key on it), but the blob now also
+  carries each column's VERBATIM WoWDBDefs spelling ("MapName_lang" —
+  the `_lang` suffix included): ColumnEntry grew `dbdNameOff` (12→16
+  bytes, version 2), `Column.dbdName`/`DbdName` exposes it, and
+  columnIndex accepts either spelling (snake matched FIRST, so a DBD
+  name can never shadow a canonical match). THREE writers/readers must
+  stay in lockstep: dbdgen emit.py, the C++ runtime loader
+  dbd_loader.cpp (its BlobWriter mirrors dbdgen), and schema_blob.hpp —
+  the dbd_loader parity test now compares dbdName too. Gotcha:
+  `Column.dbdName` defaults to nullptr, NOT "" — schemaOf's columns live
+  in reflect_constant, where a pointer into a string literal is not a
+  usable constant (gcc-16 'reflect_constant failed').
 
 ## 2026-08-23 (later): track TIMELINE surface + the M2Track<T> generics decline
 

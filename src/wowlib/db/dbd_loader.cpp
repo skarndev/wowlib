@@ -419,6 +419,7 @@ namespace wowlib::db {
       bool isId = false;
       bool isRelation = false;
       bool noninline = false;
+      std::string dbdName; /**< The verbatim DBD spelling (the v2 lookup alias); layout-neutral, so sameShape ignores it. */
 
       bool sameShape(const Member& other) const {
         return name == other.name && type == other.type && bits == other.bits && isSigned == other.isSigned &&
@@ -458,6 +459,7 @@ namespace wowlib::db {
 
         Member m{};
         m.name = names[i];
+        m.dbdName = entry.name;
         m.arrayLen = static_cast<std::uint16_t>(entry.arrayLen.value_or(1));
         m.isId = entry.isId;
         m.isRelation = entry.isRelation;
@@ -535,6 +537,7 @@ namespace wowlib::db {
             _columns.push_back(m.localeCount);
             _appendU16(_columns, m.arrayLen);
             _appendU16(_columns, 0);
+            _appendU32(_columns, _intern(m.dbdName));
             ++_columnCount;
           }
         }

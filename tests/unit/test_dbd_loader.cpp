@@ -64,6 +64,7 @@ TEST_CASE("the runtime WoWDBDefs loader reproduces the embedded catalog",
         const db::Column& a = actual->columns[c];
         INFO("column " << c << " '" << e.nameView() << "'");
         CHECK(a.nameView() == e.nameView());
+        CHECK(a.dbdNameView() == e.dbdNameView());
         CHECK(a.type == e.type);
         CHECK(a.bits == e.bits);
         CHECK(a.isSigned == e.isSigned);

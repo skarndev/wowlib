@@ -19,6 +19,7 @@ namespace wowlib::db {
       const blob::ColumnEntry entry = view.column(i);
       Column col{};
       col.name = view.stringAt(entry.nameOff).data();
+      col.dbdName = view.stringAt(entry.dbdNameOff).data();
       col.type = entry.type;
       col.bits = entry.bits;
       col.isSigned = entry.isSigned;
@@ -54,7 +55,7 @@ namespace wowlib::db {
     const blob::View view{bytes};
     if (!view.valid())
       return makeError(ErrorCode::SchemaBlobInvalid,
-                        "not a WDBS v1 schema blob (bad magic, version or " "section bounds)");
+                        "not a WDBS v2 schema blob (bad magic, version or " "section bounds)");
     // The span must reference the FINAL resting place of the bytes — move the
     // vector first, then view it inside _materialize's caller frame.
     std::vector<unsigned char> owned{std::move(bytes)};

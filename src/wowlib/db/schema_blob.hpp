@@ -15,7 +15,7 @@
     byte pool is a runtime-only operation (consteval callers copy bytes via
     @ref wowlib::db::blob::View::copyStringAt instead).
 
-    Layout (WDBS v1, little-endian, sections in file order, no padding
+    Layout (WDBS v2, little-endian, sections in file order, no padding
     between sections):
 
     | section | count | entry layout |
@@ -24,14 +24,16 @@
     | eras    | header.eras | `_u16 major, _u16 minor, _u16 patch, _u16 pad, _u32 build` |
     | tables  | header.tables (sorted by name) | `_u32 nameOff, _u32 diskNameOff, _u32 firstRange, _u32 rangeCount` |
     | ranges  | header.ranges | `_u32 firstColumn, _u16 columnCount, _u16 eraMask` |
-    | columns | header.columns | `_u32 nameOff, u8 type, u8 bits, u8 flags, u8 localeCount, _u16 arrayLen, _u16 pad` |
+    | columns | header.columns | `_u32 nameOff, u8 type, u8 bits, u8 flags, u8 localeCount, _u16 arrayLen, _u16 pad, _u32 dbdNameOff` |
     | strpool | header.strpool bytes | NUL-terminated, offset 0 = "" |
 
     `eraMask` is a bitmask over the blob's OWN era table (bit i = era i) —
     never a lo..hi span, because a table absent from a middle era produces a
     range whose target list has a hole. `type` mirrors @ref
     wowlib::db::ColumnType; `flags` is 1 signed | 2 id | 4 relation |
-    8 noninline. */
+    8 noninline. `dbdNameOff` (new in v2) is the verbatim WoWDBDefs column
+    spelling ("MapName_lang") — the lookup alias beside the canonical snake
+    name; 0 (the empty pool string) when the column has no DBD identity. */
 
 #include <cstddef>
 #include <cstdint>
@@ -47,14 +49,14 @@ namespace wowlib::db::blob {
   /** The WDBS magic ('WDBS' little-endian). */
   inline constexpr std::uint32_t Magic = 0x53424457u;
   /** The one format version this reader understands. */
-  inline constexpr std::uint32_t FormatVersion = 1;
+  inline constexpr std::uint32_t FormatVersion = 2;
 
   /** Section entry sizes (bytes), fixed by the format. */
   inline constexpr std::size_t HeaderBytes = 28;
   inline constexpr std::size_t EraBytes = 12;
   inline constexpr std::size_t TableBytes = 16;
   inline constexpr std::size_t RangeBytes = 8;
-  inline constexpr std::size_t ColumnBytes = 12;
+  inline constexpr std::size_t ColumnBytes = 16;
 
   /** One table's directory entry, decoded. Offsets index the string pool;
       range indexes index the blob-global range section. */
@@ -76,6 +78,7 @@ namespace wowlib::db::blob {
       @ref wowlib::db::Column with an interned name). */
   struct ColumnEntry {
     std::uint32_t nameOff = 0; /**< The column name's pool offset. */
+    std::uint32_t dbdNameOff = 0; /**< The verbatim WoWDBDefs spelling's pool offset (0 = none). */
     ColumnType type = ColumnType::Int; /**< The logical value class. */
     std::uint8_t bits = 0; /**< Integer element width in bits. */
     bool isSigned = false; /**< flags & 1. */
@@ -99,7 +102,7 @@ namespace wowlib::db::blob {
         @param bytes the complete blob. */
     explicit constexpr View(std::span<const unsigned char> bytes) : _bytes{bytes} {}
 
-    /** Whether the bytes are a structurally valid WDBS v1 blob: magic,
+    /** Whether the bytes are a structurally valid WDBS v2 blob: magic,
         version, and every section (plus the string pool's terminating NUL
         discipline at the section level) inside bounds.
         @return true when every accessor below is safe to call. */
@@ -163,6 +166,7 @@ namespace wowlib::db::blob {
       out.noninline = (flags & 8u) != 0;
       out.localeCount = _bytes[at + 7];
       out.arrayLen = _u16(at + 8);
+      out.dbdNameOff = _u32(at + 12);
       return out;
     }
 

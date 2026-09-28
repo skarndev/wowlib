@@ -374,8 +374,13 @@ namespace wowlib::db {
 
   Result<std::size_t> DynTable::columnIndex(std::string_view name) const {
     const std::span<const Column> schema = _rows.schema();
+    // The canonical snake spelling first, then the verbatim WoWDBDefs alias —
+    // in two passes, so a (theoretical) DBD name colliding with another
+    // column's snake spelling cannot shadow the canonical match.
     for (std::size_t c = 0; c < schema.size(); ++c)
       if (schema[c].nameView() == name) return c;
+    for (std::size_t c = 0; c < schema.size(); ++c)
+      if (!schema[c].dbdNameView().empty() && schema[c].dbdNameView() == name) return c;
     return makeError(ErrorCode::TableUnknown, std::format("{}: no column named '{}'", _name, name));
   }
 

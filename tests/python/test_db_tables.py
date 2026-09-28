@@ -57,6 +57,21 @@ def test_column_names_keep_the_snake_case_contract():
     assert sell.name == "sell_price"
 
 
+def test_column_index_accepts_the_wowdbdefs_spelling():
+    """Beside the canonical snake name, column_index accepts the verbatim
+    WoWDBDefs spelling as an alias, and Column carries it as dbd_name."""
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
+    directory = table.column_index("directory")
+    assert table.column_index("Directory") == directory
+    assert table.column_info(directory).dbd_name == "Directory"
+    # Locstrings keep the verbatim _lang suffix upstream.
+    map_name = table.column_index("map_name")
+    assert table.column_index("MapName_lang") == map_name
+    assert table.column_info(map_name).dbd_name == "MapName_lang"
+    with pytest.raises(wowlib.TableUnknown):
+        table.column_index("MapName")  # neither spelling
+
+
 def test_open_rejects_unknown_tables_and_uncovered_eras():
     with pytest.raises(wowlib.TableUnknown):
         wowlib.db.Table.open("NoSuchTable", wowlib.versions.wotlk)

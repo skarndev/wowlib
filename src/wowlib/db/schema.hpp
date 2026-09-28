@@ -54,6 +54,13 @@ namespace wowlib::db {
         "column ('MapName' -> 'map_name'). This spelling is a stable "
         "cross-release contract on every binding surface.")]]
     const char* name = nullptr; /**< The member spelling (interned, never dangling). */
+    [[=welder::mark::no_reassign,
+      =welder::doc("The verbatim WoWDBDefs spelling of the column "
+        "('MapName_lang'); column_index accepts it as an alias. Empty for "
+        "columns without a DBD identity (reflection-derived schemas).")]]
+    // nullptr, not "": schemaOf's columns live in reflect_constant, where a
+    // pointer into a string literal is not a usable constant.
+    const char* dbdName = nullptr; /**< The upstream spelling (interned; null = none). */
     [[=welder::doc("The logical value class.")]]
     ColumnType type = ColumnType::Int;
     [[=welder::doc("Integer element width in bits; 32 for float/string refs.")]]
@@ -82,6 +89,12 @@ namespace wowlib::db {
     /** The member spelling as a view.
         @return the interned column name. */
     constexpr std::string_view nameView() const { return name; }
+
+    /** The verbatim WoWDBDefs spelling as a view.
+        @return the interned upstream name; empty when the column has none. */
+    constexpr std::string_view dbdNameView() const {
+      return dbdName ? std::string_view{dbdName} : std::string_view{};
+    }
 
     /** The bytes the column occupies inside a fixed-stride (WDBC/WDB2) record
         image: zero when noninline, the flags field included for LocString.

@@ -42,10 +42,15 @@ every build (96 Python shard TUs, 96 C# gen shards, 61k P/Invokes even after
 erasure). The schema is DATA now and ONE welded class serves every table:
 
 - **WDBS schema blob** (`dbdgen --schema-blob-out`, format doc in
-  `src/wowlib/db/schema_blob.hpp`): 416 KB, all 1221 tables × 11 eras,
+  `src/wowlib/db/schema_blob.hpp`): all 1221 tables × 11 eras,
   per-range column lists + ERA BITMASKS (never lo..hi — tables skip middle
   eras), disk names preserved. Same bytes serve runtime (`SchemaCatalog`)
   and the future consteval typed validation (`#embed`, gcc `--embed-dir`).
+  **v2 (2026-09-28)**: each column also interns its verbatim WoWDBDefs
+  spelling (`dbdNameOff`, entry 12→16 bytes) — `Column.dbdName`, and
+  `columnIndex` takes it as an alias beside the canonical snake name.
+  THREE writers/readers in lockstep: emit.py, dbd_loader.cpp's BlobWriter,
+  schema_blob.hpp (dbd_loader parity test compares dbdName).
 - **SchemaCatalog** (`schema_catalog.{hpp,cpp}`): (table, ClientVersion) →
   `span<const Column>`, era-snapped BY MAJOR. Embedded copy gated by
   `WOWLIB_DB_SCHEMA=embedded|runtime|both` (embedded-only for client-grade

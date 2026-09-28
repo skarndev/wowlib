@@ -52,6 +52,24 @@ public class DbTableTests
     }
 
     [Fact]
+    public void ColumnIndexAcceptsTheWoWDBDefsSpelling()
+    {
+        // Beside the canonical snake name, ColumnIndex accepts the verbatim
+        // WoWDBDefs spelling as an alias, and Column carries it as DbdName —
+        // so C# callers can use the names they know from WoWDBDefs.
+        using var table = Db.Table.Open("Map", Versions.Global.Wotlk);
+        var directory = table.ColumnIndex("directory");
+        Assert.Equal(directory, table.ColumnIndex("Directory"));
+        using var info = table.ColumnInfo(directory);
+        Assert.Equal("Directory", info.DbdName);
+        // Locstrings keep the verbatim _lang suffix upstream.
+        var mapName = table.ColumnIndex("map_name");
+        Assert.Equal(mapName, table.ColumnIndex("MapName_lang"));
+        Assert.Throws<WelderNativeException>(
+            () => { _ = table.ColumnIndex("MapName"); });  // neither spelling
+    }
+
+    [Fact]
     public void OpenRejectsUnknownTablesAndUncoveredEras()
     {
         Assert.Throws<WelderNativeException>(

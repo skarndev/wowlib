@@ -106,10 +106,16 @@ class Member:
     is_relation: bool
     noninline: bool
     doc: str | None
+    # The verbatim WoWDBDefs column name this member mirrors ("MapName_lang").
+    # Serialized into the schema blob (v2) as the column's dbd_name, so every
+    # binding surface can also address cells by the upstream spelling; "" for
+    # members with no DBD identity.
+    dbd_name: str = ""
 
     @property
     def signature(self) -> tuple:
-        """The layout identity range collapsing compares (docs excluded)."""
+        """The layout identity range collapsing compares (docs and the dbd
+        spelling excluded — dbd_name never changes the layout)."""
         return (self.name, self.cpp_type, self.array_len, self.is_id,
                 self.is_relation, self.noninline)
 
@@ -206,6 +212,7 @@ def _member_of(entry: Entry, column_type: str, decl, langs: int | None,
         is_relation=entry.is_relation,
         noninline=entry.noninline,
         doc=doc,
+        dbd_name=entry.name,
     )
 
 
@@ -754,16 +761,16 @@ def emit_schema_blob(tables: list[tuple[str, list["Range"]]],
     generated headers, and the input to both the C++ ``SchemaCatalog`` and the
     consteval typed-record validation (``#embed``).
 
-    Format WDBS v1, all little-endian, laid out section after section so a
+    Format WDBS v2, all little-endian, laid out section after section so a
     sequential parser needs no offsets table:
 
     | section | entry | layout |
     |---|---|---|
-    | header  | 1 | ``u32 magic 'WDBS', u32 version=1, u32 table_count, u32 range_count, u32 column_count, u32 strpool_size, u8 era_count, u8[3] pad`` |
+    | header  | 1 | ``u32 magic 'WDBS', u32 version=2, u32 table_count, u32 range_count, u32 column_count, u32 strpool_size, u8 era_count, u8[3] pad`` |
     | eras    | era_count | ``u16 major, u16 minor, u16 patch, u16 pad, u32 build`` |
     | tables  | table_count, sorted by identifier | ``u32 name_off, u32 disk_name_off, u32 first_range, u32 range_count`` |
     | ranges  | range_count | ``u32 first_column, u16 column_count, u16 era_mask`` |
-    | columns | column_count | ``u32 name_off, u8 type, u8 bits, u8 flags, u8 locale_count, u16 array_len, u16 pad`` |
+    | columns | column_count | ``u32 name_off, u8 type, u8 bits, u8 flags, u8 locale_count, u16 array_len, u16 pad, u32 dbd_name_off`` |
     | strpool | strpool_size bytes | NUL-terminated, offset 0 = "" |
 
     ``era_mask`` is a BITMASK over the blob's own era table (bit i = era i),
@@ -772,6 +779,9 @@ def emit_schema_blob(tables: list[tuple[str, list["Range"]]],
     ``wowlib::db::ColumnType`` (0 Int, 1 Float, 2 String, 3 LocString);
     ``flags`` is 1 signed | 2 id | 4 relation | 8 noninline. ``disk_name`` is
     the on-disk table truth (``Item-sparse``) where the identifier was renamed.
+    ``dbd_name`` (new in v2) is the verbatim WoWDBDefs column spelling
+    (``MapName_lang``) — the lookup alias beside the canonical snake
+    ``name``; 0 (the empty string) when the column has no DBD identity.
     """
     import struct
 
@@ -808,8 +818,9 @@ def emit_schema_blob(tables: list[tuple[str, list["Range"]]],
         flags = ((1 if signed else 0) | (2 if member.is_id else 0) |
                  (4 if member.is_relation else 0) |
                  (8 if member.noninline else 0))
-        return struct.pack("<IBBBBHH", intern(member.name), ctype, bits, flags,
-                           locale, member.array_len or 1, 0)
+        return struct.pack("<IBBBBHHI", intern(member.name), ctype, bits,
+                           flags, locale, member.array_len or 1, 0,
+                           intern(member.dbd_name))
 
     tables_bin = bytearray()
     ranges_bin = bytearray()
@@ -835,7 +846,7 @@ def emit_schema_blob(tables: list[tuple[str, list["Range"]]],
         major, minor, patch, build = target.version
         eras_bin += struct.pack("<HHHHI", major, minor, patch, 0, build)
 
-    header = struct.pack("<IIIIIIB3x", 0x53424457, 1, len(tables), n_ranges,
+    header = struct.pack("<IIIIIIB3x", 0x53424457, 2, len(tables), n_ranges,
                          n_columns, len(pool), len(TARGETS))
     return bytes(header + eras_bin + tables_bin + ranges_bin + columns_bin +
                  pool)
