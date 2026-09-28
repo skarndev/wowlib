@@ -54,7 +54,18 @@ def cpp_era(era: str) -> str:
 def member_name(dbd_name: str) -> str:
     """The C++ member spelling of a DBD column name: snake_case, the
     ``_lang`` locstring marker dropped, keywords and the record statics
-    escaped with a trailing underscore."""
+    escaped with a trailing underscore.
+
+    CONTRACT: this spelling is serialized into the schema blob
+    (:func:`emit_schema_blob` interns ``Member.name``) and is therefore the
+    runtime column name every binding surface exposes (``Column.name``,
+    ``columnIndex(...)`` — Python, Lua AND C#). Changing it is a silent
+    data-layer break for consumers addressing cells by name; the casing is
+    pinned by tests/python/test_db_tables.py and tests/csharp/DbTableTests.cs
+    (``*_keep_the_snake_case_contract``). The 2026-08-27 camelCase sweep
+    deliberately exempted these members (.claude/context/naming-convention.md).
+    Idiomatic per-language casing belongs to the typed facades
+    (:func:`emit_cs_facades` PascalCases), never to this name."""
     base = dbd_name[:-5] if dbd_name.endswith("_lang") else dbd_name
     name = snake(base)
     if name in _RESERVED:

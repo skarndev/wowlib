@@ -50,7 +50,9 @@ namespace wowlib::db {
         "integer shape, array length and key roles.")
     ]] Column {
     [[=welder::mark::no_reassign,
-      =welder::doc("The column name (WoWDBDefs spelling).")]]
+      =welder::doc("The column name: the snake_case spelling of the WoWDBDefs "
+        "column ('MapName' -> 'map_name'). This spelling is a stable "
+        "cross-release contract on every binding surface.")]]
     const char* name = nullptr; /**< The member spelling (interned, never dangling). */
     [[=welder::doc("The logical value class.")]]
     ColumnType type = ColumnType::Int;

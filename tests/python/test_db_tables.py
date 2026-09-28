@@ -43,6 +43,20 @@ def test_open_resolves_the_era_schema():
     assert v_name.locale_count == 8
 
 
+def test_column_names_keep_the_snake_case_contract():
+    """Column names are the snake_case spellings of the WoWDBDefs columns
+    ("MapName" -> "map_name") — a deliberate, cross-release contract shared by
+    every binding surface (the schema blob interns dbdgen's C++ member
+    spellings). Consumers address cells by these strings, so a casing change
+    is a silent data-layer break: pin the stored strings themselves."""
+    table = wowlib.db.Table.open("Map", wowlib.versions.wotlk)
+    assert table.column_info(table.column_index("directory")).name == "directory"
+    assert table.column_info(table.column_index("map_name")).name == "map_name"
+    sparse = wowlib.db.Table.open("ItemSparse", wowlib.versions.shadowlands)
+    sell = sparse.column_info(sparse.column_index("sell_price"))
+    assert sell.name == "sell_price"
+
+
 def test_open_rejects_unknown_tables_and_uncovered_eras():
     with pytest.raises(wowlib.TableUnknown):
         wowlib.db.Table.open("NoSuchTable", wowlib.versions.wotlk)

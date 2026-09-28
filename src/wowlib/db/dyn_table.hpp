@@ -223,9 +223,12 @@ namespace wowlib::db {
     Result<Column> columnInfo(std::size_t column [[=welder::doc("the column index")]]) const;
 
     /** The index of column @a name.
-        @param name the column name (case-sensitive, WoWDBDefs spelling).
+        @param name the column name — the snake_case spelling of the WoWDBDefs
+                    column ("MapName" -> "map_name"), case-sensitive.
         @return the index, or TableUnknown when the schema has no such column. */
-    [[=welder::doc("The index of the column with the given WoWDBDefs name."),
+    [[=welder::doc("The index of the column with the given name: the "
+        "snake_case spelling of the WoWDBDefs column "
+        "('MapName' -> 'map_name'), case-sensitive."),
       =welder::returns("the column index; raises when no column matches")]]
     Result<std::size_t> columnIndex(std::string_view name [[=welder::doc("the column name, case-sensitive")]]) const;
 

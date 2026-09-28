@@ -31,6 +31,26 @@ public class DbTableTests
         Assert.Equal(8, vName.LocaleCount);
     }
 
+    // Column names are the snake_case spellings of the WoWDBDefs columns
+    // ("MapName" -> "map_name") — a DELIBERATE, cross-release contract shared
+    // by every binding surface (the schema blob interns dbdgen's C++ member
+    // spellings). Consumers address cells by these strings, so a casing
+    // change is a silent data-layer break: this test pins the stored strings
+    // themselves, not just that some spelling resolves. The idiomatic-C#
+    // PascalCase lives on the typed facades (MapWotlkRow.MapName), never here.
+    [Fact]
+    public void ColumnNamesKeepTheSnakeCaseContract()
+    {
+        using var table = Db.Table.Open("Map", Versions.Global.Wotlk);
+        using var directory = table.ColumnInfo(table.ColumnIndex("directory"));
+        Assert.Equal("directory", directory.Name);
+        using var mapName = table.ColumnInfo(table.ColumnIndex("map_name"));
+        Assert.Equal("map_name", mapName.Name);
+        using var sparse = Db.Table.Open("ItemSparse", Versions.Global.Shadowlands);
+        using var sell = sparse.ColumnInfo(sparse.ColumnIndex("sell_price"));
+        Assert.Equal("sell_price", sell.Name);
+    }
+
     [Fact]
     public void OpenRejectsUnknownTablesAndUncoveredEras()
     {
