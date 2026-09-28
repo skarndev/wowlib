@@ -273,7 +273,8 @@ namespace wowlib::formats::wmo::group {
       std::vector<std::uint16_t> newLightRefs;
     };
 
-    /** 10.0+ (Dragonflight) group-body query chunks. */
+    /** 10.0+ (Dragonflight) group-body chunks: the query surface and the
+        second vertex-color weights. */
     struct GroupBody100 {
       [[
           =chunk("MOGX"),
@@ -304,6 +305,21 @@ namespace wowlib::formats::wmo::group {
           R"(Per-polygon ground types (MOQG, 10.0+), indexed by polygon
                         index minus the MOGX base.)")]]
       std::vector<std::uint32_t> queryFaces;
+
+      // wowdev lists MOC2 without a version marker, but its consumers are the
+      // Parallax and DF-shader-23 materials and the wiki section only appeared
+      // 2022-10 (the Dragonflight beta window); corpus sweeps found ZERO MOC2
+      // across 9,346 3.3.5a and 27,191 9.2.7 group files, so it is gated 10.0+.
+      [[
+        =chunk("MOC2"),
+        =since(builds::DF_Alpha),
+        =formats::Optional,
+        =formats::countMatches("vertices"),
+        =welder::mark::no_reassign,
+        =welder::doc(
+          R"(Second vertex-color-like weights (MOC2, 10.0+), used by the
+                        parallax and shader-23 materials.)")]]
+      std::vector<CImVector> vertexColors2;
     };
   }
 
@@ -449,16 +465,6 @@ namespace wowlib::formats::wmo::group {
       Repeated<std::vector<CImVector>, 2> vertexColors;
 
       [[
-        =chunk("MOC2"),
-        =formats::Optional,
-        =formats::countMatches("vertices"),
-        =welder::mark::no_reassign,
-        =welder::doc(
-          R"(Second vertex-color-like weights (MOC2), used by the parallax
-                        and shader-23 materials.)")]]
-      std::vector<CImVector> vertexColors2;
-
-      [[
         =chunk("MLIQ"),
         =formats::Optional,
         =welder::doc(
@@ -472,6 +478,114 @@ namespace wowlib::formats::wmo::group {
         =welder::mark::no_reassign,
         =welder::doc("Triangle-strip indices (MORI).")]]
       std::vector<std::uint16_t> transBatchIndices;
+
+      // --- the repeated-chunk slot surface (MOTV, MOCV) ----------------------
+      // The Repeated<> members above bind to Python only (a bespoke nanobind
+      // caster lists the filled slots by value; no other rod can marshal the
+      // wrapper). These accessors are the same surface for every language —
+      // they copy in and out exactly like the caster does.
+
+      [[=welder::doc("The number of filled texture-coordinate sets (MOTV), "
+                     "0 to 4.")]]
+      std::size_t texcoordSetCount() const { return texcoords.size(); }
+
+      [[nodiscard]]
+      [[=welder::doc("One filled texture-coordinate set (MOTV), as a copy."),
+        =welder::returns(
+          "the set's coordinates; errors when set is out of range")]]
+      Result<std::vector<C2Vector>> texcoordSet(
+        std::size_t set [[=welder::doc("the filled-set index")]]) const {
+        if (set >= texcoords.size())
+          return makeError(ErrorCode::InvalidEntityState,
+                            std::format(
+                              "texcoord set {} out of range ({} filled)",
+                              set, texcoords.size()));
+        return texcoords[set];
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("Replace one filled texture-coordinate set (MOTV)."),
+        =welder::returns("nothing; errors when set is out of range")]]
+      Result<void> setTexcoordSet(
+        std::size_t set [[=welder::doc("the filled-set index")]],
+        std::vector<C2Vector> coords
+        [[=welder::doc("the coordinates, one per vertex")]]) {
+        if (set >= texcoords.size())
+          return makeError(ErrorCode::InvalidEntityState,
+                            std::format(
+                              "texcoord set {} out of range ({} filled)",
+                              set, texcoords.size()));
+        texcoords[set] = std::move(coords);
+        return {};
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("Fill the next free texture-coordinate slot (MOTV)."),
+        =welder::returns("nothing; errors when all four slots are filled")]]
+      Result<void> appendTexcoordSet(
+        std::vector<C2Vector> coords
+        [[=welder::doc("the coordinates, one per vertex")]]) {
+        auto* slot = texcoords.push();
+        if (slot == nullptr)
+          return makeError(ErrorCode::InvalidEntityState,
+                            "all 4 texcoord slots are filled");
+        *slot = std::move(coords);
+        return {};
+      }
+
+      [[=welder::doc("Empty every texture-coordinate slot (MOTV).")]]
+      void clearTexcoordSets() { texcoords.clear(); }
+
+      [[=welder::doc("The number of filled vertex-color layers (MOCV), "
+                     "0 to 2.")]]
+      std::size_t vertexColorLayerCount() const { return vertexColors.size(); }
+
+      [[nodiscard]]
+      [[=welder::doc("One filled vertex-color layer (MOCV), as a copy."),
+        =welder::returns("the layer's colors; errors when layer is out of "
+                         "range")]]
+      Result<std::vector<CImVector>> vertexColorLayer(
+        std::size_t layer [[=welder::doc("the filled-layer index")]]) const {
+        if (layer >= vertexColors.size())
+          return makeError(ErrorCode::InvalidEntityState,
+                            std::format(
+                              "vertex-color layer {} out of range ({} filled)",
+                              layer, vertexColors.size()));
+        return vertexColors[layer];
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("Replace one filled vertex-color layer (MOCV)."),
+        =welder::returns("nothing; errors when layer is out of range")]]
+      Result<void> setVertexColorLayer(
+        std::size_t layer [[=welder::doc("the filled-layer index")]],
+        std::vector<CImVector> colors
+        [[=welder::doc("the colors, one per vertex")]]) {
+        if (layer >= vertexColors.size())
+          return makeError(ErrorCode::InvalidEntityState,
+                            std::format(
+                              "vertex-color layer {} out of range ({} filled)",
+                              layer, vertexColors.size()));
+        vertexColors[layer] = std::move(colors);
+        return {};
+      }
+
+      [[nodiscard]]
+      [[=welder::doc("Fill the next free vertex-color layer slot (MOCV)."),
+        =welder::returns("nothing; errors when both layers are filled")]]
+      Result<void> appendVertexColorLayer(
+        std::vector<CImVector> colors
+        [[=welder::doc("the colors, one per vertex")]]) {
+        auto* slot = vertexColors.push();
+        if (slot == nullptr)
+          return makeError(ErrorCode::InvalidEntityState,
+                            "both vertex-color layers are filled");
+        *slot = std::move(colors);
+        return {};
+      }
+
+      [[=welder::doc("Empty every vertex-color layer slot (MOCV).")]]
+      void clearVertexColorLayers() { vertexColors.clear(); }
 
       /** The canonical chunk-stream order the serializer emits a fresh entity in —
           decoupled from the by-trait flatten order of the version bases. Lists every

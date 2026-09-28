@@ -1,5 +1,34 @@
 # C#/.NET bindings (welder-csharp rod)
 
+## 2026-09-28: WMO Repeated<> slot accessors + the DB column-name contract
+
+- **User report (v0.0.10): MOCV missing in C#, MOC2 wrongly present on WotLK.**
+  Root causes: (1) the MOTV/MOCV members are `Repeated<vector<T>,N>` bound by
+  a Python-only nanobind caster (`mark::only(py)` since 536aa2e) — the rod
+  knows only std::vector/array/span/map, so C# AND Lua never saw them; (2)
+  MOC2 was modeled always-present but is really a 10.0+ chunk (corpus: zero
+  in 9,346 3.3.5a + 27,191 9.2.7 groups) — moved to the GroupBody100 trait.
+  Fix for (1): a BARE-welded slot-accessor surface on WMOGroupBody —
+  texcoordSet{Count,''}/setTexcoordSet/appendTexcoordSet/clearTexcoordSets +
+  the vertexColorLayer* five — copies in/out exactly like the caster
+  (`Result<vector<T>>` / vector-by-value params, the M2 timeline pattern).
+  Identical across eras → hoists onto the family base. Python keeps the
+  members AND gains the accessors (bare weld convention: no language named
+  without a language-specific reason). A full py-vs-C# member diff found NO
+  other per-era gaps (only the known glue asymmetries: Python-only convert,
+  the only(lua,Cs) Read/Write). Locked by FamilySurfaceTests
+  GroupSlotChunksSurfaceOutsidePython / Moc2IsDragonflightOnward.
+- **DB2 "snake_case fields" (user report 2)**: the RUNTIME column names
+  (Column.Name / ColumnIndex) are dbdgen's snake member spellings — the
+  schema blob interns Member.name — and that is a DELIBERATE cross-release,
+  cross-language contract (the 2026-08-27 sweep exempted these members). The
+  typed facades were always PascalCase (verified in the released 0.0.10
+  nupkg's DLL string heap). Docs that claimed "WoWDBDefs spelling" on
+  Column.name/columnIndex were wrong and now spell out the snake contract;
+  pinned by `ColumnNamesKeepTheSnakeCaseContract` (xunit) +
+  `test_column_names_keep_the_snake_case_contract` (pytest) and the CONTRACT
+  note on dbdgen's `member_name()`.
+
 ## 2026-08-23 (later): track TIMELINE surface + the M2Track<T> generics decline
 
 - **Canonical track accessors** (C++, welded → all languages):

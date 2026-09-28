@@ -59,6 +59,59 @@ public class FamilySurfaceTests
     }
 
     [Fact]
+    public void GroupSlotChunksSurfaceOutsidePython()
+    {
+        // The user-reported flaw: MOCV (vertex colors) and MOTV (texcoords)
+        // never surfaced in C# — their Repeated<> slot members marshal
+        // through a Python-only caster — while every other group chunk did.
+        // The slot accessor surface is their face for C# and Lua; identical
+        // across the eras, it hoists onto the family base.
+        using var body =
+            Formats.WMO.Group.WMOGroupBody.ForVersion(Expansion.Wotlk);
+        Assert.Equal(0UL, body.TexcoordSetCount());
+        Assert.Equal(0UL, body.VertexColorLayerCount());
+
+        using var colors = new Vector<Formats.Common.CImVector>();
+        colors.Add(new Formats.Common.CImVector(1, 2, 3, 4));
+        body.AppendVertexColorLayer(colors);
+        Assert.Equal(1UL, body.VertexColorLayerCount());
+        using var readBack = body.VertexColorLayer(0);   // a copy, like Python
+        Assert.Equal(1, readBack.Count);
+        Assert.Equal(3, readBack[0].R);
+
+        // Both MOCV layers filled -> the next append errors; clear resets.
+        body.AppendVertexColorLayer(colors);
+        Assert.Throws<WelderNativeException>(
+            () => body.AppendVertexColorLayer(colors));
+        body.ClearVertexColorLayers();
+        Assert.Equal(0UL, body.VertexColorLayerCount());
+        // Out of range errors through the native error channel.
+        Assert.Throws<WelderNativeException>(() => body.VertexColorLayer(0));
+
+        using var coords = new Vector<Formats.Common.C2Vector>();
+        body.AppendTexcoordSet(coords);
+        Assert.Equal(1UL, body.TexcoordSetCount());
+    }
+
+    [Fact]
+    public void Moc2IsDragonflightOnward()
+    {
+        // MOC2 is a 10.0+ chunk (zero occurrences across 9,346 3.3.5a and
+        // 27,191 9.2.7 group files): pre-Dragonflight eras must not carry
+        // it — the original report was WotLK groups exposing MOC2 while
+        // missing MOCV.
+        Assert.Null(typeof(Formats.WMO.Group.WMOGroupBodyVanillaToWotlk)
+                        .GetProperty("VertexColors2"));
+        Assert.Null(typeof(Formats.WMO.Group.WMOGroupBodyShadowlands)
+                        .GetProperty("VertexColors2"));
+        Assert.NotNull(typeof(Formats.WMO.Group.WMOGroupBodyDragonflightPlus)
+                           .GetProperty("VertexColors2"));
+        // No longer an every-era member, it must not hoist onto the base.
+        Assert.Null(typeof(Formats.WMO.Group.WMOGroupBody)
+                        .GetProperty("VertexColors2"));
+    }
+
+    [Fact]
     public void WrongEraAssignmentThrowsInvalidCast()
     {
         using var wmo = Formats.WMO.WMO.ForVersion(Expansion.Wotlk);

@@ -190,6 +190,15 @@ namespace wowlib::formats {
     /** @return whether no slot is filled. */
     [[nodiscard]] bool empty() const { return _count == 0; }
 
+    /** @return whether every slot is filled. */
+    [[nodiscard]] bool full() const { return _count == N; }
+
+    /** Reset to no filled slots; slot contents return to default-constructed. */
+    void clear() {
+      _slots = {};
+      _count = 0;
+    }
+
     /** @return the slot capacity N. */
     [[nodiscard]] static constexpr std::size_t capacity() { return N; }
 
