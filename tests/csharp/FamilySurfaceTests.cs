@@ -75,9 +75,16 @@ public class FamilySurfaceTests
         colors.Add(new Formats.Common.CImVector(1, 2, 3, 4));
         body.AppendVertexColorLayer(colors);
         Assert.Equal(1UL, body.VertexColorLayerCount());
-        using var readBack = body.VertexColorLayer(0);   // a copy, like Python
-        Assert.Equal(1, readBack.Count);
-        Assert.Equal(3, readBack[0].R);
+
+        // The getter is a ZERO-COPY live view: mutations through it are
+        // mutations of the entity's own slot storage.
+        var layer = body.VertexColorLayer(0);
+        Assert.NotNull(layer);
+        Assert.Equal(1, layer!.Count);
+        Assert.Equal(3, layer[0].R);
+        layer.Add(new Formats.Common.CImVector(5, 6, 7, 8));
+        using var again = body.VertexColorLayer(0);
+        Assert.Equal(2, again!.Count);
 
         // Both MOCV layers filled -> the next append errors; clear resets.
         body.AppendVertexColorLayer(colors);
@@ -85,12 +92,14 @@ public class FamilySurfaceTests
             () => body.AppendVertexColorLayer(colors));
         body.ClearVertexColorLayers();
         Assert.Equal(0UL, body.VertexColorLayerCount());
-        // Out of range errors through the native error channel.
-        Assert.Throws<WelderNativeException>(() => body.VertexColorLayer(0));
+        // Out of range is null, not an exception — a view has no error channel.
+        Assert.Null(body.VertexColorLayer(0));
 
         using var coords = new Vector<Formats.Common.C2Vector>();
         body.AppendTexcoordSet(coords);
         Assert.Equal(1UL, body.TexcoordSetCount());
+        Assert.NotNull(body.TexcoordSet(0));
+        Assert.Null(body.TexcoordSet(1));
     }
 
     [Fact]

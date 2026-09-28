@@ -482,25 +482,27 @@ namespace wowlib::formats::wmo::group {
       // --- the repeated-chunk slot surface (MOTV, MOCV) ----------------------
       // The Repeated<> members above bind to Python only (a bespoke nanobind
       // caster lists the filled slots by value; no other rod can marshal the
-      // wrapper). These accessors are the same surface for every language —
-      // they copy in and out exactly like the caster does.
+      // wrapper). These accessors are the same surface for every language.
+      // The getters are ZERO-COPY live views — a slot's std::vector object
+      // has a stable address inside the Repeated's array storage, so a
+      // reference_internal view is as safe as any vector member's; out of
+      // range returns null/None instead of a Result (an expected cannot
+      // carry a reference). Only set/append copy, where handing data in is
+      // inherently a copy.
 
       [[=welder::doc("The number of filled texture-coordinate sets (MOTV), "
                      "0 to 4.")]]
       std::size_t texcoordSetCount() const { return texcoords.size(); }
 
       [[nodiscard]]
-      [[=welder::doc("One filled texture-coordinate set (MOTV), as a copy."),
+      [[=welder::return_policy(welder::rv::reference_internal),
+        =welder::doc("One filled texture-coordinate set (MOTV), as a live "
+                     "zero-copy view."),
         =welder::returns(
-          "the set's coordinates; errors when set is out of range")]]
-      Result<std::vector<C2Vector>> texcoordSet(
-        std::size_t set [[=welder::doc("the filled-set index")]]) const {
-        if (set >= texcoords.size())
-          return makeError(ErrorCode::InvalidEntityState,
-                            std::format(
-                              "texcoord set {} out of range ({} filled)",
-                              set, texcoords.size()));
-        return texcoords[set];
+          "the set's coordinates, live; None/null when set is out of range")]]
+      std::vector<C2Vector>* texcoordSet(
+        std::size_t set [[=welder::doc("the filled-set index")]]) {
+        return set < texcoords.size() ? &texcoords[set] : nullptr;
       }
 
       [[nodiscard]]
@@ -541,17 +543,14 @@ namespace wowlib::formats::wmo::group {
       std::size_t vertexColorLayerCount() const { return vertexColors.size(); }
 
       [[nodiscard]]
-      [[=welder::doc("One filled vertex-color layer (MOCV), as a copy."),
-        =welder::returns("the layer's colors; errors when layer is out of "
-                         "range")]]
-      Result<std::vector<CImVector>> vertexColorLayer(
-        std::size_t layer [[=welder::doc("the filled-layer index")]]) const {
-        if (layer >= vertexColors.size())
-          return makeError(ErrorCode::InvalidEntityState,
-                            std::format(
-                              "vertex-color layer {} out of range ({} filled)",
-                              layer, vertexColors.size()));
-        return vertexColors[layer];
+      [[=welder::return_policy(welder::rv::reference_internal),
+        =welder::doc("One filled vertex-color layer (MOCV), as a live "
+                     "zero-copy view."),
+        =welder::returns(
+          "the layer's colors, live; None/null when layer is out of range")]]
+      std::vector<CImVector>* vertexColorLayer(
+        std::size_t layer [[=welder::doc("the filled-layer index")]]) {
+        return layer < vertexColors.size() ? &vertexColors[layer] : nullptr;
       }
 
       [[nodiscard]]
